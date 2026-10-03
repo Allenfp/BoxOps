@@ -1168,3 +1168,59 @@ button.primary:hover:not(:disabled) {
   padding: 24px 16px;
   color: var(--text-muted);
 }
+
+/* Table: department groups */
+.box-table .group-row td {
+  padding: 0;
+  height: 36px;
+  background: color-mix(in srgb, var(--dept) 10%, var(--surface));
+  border-bottom: 1px solid var(--border);
+  border-left: 4px solid var(--dept);
+}
+.box-table tbody tr.group-row:hover td {
+  background: color-mix(in srgb, var(--dept) 15%, var(--surface));
+}
+.group-head {
+  position: sticky;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+}
+.group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.group-toggle:hover,
+.group-toggle:disabled {
+  background: transparent;
+  opacity: 1;
+  cursor: pointer;
+}
+.group-toggle:disabled {
+  cursor: default;
+}
+.group-toggle .dept-meta {
+  font-weight: 400;
+}
+.group-add {
+  font-size: 18px;
+  padding: 0 8px;
+  opacity: 0.55;
+}
+.group-row:hover .group-add,
+.group-add:focus-visible {
+  opacity: 1;
+}
+.empty-row td {
+  padding: 10px 16px !important;
+  color: var(--text-muted);
+  font-size: 12px;
+}

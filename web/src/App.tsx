@@ -469,13 +469,11 @@ function RoadmapView(props: ViewProps) {
               ))}
             </div>
             <button onClick={() => setJumpToToday((n) => n + 1)}>Today</button>
-            <button
-              onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(base.departments.map((d) => d.id)))}
-            >
-              {allCollapsed ? "Expand all" : "Collapse all"}
-            </button>
           </>
         )}
+        <button onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(base.departments.map((d) => d.id)))}>
+          {allCollapsed ? "Expand all" : "Collapse all"}
+        </button>
 
         {!preview && (
           <div className="draft-status">
@@ -594,8 +592,13 @@ function RoadmapView(props: ViewProps) {
           conflictIds={conflictBoxIds}
           updatedIds={updatedIds}
           onUpdate={(id, patch, key) => draft.updateBox(id, patch, key)}
-          onAdd={() => {
-            const firstLane = draft.departments.find((d) => d.lanes.length)?.lanes[0];
+          collapsed={collapsed}
+          onToggleDepartment={toggle}
+          onAdd={(departmentId) => {
+            const dept =
+              draft.departments.find((d) => d.id === departmentId && d.lanes.length) ??
+              draft.departments.find((d) => d.lanes.length);
+            const firstLane = dept?.lanes[0];
             const start = startOfWeek(today());
             const id = draft.addBox({
               lane: firstLane?.id ?? "",

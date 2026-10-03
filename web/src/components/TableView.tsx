@@ -12,8 +12,11 @@ interface Props {
    * Returns the box's id afterwards (an unsaved box's id follows its title).
    */
   onUpdate(id: string, patch: Partial<Box>, key?: string): string;
-  /** Add a box; returns its id. */
-  onAdd(): string;
+  /** Add a box (to this department's first lane, if given); returns its id. */
+  onAdd(departmentId?: string): string;
+  /** Collapsed departments; shared with the timeline. */
+  collapsed: Set<string>;
+  onToggleDepartment(id: string): void;
   onDelete(id: string): void;
   /** A cell lost focus: end its undo step. */
   onCheckpoint(): void;
@@ -46,6 +49,7 @@ const splitTags = (t: string) =>
 
 export function TableView(props: Props) {
   const { roadmap, readOnly, conflictIds, updatedIds, onUpdate, onAdd, onDelete, onCheckpoint, onReviewed } = props;
+  const { collapsed, onToggleDepartment } = props;
   const { settings, departments, boxes } = roadmap;
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "lane", dir: 1 });
   const [query, setQuery] = useState("");
@@ -53,10 +57,12 @@ export function TableView(props: Props) {
 
   // Lane order and labels, for the lane column and for sorting by it.
   const lanes = useMemo(() => {
-    const out = new Map<string, { label: string; dept: string; order: number; color: string }>();
+    const out = new Map<string, { label: string; dept: string; deptId: string; order: number; color: string }>();
     let order = 0;
     for (const d of departments) {
-      d.lanes.forEach((l, i) => out.set(l.id, { label: l.name ?? `FTE ${i + 1}`, dept: d.name, order: order++, color: d.color }));
+      d.lanes.forEach((l, i) =>
+        out.set(l.id, { label: l.name ?? `FTE ${i + 1}`, dept: d.name, deptId: d.id, order: order++, color: d.color }),
+      );
     }
     return out;
   }, [departments]);
@@ -111,6 +117,14 @@ export function TableView(props: Props) {
       return (va < vb ? -1 : va > vb ? 1 : a.start - b.start || a.id.localeCompare(b.id)) * sort.dir;
     });
   }, [boxes, query, sort, lanes, typeIndex, statusIndex]);
+
+  // Sorted rows, bucketed by department (in department order).
+  const groups = useMemo(() => {
+    const byDept = new Map<string, Box[]>(departments.map((d) => [d.id, []]));
+    for (const b of rows) byDept.get(lanes.get(b.lane)?.deptId ?? "")?.push(b);
+    return departments.map((d) => ({ dept: d, rows: byDept.get(d.id) ?? [] }));
+  }, [rows, departments, lanes]);
+  const searching = query.trim() !== "";
 
   const setStart = (b: Box, text: string) => {
     const start = parseDay(text);
@@ -168,8 +182,54 @@ export function TableView(props: Props) {
               ))}
             </tr>
           </thead>
-          <tbody>
-            {rows.map((b) => {
+          {groups.map((group) => {
+            const { dept } = group;
+            // A search opens every department with matches, so results are never hidden.
+            const isCollapsed = collapsed.has(dept.id) && !searching;
+            if (searching && group.rows.length === 0) return null;
+            const fte = dept.lanes.reduce((sum, l) => sum + l.fte, 0);
+            const total = boxes.filter((b) => lanes.get(b.lane)?.deptId === dept.id).length;
+            return (
+              <tbody key={dept.id} className="dept-group" style={{ "--dept": dept.color } as CSSProperties}>
+                <tr className="group-row">
+                  <td colSpan={COLUMNS.length}>
+                    <div className="group-head">
+                      <button
+                        className="group-toggle"
+                        onClick={() => onToggleDepartment(dept.id)}
+                        aria-expanded={!isCollapsed}
+                        disabled={searching}
+                      >
+                        <span className={`chevron${isCollapsed ? "" : " open"}`}>▸</span>
+                        <span className="dept-name">{dept.name}</span>
+                        <span className="dept-meta">
+                          {searching ? `${group.rows.length} of ${total}` : total} box{total === 1 ? "" : "es"} · {fte} FTE
+                        </span>
+                      </button>
+                      {!readOnly && dept.lanes.length > 0 && (
+                        <button
+                          className="icon-button group-add"
+                          title={`Add a box to ${dept.name}`}
+                          aria-label={`Add a box to ${dept.name}`}
+                          onClick={() => {
+                            setQuery("");
+                            if (collapsed.has(dept.id)) onToggleDepartment(dept.id);
+                            setFocusId(onAdd(dept.id));
+                          }}
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                {!isCollapsed && group.rows.length === 0 && (
+                  <tr className="empty-row">
+                    <td colSpan={COLUMNS.length}>No boxes in {dept.name} yet.</td>
+                  </tr>
+                )}
+                {!isCollapsed &&
+                  group.rows.map((b) => {
               const lane = lanes.get(b.lane);
               const classes = [conflictIds?.has(b.id) && "conflict", updatedIds?.has(b.id) && "updated"];
               return (
@@ -315,7 +375,9 @@ export function TableView(props: Props) {
                 </tr>
               );
             })}
-          </tbody>
+              </tbody>
+            );
+          })}
         </table>
         {rows.length === 0 && <p className="empty">No boxes match “{query}”.</p>}
       </div>
