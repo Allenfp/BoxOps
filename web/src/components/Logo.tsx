@@ -1,7 +1,7 @@
 // The BoxOps mark: boxes in lanes, with the today line through them.
 // Same drawing as public/favicon.svg.
 
-export function Logo({ size = 22 }: { size?: number }) {
+export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg className="logo" width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
       <rect width="32" height="32" rx="7" fill="#4f7cff" />

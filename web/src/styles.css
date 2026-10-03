@@ -85,9 +85,11 @@ button:hover {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
+/* The brand: logo and name, with room before the view switch. */
 .toolbar h1 {
-  font-size: 16px;
-  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  margin: 0 20px 0 -2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
