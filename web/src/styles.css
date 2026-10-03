@@ -661,6 +661,15 @@ button:disabled {
   border-right: 1px solid var(--border);
 }
 
+/* Matches the today line on the timeline. */
+.today-button {
+  color: var(--today);
+  border-color: var(--today);
+}
+.today-button:hover {
+  background: color-mix(in srgb, var(--today) 8%, var(--surface));
+}
+
 /* Save · N changes ▾ */
 .split-button {
   display: inline-flex;

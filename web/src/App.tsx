@@ -579,7 +579,9 @@ function RoadmapView(props: ViewProps) {
                   </button>
                 ))}
               </div>
-              <button onClick={() => setJumpToToday((n) => n + 1)}>Today</button>
+              <button className="today-button" onClick={() => setJumpToToday((n) => n + 1)}>
+                Today
+              </button>
             </>
           )}
           <button onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(base.departments.map((d) => d.id)))}>
