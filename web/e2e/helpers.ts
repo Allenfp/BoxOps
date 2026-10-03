@@ -41,7 +41,7 @@ export async function boxDates(page: Page, id: string): Promise<string> {
 }
 
 /** Pixels per working day at months zoom, where tests run. */
-export const MONTH_PX = 9.8;
+export const MONTH_PX = 14.7;
 
 /** Drag a box (or one of its edge handles) by dx/dy pixels. */
 export async function drag(page: Page, id: string, dx: number, dy = 0, grip: "middle" | "start" | "end" = "middle") {

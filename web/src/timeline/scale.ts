@@ -20,8 +20,8 @@ import type { Box, ZoomLevel } from "../model/types";
 /** Pixels per working day (a week is five of these). */
 export const PX_PER_DAY: Record<ZoomLevel, number> = {
   weeks: 40,
-  months: 9.8,
-  quarters: 3,
+  months: 14.7,
+  quarters: 4.5,
 };
 
 export interface Segment {
