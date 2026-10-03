@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { formatDay, parseDay, prettyDay } from "../model/dates";
-import type { Box, Department, Settings } from "../model/types";
+import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
+import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type Settings } from "../model/types";
+import { EngineerPicker } from "./EngineerPicker";
 
 const WIDTH = 360;
 const GAP = 8;
@@ -9,6 +10,8 @@ interface Props {
   box: Box;
   settings: Settings;
   departments: Department[];
+  people: Person[];
+  onAddPerson(name: string, department?: string): string;
   /** `field` groups keystrokes in one field into a single undo step. */
   onChange(patch: Partial<Box>, field: string): void;
   onDelete(): void;
@@ -21,7 +24,7 @@ const splitList = (text: string, sep: RegExp) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-export function BoxEditor({ box, settings, departments, onChange, onDelete, onClose }: Props) {
+export function BoxEditor({ box, settings, departments, people, onAddPerson, onChange, onDelete, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   // Free-text list fields keep their raw text while typing so commas and newlines aren't eaten.
@@ -86,19 +89,26 @@ export function BoxEditor({ box, settings, departments, onChange, onDelete, onCl
     };
   }, [onClose]);
 
+  // Only weekdays exist on the roadmap: a weekend start moves to Monday, a weekend end to Friday.
+  const [snapped, setSnapped] = useState<string | null>(null);
   const setStart = (text: string) => {
-    const start = parseDay(text);
-    if (start === null) return;
+    const picked = parseDay(text);
+    if (picked === null) return;
+    const start = nextWorkday(picked);
+    setSnapped(isWeekend(picked) ? `Moved to ${prettyDay(start)}: boxes start on a weekday.` : null);
     onChange(start > box.end ? { start, end: start } : { start }, "start");
   };
   const setEnd = (text: string) => {
-    const end = parseDay(text);
-    if (end === null) return;
+    const picked = parseDay(text);
+    if (picked === null) return;
+    const end = prevWorkday(picked);
+    setSnapped(isWeekend(picked) ? `Moved to ${prettyDay(end)}: boxes end on a weekday.` : null);
     onChange(end < box.start ? { end, start: end } : { end }, "end");
   };
+  const department = departments.find((d) => d.lanes.some((l) => l.id === box.lane))?.id;
 
   const epicValid = !box.epic || /^https?:\/\/\S+$/.test(box.epic);
-  const days = box.end - box.start + 1;
+  const days = workdays(box.start, box.end);
   const typeColor = settings.types.find((t) => t.id === box.type)?.color;
 
   return (
@@ -145,6 +155,7 @@ export function BoxEditor({ box, settings, departments, onChange, onDelete, onCl
             ))}
           </select>
         </label>
+        {snapped && <p className="field-note span-2">{snapped}</p>}
         <label>
           Start
           <input type="date" value={formatDay(box.start)} onChange={(e) => setStart(e.target.value)} />
@@ -153,7 +164,17 @@ export function BoxEditor({ box, settings, departments, onChange, onDelete, onCl
           End
           <input type="date" value={formatDay(box.end)} onChange={(e) => setEnd(e.target.value)} />
         </label>
-        <label className="span-2">
+        <label>
+          FTE
+          <select value={box.fte} onChange={(e) => onChange({ fte: Number(e.target.value) }, "fte")}>
+            {BOX_FTE_OPTIONS.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           Lane
           <select value={box.lane} onChange={(e) => onChange({ lane: e.target.value }, "lane")}>
             {departments.map((d) => (
@@ -167,6 +188,16 @@ export function BoxEditor({ box, settings, departments, onChange, onDelete, onCl
             ))}
           </select>
         </label>
+        <div className="span-2 field">
+          <span className="field-label">Engineers</span>
+          <EngineerPicker
+            value={box.engineers ?? []}
+            people={people}
+            department={department}
+            onChange={(engineers) => onChange({ engineers }, "engineers")}
+            onAddPerson={(name) => onAddPerson(name, department)}
+          />
+        </div>
         <label className="span-2">
           Epic link
           <span className="with-action">
@@ -221,7 +252,7 @@ export function BoxEditor({ box, settings, departments, onChange, onDelete, onCl
 
       <div className="editor-foot">
         <span className="hint">
-          {prettyDay(box.start)} – {prettyDay(box.end)} · {days} day{days === 1 ? "" : "s"}
+          {prettyDay(box.start)} – {prettyDay(box.end)} · {days} working day{days === 1 ? "" : "s"}
         </span>
         <button className="danger" onClick={onDelete}>
           Delete

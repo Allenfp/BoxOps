@@ -16,7 +16,7 @@ import {
 } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraft } from "./model/draft";
-import { startOfWeek, today } from "./model/dates";
+import { addWorkdays, startOfWeek, today } from "./model/dates";
 import { loadRoadmap } from "./model/load";
 import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
 import { commitMessage, describeChanges } from "./model/summary";
@@ -215,11 +215,14 @@ function RoadmapView(props: ViewProps) {
   const ownSave = useRef(false);
 
   const baseHash = useMemo(() => hashText(JSON.stringify(files)), [files]);
-  const draftBase = useMemo(() => ({ boxes: base.boxes, departments: base.departments }), [base]);
+  const draftBase = useMemo(
+    () => ({ boxes: base.boxes, departments: base.departments, people: base.people }),
+    [base],
+  );
   const draft = useDraft(draftBase, `${source.repo}@${source.branch}`, baseHash);
   const draftState: DraftState = useMemo(
-    () => ({ boxes: draft.boxes, departments: draft.departments }),
-    [draft.boxes, draft.departments],
+    () => ({ boxes: draft.boxes, departments: draft.departments, people: draft.people }),
+    [draft.boxes, draft.departments, draft.people],
   );
   const roadmap = useMemo(() => ({ ...base, ...draftState }), [base, draftState]);
 
@@ -293,6 +296,7 @@ function RoadmapView(props: ViewProps) {
       const id = draft.addBox({
         ...p,
         title: "New box",
+        fte: 1,
         type: base.settings.types[0].id,
         status: base.settings.statuses[0].id,
       });
@@ -364,7 +368,7 @@ function RoadmapView(props: ViewProps) {
           const headFiles = await loadCommit(gh, source.repo, head);
           const saves = await gh.compare(parseRepo(source.repo), source.commit, head).catch(() => []);
           const { roadmap: latest } = loadRoadmap(headFiles);
-          const latestState = { boxes: latest.boxes, departments: latest.departments };
+          const latestState = { boxes: latest.boxes, departments: latest.departments, people: latest.people };
           const theirs = describeChanges(draftBase, latestState, base.settings);
           const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
           setToken(token);
@@ -603,8 +607,9 @@ function RoadmapView(props: ViewProps) {
             const id = draft.addBox({
               lane: firstLane?.id ?? "",
               start,
-              end: start + 13,
+              end: addWorkdays(start, 9), // two working weeks
               title: "New box",
+              fte: 1,
               type: base.settings.types[0].id,
               status: base.settings.statuses[0].id,
             });
@@ -612,6 +617,7 @@ function RoadmapView(props: ViewProps) {
             return id;
           }}
           onDelete={(id) => draft.removeBox(id)}
+          onAddPerson={(name, department) => draft.addPerson(name, department)}
           onCheckpoint={draft.checkpoint}
           onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
         />
@@ -641,6 +647,8 @@ function RoadmapView(props: ViewProps) {
           box={selectedBox}
           settings={base.settings}
           departments={draft.departments}
+          people={draft.people}
+          onAddPerson={(name, department) => draft.addPerson(name, department)}
           onChange={editBox}
           onDelete={() => {
             draft.removeBox(selectedBox.id);

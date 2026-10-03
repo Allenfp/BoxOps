@@ -11,12 +11,13 @@ import type {
   Department,
   Issue,
   Lane,
+  Person,
   Roadmap,
   RoadmapFiles,
   Settings,
   ZoomLevel,
 } from "./types";
-import { ZOOM_LEVELS } from "./types";
+import { BOX_FTE_OPTIONS, ZOOM_LEVELS } from "./types";
 
 const ID = /^[a-z0-9][a-z0-9_-]*$/;
 
@@ -129,6 +130,9 @@ export function loadRoadmap(files: RoadmapFiles): { roadmap: Roadmap; issues: Is
   }
   departments.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 
+  const people = loadPeople(files["people.yaml"], new Set(departments.map((d) => d.id)), issues);
+  const personIds = new Set(people.map((p) => p.id));
+
   const typeIds = new Set(settings.types.map((t) => t.id));
   const statusIds = new Set(settings.statuses.map((s) => s.id));
   const boxes: Box[] = [];
@@ -147,17 +151,43 @@ export function loadRoadmap(files: RoadmapFiles): { roadmap: Roadmap; issues: Is
     }
     if (!typeIds.has(box.type)) r.fail(`type: "${box.type}" is not defined in settings.yaml`);
     if (!statusIds.has(box.status)) r.fail(`status: "${box.status}" is not defined in settings.yaml`);
+    for (const id of box.engineers ?? []) {
+      if (!personIds.has(id)) r.fail(`engineers: "${id}" is not in people.yaml`);
+    }
     boxIds.add(box.id);
     boxes.push(box);
   }
 
   for (const path of paths) {
-    if (path !== "settings.yaml" && !/^(departments|boxes)\/[^/]+\.ya?ml$/.test(path)) {
+    if (!["settings.yaml", "people.yaml"].includes(path) && !/^(departments|boxes)\/[^/]+\.ya?ml$/.test(path)) {
       issues.push({ path, message: "unexpected file; roadmap files live in departments/ or boxes/" });
     }
   }
 
-  return { roadmap: { settings, departments, boxes }, issues };
+  return { roadmap: { settings, departments, boxes, people }, issues };
+}
+
+function loadPeople(text: string | undefined, departmentIds: Set<string>, issues: Issue[]): Person[] {
+  if (text === undefined) return [];
+  const r = new Reader("people.yaml", issues);
+  const doc = r.doc(text);
+  if (!doc) return [];
+  const seen = new Set<string>();
+  return readList(r, doc, "people", (o, where): Person | null => {
+    const id = r.id(o, "id", where);
+    const name = r.str(o, "name", where);
+    if (!id || !name) return null;
+    if (seen.has(id)) {
+      r.fail(`${where}id: "${id}" appears twice`);
+      return null;
+    }
+    seen.add(id);
+    const department = r.optStr(o, "department", where);
+    if (department !== undefined && !departmentIds.has(department)) {
+      r.fail(`${where}department: "${department}" does not exist`);
+    }
+    return { id, name, department };
+  });
 }
 
 function loadSettings(text: string | undefined, issues: Issue[]): Settings {
@@ -285,6 +315,12 @@ function loadBox(path: string, text: string, issues: Issue[]): Box | null {
     return null;
   }
 
+  const fte = doc.fte ?? 1;
+  if (!BOX_FTE_OPTIONS.includes(fte as (typeof BOX_FTE_OPTIONS)[number])) {
+    r.fail(`fte: expected one of ${BOX_FTE_OPTIONS.join(", ")}`);
+    return null;
+  }
+
   const epic = r.optStr(doc, "epic");
   if (epic !== undefined && !/^https?:\/\//.test(epic)) r.fail(`epic: "${epic}" should be an http(s) link`);
 
@@ -296,6 +332,8 @@ function loadBox(path: string, text: string, issues: Issue[]): Box | null {
     end,
     type,
     status,
+    fte: fte as number,
+    engineers: r.strList(doc, "engineers"),
     epic,
     description: r.optStr(doc, "description"),
     tags: r.strList(doc, "tags"),

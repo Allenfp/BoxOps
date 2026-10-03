@@ -94,3 +94,36 @@ export function quarterLabel(quarterStart: Day, fyStartMonth = 1): string {
   const fyEndYear = month >= fyStartMonth ? year + 1 : year;
   return `FY${String(fyEndYear).slice(-2)} Q${q}`;
 }
+
+// ---- Working days -----------------------------------------------------------
+// The roadmap only has weekdays: weekends are never drawn and never counted.
+// A working-day index numbers Mondays–Fridays consecutively; a weekend day maps
+// to the index of the following Monday.
+
+/** 1969-12-29, a Monday, so whole weeks line up with index multiples of 5. */
+const MONDAY0 = -3;
+
+export function workIndex(day: Day): number {
+  const d = day - MONDAY0;
+  const week = Math.floor(d / 7);
+  return week * 5 + Math.min(d - week * 7, 5);
+}
+
+export function dayOfWorkIndex(index: number): Day {
+  const week = Math.floor(index / 5);
+  return MONDAY0 + week * 7 + (index - week * 5);
+}
+
+export const isWeekend = (day: Day): boolean => dayParts(day).weekday >= 5;
+
+/** The day itself, or the Monday after a weekend. */
+export const nextWorkday = (day: Day): Day => dayOfWorkIndex(workIndex(day));
+
+/** The day itself, or the Friday before a weekend. */
+export const prevWorkday = (day: Day): Day => (isWeekend(day) ? day - (dayParts(day).weekday - 4) : day);
+
+/** Working days from `start` to `end`, both inclusive. */
+export const workdays = (start: Day, end: Day): number => workIndex(end + 1) - workIndex(start);
+
+/** Move a working day by `n` working days (a weekend counts from the Monday after). */
+export const addWorkdays = (day: Day, n: number): Day => dayOfWorkIndex(workIndex(day) + n);

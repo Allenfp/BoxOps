@@ -26,7 +26,13 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
   const status = new Map(settings.statuses.map((s) => [s.id, s.name]));
   const type = new Map(settings.types.map((t) => [t.id, t.name]));
   const baseBoxes = new Map(base.boxes.map((b) => [b.id, b]));
+  const names = new Map([...base.people, ...draft.people].map((p) => [p.id, p.name]));
+  const who = (ids: string[] | undefined) => (ids?.length ? ids.map((id) => names.get(id) ?? id).join(", ") : "nobody");
   const lines: ChangeLine[] = [];
+
+  for (const p of changes.people.added) lines.push({ kind: "added", text: `Added engineer **${p.name}**` });
+  for (const p of changes.people.changed) lines.push({ kind: "changed", text: `Updated engineer **${p.name}**` });
+  for (const p of changes.people.removed) lines.push({ kind: "deleted", text: `Removed engineer **${p.name}**` });
 
   for (const b of changes.added) {
     lines.push({ kind: "added", text: `Added **${b.title}** to ${lanes.get(b.lane) ?? b.lane}, ${range(b)}` });
@@ -43,6 +49,8 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
     }
     if (was.status !== b.status) parts.push(`status ${status.get(was.status) ?? was.status} → ${status.get(b.status) ?? b.status}`);
     if (was.type !== b.type) parts.push(`type ${type.get(was.type) ?? was.type} → ${type.get(b.type) ?? b.type}`);
+    if (was.fte !== b.fte) parts.push(`FTE ${was.fte} → ${b.fte}`);
+    if ((was.engineers ?? []).join() !== (b.engineers ?? []).join()) parts.push(`engineers now ${who(b.engineers)}`);
     if ((was.epic ?? "") !== (b.epic ?? "")) parts.push(b.epic ? "epic link updated" : "epic link removed");
     if ((was.description ?? "") !== (b.description ?? "")) parts.push("description edited");
     if ((was.tags ?? []).join() !== (b.tags ?? []).join()) parts.push("tags edited");

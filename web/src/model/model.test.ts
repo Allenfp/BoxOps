@@ -40,6 +40,7 @@ describe("timeline", () => {
     end: parseDay(end)!,
     type: "project",
     status: "planned",
+    fte: 1,
   });
 
   it("stacks only overlapping boxes", () => {
@@ -93,5 +94,30 @@ describe("loadRoadmap", () => {
     });
     expect(roadmap.boxes.map((b) => b.id)).toEqual(["ok"]);
     expect(issues.map((i) => i.path).sort()).toEqual(["boxes/back.yaml", "boxes/broken.yaml", "boxes/ghost.yaml"]);
+  });
+});
+
+describe("working days", async () => {
+  const { workIndex, dayOfWorkIndex, workdays, addWorkdays, nextWorkday, prevWorkday } = await import("./dates");
+  const d = (s: string) => parseDay(s)!;
+
+  it("numbers weekdays consecutively and skips weekends", () => {
+    const fri = d("2026-10-02");
+    expect(workIndex(d("2026-10-05")) - workIndex(fri)).toBe(1); // Fri → Mon
+    expect(workIndex(d("2026-10-03"))).toBe(workIndex(d("2026-10-05"))); // Sat = next Mon
+    for (const s of ["2026-10-01", "2026-10-02", "2026-10-05", "1969-12-29", "1960-06-15"]) {
+      expect(dayOfWorkIndex(workIndex(d(s)))).toBe(d(s));
+    }
+  });
+
+  it("counts and moves by working days", () => {
+    expect(workdays(d("2026-10-05"), d("2026-10-16"))).toBe(10); // two full weeks
+    expect(workdays(d("2026-10-02"), d("2026-10-05"))).toBe(2); // Fri + Mon
+    expect(workdays(d("2026-10-03"), d("2026-10-04"))).toBe(0); // a weekend
+    expect(formatDay(addWorkdays(d("2026-10-02"), 1))).toBe("2026-10-05");
+    expect(formatDay(addWorkdays(d("2026-10-05"), -1))).toBe("2026-10-02");
+    expect(formatDay(nextWorkday(d("2026-10-04")))).toBe("2026-10-05");
+    expect(formatDay(prevWorkday(d("2026-10-04")))).toBe("2026-10-02");
+    expect(formatDay(prevWorkday(d("2026-10-02")))).toBe("2026-10-02");
   });
 });

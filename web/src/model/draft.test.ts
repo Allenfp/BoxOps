@@ -10,6 +10,7 @@ const box = (id: string, extra: Partial<Box> = {}): Box => ({
   end: 110,
   type: "project",
   status: "planned",
+  fte: 1,
   ...extra,
 });
 
@@ -39,7 +40,7 @@ describe("draft", () => {
 describe("department changes", () => {
   it("counts a renamed lane as one department change", () => {
     const dept = { id: "eng", name: "Eng", color: "#000", order: 1, collapsed: false, lanes: [{ id: "e1", fte: 1 }] };
-    const base = { boxes: [box("a")], departments: [dept] };
+    const base = { boxes: [box("a")], departments: [dept], people: [] };
     const renamed = { ...base, departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: "Platform" }] }] };
     expect(diffDraft(base, renamed).departments.map((d) => d.id)).toEqual(["eng"]);
     expect(diffDraft(base, renamed).count).toBe(1);
@@ -52,14 +53,16 @@ describe("department changes", () => {
 describe("rebaseDraft", () => {
   it("takes their changes, keeps ours, and flags items both changed", async () => {
     const { rebaseDraft, revertItems } = await import("./draft");
-    const oldBase = { boxes: [box("a"), box("b"), box("c"), box("d")], departments: [] };
+    const oldBase = { boxes: [box("a"), box("b"), box("c"), box("d")], departments: [], people: [] };
     const draft = {
       boxes: [box("a", { title: "A mine" }), box("b"), box("c", { end: 200 }), box("d"), box("new")],
       departments: [],
+      people: [],
     };
     const newBase = {
       boxes: [box("a", { title: "A theirs" }), box("b", { status: "done" }), box("c"), box("theirs-new")],
       departments: [],
+      people: [],
     };
     const r = rebaseDraft(oldBase, draft, newBase);
     const byId = Object.fromEntries(r.draft.boxes.map((b) => [b.id, b]));
@@ -76,9 +79,9 @@ describe("rebaseDraft", () => {
 
   it("is a no-op after our own save", async () => {
     const { rebaseDraft } = await import("./draft");
-    const oldBase = { boxes: [box("a")], departments: [] };
-    const draft = { boxes: [box("a", { end: 300 })], departments: [] };
-    const saved = { boxes: [box("a", { end: 300 })], departments: [] };
+    const oldBase = { boxes: [box("a")], departments: [], people: [] };
+    const draft = { boxes: [box("a", { end: 300 })], departments: [], people: [] };
+    const saved = { boxes: [box("a", { end: 300 })], departments: [], people: [] };
     const r = rebaseDraft(oldBase, draft, saved);
     expect(r.conflicts).toEqual([]);
     expect(diffBoxes(saved.boxes, r.draft.boxes).count).toBe(0);
@@ -88,7 +91,7 @@ describe("rebaseDraft", () => {
 describe("comparison", () => {
   it("ignores field order", () => {
     const fromFile = box("n");
-    const builtInApp = { status: "planned", type: "project", lane: "l1", end: 110, start: 100, title: "n", id: "n" } as Box;
+    const builtInApp = { status: "planned", fte: 1, type: "project", lane: "l1", end: 110, start: 100, title: "n", id: "n" } as Box;
     expect(diffBoxes([fromFile], [builtInApp]).count).toBe(0);
   });
 });

@@ -38,9 +38,21 @@ export interface Department {
   lanes: Lane[];
 }
 
+/** FTE a box can take; it sets how many lanes the box covers. */
+export const BOX_FTE_OPTIONS = [0.5, 1, 1.5, 2] as const;
+
+/** An engineer who can be assigned to boxes (roadmap/people.yaml). */
+export interface Person {
+  id: string;
+  name: string;
+  /** Department they usually work in, to list them first there. */
+  department?: string;
+}
+
 export interface Box {
   id: string;
   title: string;
+  /** The lane the box sits in; boxes over 1 FTE also cover the lanes below. */
   lane: string;
   /** Inclusive. */
   start: Day;
@@ -48,6 +60,10 @@ export interface Box {
   end: Day;
   type: string;
   status: string;
+  /** 0.5, 1, 1.5 or 2; 1 when not set. */
+  fte: number;
+  /** Ids of the engineers expected to work on it. */
+  engineers?: string[];
   /** URL of the epic / ticket this box tracks (Jira, Linear, GitHub…). */
   epic?: string;
   description?: string;
@@ -60,6 +76,7 @@ export interface Roadmap {
   /** Sorted by `order`, then name. */
   departments: Department[];
   boxes: Box[];
+  people: Person[];
 }
 
 /** Raw roadmap files keyed by path relative to `roadmap/`, e.g. `boxes/bx-1.yaml`. */

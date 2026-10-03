@@ -8,17 +8,34 @@ import {
   useRef,
   useState,
 } from "react";
-import { type Day, addMonths, dayParts, prettyDay, startOfMonth, startOfWeek, today as todayDay } from "../model/dates";
-import type { Box, Department, Lane, Roadmap, ZoomLevel } from "../model/types";
-import { type Scale, type Segment, headerBands, makeScale, packRows, timelineRange } from "../timeline/scale";
+import {
+  type Day,
+  addMonths,
+  addWorkdays,
+  dayOfWorkIndex,
+  dayParts,
+  nextWorkday,
+  prettyDay,
+  prevWorkday,
+  startOfMonth,
+  startOfWeek,
+  today as todayDay,
+  workIndex,
+  workdays,
+} from "../model/dates";
+import type { Box, Department, Roadmap, ZoomLevel } from "../model/types";
+import { type DepartmentLayout, laneAtSlot, layoutDepartment } from "../timeline/layout";
+import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
 
 const LABEL_W = 240;
-const ROW_H = 34;
+/** Height of half an FTE; a 1-FTE lane is two of these. */
+const SLOT_H = 22;
+const BOX_PAD = 3;
 const DEPT_H = 34;
 /** Pointer travel (px) before a press on a box becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 4;
-/** Drags move in whole multiples of this many days. */
-const SNAP_DAYS: Record<ZoomLevel, number> = { weeks: 1, months: 1, quarters: 7 };
+/** Drags move in whole multiples of this many working days. */
+const SNAP_DAYS: Record<ZoomLevel, number> = { weeks: 1, months: 1, quarters: 5 };
 
 export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
 
@@ -43,20 +60,20 @@ interface Props {
   updatedIds?: Set<string>;
 }
 
-interface LaneLayout {
-  lane: Lane;
-  label: string;
-  boxes: Box[];
-  row: Map<string, number>;
-  rows: number;
-}
-
 type DragMode = "move" | "start" | "end";
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase())
+    .slice(0, 2)
+    .join("");
 
 export function Timeline(props: Props) {
   const { roadmap, zoom, collapsed, onToggleDepartment, jumpToToday, selectedId, onSelect, onCreateBox, readOnly } =
     props;
-  const { settings, departments, boxes } = roadmap;
+  const { settings, departments, boxes, people } = roadmap;
   const fy = settings.fiscal_year_start_month;
   const now = useMemo(() => todayDay(), []);
 
@@ -65,27 +82,23 @@ export function Timeline(props: Props) {
   const bands = useMemo(() => headerBands(scale, fy), [scale, fy]);
   const typeColor = useMemo(() => new Map(settings.types.map((t) => [t.id, t.color])), [settings.types]);
   const statusName = useMemo(() => new Map(settings.statuses.map((s) => [s.id, s.name])), [settings.statuses]);
+  const personName = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
 
-  // While a box is dragged it is left out of lane packing, so rows don't jump around under the pointer.
+  // While a box is dragged it is left out of the layout, so nothing jumps around under the pointer.
   const [preview, setPreview] = useState<(BoxPlacement & { id: string }) | null>(null);
   const draggingId = preview?.id ?? null;
 
-  const lanesByDept = useMemo(() => {
-    const byLane = new Map<string, Box[]>();
+  const laneDept = useMemo(
+    () => new Map(departments.flatMap((d) => d.lanes.map((l) => [l.id, d.id] as const))),
+    [departments],
+  );
+  const layouts = useMemo(() => {
+    const byDept = new Map<string, Box[]>(departments.map((d) => [d.id, []]));
     for (const b of boxes) {
-      if (b.id === draggingId) continue;
-      byLane.set(b.lane, [...(byLane.get(b.lane) ?? []), b]);
+      if (b.id !== draggingId) byDept.get(laneDept.get(b.lane) ?? "")?.push(b);
     }
-    return new Map(
-      departments.map((d) => [
-        d.id,
-        d.lanes.map((lane, i): LaneLayout => {
-          const laneBoxes = byLane.get(lane.id) ?? [];
-          return { lane, label: lane.name ?? `FTE ${i + 1}`, boxes: laneBoxes, ...packRows(laneBoxes) };
-        }),
-      ]),
-    );
-  }, [boxes, departments, draggingId]);
+    return new Map(departments.map((d) => [d.id, layoutDepartment(d, byDept.get(d.id) ?? [])]));
+  }, [boxes, departments, draggingId, laneDept]);
 
   // Keep the same date centred when zooming; start with today a third of the way in.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -114,14 +127,22 @@ export function Timeline(props: Props) {
     if (el) centerDay.current = scale.dayAt(el.scrollLeft + trackWidth() / 2);
   };
 
+  /** The lane under a point, from a department track's layout. */
+  const laneAt = (clientX: number, clientY: number, layoutsNow: Map<string, DepartmentLayout>) => {
+    const track = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-dept-track]");
+    if (!track) return undefined;
+    const layout = layoutsNow.get(track.dataset.deptTrack!);
+    if (!layout) return undefined;
+    return laneAtSlot(layout, Math.floor((clientY - track.getBoundingClientRect().top) / SLOT_H));
+  };
+
   // ---- Dragging -------------------------------------------------------------
   // Listeners go on window, not pointer capture: a box dragged to another lane
-  // re-mounts under a different row, which would drop the capture.
+  // re-mounts elsewhere, which would drop the capture. Everything moves in
+  // working days; a box keeps its number of working days when moved.
 
-  const latest = useRef(props);
-  latest.current = props;
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
+  const latest = useRef({ props, scale, layouts });
+  latest.current = { props, scale, layouts };
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>, box: Box) => {
     if (e.button !== 0) return;
@@ -130,6 +151,9 @@ export function Timeline(props: Props) {
     const x0 = e.clientX;
     const y0 = e.clientY;
     let moved = false;
+    const startIdx = workIndex(nextWorkday(box.start));
+    const endIdx = workIndex(box.end + 1) - 1; // last working day
+    const length = Math.max(1, endIdx - startIdx + 1);
     let placement: BoxPlacement = { lane: box.lane, start: box.start, end: box.end };
 
     const onMove = (ev: PointerEvent) => {
@@ -139,15 +163,20 @@ export function Timeline(props: Props) {
         moved = true;
         document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
       }
-      const snap = SNAP_DAYS[latest.current.zoom];
-      const delta = Math.round(dx / scaleRef.current.pxPerDay / snap) * snap;
+      const { props: p, scale: s, layouts: l } = latest.current;
+      const snap = SNAP_DAYS[p.zoom];
+      const delta = Math.round(dx / s.pxPerDay / snap) * snap;
       if (mode === "move") {
-        const laneEl = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>("[data-lane]");
-        placement = { lane: laneEl?.dataset.lane ?? placement.lane, start: box.start + delta, end: box.end + delta };
+        const start = dayOfWorkIndex(startIdx + delta);
+        placement = {
+          lane: laneAt(ev.clientX, ev.clientY, l) ?? placement.lane,
+          start,
+          end: dayOfWorkIndex(startIdx + delta + length - 1),
+        };
       } else if (mode === "start") {
-        placement = { ...placement, start: Math.min(box.start + delta, box.end) };
+        placement = { ...placement, start: dayOfWorkIndex(Math.min(startIdx + delta, endIdx)) };
       } else {
-        placement = { ...placement, end: Math.max(box.end + delta, box.start) };
+        placement = { ...placement, end: dayOfWorkIndex(Math.max(endIdx + delta, startIdx)) };
       }
       setPreview({ id: box.id, ...placement });
     };
@@ -161,11 +190,11 @@ export function Timeline(props: Props) {
       setPreview(null);
       if (!commit) return;
       if (!moved) {
-        latest.current.onSelect(box.id);
+        latest.current.props.onSelect(box.id);
         return;
       }
       const changed = placement.lane !== box.lane || placement.start !== box.start || placement.end !== box.end;
-      if (changed) latest.current.onPlaceBox(box.id, placement);
+      if (changed) latest.current.props.onPlaceBox(box.id, placement);
     };
     const onUp = () => finish(true);
     const onCancel = () => finish(false);
@@ -179,42 +208,58 @@ export function Timeline(props: Props) {
   };
 
   /** Double-click empty lane space: a new box sized to the zoom level. */
-  const createAt = (e: ReactMouseEvent<HTMLDivElement>, laneId: string) => {
-    if (e.target !== e.currentTarget) return;
-    const day = scale.dayAt(e.clientX - e.currentTarget.getBoundingClientRect().left);
-    let start = day;
-    let end = day + 4;
+  const createAt = (e: ReactMouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-box-id]")) return;
+    const lane = laneAt(e.clientX, e.clientY, layouts);
+    if (!lane) return;
+    const track = e.currentTarget.getBoundingClientRect();
+    const day = scale.dayAt(e.clientX - track.left);
+    let start = nextWorkday(day);
+    let end = addWorkdays(start, 4); // a working week
     if (zoom === "months") {
       start = startOfWeek(day);
-      end = start + 13;
+      end = addWorkdays(start, 9); // two working weeks
     } else if (zoom === "quarters") {
-      start = startOfMonth(day);
-      end = addMonths(start, 1) - 1;
+      start = nextWorkday(startOfMonth(day));
+      end = prevWorkday(addMonths(start, 1) - 1); // the rest of the month
     }
-    onCreateBox({ lane: laneId, start, end });
+    onCreateBox({ lane, start, end });
   };
 
   // ---- Rendering ------------------------------------------------------------
 
   const showToday = now >= scale.start && now < scale.end;
-  const todayX = scale.x(now) + scale.pxPerDay / 2;
+  // On a weekend the line sits on Monday's edge; on a weekday, mid-day.
+  const todayX = scale.x(now) + (workdays(now, now) ? scale.pxPerDay / 2 : 0);
 
   const span = (start: Day, end: Day) => ({
     left: scale.x(start),
-    width: Math.max(scale.pxPerDay, (end - start + 1) * scale.pxPerDay),
+    width: Math.max(scale.pxPerDay, scale.span(start, end)),
   });
 
-  const boxEl = (b: Box, style: CSSProperties, variant: "full" | "compact" | "dragging" = "full") => {
+  const boxEl = (b: Box, style: CSSProperties, variant: "full" | "compact" | "dragging" = "full", slots = 2) => {
     const width = typeof style.width === "number" ? style.width : 0;
     const interactive = variant !== "compact" && !readOnly;
     const clash = props.conflictIds?.has(b.id);
+    const engineers = (b.engineers ?? []).map((id) => personName.get(id) ?? id);
     const classes = [
       "box",
       `status-${b.status}`,
       variant !== "full" && variant,
+      slots === 1 && "half",
       b.id === selectedId && "selected",
       clash && "conflict",
       props.updatedIds?.has(b.id) && "updated",
+    ];
+    const tooltip = [
+      clash && "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n",
+      props.updatedIds?.has(b.id) && !clash && "● Changed by someone else since you opened the roadmap.\n",
+      b.title,
+      `${prettyDay(b.start)} – ${prettyDay(b.end)}`,
+      `${workdays(b.start, b.end)} working days · ${b.fte} FTE · ${statusName.get(b.status) ?? b.status}`,
+      engineers.length ? `Engineers: ${engineers.join(", ")}` : "No engineer assigned",
+      b.description && `\n${b.description}`,
     ];
     return (
       <div
@@ -222,19 +267,20 @@ export function Timeline(props: Props) {
         data-box-id={b.id}
         className={classes.filter(Boolean).join(" ")}
         style={{ ...style, "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
-        title={
-          variant === "full" && b.id !== selectedId
-            ? `${clash ? "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n\n" : ""}${
-                props.updatedIds?.has(b.id) && !clash ? "● Changed by someone else since you opened the roadmap.\n\n" : ""
-              }${b.title}\n${prettyDay(b.start)} – ${prettyDay(b.end)}\n${statusName.get(b.status) ?? b.status}${
-                b.description ? `\n\n${b.description}` : ""
-              }`
-            : undefined
-        }
+        title={variant === "full" && b.id !== selectedId ? tooltip.filter(Boolean).join("\n") : undefined}
         onPointerDown={interactive ? (e) => startDrag(e, b) : undefined}
         onClick={interactive || readOnly ? undefined : () => onSelect(b.id)}
       >
         {variant !== "compact" && <span className="box-title">{b.title || "Untitled"}</span>}
+        {variant !== "compact" && engineers.length > 0 && width >= 120 && (
+          <span className="box-people">
+            {engineers.map((n) => (
+              <span key={n} className="avatar" title={n}>
+                {initials(n)}
+              </span>
+            ))}
+          </span>
+        )}
         {interactive && width >= 24 && (
           <>
             <div className="handle start" data-handle="start" />
@@ -246,6 +292,8 @@ export function Timeline(props: Props) {
   };
 
   const dragged = preview ? boxes.find((b) => b.id === preview.id) : undefined;
+  const boxTop = (slot: number) => slot * SLOT_H + BOX_PAD;
+  const boxHeight = (slots: number) => slots * SLOT_H - BOX_PAD * 2;
 
   return (
     <div
@@ -263,12 +311,7 @@ export function Timeline(props: Props) {
             {bands.map((band, i) => (
               <div key={i} className={`tl-band band-${i}`}>
                 {band.map((s) => (
-                  <BandCell
-                    key={s.start}
-                    seg={s}
-                    scale={scale}
-                    weekend={zoom === "weeks" && i === 1 && dayParts(s.start).weekday >= 5}
-                  />
+                  <BandCell key={s.start} seg={s} scale={scale} />
                 ))}
               </div>
             ))}
@@ -284,66 +327,106 @@ export function Timeline(props: Props) {
           <Grid scale={scale} fine={bands[1]} coarse={bands[0]} zoom={zoom} />
 
           {departments.map((dept) => {
-            const lanes = lanesByDept.get(dept.id) ?? [];
+            const layout = layouts.get(dept.id)!;
             const isCollapsed = collapsed.has(dept.id);
+            const over = layout.height > layout.capacity;
+            const deptBoxes = boxes.filter((b) => b.id !== draggingId && laneDept.get(b.lane) === dept.id);
+            const previewHere = preview && dragged && laneDept.get(preview.lane) === dept.id ? preview : null;
+            const previewLane = previewHere ? layout.lanes.get(previewHere.lane) : undefined;
             return (
               <section key={dept.id} className="dept" style={{ "--dept": dept.color } as CSSProperties}>
                 <div className="row dept-row" style={{ height: DEPT_H }}>
-                  <DeptLabel
-                    dept={dept}
-                    lanes={lanes}
-                    collapsed={isCollapsed}
-                    onToggle={() => onToggleDepartment(dept.id)}
-                  />
+                  <DeptLabel dept={dept} over={over} collapsed={isCollapsed} onToggle={() => onToggleDepartment(dept.id)} />
                   <div className="track" style={{ width: scale.width }}>
-                    {isCollapsed &&
-                      lanes.flatMap((l) => l.boxes).map((b) => boxEl(b, span(b.start, b.end), "compact"))}
+                    {isCollapsed && deptBoxes.map((b) => boxEl(b, span(b.start, b.end), "compact"))}
                   </div>
                 </div>
-                {!isCollapsed &&
-                  lanes.map((l) => {
-                    const isTarget = preview?.lane === l.lane.id;
-                    return (
-                      <div
-                        key={l.lane.id}
-                        className={`row lane-row${l.rows > 1 ? " over" : ""}${isTarget ? " drop-target" : ""}`}
-                        style={{ height: l.rows * ROW_H }}
-                      >
-                        <div className="label lane-label" style={{ width: LABEL_W }}>
-                          <LaneName
-                            readOnly={readOnly}
-                            label={l.label}
-                            named={l.lane.name !== undefined}
-                            onRename={(name) => props.onRenameLane(l.lane.id, name)}
+                {!isCollapsed && (
+                  <div className="row dept-body" style={{ height: layout.height * SLOT_H }}>
+                    <div className="label lane-labels" style={{ width: LABEL_W }}>
+                      {dept.lanes.map((lane, i) => {
+                        const l = layout.lanes.get(lane.id)!;
+                        return (
+                          <div
+                            key={lane.id}
+                            className={`lane-label${previewHere?.lane === lane.id ? " drop-target" : ""}`}
+                            style={{ height: l.slots * SLOT_H }}
+                          >
+                            <LaneName
+                              readOnly={readOnly}
+                              label={lane.name ?? `FTE ${i + 1}`}
+                              named={lane.name !== undefined}
+                              onRename={(name) => props.onRenameLane(lane.id, name)}
+                            />
+                            {lane.fte !== 1 && <span className="pill">{lane.fte} FTE</span>}
+                          </div>
+                        );
+                      })}
+                      {over && (
+                        <div className="lane-label overflow-label" style={{ height: (layout.height - layout.capacity) * SLOT_H }}>
+                          <span className="pill warn" title="More FTE is planned here than the department's lanes hold">
+                            Over capacity
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className="track dept-track"
+                      data-dept-track={dept.id}
+                      style={{ width: scale.width, height: layout.height * SLOT_H }}
+                      onDoubleClick={readOnly ? undefined : createAt}
+                    >
+                      {dept.lanes.map((lane) => {
+                        const l = layout.lanes.get(lane.id)!;
+                        return (
+                          <div
+                            key={lane.id}
+                            className={`lane-band${previewHere?.lane === lane.id ? " drop-target" : ""}`}
+                            data-lane={lane.id}
+                            style={{ top: l.slot * SLOT_H, height: l.slots * SLOT_H }}
                           />
-                          {l.lane.fte !== 1 && <span className="pill">{l.lane.fte} FTE</span>}
-                          {l.rows > 1 && (
-                            <span className="pill warn" title="Boxes overlap: this lane is over-allocated">
-                              overlap
-                            </span>
-                          )}
-                        </div>
+                        );
+                      })}
+                      {over && (
                         <div
-                          className="track"
-                          data-lane={l.lane.id}
-                          style={{ width: scale.width }}
-                          onDoubleClick={readOnly ? undefined : (e) => createAt(e, l.lane.id)}
-                        >
-                          {l.boxes.map((b) =>
-                            boxEl(b, { ...span(b.start, b.end), top: (l.row.get(b.id) ?? 0) * ROW_H + 4 }),
+                          className="overflow-band"
+                          style={{ top: layout.capacity * SLOT_H, height: (layout.height - layout.capacity) * SLOT_H }}
+                        />
+                      )}
+                      {deptBoxes.map((b) => {
+                        const p = layout.boxes.get(b.id);
+                        if (!p) return null;
+                        return boxEl(
+                          b,
+                          { ...span(b.start, b.end), top: boxTop(p.slot), height: boxHeight(p.slots) },
+                          "full",
+                          p.slots,
+                        );
+                      })}
+                      {previewHere && dragged && previewLane && (
+                        <>
+                          {boxEl(
+                            { ...dragged, ...previewHere },
+                            {
+                              ...span(previewHere.start, previewHere.end),
+                              top: boxTop(previewLane.slot),
+                              height: boxHeight(Math.max(1, Math.round(dragged.fte * 2))),
+                            },
+                            "dragging",
+                            Math.max(1, Math.round(dragged.fte * 2)),
                           )}
-                          {isTarget && dragged && preview && (
-                            <>
-                              {boxEl({ ...dragged, ...preview }, { ...span(preview.start, preview.end), top: 4 }, "dragging")}
-                              <div className="drag-dates" style={{ left: scale.x(preview.start) }}>
-                                {prettyDay(preview.start)} – {prettyDay(preview.end)}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                          <div
+                            className="drag-dates"
+                            style={{ left: scale.x(previewHere.start), top: boxTop(previewLane.slot) - 21 }}
+                          >
+                            {prettyDay(previewHere.start)} – {prettyDay(previewHere.end)} ·{" "}
+                            {workdays(previewHere.start, previewHere.end)} working days
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </section>
             );
           })}
@@ -355,30 +438,26 @@ export function Timeline(props: Props) {
   );
 }
 
-function BandCell({ seg, scale, weekend }: { seg: Segment; scale: Scale; weekend: boolean }) {
+function BandCell({ seg, scale }: { seg: Segment; scale: Scale }) {
+  const width = scale.x(seg.end) - scale.x(seg.start);
+  if (width <= 0) return null;
   return (
-    <div
-      className={`band-cell${weekend ? " weekend" : ""}`}
-      style={{ left: scale.x(seg.start), width: (seg.end - seg.start) * scale.pxPerDay }}
-    >
+    <div className="band-cell" style={{ left: scale.x(seg.start), width }}>
       <span>{seg.label}</span>
     </div>
   );
 }
 
-/** Vertical grid lines behind the rows; weekends shaded at week zoom. */
+/** Vertical grid lines behind the rows; at week zoom, Mondays are stronger. */
 function Grid({ scale, fine, coarse, zoom }: { scale: Scale; fine: Segment[]; coarse: Segment[]; zoom: ZoomLevel }) {
-  const major = new Set(coarse.map((s) => s.start));
+  const major = new Set(coarse.map((s) => scale.x(s.start)));
   return (
     <div className="tl-grid" style={{ left: LABEL_W, width: scale.width }}>
-      {fine.map((s) =>
-        zoom === "weeks" && dayParts(s.start).weekday >= 5 ? (
-          <div key={`w${s.start}`} className="weekend-shade" style={{ left: scale.x(s.start), width: scale.pxPerDay }} />
-        ) : null,
-      )}
-      {fine.map((s) => (
-        <div key={s.start} className={`grid-line${major.has(s.start) ? " major" : ""}`} style={{ left: scale.x(s.start) }} />
-      ))}
+      {fine.map((s) => {
+        const x = scale.x(s.start);
+        const week = zoom === "weeks" && dayParts(s.start).weekday === 0;
+        return <div key={s.start} className={`grid-line${major.has(x) ? " major" : week ? " week" : ""}`} style={{ left: x }} />;
+      })}
     </div>
   );
 }
@@ -435,23 +514,22 @@ function LaneName({
 
 function DeptLabel({
   dept,
-  lanes,
+  over,
   collapsed,
   onToggle,
 }: {
   dept: Department;
-  lanes: LaneLayout[];
+  over: boolean;
   collapsed: boolean;
   onToggle(): void;
 }) {
-  const fte = lanes.reduce((sum, l) => sum + l.lane.fte, 0);
-  const over = lanes.filter((l) => l.rows > 1).length;
+  const fte = dept.lanes.reduce((sum, l) => sum + l.fte, 0);
   return (
     <button className="label dept-label" style={{ width: LABEL_W }} onClick={onToggle} aria-expanded={!collapsed}>
       <span className={`chevron${collapsed ? "" : " open"}`}>▸</span>
       <span className="dept-name">{dept.name}</span>
       <span className="dept-meta">
-        {fte} FTE{over > 0 && <span className="warn-text"> · {over} over</span>}
+        {fte} FTE{over && <span className="warn-text"> · over</span>}
       </span>
     </button>
   );

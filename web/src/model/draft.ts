@@ -3,11 +3,12 @@
 // refresh never loses work. Nothing here touches git; committing is a later step.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Box, Department, Lane } from "./types";
+import type { Box, Department, Lane, Person } from "./types";
 
 export interface DraftState {
   boxes: Box[];
   departments: Department[];
+  people: Person[];
 }
 
 interface History {
@@ -28,6 +29,8 @@ export interface Changes {
   removed: Box[];
   /** Departments whose settings or lanes changed. */
   departments: Department[];
+  /** Engineers added, renamed or removed. */
+  people: { added: Person[]; changed: Person[]; removed: Person[] };
   count: number;
 }
 
@@ -52,7 +55,15 @@ export function diffDraft(base: DraftState, current: DraftState): Changes {
     const was = baseDepts.get(d.id);
     return !was || !same(was, d);
   });
-  return { ...boxes, departments, count: boxes.count + departments.length };
+  const basePeople = new Map(base.people.map((p) => [p.id, p]));
+  const currentPeople = new Set(current.people.map((p) => p.id));
+  const people = {
+    added: current.people.filter((p) => !basePeople.has(p.id)),
+    changed: current.people.filter((p) => basePeople.has(p.id) && !same(basePeople.get(p.id)!, p)),
+    removed: base.people.filter((p) => !currentPeople.has(p.id)),
+  };
+  const peopleCount = people.added.length + people.changed.length + people.removed.length;
+  return { ...boxes, departments, people, count: boxes.count + departments.length + peopleCount };
 }
 
 function same<T extends object>(a: T, b: T): boolean {
@@ -111,6 +122,7 @@ export function rebaseDraft(oldBase: DraftState, draft: DraftState, newBase: Dra
     draft: {
       boxes: mergeById(oldBase.boxes, draft.boxes, newBase.boxes, "box", conflicts),
       departments: mergeById(oldBase.departments, draft.departments, newBase.departments, "dept", conflicts),
+      people: mergeById(oldBase.people, draft.people, newBase.people, "person", conflicts),
     },
     conflicts,
   };
@@ -118,7 +130,9 @@ export function rebaseDraft(oldBase: DraftState, draft: DraftState, newBase: Dra
 
 const entityOf = (state: DraftState, key: string) => {
   const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
-  return kind === "box" ? state.boxes.find((b) => b.id === id) : state.departments.find((d) => d.id === id);
+  if (kind === "box") return state.boxes.find((b) => b.id === id);
+  if (kind === "person") return state.people.find((p) => p.id === id);
+  return state.departments.find((d) => d.id === id);
 };
 
 /** `draft` with these items put back to how they are in `base` (taking "theirs"). */
@@ -132,6 +146,7 @@ export function revertItems(draft: DraftState, base: DraftState, keys: string[])
   return {
     boxes: revert(draft.boxes, base.boxes, "box"),
     departments: revert(draft.departments, base.departments, "dept"),
+    people: revert(draft.people, base.people, "person"),
   };
 }
 
@@ -173,6 +188,7 @@ interface Stored {
   base?: DraftState;
   boxes: Box[];
   departments?: Department[];
+  people?: Person[];
 }
 
 /** The saved draft, carried onto `base` if someone saved since it was written. */
@@ -182,9 +198,20 @@ function readStored(scope: string, baseHash: string, base: DraftState): { draft:
     if (!raw) return null;
     const saved = JSON.parse(raw) as Stored;
     if (!Array.isArray(saved.boxes)) return null;
-    const draft = { boxes: saved.boxes, departments: saved.departments ?? base.departments };
+    // Drafts saved before a field existed get its default.
+    const draft = {
+      boxes: saved.boxes.map((b) => ({ ...b, fte: b.fte ?? 1 })),
+      departments: saved.departments ?? base.departments,
+      people: saved.people ?? base.people,
+    };
     if (saved.baseHash === baseHash) return { draft, conflicts: [] };
-    return saved.base ? rebaseDraft(saved.base, draft, base) : null;
+    if (!saved.base) return null;
+    const oldBase = {
+      boxes: saved.base.boxes.map((b) => ({ ...b, fte: b.fte ?? 1 })),
+      departments: saved.base.departments,
+      people: saved.base.people ?? [],
+    };
+    return rebaseDraft(oldBase, draft, base);
   } catch {
     return null;
   }
@@ -306,6 +333,19 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     [apply],
   );
 
+  /** Add an engineer to the roster; returns their id (a slug of the name, made unique). */
+  const addPerson = useCallback(
+    (name: string, department?: string): string => {
+      const taken = new Set(present.people.map((p) => p.id));
+      const slug = slugify(name).replace(/^box$/, "engineer");
+      let id = slug;
+      for (let n = 2; taken.has(id); n++) id = `${slug}-${n}`;
+      apply((d) => ({ ...d, people: [...d.people, { id, name: name.trim(), department }] }));
+      return id;
+    },
+    [apply, present.people],
+  );
+
   const undo = useCallback(
     () =>
       setHistory((h) =>
@@ -332,6 +372,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
   return {
     boxes: present.boxes,
     departments: present.departments,
+    people: present.people,
     changes,
     conflicts,
     canUndo: history.past.length > 0,
@@ -340,6 +381,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     addBox,
     removeBox,
     updateLane,
+    addPerson,
     undo,
     redo,
     discard,

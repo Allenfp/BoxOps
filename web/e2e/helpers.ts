@@ -30,6 +30,8 @@ export const test = base.extend<{ github: FakeGitHub; signedIn: boolean }>({
 export { expect };
 
 export const box = (page: Page, id: string) => page.locator(`[data-box-id="${id}"]`).first();
+/** A box's title text (boxes also show engineers' initials). */
+export const boxTitle = (page: Page, id: string) => box(page, id).locator(".box-title");
 export const toolbar = (page: Page) => page.locator(".draft-status");
 
 /** "Sep 14, 2026 – Oct 23, 2026" from a box's tooltip. */
@@ -37,6 +39,9 @@ export async function boxDates(page: Page, id: string): Promise<string> {
   const title = (await box(page, id).getAttribute("title")) ?? "";
   return title.split("\n").find((l) => l.includes(" – ")) ?? "";
 }
+
+/** Pixels per working day at months zoom, where tests run. */
+export const MONTH_PX = 9.8;
 
 /** Drag a box (or one of its edge handles) by dx/dy pixels. */
 export async function drag(page: Page, id: string, dx: number, dy = 0, grip: "middle" | "start" | "end" = "middle") {
@@ -49,6 +54,10 @@ export async function drag(page: Page, id: string, dx: number, dy = 0, grip: "mi
   await page.mouse.move(x + dx, y + dy, { steps: 4 });
   await page.mouse.up();
 }
+
+/** Drag a box by a number of working days at months zoom (and optionally dy pixels). */
+export const dragDays = (page: Page, id: string, days: number, dy = 0, grip: "middle" | "start" | "end" = "middle") =>
+  drag(page, id, days * MONTH_PX, dy, grip);
 
 /** Click somewhere neutral so keyboard shortcuts reach the app, not a field. */
 export async function focusApp(page: Page) {

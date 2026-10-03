@@ -1,6 +1,16 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { formatDay, parseDay } from "../model/dates";
-import type { Box, Roadmap } from "../model/types";
+import {
+  type Day,
+  formatDay,
+  nextWorkday,
+  parseDay,
+  prevWorkday,
+  quarterLabel,
+  startOfQuarter,
+  workdays,
+} from "../model/dates";
+import { BOX_FTE_OPTIONS, type Box, type Roadmap } from "../model/types";
+import { EngineerPicker } from "./EngineerPicker";
 
 interface Props {
   roadmap: Roadmap;
@@ -12,6 +22,8 @@ interface Props {
    * Returns the box's id afterwards (an unsaved box's id follows its title).
    */
   onUpdate(id: string, patch: Partial<Box>, key?: string): string;
+  /** Add someone to the engineer roster; returns their id. */
+  onAddPerson(name: string, department?: string): string;
   /** Add a box (to this department's first lane, if given); returns its id. */
   onAdd(departmentId?: string): string;
   /** Collapsed departments; shared with the timeline. */
@@ -24,14 +36,17 @@ interface Props {
   onReviewed(id: string): void;
 }
 
-type SortKey = "title" | "lane" | "start" | "end" | "days" | "type" | "status";
+type SortKey = "title" | "lane" | "start" | "end" | "days" | "quarter" | "fte" | "engineers" | "type" | "status";
 
 const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: "title", label: "Title", className: "col-title" },
   { key: "lane", label: "Department / lane", className: "col-lane" },
   { key: "start", label: "Start", className: "col-date" },
   { key: "end", label: "End", className: "col-date" },
-  { key: "days", label: "Days", className: "col-days" },
+  { key: "days", label: "Work days", className: "col-days" },
+  { key: "quarter", label: "Quarter", className: "col-quarter" },
+  { key: "fte", label: "FTE", className: "col-fte" },
+  { key: "engineers", label: "Engineers", className: "col-engineers" },
   { key: "type", label: "Type", className: "col-type" },
   { key: "status", label: "Status", className: "col-status" },
   { key: null, label: "Epic link", className: "col-epic" },
@@ -49,8 +64,16 @@ const splitTags = (t: string) =>
 
 export function TableView(props: Props) {
   const { roadmap, readOnly, conflictIds, updatedIds, onUpdate, onAdd, onDelete, onCheckpoint, onReviewed } = props;
-  const { collapsed, onToggleDepartment } = props;
-  const { settings, departments, boxes } = roadmap;
+  const { collapsed, onToggleDepartment, onAddPerson } = props;
+  const { settings, departments, boxes, people } = roadmap;
+  const fy = settings.fiscal_year_start_month;
+  const personName = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
+  const engineerNames = (b: Box) => (b.engineers ?? []).map((id) => personName.get(id) ?? id).join(", ");
+  /** "Q4 2026", or "Q4 2026 – Q1 2027" when a box crosses quarters. */
+  const quarterOf = (b: Box) => {
+    const q = (d: Day) => quarterLabel(startOfQuarter(d, fy), fy);
+    return q(b.start) === q(b.end) ? q(b.start) : `${q(b.start)} – ${q(b.end)}`;
+  };
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "lane", dir: 1 });
   const [query, setQuery] = useState("");
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -87,7 +110,15 @@ export function TableView(props: Props) {
     const q = query.trim().toLowerCase();
     const filtered = q
       ? boxes.filter((b) =>
-          [b.title, b.description ?? "", tagsText(b), lanes.get(b.lane)?.label ?? "", lanes.get(b.lane)?.dept ?? ""]
+          [
+            b.title,
+            b.description ?? "",
+            tagsText(b),
+            lanes.get(b.lane)?.label ?? "",
+            lanes.get(b.lane)?.dept ?? "",
+            engineerNames(b),
+            quarterOf(b),
+          ]
             .join(" ")
             .toLowerCase()
             .includes(q),
@@ -104,7 +135,13 @@ export function TableView(props: Props) {
         case "end":
           return b.end;
         case "days":
-          return b.end - b.start;
+          return workdays(b.start, b.end);
+        case "quarter":
+          return b.start;
+        case "fte":
+          return b.fte;
+        case "engineers":
+          return engineerNames(b).toLowerCase() || "\uffff"; // unassigned last
         case "type":
           return typeIndex.get(b.type) ?? 99;
         case "status":
@@ -116,7 +153,8 @@ export function TableView(props: Props) {
       const vb = value(b);
       return (va < vb ? -1 : va > vb ? 1 : a.start - b.start || a.id.localeCompare(b.id)) * sort.dir;
     });
-  }, [boxes, query, sort, lanes, typeIndex, statusIndex]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxes, query, sort, lanes, typeIndex, statusIndex, personName, fy]);
 
   // Sorted rows, bucketed by department (in department order).
   const groups = useMemo(() => {
@@ -126,13 +164,18 @@ export function TableView(props: Props) {
   }, [rows, departments, lanes]);
   const searching = query.trim() !== "";
 
+  // Weekends don't exist on the roadmap: a weekend start moves to Monday, a weekend end to Friday.
   const setStart = (b: Box, text: string) => {
-    const start = parseDay(text);
-    if (start !== null) update(b.id, start > b.end ? { start, end: start } : { start }, `table:${b.id}:start`);
+    const picked = parseDay(text);
+    if (picked === null) return;
+    const start = nextWorkday(picked);
+    update(b.id, start > b.end ? { start, end: start } : { start }, `table:${b.id}:start`);
   };
   const setEnd = (b: Box, text: string) => {
-    const end = parseDay(text);
-    if (end !== null) update(b.id, end < b.start ? { end, start: end } : { end }, `table:${b.id}:end`);
+    const picked = parseDay(text);
+    if (picked === null) return;
+    const end = prevWorkday(picked);
+    update(b.id, end < b.start ? { end, start: end } : { end }, `table:${b.id}:end`);
   };
 
   return (
@@ -295,7 +338,32 @@ export function TableView(props: Props) {
                       onBlur={onCheckpoint}
                     />
                   </td>
-                  <td className="col-days">{b.end - b.start + 1}</td>
+                  <td className="col-days">{workdays(b.start, b.end)}</td>
+                  <td className="col-quarter">{quarterOf(b)}</td>
+                  <td className="col-fte">
+                    <select
+                      value={b.fte}
+                      disabled={readOnly}
+                      aria-label="FTE"
+                      onChange={(e) => update(b.id, { fte: Number(e.target.value) })}
+                    >
+                      {BOX_FTE_OPTIONS.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="col-engineers">
+                    <EngineerPicker
+                      value={b.engineers ?? []}
+                      people={people}
+                      department={lane?.deptId}
+                      readOnly={readOnly}
+                      onChange={(engineers) => update(b.id, { engineers })}
+                      onAddPerson={(name) => onAddPerson(name, lane?.deptId)}
+                    />
+                  </td>
                   <td className="col-type">
                     <span className="type-cell">
                       <span className="swatch" style={{ background: typeColor.get(b.type) }} />

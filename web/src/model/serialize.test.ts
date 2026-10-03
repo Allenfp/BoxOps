@@ -7,9 +7,10 @@ import { loadRoadmap } from "./load";
 import { applyChanges, serializeChanges } from "./serialize";
 import { describeChanges } from "./summary";
 
-const files = readRoadmapDir(resolve(__dirname, "../../../roadmap"));
+// The fixed sample roadmap the browser tests use, minus its roster (tests below add their own).
+const { "people.yaml": _roster, ...files } = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
 const { roadmap } = loadRoadmap(files);
-const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments };
+const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people };
 
 const editBox = (id: string, patch: object): DraftState => ({
   ...base,
@@ -39,7 +40,7 @@ describe("serializeChanges", () => {
       ...draft,
       boxes: [
         ...draft.boxes,
-        { id: "bx-0001-new-thing", title: "New: thing", lane: "an-3", start: 100, end: 120, type: "project", status: "planned" },
+        { id: "bx-0001-new-thing", title: "New: thing", lane: "an-3", start: 100, end: 120, type: "project", status: "planned", fte: 1 },
       ],
     };
     const out = serializeChanges(files, base, draft);
@@ -56,11 +57,11 @@ describe("serializeChanges", () => {
   it("renames a lane without touching the rest of the department file", () => {
     const original = "# Data team lanes\nid: eng\nname: Eng\nlanes:\n  - id: e1 # first hire\n    fte: 1\n  - id: e2\n    fte: 0.5\n";
     const dept = { id: "eng", name: "Eng", color: "#8a94a6", order: 0, collapsed: false, lanes: [{ id: "e1", fte: 1 }, { id: "e2", fte: 0.5 }] };
-    const b: DraftState = { boxes: [], departments: [dept] };
-    const d: DraftState = { boxes: [], departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: "Platform" }, dept.lanes[1]] }] };
+    const b: DraftState = { boxes: [], departments: [dept], people: [] };
+    const d: DraftState = { boxes: [], departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: "Platform" }, dept.lanes[1]] }], people: [] };
     const out = serializeChanges({ "departments/eng.yaml": original }, b, d);
     expect(out["departments/eng.yaml"]).toBe(
-      "# Data team lanes\nid: eng\nname: Eng\nlanes:\n  - id: e1 # first hire\n    fte: 1\n    name: Platform\n  - id: e2\n    fte: 0.5\n",
+      "# Data team lanes\nid: eng\nname: Eng\nlanes:\n  - id: e1 # first hire\n    name: Platform\n    fte: 1\n  - id: e2\n    fte: 0.5\n",
     );
   });
 });
@@ -94,5 +95,60 @@ describe("commitMessage", () => {
     expect(long.split("\n")[0].length).toBeLessThanOrEqual(72);
     expect(long.split("\n")[0].endsWith("…")).toBe(true);
     expect(commitMessage([{ kind: "added", text: "a" }, { kind: "deleted", text: "b" }]).split("\n")[0]).toBe("Roadmap: 2 changes");
+  });
+});
+
+describe("fte, engineers and the roster", () => {
+  const people = "people:\n  - id: sam-lee\n    name: Sam Lee\n    department: data-eng\n";
+  const withPeople = { ...files, "people.yaml": people };
+
+  it("loads and validates them", () => {
+    const ok = loadRoadmap({
+      ...withPeople,
+      "boxes/bx-c93d-dagster-upgrade.yaml": files["boxes/bx-c93d-dagster-upgrade.yaml"] + "fte: 2\nengineers:\n  - sam-lee\n",
+    });
+    expect(ok.issues).toEqual([]);
+    const dag = ok.roadmap.boxes.find((b) => b.id === "bx-c93d-dagster-upgrade")!;
+    expect(dag.fte).toBe(2);
+    expect(dag.engineers).toEqual(["sam-lee"]);
+    expect(ok.roadmap.boxes.find((b) => b.id !== dag.id)!.fte).toBe(1); // default
+
+    const bad = loadRoadmap({
+      ...withPeople,
+      "boxes/bx-c93d-dagster-upgrade.yaml": files["boxes/bx-c93d-dagster-upgrade.yaml"] + "fte: 3\n",
+      "boxes/bx-d4e1-cdc-pipeline.yaml": files["boxes/bx-d4e1-cdc-pipeline.yaml"] + "engineers: [ghost]\n",
+    });
+    expect(bad.issues.map((i) => i.message)).toEqual([
+      "fte: expected one of 0.5, 1, 1.5, 2",
+      'engineers: "ghost" is not in people.yaml',
+    ]);
+  });
+
+  it("writes fte only when it isn't 1, and engineers as a list", () => {
+    const { roadmap: r } = loadRoadmap(withPeople);
+    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people };
+    const d: DraftState = {
+      ...b,
+      boxes: b.boxes.map((x) => (x.id === "bx-c93d-dagster-upgrade" ? { ...x, fte: 1.5, engineers: ["sam-lee"] } : x)),
+    };
+    const out = serializeChanges(withPeople, b, d);
+    expect(out["boxes/bx-c93d-dagster-upgrade.yaml"]).toContain("status: at_risk\nfte: 1.5\nengineers:\n  - sam-lee\n");
+    const back = { ...d, boxes: d.boxes.map((x) => (x.id === "bx-c93d-dagster-upgrade" ? { ...x, fte: 1 } : x)) };
+    expect(serializeChanges(withPeople, b, back)["boxes/bx-c93d-dagster-upgrade.yaml"]).not.toContain("fte:");
+  });
+
+  it("adds engineers to people.yaml, keeping the existing entries as written", () => {
+    const { roadmap: r } = loadRoadmap(withPeople);
+    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people };
+    const d: DraftState = { ...b, people: [...b.people, { id: "priya-shah", name: "Priya Shah", department: "analytics" }] };
+    expect(serializeChanges(withPeople, b, d)["people.yaml"]).toBe(
+      people + "  - id: priya-shah\n    name: Priya Shah\n    department: analytics\n",
+    );
+    // A roadmap without a roster gets a new file.
+    const none = { boxes: r.boxes, departments: r.departments, people: [] };
+    expect(serializeChanges(files, none, { ...none, people: [{ id: "a", name: "A" }] })["people.yaml"]).toBe(
+      "people:\n  - id: a\n    name: A\n",
+    );
+    expect(describeChanges(b, d, r.settings)[0].text).toBe("Added engineer **Priya Shah**");
   });
 });

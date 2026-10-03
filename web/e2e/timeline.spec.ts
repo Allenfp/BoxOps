@@ -1,10 +1,12 @@
-import { DAGSTER, box, boxDates, drag, expect, focusApp, test, toolbar } from "./helpers";
+import { DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, save, test, toolbar } from "./helpers";
 
 test("shows departments, lanes, boxes and today", async ({ page, github: _ }) => {
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
   await expect(page.locator(".dept-label")).toHaveText([/Data Engineering/, /Analytics/, /ML Platform/]);
   await expect(page.locator(".today-flag")).toBeVisible();
-  await expect(page.locator(".lane-row.over .lane-name")).toHaveText([/^FTE 3/]); // overlapping boxes
+  // Fixture has overlaps in FTE 3 and 1-FTE boxes in the 0.5-FTE Contractor lane.
+  await expect(page.locator(".overflow-label")).toHaveCount(1);
+  await expect(page.locator(".dept-label", { hasText: "Data Engineering" })).toContainText("over");
 
   await page.getByRole("button", { name: "Quarters" }).click();
   await expect(page.locator(".band-0")).toContainText("Q4 2026");
@@ -18,16 +20,19 @@ test("shows departments, lanes, boxes and today", async ({ page, github: _ }) =>
 
 test("drag moves a box in time and across lanes; edges resize", async ({ page, github: _ }) => {
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 14, 2026 – Oct 23, 2026");
-  await drag(page, DAGSTER, 70); // 10 days at months zoom (7px/day)
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 24, 2026 – Nov 2, 2026");
+  await dragDays(page, DAGSTER, 10); // keeps its 30 working days
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026");
 
-  const contractor = (await page.locator('[data-lane="de-4"]').boundingBox())!;
+  // Into Analytics' empty "Open req" lane: another department, and free at those dates.
+  const openReq = (await page.locator('[data-lane="an-3"]').boundingBox())!;
   const b = (await box(page, DAGSTER).boundingBox())!;
-  await drag(page, DAGSTER, 0, contractor.y + 10 - (b.y + b.height / 2));
-  await expect(box(page, DAGSTER).locator("xpath=ancestor::*[@data-lane][1]")).toHaveAttribute("data-lane", "de-4");
+  await drag(page, DAGSTER, 0, openReq.y + 10 - (b.y + b.height / 2));
+  const lane = page.locator('[data-lane="an-3"]');
+  await expect(box(page, DAGSTER).locator("xpath=ancestor::*[@data-dept-track][1]")).toHaveAttribute("data-dept-track", "analytics");
+  await expect.poll(async () => (await box(page, DAGSTER).boundingBox())!.y - (await lane.boundingBox())!.y).toBe(3);
 
-  await drag(page, DAGSTER, 35, 0, "end"); // +5 days
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 24, 2026 – Nov 7, 2026");
+  await dragDays(page, DAGSTER, 5, 0, "end");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 13, 2026");
   await expect(toolbar(page)).toContainText("1 unsaved change");
 });
 
@@ -39,7 +44,7 @@ test("clicking a box opens the editor; edits apply live", async ({ page, github:
   await editor.getByPlaceholder("https://…").fill("https://example.atlassian.net/browse/DATA-42");
   await expect(editor.getByRole("link", { name: "Open ↗" })).toBeVisible();
   await editor.locator("select").nth(1).selectOption("in_progress");
-  await expect(box(page, DAGSTER)).toHaveText("Dagster upgrade, phase 1");
+  await expect(boxTitle(page, DAGSTER)).toHaveText("Dagster upgrade, phase 1");
   await expect(box(page, DAGSTER)).toHaveClass(/status-in_progress/);
   await page.keyboard.press("Escape");
   await expect(editor).toBeHidden();
@@ -63,11 +68,50 @@ test("double-click creates a box; undo steps back", async ({ page, github: _ }) 
 });
 
 test("unsaved edits survive a reload", async ({ page, github: _ }) => {
-  await drag(page, DAGSTER, 70);
+  await dragDays(page, DAGSTER, 10);
   await expect(toolbar(page)).toContainText("1 unsaved change");
   await page.reload();
   await expect(toolbar(page)).toContainText("1 unsaved change");
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 24, 2026 – Nov 2, 2026");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026");
+});
+
+test("weekends are never shown or counted", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Weeks" }).click();
+  const days = await page.locator(".band-1 .band-cell").allInnerTexts();
+  const i = days.indexOf("2"); // Fri Oct 2
+  expect(days.slice(i, i + 3)).toEqual(["2", "5", "6"]); // …straight to Mon Oct 5
+  expect(await box(page, DAGSTER).getAttribute("title")).toContain("30 working days");
+});
+
+test("FTE sets a box's height; 2 FTE covers the lane below", async ({ page, github }) => {
+  const warehouse = "bx-a1f0-warehouse-migration";
+  const oneFte = (await box(page, warehouse).boundingBox())!.height;
+  await box(page, warehouse).click({ position: { x: 200, y: 10 } });
+  await page.getByRole("dialog", { name: /Edit/ }).locator("select").nth(2).selectOption("2"); // Type, Status, FTE, Lane
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => (await box(page, warehouse).boundingBox())!.height).toBeGreaterThan(oneFte * 2);
+
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(warehouse))).toContain("status: in_progress\nfte: 2\n");
+});
+
+test("engineers are picked from the roster, and new ones can be added", async ({ page, github }) => {
+  await box(page, DAGSTER).click();
+  await page.getByRole("button", { name: "Engineers" }).click();
+  await page.getByRole("option", { name: "Sam Lee" }).click();
+  await page.getByLabel("New engineer name").fill("Robin Park");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Engineers" })).toHaveText("Sam Lee, Robin Park");
+  await page.keyboard.press("Escape"); // closes the picker…
+  await expect(page.getByRole("dialog", { name: /Edit/ })).toBeVisible(); // …not the editor
+  await page.keyboard.press("Escape");
+  await expect(box(page, DAGSTER).locator(".avatar")).toHaveText(["SL", "RP"]);
+
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("engineers:\n  - sam-lee\n  - robin-park\n");
+  expect(github.file("people.yaml")).toContain("  - id: robin-park\n    name: Robin Park\n    department: data-eng\n");
 });
 
 test("lanes can be renamed in place", async ({ page, github: _ }) => {

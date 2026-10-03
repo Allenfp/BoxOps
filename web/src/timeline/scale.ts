@@ -1,21 +1,27 @@
-// Time ↔ pixel mapping and header bands for each zoom level.
+// Time ↔ pixel mapping and header bands for each zoom level. The x axis counts
+// working days only: weekends take no space at any zoom.
 
 import {
   type Day,
   addMonths,
   dayParts,
+  dayOfWorkIndex,
+  isWeekend,
   monthName,
+  nextWorkday,
   quarterLabel,
   startOfMonth,
   startOfQuarter,
   startOfWeek,
+  workIndex,
 } from "../model/dates";
 import type { Box, ZoomLevel } from "../model/types";
 
+/** Pixels per working day (a week is five of these). */
 export const PX_PER_DAY: Record<ZoomLevel, number> = {
-  weeks: 36,
-  months: 7,
-  quarters: 2.2,
+  weeks: 40,
+  months: 9.8,
+  quarters: 3,
 };
 
 export interface Segment {
@@ -31,22 +37,29 @@ export interface Scale {
   start: Day;
   /** Exclusive. */
   end: Day;
+  /** Pixels per working day. */
   pxPerDay: number;
   width: number;
+  /** Left edge of `day` (a weekend day sits at the following Monday's edge). */
   x(day: Day): number;
+  /** Width of the working days from `start` to `end`, inclusive. */
+  span(start: Day, end: Day): number;
+  /** The working day under `x`. */
   dayAt(x: number): Day;
 }
 
 export function makeScale(start: Day, end: Day, zoom: ZoomLevel): Scale {
   const pxPerDay = PX_PER_DAY[zoom];
+  const origin = workIndex(start);
   return {
     zoom,
     start,
     end,
     pxPerDay,
-    width: (end - start) * pxPerDay,
-    x: (day) => (day - start) * pxPerDay,
-    dayAt: (x) => start + Math.floor(x / pxPerDay),
+    width: (workIndex(end) - origin) * pxPerDay,
+    x: (day) => (workIndex(day) - origin) * pxPerDay,
+    span: (s, e) => (workIndex(e + 1) - workIndex(s)) * pxPerDay,
+    dayAt: (x) => dayOfWorkIndex(origin + Math.floor(x / pxPerDay)),
   };
 }
 
@@ -79,6 +92,12 @@ function segments(start: Day, end: Day, first: Day, next: (d: Day) => Day, label
 const months = (start: Day, end: Day, label: (d: Day) => string) =>
   segments(start, end, startOfMonth(start), (d) => addMonths(d, 1), label);
 
+const nextWeekday = (d: Day): Day => {
+  let n = d + 1;
+  while (isWeekend(n)) n++;
+  return n;
+};
+
 /** Two header bands, coarse on top and fine below; the fine band also draws the grid. */
 export function headerBands(scale: Scale, fyStartMonth: number): [Segment[], Segment[]] {
   const { start, end } = scale;
@@ -86,7 +105,7 @@ export function headerBands(scale: Scale, fyStartMonth: number): [Segment[], Seg
     case "weeks":
       return [
         months(start, end, (d) => `${monthName(dayParts(d).month)} ${dayParts(d).year}`),
-        segments(start, end, start, (d) => d + 1, (d) => String(dayParts(d).day)),
+        segments(start, end, nextWorkday(start), nextWeekday, (d) => String(dayParts(d).day)),
       ];
     case "months":
       return [

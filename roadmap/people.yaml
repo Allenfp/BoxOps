@@ -1,0 +1,21 @@
+# Engineers who can be assigned to boxes. Add, rename or remove people here or
+# from the app (any box's Engineers dropdown → "Add engineer…").
+people:
+  - id: alex-kim
+    name: Alex Kim
+    department: data-eng
+  - id: jordan-diaz
+    name: Jordan Diaz
+    department: data-eng
+  - id: sam-lee
+    name: Sam Lee
+    department: data-eng
+  - id: priya-shah
+    name: Priya Shah
+    department: analytics
+  - id: morgan-chen
+    name: Morgan Chen
+    department: analytics
+  - id: taylor-brooks
+    name: Taylor Brooks
+    department: ml-platform

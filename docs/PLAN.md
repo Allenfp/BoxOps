@@ -11,7 +11,9 @@ in the browser and the app commits the change to a new branch and opens a PR.
 | Repo visibility | Public during development. Data is baked into the Pages build. Revisit if it goes private (Pages from a private repo needs a paid plan and is still public outside Enterprise). |
 | Auth | Pasted fine-grained personal access token, scoped to this repo with **Contents: write**. Kept in `sessionStorage`. An OAuth proxy (Cloudflare Worker) is a possible later add-on. |
 | Saving (changed 2026-10-03) | **Save commits straight to `main`**, like saving a file. No branches or PRs. Concurrent saves to different items merge automatically; the same item edited by two people asks "keep mine / keep theirs". |
-| Multi-person work | One box = one lane. Work needing two FTEs is two boxes (optionally sharing an `initiative` tag). |
+| Multi-person work (changed 2026-10-03) | A box has an FTE of 0.5, 1, 1.5 or 2 (default 1) and is that tall: a 2-FTE box covers its lane and the one below; two 0.5 boxes share a lane. Anything that doesn't fit goes in a department's "over capacity" area. |
+| Engineers (2026-10-03) | Boxes name the engineers expected to work on them (one or more), picked from `roadmap/people.yaml`, which the app can add to. Lanes stay anonymous capacity. |
+| Working days (2026-10-03) | Weekends are never drawn or counted: the time axis, durations, dragging and date pickers all work in weekdays. |
 | Lanes | A lane is anonymous **FTE capacity** (`fte: 1` or `0.5`), not a person. No link to `config/people.yaml`. |
 | Stack | Vite + TypeScript + React in `web/`. Vitest for logic tests. GitHub Actions for deploy and validation. |
 
@@ -66,7 +68,8 @@ GitHub Pages (static app)                 GitHub repo
 roadmap/
   settings.yaml            # title, fiscal_year_start_month, default_zoom, types, statuses
   departments/<id>.yaml    # id, name, color, order, collapsed, lanes: [{id, name?, fte}]
-  boxes/<id>.yaml          # id, title, lane, start, end, type, status, epic, description, tags, links
+  boxes/<id>.yaml          # id, title, lane, start, end, type, status, fte, engineers, epic, description, tags, links
+  people.yaml              # people: [{id, name, department?}] — the engineer roster
 ```
 
 - IDs are stable and never derived from the display name at runtime. Lane ids are

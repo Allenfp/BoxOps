@@ -14,9 +14,24 @@ export type FileChanges = Record<string, string | null>;
 type Plain = Record<string, unknown>;
 
 /** Field order for newly written files; also the set of keys the app owns. */
-const BOX_KEYS = ["id", "title", "lane", "start", "end", "type", "status", "epic", "description", "tags", "links"];
+const BOX_KEYS = [
+  "id",
+  "title",
+  "lane",
+  "start",
+  "end",
+  "type",
+  "status",
+  "fte",
+  "engineers",
+  "epic",
+  "description",
+  "tags",
+  "links",
+];
 const DEPT_KEYS = ["id", "name", "color", "order", "collapsed", "lanes"];
 const LANE_KEYS = ["id", "name", "fte"];
+const PERSON_KEYS = ["id", "name", "department"];
 
 /** A key that is absent from the file means this value. */
 const DEFAULTS: Record<string, unknown> = { fte: 1, collapsed: false, order: 0, color: DEFAULT_DEPT_COLOR };
@@ -52,7 +67,17 @@ function mergeMap(doc: Document, map: YAMLMap, value: Plain, keys: string[], chi
     }
     const current = node === undefined ? undefined : map.toJSON()[key];
     if (sameValue(current, v)) continue;
-    map.set(key, doc.createNode(v));
+    if (map.has(key)) {
+      map.set(key, doc.createNode(v));
+      continue;
+    }
+    // A new field goes after the nearest field that comes before it in the usual order.
+    const before = new Set(keys.slice(0, keys.indexOf(key)));
+    let at = 0;
+    map.items.forEach((pair, i) => {
+      if (before.has(String((pair.key as { value?: unknown })?.value ?? pair.key))) at = i + 1;
+    });
+    map.items.splice(at, 0, doc.createPair(key, v));
   }
 }
 
@@ -76,7 +101,12 @@ function ordered(value: Plain, keys: string[]): Plain {
   for (const k of keys) {
     const v = value[k];
     if (isEmpty(v) || (k in DEFAULTS && sameValue(v, DEFAULTS[k]))) continue;
-    out[k] = Array.isArray(v) && k === "lanes" ? v.map((l) => ordered(l as Plain, LANE_KEYS)) : v;
+    out[k] =
+      Array.isArray(v) && k === "lanes"
+        ? v.map((l) => ordered(l as Plain, LANE_KEYS))
+        : Array.isArray(v) && k === "people"
+          ? v.map((p) => ordered(p as Plain, PERSON_KEYS))
+          : v;
   }
   return out;
 }
@@ -107,6 +137,11 @@ export function serializeChanges(baseFiles: RoadmapFiles, base: DraftState, draf
   for (const d of changes.departments) {
     const path = pathFor(baseFiles, "departments", d.id);
     out[path] = writeFile(baseFiles[path], deptToPlain(d), DEPT_KEYS, { lanes: LANE_KEYS });
+  }
+
+  if (changes.people.added.length + changes.people.changed.length + changes.people.removed.length) {
+    const path = "people.yaml";
+    out[path] = writeFile(baseFiles[path], { people: draft.people.map((p) => ({ ...p })) }, ["people"], { people: PERSON_KEYS });
   }
 
   // Drop no-op rewrites (e.g. a field changed and changed back).

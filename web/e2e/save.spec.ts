@@ -1,11 +1,11 @@
 import { TOKEN } from "./fake-github";
-import { CDC, DAGSTER, REVENUE, box, boxDates, boxFile, drag, expect, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, save, test, toolbar } from "./helpers";
 
 test.describe("first save", () => {
   test.use({ signedIn: false });
 
   test("asks for a token once, rejects a bad one, then commits to main", async ({ page, github }) => {
-    await drag(page, DAGSTER, 70);
+    await dragDays(page, DAGSTER, 10);
     await page.getByRole("button", { name: "Save", exact: true }).click();
 
     const dialog = page.locator(".save-dialog[open]");
@@ -21,20 +21,20 @@ test.describe("first save", () => {
 
     const head = github.headCommit();
     expect(head.parent).toBe(github.root);
-    expect(head.message.split("\n")[0]).toBe("Dagster 2.x upgrade: rescheduled to Sep 24, 2026 – Nov 2, 2026");
-    expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-24\nend: 2026-11-02\n");
+    expect(head.message.split("\n")[0]).toBe("Dagster 2.x upgrade: rescheduled to Sep 28, 2026 – Nov 6, 2026");
+    expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28\nend: 2026-11-06\n");
 
     // Next save: no dialog at all.
-    await drag(page, DAGSTER, 35);
+    await dragDays(page, DAGSTER, 5);
     await save(page);
     await expect(toolbar(page)).toContainText("No changes");
     await expect(page.locator(".save-dialog[open]")).toHaveCount(0);
-    expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-29\n");
+    expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-10-05\n");
   });
 });
 
 test("pre-save check: newer saves are shown for review before anything is written", async ({ page, github }) => {
-  await drag(page, DAGSTER, 70);
+  await dragDays(page, DAGSTER, 10);
   github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline (orders + payments)") }, "Sam Lee", "CDC pipeline: renamed");
   const priya = github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("status: in_progress", "status: at_risk") }, "Priya Shah", "Revenue mart: at risk");
 
@@ -47,9 +47,9 @@ test("pre-save check: newer saves are shown for review before anything is writte
   expect(github.head).toBe(priya); // nothing written yet
 
   await dialog.getByRole("button", { name: "Review changes" }).click();
-  await expect(box(page, CDC)).toHaveText("CDC pipeline (orders + payments)");
+  await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline (orders + payments)");
   await expect(page.locator(".box.updated")).toHaveCount(2);
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 24, 2026 – Nov 2, 2026"); // my edit kept
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026"); // my edit kept
 
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
@@ -63,7 +63,7 @@ for (const keep of ["mine", "theirs"] as const) {
     await box(page, DAGSTER).click();
     await page.locator(".editor-title").fill("Dagster (mine)");
     await page.keyboard.press("Escape");
-    await drag(page, CDC, 70); // a second, unrelated edit
+    await dragDays(page, CDC, 10); // a second, unrelated edit
     github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace(/title: .*/, "title: Dagster (theirs)") });
 
     await save(page);
@@ -73,13 +73,13 @@ for (const keep of ["mine", "theirs"] as const) {
 
     await expect(toolbar(page)).toContainText("No changes");
     expect(github.file(boxFile(DAGSTER))).toContain(`title: Dagster (${keep})`);
-    expect(github.file(boxFile(CDC))).toContain("start: 2026-11-05"); // unrelated edit saved either way
-    await expect(box(page, DAGSTER)).toHaveText(`Dagster (${keep})`);
+    expect(github.file(boxFile(CDC))).toContain("start: 2026-11-09"); // unrelated edit saved either way
+    await expect(boxTitle(page, DAGSTER)).toHaveText(`Dagster (${keep})`);
   });
 }
 
 test("a save that races another goes on top of it", async ({ page, github }) => {
-  await drag(page, DAGSTER, 70);
+  await dragDays(page, DAGSTER, 10);
   let theirs = "";
   github.beforeRefUpdate = () => {
     theirs = github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") });
@@ -88,11 +88,11 @@ test("a save that races another goes on top of it", async ({ page, github }) => 
   await expect(toolbar(page)).toContainText("No changes");
   expect(github.headCommit().parent).toBe(theirs);
   expect(github.file(boxFile(REVENUE))).toContain("Revenue mart v3");
-  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-24");
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
 });
 
 test("a racing save to the same box asks whose version to keep", async ({ page, github }) => {
-  await drag(page, DAGSTER, 70);
+  await dragDays(page, DAGSTER, 10);
   github.beforeRefUpdate = () => {
     github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: done") });
   };
@@ -101,5 +101,5 @@ test("a racing save to the same box asks whose version to keep", async ({ page, 
   await expect(dialog.locator(".conflict-list")).toContainText("Dagster 2.x upgrade");
   await dialog.getByRole("button", { name: "Keep mine" }).click();
   await expect(toolbar(page)).toContainText("No changes");
-  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-24");
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
 });

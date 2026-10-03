@@ -1069,7 +1069,30 @@ button.primary:hover:not(:disabled) {
 }
 .box-table {
   table-layout: fixed;
-  min-width: 1640px;
+  min-width: 2000px;
+}
+.col-quarter {
+  width: 150px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-size: 12px;
+}
+.col-fte {
+  width: 64px;
+}
+.col-engineers {
+  width: 190px;
+}
+.box-table .picker-button {
+  border-color: transparent;
+  background: transparent;
+}
+.box-table tr:hover .picker-button:not(:disabled) {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.box-table .picker-button:disabled {
+  cursor: default;
 }
 /* Titles stay pinned while the table scrolls sideways. */
 .box-table .col-title {
@@ -1096,7 +1119,7 @@ button.primary:hover:not(:disabled) {
   width: 132px;
 }
 .col-days {
-  width: 58px;
+  width: 78px;
   text-align: right;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -1223,4 +1246,193 @@ button.primary:hover:not(:disabled) {
   padding: 10px 16px !important;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+/* Department body: stacked lane labels + one track where boxes can span lanes */
+.dept-body {
+  border-bottom: 1px solid var(--border);
+}
+.label.lane-labels {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+}
+.lane-labels .lane-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 12px;
+  border-bottom: 1px solid var(--grid);
+  min-height: 0;
+  overflow: hidden;
+}
+.lane-labels .lane-label:last-child {
+  border-bottom: 0;
+}
+.lane-labels .lane-label.drop-target {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+.lane-labels .overflow-label {
+  background: color-mix(in srgb, var(--warn) 8%, var(--surface));
+  border-left-color: var(--warn);
+}
+.dept-track {
+  position: relative;
+}
+.lane-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-bottom: 1px solid var(--grid);
+}
+.lane-band.drop-target {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.overflow-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--warn) 7%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--warn) 60%, transparent);
+}
+.grid-line.week {
+  background: color-mix(in srgb, var(--grid-major) 60%, var(--grid));
+}
+
+/* Boxes vary in height with FTE; the title is centred on the first full lane. */
+.box:not(.compact) {
+  line-height: 38px;
+}
+.box.status-planned:not(.compact) {
+  line-height: 36px;
+}
+.box-people {
+  margin-top: 6px;
+}
+.box.half {
+  font-size: 11px;
+  line-height: 16px;
+  padding: 0 6px;
+}
+.box.half.status-planned {
+  line-height: 14px;
+}
+.box-people {
+  position: absolute;
+  top: 4px;
+  line-height: 1;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+}
+.box.half .box-people {
+  top: 1px;
+  margin-top: 0;
+}
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 50%, transparent);
+}
+.box.half .avatar {
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+}
+
+/* Engineer picker */
+.picker {
+  position: relative;
+  min-width: 0;
+}
+.picker-button {
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 5px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.picker-button.empty {
+  color: var(--text-muted);
+}
+.picker-menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.2);
+  padding: 4px;
+}
+.picker-option {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: var(--text) !important;
+  cursor: pointer;
+}
+.picker-option:hover {
+  background: var(--surface-2);
+}
+.picker-option input {
+  width: auto !important;
+  margin: 0;
+}
+.picker-empty {
+  margin: 6px 8px;
+}
+.picker-add {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.picker-add input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+.editor .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.editor .field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.field-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--accent);
 }

@@ -33,10 +33,20 @@ test("edits cells and saves them", async ({ page, github }) => {
   await r.getByLabel("Epic link").press("Enter");
   await r.getByLabel("Tags").fill("platform, q4");
   await r.getByLabel("Tags").press("Enter");
-  await expect(r.locator(".col-days")).toHaveText("68");
+  await r.getByLabel("FTE").selectOption("1.5");
+  await expect(r.locator(".col-days")).toHaveText("50"); // working days, Sep 14 – Nov 20
+  await expect(r.locator(".col-quarter")).toHaveText("Q3 2026 – Q4 2026");
+  await r.getByRole("button", { name: "Engineers" }).click();
+  await page.getByRole("option", { name: "Alex Kim" }).click();
+  await page.keyboard.press("Escape");
+  await expect(r.getByRole("button", { name: "Engineers" })).toHaveText("Alex Kim");
+
+  // A weekend end date snaps back to Friday.
+  await row(page, "CDC pipeline for orders DB").getByLabel("End").fill("2027-02-28");
+  await expect(row(page, "CDC pipeline for orders DB").getByLabel("End")).toHaveValue("2027-02-26");
 
   await page.getByRole("button", { name: "Timeline" }).click();
-  await expect(page.locator(`[data-box-id="${DAGSTER}"]`)).toHaveText("Dagster 2.x upgrade (phase 1)");
+  await expect(page.locator(`[data-box-id="${DAGSTER}"] .box-title`)).toHaveText("Dagster 2.x upgrade (phase 1)");
   await page.getByRole("button", { name: "Table" }).click();
 
   await save(page);
@@ -50,8 +60,11 @@ test("edits cells and saves them", async ({ page, github }) => {
       "end: 2026-11-20",
       "type: maintenance",
       "status: in_progress",
-      "description: Blocked on sensor API changes.",
+      "fte: 1.5",
+      "engineers:",
+      "  - alex-kim",
       "epic: https://example.atlassian.net/browse/DATA-7",
+      "description: Blocked on sensor API changes.",
       "tags:",
       "  - platform",
       "  - q4",
