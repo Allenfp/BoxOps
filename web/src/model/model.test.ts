@@ -34,6 +34,7 @@ describe("dates", () => {
 describe("timeline", () => {
   const box = (id: string, start: string, end: string): Box => ({
     id,
+    code: id.toUpperCase().padEnd(3, "X"),
     title: id,
     lane: "l",
     start: parseDay(start)!,
@@ -67,13 +68,13 @@ describe("timeline", () => {
 
 describe("loadRoadmap", () => {
   const settings = "types: [{id: project, name: Project, color: '#000'}]\nstatuses: [{id: planned, name: Planned}]\n";
-  const dept = "id: eng\nname: Eng\nlanes: [{id: e1}, {id: e2, fte: 0.5}]\n";
+  const dept = "id: eng\ncode: EN\nname: Eng\nlanes: [{id: e1}, {id: e2, fte: 0.5}]\n";
 
   it("loads a valid roadmap", () => {
     const { roadmap, issues } = loadRoadmap({
       "settings.yaml": settings,
       "departments/eng.yaml": dept,
-      "boxes/b1.yaml": "id: b1\ntitle: One\nlane: e2\nstart: 2026-01-05\nend: 2026-01-30\ntype: project\nstatus: planned\n",
+      "boxes/b1.yaml": "id: b1\ncode: B1X\ntitle: One\nlane: e2\nstart: 2026-01-05\nend: 2026-01-30\ntype: project\nstatus: planned\n",
     });
     expect(issues).toEqual([]);
     expect(roadmap.departments[0].lanes).toEqual([
@@ -87,9 +88,9 @@ describe("loadRoadmap", () => {
     const { roadmap, issues } = loadRoadmap({
       "settings.yaml": settings,
       "departments/eng.yaml": dept,
-      "boxes/ok.yaml": "id: ok\ntitle: OK\nlane: e1\nstart: 2026-01-05\nend: 2026-01-06\ntype: project\nstatus: planned\n",
-      "boxes/ghost.yaml": "id: ghost\ntitle: G\nlane: nope\nstart: 2026-01-05\nend: 2026-01-06\ntype: project\nstatus: planned\n",
-      "boxes/back.yaml": "id: back\ntitle: B\nlane: e1\nstart: 2026-02-05\nend: 2026-01-06\ntype: project\nstatus: planned\n",
+      "boxes/ok.yaml": "id: ok\ncode: OKX\ntitle: OK\nlane: e1\nstart: 2026-01-05\nend: 2026-01-06\ntype: project\nstatus: planned\n",
+      "boxes/ghost.yaml": "id: ghost\ncode: GHO\ntitle: G\nlane: nope\nstart: 2026-01-05\nend: 2026-01-06\ntype: project\nstatus: planned\n",
+      "boxes/back.yaml": "id: back\ncode: BAK\ntitle: B\nlane: e1\nstart: 2026-02-05\nend: 2026-01-06\ntype: project\nstatus: planned\n",
       "boxes/broken.yaml": "id: [unclosed\n",
     });
     expect(roadmap.boxes.map((b) => b.id)).toEqual(["ok"]);

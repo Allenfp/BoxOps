@@ -4,6 +4,7 @@ import { laneAtSlot, layoutDepartment } from "./layout";
 
 const dept: Department = {
   id: "eng",
+  code: "EN",
   name: "Eng",
   color: "#000",
   order: 1,
@@ -18,6 +19,7 @@ const threeFte: Department = { ...dept, lanes: [{ id: "a", fte: 1 }, { id: "b", 
 
 const box = (id: string, lane: string, start: number, end: number, fte = 1): Box => ({
   id,
+  code: id.toUpperCase().padEnd(3, "X").slice(0, 3),
   title: id,
   lane,
   start,

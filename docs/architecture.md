@@ -25,8 +25,9 @@ web/
     components/             Timeline, TableView, PeopleView, BoxEditor,
                             DepartmentEditor, EngineerPicker, SaveDialog, TextCell
     model/                  data: dates, load (validator), draft, structure
-                            (departments and lanes), serialize, summary
-                            (change descriptions), report
+                            (departments and lanes), relations (codes and
+                            rules), serialize, summary (change descriptions),
+                            report
     timeline/               scale (time ↔ pixels), layout (lanes, capacity)
     github/                 api (REST client), save (commit, conflicts, loading)
   scripts/                  validate.ts, report.ts (command-line checks)
@@ -93,6 +94,9 @@ yours but are flagged as clashes.
   are tried and the tidiest kept. If a box is still left out although the FTE
   fits (a fully booked department), a bounded backtracking search finds an
   arrangement (`timeline/layout.ts`).
+- **Rules between boxes** (`model/relations.ts`) are checked on every change.
+  A broken rule outlines both boxes in red and is listed in the toolbar. An
+  edit that breaks a rule shows a popup with the dates. Nothing is blocked.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes.

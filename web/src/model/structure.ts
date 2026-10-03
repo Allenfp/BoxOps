@@ -6,6 +6,7 @@
 
 import { slugify } from "./draft";
 import type { DraftState } from "./draft";
+import { deriveDeptCode } from "./relations";
 import type { Department, Lane } from "./types";
 
 /** Colours for new departments, in the order they're handed out. */
@@ -32,7 +33,12 @@ function renumber(departments: Department[]): Department[] {
   return [...departments].sort((a, b) => a.order - b.order).map((d, i) => (d.order === i + 1 ? d : { ...d, order: i + 1 }));
 }
 
-export function addDepartment(state: DraftState, name: string, color?: string): { state: DraftState; id: string } {
+export function addDepartment(
+  state: DraftState,
+  name: string,
+  color?: string,
+  code?: string,
+): { state: DraftState; id: string } {
   const taken = new Set(state.departments.map((d) => d.id));
   const slug = slugify(name).replace(/^box$/, "department");
   let id = slug;
@@ -40,6 +46,7 @@ export function addDepartment(state: DraftState, name: string, color?: string): 
   const used = new Set(state.departments.map((d) => d.color));
   const dept: Department = {
     id,
+    code: code ?? deriveDeptCode(name, new Set(state.departments.map((d) => d.code))),
     name: name.trim(),
     color: color ?? DEPARTMENT_COLORS.find((c) => !used.has(c)) ?? DEPARTMENT_COLORS[0],
     order: Math.max(0, ...state.departments.map((d) => d.order)) + 1,
@@ -53,7 +60,7 @@ export function addDepartment(state: DraftState, name: string, color?: string): 
 export function updateDepartment(
   state: DraftState,
   id: string,
-  patch: Partial<Pick<Department, "name" | "color">>,
+  patch: Partial<Pick<Department, "name" | "color" | "code">>,
 ): DraftState {
   return { ...state, departments: state.departments.map((d) => (d.id === id ? { ...d, ...patch } : d)) };
 }

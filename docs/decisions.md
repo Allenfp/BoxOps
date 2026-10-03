@@ -18,12 +18,14 @@ replaced an earlier one.
 | Repo visibility | Public for now; the roadmap data is part of the public site. | Simplest during development. For a private repo: GitHub Enterprise Cloud can restrict the Pages site to repo readers. Branch previews would then need to read through the API with a token. |
 | Stack | Vite, React and TypeScript in `web/`; Vitest; Playwright with WebKit; GitHub Actions. | WebKit matches Safari, which the team uses. |
 | Departments and lanes (2026-10-03) | Added, edited, reordered and removed in the app (✎ on a department heading, **+ Add department**). Removing a lane or department that still has boxes requires choosing where they move. | Changing the team's shape shouldn't need a code editor, and should never silently drop work. |
+| Box codes (2026-10-03) | Every box has a 3-character code, unique and permanent, shown with its department's code: `DE-A1F`. The prefix follows the department when a box moves. Files store only the 3 characters. | Short, speakable references. A department code change relabels its boxes without rewriting their files. |
+| Rules between boxes (2026-10-03) | Boxes can be related: finishes before, starts after, happens during, starts/ends when, runs at the same time as, doesn't overlap. A broken rule shows a popup, red marks and a toolbar list, and never blocks anything. | Dependencies are guidance for planning, like capacity. Plans are sometimes knowingly out of order. |
 | Repo scope (2026-10-03) | The repo contains only the roadmap. The earlier Python knowledge-coverage tool (`src/`, `config/`) was removed; it's in history before commit `3d9b821`. | Keep the repo focused. |
 
 ## Not built yet
 
 - A Changes panel listing each unsaved edit with per-item discard.
-- Milestones (single-date markers) and dependency arrows between boxes.
+- Milestones (single-date markers), and arrows drawing rules on the timeline.
 - Filters by type, status, tag or engineer; PNG/PDF export.
 - Comparing against a past commit to show schedule slip.
 - A sign-in button (OAuth proxy) instead of pasting a token.

@@ -2,6 +2,7 @@
 
 import { prettyDay } from "./dates";
 import { diffDraft, type DraftState } from "./draft";
+import { RELATION_TYPES, fullCode } from "./relations";
 import type { Box, Department, Settings } from "./types";
 
 export interface ChangeLine {
@@ -34,8 +35,16 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
   for (const p of changes.people.changed) lines.push({ kind: "changed", text: `Updated engineer **${p.name}**` });
   for (const p of changes.people.removed) lines.push({ kind: "deleted", text: `Removed engineer **${p.name}**` });
 
+  const code = (b: Box) => fullCode(b, draft.departments);
+  const allBoxes = new Map([...base.boxes, ...draft.boxes].map((b) => [b.code, b]));
+  const ruleText = (r: { type: keyof typeof RELATION_TYPES; box: string }) => {
+    const other = allBoxes.get(r.box);
+    return RELATION_TYPES[r.type].label.replace("{other}", other ? `**${other.title}** (${code(other)})` : r.box);
+  };
+  const ruleKey = (r: { type: string; box: string }) => `${r.type}:${r.box}`;
+
   for (const b of changes.added) {
-    lines.push({ kind: "added", text: `Added **${b.title}** to ${lanes.get(b.lane) ?? b.lane}, ${range(b)}` });
+    lines.push({ kind: "added", text: `Added **${b.title}** (${code(b)}) to ${lanes.get(b.lane) ?? b.lane}, ${range(b)}` });
   }
 
   for (const b of changes.modified) {
@@ -55,11 +64,18 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
     if ((was.description ?? "") !== (b.description ?? "")) parts.push("description edited");
     if ((was.tags ?? []).join() !== (b.tags ?? []).join()) parts.push("tags edited");
     if ((was.links ?? []).join() !== (b.links ?? []).join()) parts.push("links edited");
-    lines.push({ kind: "changed", text: `**${b.title}**: ${parts.join("; ") || "edited"}` });
+    const wasRules = new Set((was.relations ?? []).map(ruleKey));
+    const nowRules = new Set((b.relations ?? []).map(ruleKey));
+    for (const r of b.relations ?? []) if (!wasRules.has(ruleKey(r))) parts.push(`now ${ruleText(r)}`);
+    for (const r of was.relations ?? []) if (!nowRules.has(ruleKey(r))) parts.push(`no longer ${ruleText(r)}`);
+    lines.push({ kind: "changed", text: `**${b.title}** (${code(b)}): ${parts.join("; ") || "edited"}` });
   }
 
   for (const b of changes.removed) {
-    lines.push({ kind: "deleted", text: `Deleted **${b.title}** (${baseLanes.get(b.lane) ?? b.lane}, ${range(b)})` });
+    lines.push({
+      kind: "deleted",
+      text: `Deleted **${b.title}** (${fullCode(b, base.departments)}, ${baseLanes.get(b.lane) ?? b.lane}, ${range(b)})`,
+    });
   }
 
   const baseDepts = new Map(base.departments.map((d) => [d.id, d]));
@@ -76,6 +92,9 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
       continue;
     }
     if (was.name !== d.name) lines.push({ kind: "changed", text: `Renamed department **${was.name}** to **${d.name}**` });
+    if (was.code !== d.code) {
+      lines.push({ kind: "changed", text: `${d.name}'s code is now **${d.code}** (was ${was.code}): its boxes are ${d.code}-…` });
+    }
     if (was.color !== d.color) lines.push({ kind: "changed", text: `Changed the colour of **${d.name}**` });
     if (was.order !== d.order) reordered = true;
     const wasIds = was.lanes.map((l) => l.id);

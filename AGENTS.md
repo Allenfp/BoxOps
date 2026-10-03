@@ -16,6 +16,13 @@ essentials are below.
   a lane, runs from `start` to `end` (inclusive weekdays), needs 0.5–2 FTE, and
   can name the **engineers** working on it.
 - **Engineers** are listed in `roadmap/people.yaml`.
+- **Codes.** People refer to boxes by code, like `DE-A1F`: the department's
+  `code` plus the box's own 3-character `code`. To find the file for `DE-A1F`,
+  `grep -l "^code: A1F$" roadmap/boxes/*`. The prefix follows the box's
+  current department.
+- **Rules** (`relations` on a box) say how boxes sit in time relative to each
+  other: finishes before, starts after, happens during, starts when, ends
+  when, runs at the same time as, doesn't overlap. Broken rules are warnings.
 - A department is **over capacity** when, on some day, its boxes need more FTE
   than its lanes hold. An engineer is **overloaded** when their share of their
   boxes is over 1 FTE (a box's FTE is split evenly across its engineers). Both
@@ -31,8 +38,8 @@ a commit on `main`. So:
 1. **Start from the latest `main`:** `git checkout main && git pull --ff-only`.
 2. **Look before you change.** From `web/` (run `npm ci` once first), run
    `npm run report` and keep the output: it shows over-capacity departments,
-   overloaded engineers, unassigned boxes, and every engineer's bookings by
-   date (use that to answer "who's free then?").
+   overloaded engineers, unassigned boxes, broken rules, and every engineer's
+   bookings by date (use that to answer "who's free then?").
 3. **Edit the YAML files** (recipes below). Change only what you need: don't
    reformat files, reorder fields, or rewrite unrelated lines, and keep comments.
 4. **Check your work** from `web/`:
@@ -40,7 +47,7 @@ a commit on `main`. So:
      16 boxes — OK`). It lists any problem and exits non-zero.
    - `npm run report` again. Compare with step 2 and tell the user about
      anything your change made worse (a department over capacity, someone over
-     1 FTE).
+     1 FTE, a rule now broken).
 5. **Commit to `main`.** Pull first if time has passed (`git pull --ff-only`;
    validate again if anything came in). Stage only the roadmap
    (`git add roadmap/`), never `git add -A`. Write the message the way the app
@@ -68,9 +75,9 @@ is `<Department> / <lane label>`):
 
 | Change | Line |
 |---|---|
-| New box | `Added <title> to <lane>, <range>` |
-| Deleted box | `Deleted <title> (<lane>, <range>)` |
-| Edited box | `<title>: ` then the parts that changed, joined by `; ` |
+| New box | `Added <title> (<code>) to <lane>, <range>` |
+| Deleted box | `Deleted <title> (<code>, <lane>, <range>)` |
+| Edited box | `<title> (<code>): ` then the parts that changed, joined by `; ` |
 | … renamed | `renamed from "<old title>"` |
 | … new lane | `moved from <old lane> to <new lane>` |
 | … same length, new dates | `rescheduled to <range> (was <old range>)` |
@@ -78,6 +85,8 @@ is `<Department> / <lane label>`):
 | … status, type or FTE | `status At risk → Done`, `type <old> → <new>`, `FTE 1 → 1.5` (names, not ids) |
 | … engineers | `engineers now Sam Lee, Alex Kim` |
 | … epic, description, tags, links | `epic link updated` / `epic link removed`, `description edited`, `tags edited`, `links edited` |
+| … rule added or removed | `now finishes before <other title> (<code>)`, `no longer happens during <other title> (<code>)` |
+| Department code changed | `<Department>'s code is now <NEW> (was <OLD>): its boxes are <NEW>-…` |
 | Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
 | Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` |
 
@@ -86,7 +95,7 @@ For example:
 ```
 Roadmap: 2 changes
 
-- Added Data quality checks to Data Engineering / FTE 2, Mar 1, 2027 – Mar 19, 2027
+- Added Data quality checks (DE-K7P) to Data Engineering / FTE 2, Mar 1, 2027 – Mar 19, 2027
 - Updated engineer Jordan Diaz
 ```
 
@@ -121,11 +130,14 @@ def workdays(start: date, end: date) -> int:
 ```
 
 **Add a box.** Pick an id `bx-<4 random hex digits>-<slug>` (the slug is the
-title in lowercase, non-letters/digits replaced by `-`, at most 40 characters),
-check no file of that name exists, and create `roadmap/boxes/<id>.yaml`:
+title in lowercase, non-letters/digits replaced by `-`, at most 40 characters)
+and a new 3-character `code` from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no 0, O,
+1 or I). Check that no file has that id (`ls roadmap/boxes`) or that code
+(`grep -h "^code:" roadmap/boxes/*`), and create `roadmap/boxes/<id>.yaml`:
 
 ```yaml
 id: bx-3f9c-q3-planning
+code: K7P
 title: Q3 planning
 lane: ml-1
 start: 2027-06-07
@@ -155,7 +167,23 @@ department, change `lane`.
 **Resize, re-staff or update a box.** Edit `end`, `fte`, `engineers`, `status`,
 `description` and so on in place. Set `status: done` when finished.
 
-**Delete a box.** Delete its file.
+**Delete a box.** Delete its file, and remove any `relations` entries on other
+boxes that point at its code (`grep -l "box: <code>" roadmap/boxes/*`).
+
+**Relate two boxes.** Add to the box the rule is about:
+
+```yaml
+relations:
+  - type: before        # before, after, during, starts_with, ends_with, overlaps, apart
+    box: XB8            # the other box's code
+```
+
+Check with `npm run report` whether the rule holds today; a broken rule is
+allowed but tell the user. The full table of rules is in
+[docs/data-format.md](docs/data-format.md#rules-between-boxes).
+
+**Move a box to another department.** Change its `lane`. Its code stays the
+same; only the prefix people see changes (DE-A1F becomes AN-A1F).
 
 **Add an engineer.** Append to `people:` in `roadmap/people.yaml` with a new
 id (a slug of their name, unique), `name`, and ideally `department`. Fields go
@@ -171,7 +199,8 @@ box's `engineers` list (`grep -rl "<id>" roadmap/boxes`). Delete an emptied
 **Rename a lane.** Set or change the lane's `name`. Never change a lane `id`
 without updating every box that uses it.
 
-**Add a lane or department.** Lane ids must be unique across all departments;
+**Add a lane or department.** A new department needs a unique `code` (2–4
+capital letters/digits, usually its initials). Lane ids must be unique across all departments;
 follow the department's pattern (`de-1`, `de-2` → `de-3`), or use
 `<department id>-<n>` for a new department. A new department is a new file
 whose `id` matches its file name; give it an `order` after the others and a

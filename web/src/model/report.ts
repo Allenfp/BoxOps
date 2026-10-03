@@ -3,6 +3,7 @@
 // boxes have nobody assigned. Mirrors the warnings the app shows.
 
 import { type Day, dayOfWorkIndex, prettyDay, workIndex } from "./dates";
+import { findViolations } from "./relations";
 import type { Box, Roadmap } from "./types";
 
 export interface Stretch {
@@ -44,6 +45,8 @@ export interface Report {
   /** Every engineer's bookings, and where they're over 1 FTE (a box's FTE is split evenly across its engineers). */
   people: { id: string; name: string; department?: string; bookings: { box: Box; fte: number }[]; over: Stretch[] }[];
   unassigned: Box[];
+  /** Broken rules between boxes, in words. */
+  ruleWarnings: string[];
 }
 
 export function buildReport(roadmap: Roadmap): Report {
@@ -63,6 +66,7 @@ export function buildReport(roadmap: Roadmap): Report {
       return { id: p.id, name: p.name, department: p.department, bookings, over: overStretches(shares, 1) };
     }),
     unassigned: roadmap.boxes.filter((b) => !b.engineers?.length).sort((a, b) => a.start - b.start),
+    ruleWarnings: findViolations(roadmap.boxes, roadmap.departments).map((v) => v.message),
   };
 }
 
@@ -86,11 +90,14 @@ export function formatReport(r: Report): string {
     lines.push(`  ${p.name} (${p.id})${p.department ? `, ${p.department}` : ""}`);
     if (p.bookings.length === 0) lines.push("    no boxes");
     for (const { box, fte } of p.bookings) {
-      lines.push(`    ${prettyDay(box.start)} – ${prettyDay(box.end)}  ${fte} FTE  ${box.title} (${box.id})`);
+      lines.push(`    ${prettyDay(box.start)} – ${prettyDay(box.end)}  ${fte} FTE  ${box.title} (${box.code})`);
     }
   }
   lines.push("", "Boxes with no engineer");
   if (r.unassigned.length === 0) lines.push("  none");
-  for (const b of r.unassigned) lines.push(`  ${b.title} (${b.id}), ${prettyDay(b.start)} – ${prettyDay(b.end)}`);
+  for (const b of r.unassigned) lines.push(`  ${b.title} (${b.code}), ${prettyDay(b.start)} – ${prettyDay(b.end)}`);
+  lines.push("", "Broken rules between boxes");
+  if (r.ruleWarnings.length === 0) lines.push("  none");
+  for (const w of r.ruleWarnings) lines.push(`  ${w}`);
   return lines.join("\n");
 }

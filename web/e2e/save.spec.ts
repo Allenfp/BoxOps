@@ -21,7 +21,7 @@ test.describe("first save", () => {
 
     const head = github.headCommit();
     expect(head.parent).toBe(github.root);
-    expect(head.message.split("\n")[0]).toBe("Dagster 2.x upgrade: rescheduled to Sep 28, 2026 – Nov 6, 2026");
+    expect(head.message.split("\n")[0]).toBe("Dagster 2.x upgrade (DE-D9U): rescheduled to Sep 28, 2026 – Nov 6, 2026");
     expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28\nend: 2026-11-06\n");
 
     // Next save: no dialog at all.

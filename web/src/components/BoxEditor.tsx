@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
-import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type Settings } from "../model/types";
+import { RELATION_ORDER, RELATION_TYPES, type Violation, fullCode, incoming } from "../model/relations";
+import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type RelationType, type Settings } from "../model/types";
 import { EngineerPicker } from "./EngineerPicker";
 
-const WIDTH = 360;
+const WIDTH = 440;
 const GAP = 8;
 
 interface Props {
@@ -11,7 +12,13 @@ interface Props {
   settings: Settings;
   departments: Department[];
   people: Person[];
+  /** Every box, for rules. */
+  boxes: Box[];
+  /** Broken rules involving this box. */
+  violations: Violation[];
   onAddPerson(name: string, department?: string): string;
+  /** Remove a rule that another box has about this one. */
+  onRemoveIncoming(fromBoxId: string, type: RelationType): void;
   /** `field` groups keystrokes in one field into a single undo step. */
   onChange(patch: Partial<Box>, field: string): void;
   onDelete(): void;
@@ -24,7 +31,8 @@ const splitList = (text: string, sep: RegExp) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-export function BoxEditor({ box, settings, departments, people, onAddPerson, onChange, onDelete, onClose }: Props) {
+export function BoxEditor(props: Props) {
+  const { box, settings, departments, people, boxes, violations, onAddPerson, onChange, onDelete, onClose } = props;
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   // Free-text list fields keep their raw text while typing so commas and newlines aren't eaten.
@@ -107,6 +115,29 @@ export function BoxEditor({ box, settings, departments, people, onAddPerson, onC
   };
   const department = departments.find((d) => d.lanes.some((l) => l.id === box.lane))?.id;
 
+  // Rules: this box's own, plus ones other boxes have about it.
+  const [newRuleType, setNewRuleType] = useState<RelationType>("before");
+  const relations = box.relations ?? [];
+  const others = boxes.filter((b) => b.id !== box.id);
+  const byCode = new Map(boxes.map((b) => [b.code, b]));
+  const label = (b: Box) => `${fullCode(b, departments)} ${b.title}`;
+  const brokenOut = (type: RelationType, code: string) =>
+    violations.find((v) => v.from.id === box.id && v.type === type && v.to.code === code);
+  const brokenIn = (from: Box, type: RelationType) => violations.find((v) => v.from.id === from.id && v.type === type && v.to.id === box.id);
+  const setRelations = (next: typeof relations) => onChange({ relations: next }, "relations");
+  const boxOptions = departments.map((d) => {
+    const inDept = others.filter((b) => d.lanes.some((l) => l.id === b.lane)).sort((a, b) => a.start - b.start);
+    return inDept.length ? (
+      <optgroup key={d.id} label={d.name}>
+        {inDept.map((b) => (
+          <option key={b.id} value={b.code}>
+            {label(b)}
+          </option>
+        ))}
+      </optgroup>
+    ) : null;
+  });
+
   const epicValid = !box.epic || /^https?:\/\/\S+$/.test(box.epic);
   const days = workdays(box.start, box.end);
   const typeColor = settings.types.find((t) => t.id === box.type)?.color;
@@ -120,6 +151,9 @@ export function BoxEditor({ box, settings, departments, people, onAddPerson, onC
       style={{ width: WIDTH, top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}
     >
       <div className="editor-head" style={{ borderTopColor: typeColor }}>
+        <span className="code-chip" title="This box's code. The prefix follows its department.">
+          {fullCode(box, departments)}
+        </span>
         <input
           className="editor-title"
           value={box.title}
@@ -215,6 +249,94 @@ export function BoxEditor({ box, settings, departments, people, onAddPerson, onC
           </span>
           {!epicValid && <span className="field-error">Use a full http(s) link.</span>}
         </label>
+        <div className="span-2 field">
+          <span className="field-label">
+            Rules for this box <span className="hint">warnings only; nothing is blocked</span>
+          </span>
+          <ul className="rule-list">
+            {relations.map((r, i) => {
+              const broken = brokenOut(r.type, r.box);
+              return (
+                <li key={`${r.type}:${r.box}:${i}`} className={broken ? "broken" : undefined}>
+                  <span className="rule-row">
+                    <select
+                      value={r.type}
+                      aria-label="Rule"
+                      onChange={(e) =>
+                        setRelations(relations.map((x, j) => (j === i ? { ...x, type: e.target.value as RelationType } : x)))
+                      }
+                    >
+                      {RELATION_ORDER.map((t) => (
+                        <option key={t} value={t}>
+                          {RELATION_TYPES[t].short}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={r.box}
+                      aria-label="Other box"
+                      onChange={(e) => setRelations(relations.map((x, j) => (j === i ? { ...x, box: e.target.value } : x)))}
+                    >
+                      {!byCode.has(r.box) && <option value={r.box}>{r.box} (missing)</option>}
+                      {boxOptions}
+                    </select>
+                    <button
+                      className="icon-button row-remove"
+                      aria-label="Remove rule"
+                      onClick={() => setRelations(relations.filter((_, j) => j !== i))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                  {broken && <span className="rule-warning">⚠ {broken.message}</span>}
+                </li>
+              );
+            })}
+            {incoming(boxes, box.code).map(({ box: from, relation }) => {
+              const broken = brokenIn(from, relation.type);
+              return (
+                <li key={`in:${from.id}:${relation.type}`} className={`incoming${broken ? " broken" : ""}`}>
+                  <span className="rule-row">
+                    <span>
+                      This box {RELATION_TYPES[relation.type].inverse.replace("{other}", label(from))}
+                      <span className="hint"> (set on {fullCode(from, departments)})</span>
+                    </span>
+                    <button
+                      className="icon-button row-remove"
+                      aria-label={`Remove rule set on ${fullCode(from, departments)}`}
+                      onClick={() => props.onRemoveIncoming(from.id, relation.type)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                  {broken && <span className="rule-warning">⚠ {broken.message}</span>}
+                </li>
+              );
+            })}
+          </ul>
+          <span className="rule-row add-rule">
+            <span className="hint">Add:</span>
+            <select value={newRuleType} onChange={(e) => setNewRuleType(e.target.value as RelationType)} aria-label="New rule">
+              {RELATION_ORDER.map((t) => (
+                <option key={t} value={t}>
+                  {RELATION_TYPES[t].short}
+                </option>
+              ))}
+            </select>
+            <select
+              value=""
+              aria-label="Add a rule with"
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const exists = relations.some((r) => r.type === newRuleType && r.box === e.target.value);
+                if (!exists) setRelations([...relations, { type: newRuleType, box: e.target.value }]);
+              }}
+            >
+              <option value="">Add a rule with…</option>
+              {boxOptions}
+            </select>
+          </span>
+        </div>
         <label className="span-2">
           Description
           <textarea

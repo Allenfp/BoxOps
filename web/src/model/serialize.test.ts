@@ -40,7 +40,7 @@ describe("serializeChanges", () => {
       ...draft,
       boxes: [
         ...draft.boxes,
-        { id: "bx-0001-new-thing", title: "New: thing", lane: "an-3", start: 102, end: 120, type: "project", status: "planned", fte: 1 },
+        { id: "bx-0001-new-thing", code: "NEW", title: "New: thing", lane: "an-3", start: 102, end: 120, type: "project", status: "planned", fte: 1 },
       ],
     };
     const out = serializeChanges(files, base, draft);
@@ -48,20 +48,20 @@ describe("serializeChanges", () => {
     expect(out["boxes/bx-a1f0-warehouse-migration.yaml"]).not.toContain("epic:");
     expect(out["boxes/bx-a1f0-warehouse-migration.yaml"]).toContain("tags:\n  - iceberg\n  - q4\n");
     expect(out["boxes/bx-0001-new-thing.yaml"]).toBe(
-      'id: bx-0001-new-thing\ntitle: "New: thing"\nlane: an-3\nstart: 1970-04-13\nend: 1970-05-01\ntype: project\nstatus: planned\n',
+      'id: bx-0001-new-thing\ncode: NEW\ntitle: "New: thing"\nlane: an-3\nstart: 1970-04-13\nend: 1970-05-01\ntype: project\nstatus: planned\n',
     );
     const { issues } = loadRoadmap(applyChanges(files, out));
     expect(issues).toEqual([]);
   });
 
   it("renames a lane without touching the rest of the department file", () => {
-    const original = "# Data team lanes\nid: eng\nname: Eng\nlanes:\n  - id: e1 # first hire\n    fte: 1\n  - id: e2\n    fte: 0.5\n";
-    const dept = { id: "eng", name: "Eng", color: "#8a94a6", order: 0, collapsed: false, lanes: [{ id: "e1", fte: 1 }, { id: "e2", fte: 0.5 }] };
+    const original = "# Data team lanes\nid: eng\ncode: EN\nname: Eng\nlanes:\n  - id: e1 # first hire\n    fte: 1\n  - id: e2\n    fte: 0.5\n";
+    const dept = { id: "eng", code: "EN", name: "Eng", color: "#8a94a6", order: 0, collapsed: false, lanes: [{ id: "e1", fte: 1 }, { id: "e2", fte: 0.5 }] };
     const b: DraftState = { boxes: [], departments: [dept], people: [] };
     const d: DraftState = { boxes: [], departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: "Platform" }, dept.lanes[1]] }], people: [] };
     const out = serializeChanges({ "departments/eng.yaml": original }, b, d);
     expect(out["departments/eng.yaml"]).toBe(
-      "# Data team lanes\nid: eng\nname: Eng\nlanes:\n  - id: e1 # first hire\n    name: Platform\n    fte: 1\n  - id: e2\n    fte: 0.5\n",
+      "# Data team lanes\nid: eng\ncode: EN\nname: Eng\nlanes:\n  - id: e1 # first hire\n    name: Platform\n    fte: 1\n  - id: e2\n    fte: 0.5\n",
     );
   });
 });
@@ -76,7 +76,7 @@ describe("describeChanges", () => {
     });
     const [line] = describeChanges(base, draft, roadmap.settings);
     expect(line.text).toBe(
-      "**Dagster 2.x upgrade**: moved from Data Engineering / FTE 2 to Data Engineering / Contractor; " +
+      "**Dagster 2.x upgrade** (DE-D9U): moved from Data Engineering / FTE 2 to Data Engineering / Contractor; " +
         "rescheduled to Sep 24, 2026 – Nov 2, 2026 (was Sep 14, 2026 – Oct 23, 2026); status At risk → In progress",
     );
   });

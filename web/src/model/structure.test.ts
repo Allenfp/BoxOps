@@ -5,13 +5,14 @@ import type { Box, Department } from "./types";
 
 const dept = (id: string, order: number, lanes: string[]): Department => ({
   id,
+  code: id.slice(0, 2).toUpperCase(),
   name: id.toUpperCase(),
   color: "#4f7cff",
   order,
   collapsed: false,
   lanes: lanes.map((l) => ({ id: l, fte: 1 })),
 });
-const box = (id: string, lane: string): Box => ({ id, title: id, lane, start: 1, end: 2, fte: 1, type: "p", status: "s" });
+const box = (id: string, lane: string): Box => ({ id, code: id.toUpperCase().padEnd(3, "X"), title: id, lane, start: 1, end: 2, fte: 1, type: "p", status: "s" });
 
 const state: DraftState = {
   departments: [dept("eng", 1, ["de-1", "de-2"]), dept("ops", 2, ["ops-a"])],

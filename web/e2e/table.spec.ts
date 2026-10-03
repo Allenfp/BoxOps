@@ -45,7 +45,7 @@ test("edits cells and saves them", async ({ page, github }) => {
   await expect(row(page, "CDC pipeline for orders DB").getByLabel("End")).toHaveValue("2027-02-26");
 
   await page.getByRole("button", { name: "Timeline" }).click();
-  await expect(page.locator(`[data-box-id="${DAGSTER}"] .box-title`)).toHaveText("Dagster 2.x upgrade (phase 1)");
+  await expect(page.locator(`[data-box-id="${DAGSTER}"] .box-name`)).toHaveText("Dagster 2.x upgrade (phase 1)");
   await page.getByRole("button", { name: "Table" }).click();
 
   await save(page);
@@ -53,6 +53,7 @@ test("edits cells and saves them", async ({ page, github }) => {
   expect(github.file(boxFile(DAGSTER))).toBe(
     [
       "id: bx-c93d-dagster-upgrade",
+      "code: D9U",
       "title: Dagster 2.x upgrade (phase 1)",
       "lane: de-4",
       "start: 2026-09-14",

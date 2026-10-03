@@ -58,6 +58,8 @@ interface Props {
   conflictIds?: Set<string>;
   /** Boxes someone else changed since this tab loaded (for review). */
   updatedIds?: Set<string>;
+  /** Broken rules, by box id: the messages to show on that box. */
+  ruleWarnings?: Map<string, string[]>;
   /** Open the department editor (✎ on a department heading). */
   onEditDepartment?(id: string): void;
   onAddDepartment?(): void;
@@ -86,6 +88,10 @@ export function Timeline(props: Props) {
   const typeColor = useMemo(() => new Map(settings.types.map((t) => [t.id, t.color])), [settings.types]);
   const statusName = useMemo(() => new Map(settings.statuses.map((s) => [s.id, s.name])), [settings.statuses]);
   const personName = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
+  const deptCode = useMemo(
+    () => new Map(departments.flatMap((d) => d.lanes.map((l) => [l.id, d.code] as const))),
+    [departments],
+  );
 
   // While a box is dragged it is left out of the layout, so nothing jumps around under the pointer.
   const [preview, setPreview] = useState<(BoxPlacement & { id: string }) | null>(null);
@@ -245,6 +251,8 @@ export function Timeline(props: Props) {
     const width = typeof style.width === "number" ? style.width : 0;
     const interactive = variant !== "compact" && !readOnly;
     const clash = props.conflictIds?.has(b.id);
+    const warnings = props.ruleWarnings?.get(b.id) ?? [];
+    const code = `${deptCode.get(b.lane) ?? "?"}-${b.code}`;
     const engineers = (b.engineers ?? []).map((id) => personName.get(id) ?? id);
     const classes = [
       "box",
@@ -254,11 +262,13 @@ export function Timeline(props: Props) {
       b.id === selectedId && "selected",
       clash && "conflict",
       props.updatedIds?.has(b.id) && "updated",
+      warnings.length > 0 && "rule-broken",
     ];
     const tooltip = [
       clash && "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n",
       props.updatedIds?.has(b.id) && !clash && "● Changed by someone else since you opened the roadmap.\n",
-      b.title,
+      ...warnings.map((w) => `⚠ ${w}\n`),
+      `${code}  ${b.title}`,
       `${prettyDay(b.start)} – ${prettyDay(b.end)}`,
       `${workdays(b.start, b.end)} working days · ${b.fte} FTE · ${statusName.get(b.status) ?? b.status}`,
       engineers.length ? `Engineers: ${engineers.join(", ")}` : "No engineer assigned",
@@ -274,7 +284,13 @@ export function Timeline(props: Props) {
         onPointerDown={interactive ? (e) => startDrag(e, b) : undefined}
         onClick={interactive || readOnly ? undefined : () => onSelect(b.id)}
       >
-        {variant !== "compact" && <span className="box-title">{b.title || "Untitled"}</span>}
+        {variant !== "compact" && (
+          <span className="box-title">
+            <span className="box-code">{code}</span>
+            {warnings.length > 0 && <span className="box-warn" aria-label="Breaks a rule">⚠</span>}
+            <span className="box-name">{b.title || "Untitled"}</span>
+          </span>
+        )}
         {variant !== "compact" && engineers.length > 0 && width >= 120 && (
           <span className="box-people">
             {engineers.map((n) => (

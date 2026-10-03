@@ -21,6 +21,7 @@ import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraf
 import { addWorkdays, startOfWeek, today } from "./model/dates";
 import { loadRoadmap } from "./model/load";
 import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
+import { type Violation, findViolations } from "./model/relations";
 import { commitMessage, describeChanges } from "./model/summary";
 import type { Box, Issue, Roadmap, RoadmapFiles, ZoomLevel } from "./model/types";
 import { ZOOM_LEVELS } from "./model/types";
@@ -457,6 +458,31 @@ function RoadmapView(props: ViewProps) {
     if (ids.length) setUpdatedIds((cur) => new Set([...cur, ...ids]));
   }, [draftBase]);
 
+  // Broken rules: shown on the boxes, listed in the toolbar, and announced when an edit breaks one.
+  const violations = useMemo(() => findViolations(draft.boxes, draft.departments), [draft.boxes, draft.departments]);
+  const ruleWarnings = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const v of violations) for (const b of [v.from, v.to]) m.set(b.id, [...(m.get(b.id) ?? []), v.message]);
+    return m;
+  }, [violations]);
+  const [showRules, setShowRules] = useState(false);
+  const [newlyBroken, setNewlyBroken] = useState<Violation[]>([]);
+  const knownBroken = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const key = (v: Violation) => `${v.from.code}:${v.type}:${v.to.code}`;
+    const now = new Set(violations.map(key));
+    if (knownBroken.current) {
+      const fresh = violations.filter((v) => !knownBroken.current!.has(key(v)));
+      if (fresh.length) setNewlyBroken(fresh);
+    }
+    knownBroken.current = now;
+  }, [violations]);
+  useEffect(() => {
+    if (!newlyBroken.length) return;
+    const t = setTimeout(() => setNewlyBroken([]), 10_000);
+    return () => clearTimeout(t);
+  }, [newlyBroken]);
+
   const conflictBoxIds = useMemo(
     () => new Set(draft.conflicts.filter((k) => k.startsWith("box:")).map((k) => k.slice(4))),
     [draft.conflicts],
@@ -540,6 +566,11 @@ function RoadmapView(props: ViewProps) {
                 ⚠ {draft.conflicts.length} clash{draft.conflicts.length === 1 ? "" : "es"}
               </span>
             )}
+            {violations.length > 0 && (
+              <button className="pill warn rules-button" onClick={() => setShowRules((x) => !x)} aria-expanded={showRules}>
+                ⚠ {violations.length} rule warning{violations.length === 1 ? "" : "s"}
+              </button>
+            )}
           </div>
         )}
 
@@ -601,6 +632,23 @@ function RoadmapView(props: ViewProps) {
           </button>
         </div>
       )}
+      {showRules && violations.length > 0 && (
+        <ul className="issues rules-list">
+          {violations.map((v, n) => (
+            <li key={n}>
+              <button
+                className="link-button"
+                onClick={() => {
+                  setView("timeline");
+                  select(v.from.id);
+                }}
+              >
+                {v.message}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {showIssues && (
         <ul className="issues">
           {issues.map((i, n) => (
@@ -659,6 +707,7 @@ function RoadmapView(props: ViewProps) {
           onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
           onEditDepartment={editDepartment}
           onAddDepartment={addDepartment}
+          ruleWarnings={ruleWarnings}
         />
       ) : (
         <Timeline
@@ -678,6 +727,7 @@ function RoadmapView(props: ViewProps) {
         readOnly={preview || busy}
         conflictIds={conflictBoxIds}
         updatedIds={updatedIds}
+        ruleWarnings={ruleWarnings}
         onEditDepartment={editDepartment}
         onAddDepartment={addDepartment}
       />
@@ -689,6 +739,16 @@ function RoadmapView(props: ViewProps) {
           settings={base.settings}
           departments={draft.departments}
           people={draft.people}
+          boxes={draft.boxes}
+          violations={violations.filter((v) => v.from.id === selectedBox.id || v.to.id === selectedBox.id)}
+          onRemoveIncoming={(fromId, type) => {
+            const from = draft.boxes.find((b) => b.id === fromId);
+            if (from) {
+              draft.updateBox(fromId, {
+                relations: (from.relations ?? []).filter((r) => !(r.type === type && r.box === selectedBox.code)),
+              });
+            }
+          }}
           onAddPerson={(name, department) => draft.addPerson(name, department)}
           onChange={editBox}
           onDelete={() => {
@@ -698,14 +758,28 @@ function RoadmapView(props: ViewProps) {
           onClose={() => select(null)}
         />
       )}
+      {newlyBroken.length > 0 && (
+        <div className="toast" role="status">
+          <strong>⚠ That breaks {newlyBroken.length === 1 ? "a rule" : `${newlyBroken.length} rules`}</strong>
+          <ul>
+            {newlyBroken.map((v, i) => (
+              <li key={i}>{v.message}</li>
+            ))}
+          </ul>
+          <span className="hint">Nothing is blocked; it's a heads-up.</span>
+          <button className="icon-button" onClick={() => setNewlyBroken([])} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
       {deptEditor && !preview && (
         <DepartmentEditor
           target={deptEditor}
           departments={draft.departments}
           boxes={draft.boxes}
           people={draft.people}
-          onCreate={(name, color) => {
-            const id = draft.addDepartment(name, color);
+          onCreate={(name, color, code) => {
+            const id = draft.addDepartment(name, color, code);
             setCollapsed((prev) => {
               const next = new Set(prev);
               next.delete(id);

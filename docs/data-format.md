@@ -24,6 +24,10 @@ Any other file under `roadmap/` is reported as unexpected.
 - **Dates** are `YYYY-MM-DD`. A box's `start` and `end` are **inclusive** and
   must be **weekdays**: the roadmap has no weekends. Durations are counted in
   working days (Monday–Friday).
+- **Codes.** Every department has a short code (`DE`) and every box a
+  3-character code (`A1F`); people refer to a box as `DE-A1F`. A box's code is
+  unique across the roadmap and never changes. The prefix is always its
+  current department's code, so it changes if the box moves.
 - **FTE** (full-time equivalent) measures capacity. A lane holds 1 or 0.5 FTE;
   a box needs 0.5, 1, 1.5 or 2.
 - Optional fields can be left out. An empty string or empty list means the same
@@ -63,6 +67,7 @@ types are `project`, `maintenance`, `research` and `support`.
 
 ```yaml
 id: data-eng
+code: DE
 name: Data Engineering
 color: "#4f7cff"
 order: 1
@@ -77,6 +82,7 @@ lanes:
 | Field | Required | Meaning |
 |---|---|---|
 | `id` | yes | Must match the file name. |
+| `code` | yes | 2–4 capital letters or digits, starting with a letter; unique. Prefixes its boxes' codes. Changing it relabels every box in the department (box files don't change). |
 | `name` | yes | Shown as the department heading. |
 | `color` | no | Department colour. Default `#8a94a6`. |
 | `order` | no | Departments are shown by `order`, then name. Default 0. |
@@ -98,6 +104,7 @@ of its lanes' FTE.
 
 ```yaml
 id: bx-b27c-fivetran-cost-review
+code: ERK
 title: Fivetran cost review
 lane: de-1
 start: 2026-12-07
@@ -108,6 +115,9 @@ fte: 1.5
 engineers:
   - jordan-diaz
   - sam-lee
+relations:
+  - type: after
+    box: XB8
 epic: https://example.atlassian.net/browse/DATA-42
 description: Audit connector usage and cut unused syncs.
 tags:
@@ -119,6 +129,7 @@ links:
 | Field | Required | Meaning |
 |---|---|---|
 | `id` | yes | Must match the file name. New boxes use `bx-<4 hex digits>-<slug of the title>`, e.g. `bx-7f3a-q2-planning`. |
+| `code` | yes | Exactly 3 capital letters or digits, unique across all boxes, never changed. Shown as `<department code>-<code>`. New codes avoid look-alikes (0/O, 1/I). |
 | `title` | yes | Shown on the box. |
 | `lane` | yes | The lane it sits in (any department). |
 | `start`, `end` | yes | Inclusive weekday dates; `end` on or after `start`. |
@@ -126,12 +137,33 @@ links:
 | `status` | yes | One of the `statuses` in settings. |
 | `fte` | no | 0.5, 1, 1.5 or 2. Default 1, so it's usually left out for 1-FTE boxes. |
 | `engineers` | no | Ids from `people.yaml`. Usually one engineer per started FTE (one for 0.5–1, two for 1.5–2). |
+| `relations` | no | Rules relating this box to others: a list of `type` (below) and `box` (the other box's 3-character code; `DE-XB8` is also accepted). |
 | `epic` | no | `http(s)://` link to the epic or ticket. |
 | `description` | no | Free text; may span lines. |
 | `tags`, `links` | no | Lists of text. |
 
 The app writes fields in the order shown above, inserting new fields where they
 belong rather than at the end.
+
+### Rules between boxes
+
+A rule says how this box should sit in time relative to another. Dates are
+inclusive working days.
+
+| `type` | Reads as | Broken when |
+|---|---|---|
+| `before` | this box finishes before the other starts | this box's `end` is on or after the other's `start` |
+| `after` | this box starts after the other finishes | this box's `start` is on or before the other's `end` |
+| `during` | this box happens during the other | it starts before the other starts, or ends after it ends |
+| `starts_with` | starts when the other starts | the `start` dates differ |
+| `ends_with` | ends when the other ends | the `end` dates differ |
+| `overlaps` | runs at the same time as the other | they share no days |
+| `apart` | doesn't overlap the other | they share any day |
+
+A rule lives on one box; the app also shows it on the other box, worded the
+other way round ("starts after DE-WQN finishes"). Broken rules are warnings,
+like over capacity: nothing is blocked. Deleting a box in the app also removes
+rules that point at it.
 
 ### FTE and capacity
 
@@ -187,8 +219,12 @@ Removing someone from the roster also means removing their id from every box's
 - ids that don't match the file name, aren't valid, or are used twice
 - a lane id used in two departments
 - a box whose `lane`, `type`, `status` or `engineers` don't exist
+- a missing or malformed department or box `code`, or one used twice
+- a rule with an unknown `type`, pointing at a box code that doesn't exist, or
+  pointing at its own box
 - a box `fte` other than 0.5, 1, 1.5 or 2; a lane `fte` outside (0, 1]
 - a person's `department` that doesn't exist, or an invalid `email`
 - unexpected files in `roadmap/`
 
-Over capacity and overloaded engineers are not validation errors.
+Over capacity, overloaded engineers and broken rules are not validation
+errors; `npm run report` lists them.

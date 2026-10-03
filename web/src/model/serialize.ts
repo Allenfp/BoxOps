@@ -16,6 +16,7 @@ type Plain = Record<string, unknown>;
 /** Field order for newly written files; also the set of keys the app owns. */
 const BOX_KEYS = [
   "id",
+  "code",
   "title",
   "lane",
   "start",
@@ -24,12 +25,13 @@ const BOX_KEYS = [
   "status",
   "fte",
   "engineers",
+  "relations",
   "epic",
   "description",
   "tags",
   "links",
 ];
-const DEPT_KEYS = ["id", "name", "color", "order", "collapsed", "lanes"];
+const DEPT_KEYS = ["id", "code", "name", "color", "order", "collapsed", "lanes"];
 const LANE_KEYS = ["id", "name", "fte"];
 const PERSON_KEYS = ["id", "name", "department", "role", "email", "manager", "notes"];
 

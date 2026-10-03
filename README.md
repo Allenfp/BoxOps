@@ -13,7 +13,10 @@ straight to `main`, and the site updates within a minute.
   months or quarters (working days only; weekends aren't shown). Drag a box to
   move it, drag its ends to resize it, click it to edit, and double-click empty
   space to add one. A box is as tall as the FTE it needs (0.5–2). A department
-  turns red where more FTE is planned than its lanes hold. **+ Add department**
+  turns red where more FTE is planned than its lanes hold. Every box has a
+  code like `DE-A1F`, and boxes can be related ("finishes before",
+  "happens during"…); a broken rule pops up a warning but blocks nothing.
+  **+ Add department**
   and the ✎ on a department heading add, rename, recolour, reorder and remove
   departments and their lanes.
 - **Table.** Every box as an editable row (dates, FTE, engineers, status,

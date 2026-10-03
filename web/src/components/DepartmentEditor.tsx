@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { DEPT_CODE } from "../model/load";
+import { deriveDeptCode } from "../model/relations";
 import { DEPARTMENT_COLORS } from "../model/structure";
 import type { Box, Department, Lane, Person } from "../model/types";
 
@@ -9,9 +11,9 @@ interface Props {
   departments: Department[];
   boxes: Box[];
   people: Person[];
-  onCreate(name: string, color: string): string;
+  onCreate(name: string, color: string, code: string): string;
   /** `key` groups typing in one field into one undo step. */
-  onUpdate(id: string, patch: Partial<Pick<Department, "name" | "color">>, key?: string): void;
+  onUpdate(id: string, patch: Partial<Pick<Department, "name" | "color" | "code">>, key?: string): void;
   onMove(id: string, dir: -1 | 1): void;
   onRemove(id: string, moveTo?: string): void;
   onAddLane(deptId: string): void;
@@ -66,6 +68,8 @@ export function DepartmentEditor(props: Props) {
   const used = new Set(departments.map((d) => d.color));
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(() => DEPARTMENT_COLORS.find((c) => !used.has(c)) ?? DEPARTMENT_COLORS[0]);
+  /** Typed by the user; until then, suggested from the name. */
+  const [newCode, setNewCode] = useState<string | null>(null);
   // Which lane (or the whole department) is being removed, and where its boxes go.
   const [removing, setRemoving] = useState<{ what: string; moveTo: string } | null>(null);
 
@@ -79,6 +83,13 @@ export function DepartmentEditor(props: Props) {
   }, []);
 
   const id = target.kind === "edit" ? target.id : created;
+  const codesTakenExcept = (deptId?: string) => new Set(departments.filter((d) => d.id !== deptId).map((d) => d.code));
+  const codeProblem = (code: string, deptId?: string) =>
+    !DEPT_CODE.test(code)
+      ? "2–4 capital letters or digits, starting with a letter."
+      : codesTakenExcept(deptId).has(code)
+        ? "Another department already uses this code."
+        : null;
   const sorted = [...departments].sort((a, b) => a.order - b.order);
   const dept = id ? departments.find((d) => d.id === id) : undefined;
   const index = dept ? sorted.findIndex((d) => d.id === dept.id) : -1;
@@ -111,7 +122,8 @@ export function DepartmentEditor(props: Props) {
         className="form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (newName.trim()) setCreated(props.onCreate(newName.trim(), newColor));
+          const code = newCode ?? deriveDeptCode(newName, codesTakenExcept());
+          if (newName.trim() && !codeProblem(code)) setCreated(props.onCreate(newName.trim(), newColor, code));
         }}
       >
         <label>
@@ -124,6 +136,20 @@ export function DepartmentEditor(props: Props) {
             aria-label="Department name"
           />
         </label>
+        <label>
+          <span>
+            Code <span className="hint">prefixes its boxes, e.g. DE-A1F</span>
+          </span>
+          <input
+            value={newCode ?? deriveDeptCode(newName, codesTakenExcept())}
+            onChange={(e) => setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
+            aria-label="Department code"
+            className="code-input"
+          />
+          {newName.trim() && codeProblem(newCode ?? deriveDeptCode(newName, codesTakenExcept())) && (
+            <span className="field-error">{codeProblem(newCode ?? deriveDeptCode(newName, codesTakenExcept()))}</span>
+          )}
+        </label>
         <div className="field">
           <span className="field-label">Colour</span>
           <ColorChoice value={newColor} onChange={setNewColor} />
@@ -133,7 +159,11 @@ export function DepartmentEditor(props: Props) {
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!newName.trim()}>
+          <button
+            type="submit"
+            className="primary"
+            disabled={!newName.trim() || !!codeProblem(newCode ?? deriveDeptCode(newName, codesTakenExcept()))}
+          >
             Add department
           </button>
         </footer>
@@ -158,6 +188,22 @@ export function DepartmentEditor(props: Props) {
           aria-label="Department name"
         />
         {!dept.name.trim() && <span className="field-error">A name is required to save.</span>}
+      </label>
+      <label>
+        <span>
+          Code <span className="hint">prefixes its boxes: {dept.code || "?"}-A1F. Changing it relabels them all.</span>
+        </span>
+        <input
+          value={dept.code}
+          onChange={(e) =>
+            props.onUpdate(dept.id, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) }, `${dept.id}:code`)
+          }
+          aria-label="Department code"
+          className="code-input"
+        />
+        {codeProblem(dept.code, dept.id) && (
+          <span className="field-error">{codeProblem(dept.code, dept.id)} It must be fixed before saving.</span>
+        )}
       </label>
       <div className="field">
         <span className="field-label">Colour</span>

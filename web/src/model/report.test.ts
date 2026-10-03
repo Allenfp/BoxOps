@@ -35,17 +35,17 @@ describe("formatReport", () => {
     const text = formatReport(
       buildReport({
         settings: { title: "t", fiscal_year_start_month: 1, default_zoom: "months", types: [], statuses: [] },
-        departments: [{ id: "eng", name: "Eng", color: "#000", order: 1, collapsed: false, lanes: [{ id: "e1", fte: 1 }] }],
+        departments: [{ id: "eng", code: "EN", name: "Eng", color: "#000", order: 1, collapsed: false, lanes: [{ id: "e1", fte: 1 }] }],
         people: [
           { id: "sam", name: "Sam", department: "eng" },
           { id: "ana", name: "Ana" },
         ],
         boxes: [
-          { id: "b1", title: "Pipes", lane: "e1", start: d("2026-10-05"), end: d("2026-10-16"), fte: 1.5, engineers: ["sam", "ana"], type: "p", status: "s" },
+          { id: "b1", code: "PIP", title: "Pipes", lane: "e1", start: d("2026-10-05"), end: d("2026-10-16"), fte: 1.5, engineers: ["sam", "ana"], type: "p", status: "s" },
         ],
       }),
     );
-    expect(text).toContain("Engineer bookings (FTE is their share of the box)\n  Sam (sam), eng\n    Oct 5, 2026 – Oct 16, 2026  0.75 FTE  Pipes (b1)\n  Ana (ana)\n");
+    expect(text).toContain("Engineer bookings (FTE is their share of the box)\n  Sam (sam), eng\n    Oct 5, 2026 – Oct 16, 2026  0.75 FTE  Pipes (PIP)\n  Ana (ana)\n");
     expect(text).toContain("Engineers over 1 FTE\n  none");
     expect(text).toContain("Eng (eng): 1 FTE of lanes, 1 boxes\n    OVER CAPACITY Oct 5, 2026 – Oct 16, 2026: up to 1.5 FTE planned");
   });

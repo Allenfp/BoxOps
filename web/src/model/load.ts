@@ -12,6 +12,8 @@ import type {
   Issue,
   Lane,
   Person,
+  Relation,
+  RelationType,
   Roadmap,
   RoadmapFiles,
   Settings,
@@ -20,6 +22,11 @@ import type {
 import { BOX_FTE_OPTIONS, ZOOM_LEVELS } from "./types";
 
 const ID = /^[a-z0-9][a-z0-9_-]*$/;
+/** Department codes: 2–4 capital letters/digits, starting with a letter. */
+export const DEPT_CODE = /^[A-Z][A-Z0-9]{1,3}$/;
+/** Box codes: exactly 3 capital letters/digits. */
+export const BOX_CODE = /^[A-Z0-9]{3}$/;
+const RELATION_TYPES: RelationType[] = ["before", "after", "during", "starts_with", "ends_with", "overlaps", "apart"];
 
 export const DEFAULT_DEPT_COLOR = "#8a94a6";
 
@@ -121,6 +128,8 @@ export function loadRoadmap(files: RoadmapFiles): { roadmap: Roadmap; issues: Is
       issues.push({ path, message: `duplicate department id "${dept.id}"` });
       continue;
     }
+    const sameCode = departments.find((d) => d.code === dept.code);
+    if (sameCode) issues.push({ path, message: `code: "${dept.code}" is already used by department "${sameCode.id}"` });
     dept.lanes = dept.lanes.filter((lane) => {
       const owner = laneOwner.get(lane.id);
       if (owner) {
@@ -164,6 +173,21 @@ export function loadRoadmap(files: RoadmapFiles): { roadmap: Roadmap; issues: Is
     }
     boxIds.add(box.id);
     boxes.push(box);
+  }
+
+  // Box codes are unique across the roadmap; rules must point at a real, other box.
+  const byCode = new Map<string, Box>();
+  for (const box of boxes) {
+    const other = byCode.get(box.code);
+    if (other) issues.push({ path: `boxes/${box.id}.yaml`, message: `code: "${box.code}" is already used by ${other.id}` });
+    else byCode.set(box.code, box);
+  }
+  for (const box of boxes) {
+    for (const rel of box.relations ?? []) {
+      const where = `boxes/${box.id}.yaml`;
+      if (!byCode.has(rel.box)) issues.push({ path: where, message: `relations: no box has code "${rel.box}"` });
+      else if (rel.box === box.code) issues.push({ path: where, message: "relations: a box can't have a rule about itself" });
+    }
   }
 
   for (const path of paths) {
@@ -273,8 +297,10 @@ function loadDepartment(path: string, text: string, issues: Issue[]): Department
   if (!doc) return null;
   const id = r.id(doc, "id");
   const name = r.str(doc, "name");
+  const code = r.str(doc, "code");
   if (!id || !name) return null;
   if (id !== fileId(path)) r.fail(`id "${id}" should match the file name "${fileId(path)}"`);
+  if (code !== null && !DEPT_CODE.test(code)) r.fail(`code: "${code}" must be 2–4 capital letters or digits, starting with a letter`);
 
   const lanes = readList(r, doc, "lanes", (o, where): Lane | null => {
     const laneId = r.id(o, "id", where);
@@ -301,6 +327,7 @@ function loadDepartment(path: string, text: string, issues: Issue[]): Department
 
   return {
     id,
+    code: code ?? "",
     name,
     color: r.optStr(doc, "color") ?? DEFAULT_DEPT_COLOR,
     order: typeof order === "number" ? order : 0,
@@ -314,13 +341,18 @@ function loadBox(path: string, text: string, issues: Issue[]): Box | null {
   const doc = r.doc(text);
   if (!doc) return null;
   const id = r.id(doc, "id");
+  const code = r.str(doc, "code");
   const title = r.str(doc, "title");
   const lane = r.str(doc, "lane");
   const type = r.str(doc, "type");
   const status = r.str(doc, "status");
   const startText = r.str(doc, "start");
   const endText = r.str(doc, "end");
-  if (!id || !title || !lane || !type || !status || !startText || !endText) return null;
+  if (!id || !code || !title || !lane || !type || !status || !startText || !endText) return null;
+  if (!BOX_CODE.test(code)) {
+    r.fail(`code: "${code}" must be exactly 3 capital letters or digits`);
+    return null;
+  }
   if (id !== fileId(path)) r.fail(`id "${id}" should match the file name "${fileId(path)}"`);
 
   const start = parseDay(startText);
@@ -339,6 +371,8 @@ function loadBox(path: string, text: string, issues: Issue[]): Box | null {
     return null;
   }
 
+  const relations = readRelations(r, doc);
+
   const epic = r.optStr(doc, "epic");
   if (epic !== undefined && !/^https?:\/\//.test(epic)) r.fail(`epic: "${epic}" should be an http(s) link`);
 
@@ -350,11 +384,34 @@ function loadBox(path: string, text: string, issues: Issue[]): Box | null {
     end,
     type,
     status,
+    code,
     fte: fte as number,
     engineers: r.strList(doc, "engineers"),
+    relations,
     epic,
     description: r.optStr(doc, "description"),
     tags: r.strList(doc, "tags"),
     links: r.strList(doc, "links"),
   };
+}
+
+/** `relations: [{type, box}]`, where box is the other box's code ("A1F" or "DE-A1F"). */
+function readRelations(r: Reader, doc: Obj): Relation[] | undefined {
+  if (doc.relations === undefined || doc.relations === null) return undefined;
+  const list = readList(r, doc, "relations", (o, where): Relation | null => {
+    const type = r.str(o, "type", where);
+    const box = r.str(o, "box", where);
+    if (!type || !box) return null;
+    if (!RELATION_TYPES.includes(type as RelationType)) {
+      r.fail(`${where}type: "${type}" must be one of ${RELATION_TYPES.join(", ")}`);
+      return null;
+    }
+    const ref = box.trim().toUpperCase().replace(/^[A-Z0-9]+-(?=[A-Z0-9]{3}$)/, "");
+    if (!BOX_CODE.test(ref)) {
+      r.fail(`${where}box: "${box}" isn't a box code`);
+      return null;
+    }
+    return { type: type as RelationType, box: ref };
+  });
+  return list;
 }

@@ -4,6 +4,7 @@ import type { Box } from "./types";
 
 const box = (id: string, extra: Partial<Box> = {}): Box => ({
   id,
+  code: id.toUpperCase().padEnd(3, "X").slice(0, 3),
   title: id,
   lane: "l1",
   start: 100,
@@ -39,7 +40,7 @@ describe("draft", () => {
 
 describe("department changes", () => {
   it("counts a renamed lane as one department change", () => {
-    const dept = { id: "eng", name: "Eng", color: "#000", order: 1, collapsed: false, lanes: [{ id: "e1", fte: 1 }] };
+    const dept = { id: "eng", code: "EN", name: "Eng", color: "#000", order: 1, collapsed: false, lanes: [{ id: "e1", fte: 1 }] };
     const base = { boxes: [box("a")], departments: [dept], people: [] };
     const renamed = { ...base, departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: "Platform" }] }] };
     expect(diffDraft(base, renamed).departments.map((d) => d.id)).toEqual(["eng"]);
@@ -91,7 +92,7 @@ describe("rebaseDraft", () => {
 describe("comparison", () => {
   it("ignores field order", () => {
     const fromFile = box("n");
-    const builtInApp = { status: "planned", fte: 1, type: "project", lane: "l1", end: 110, start: 100, title: "n", id: "n" } as Box;
+    const builtInApp = { status: "planned", fte: 1, type: "project", lane: "l1", end: 110, start: 100, title: "n", code: "NXX", id: "n" } as Box;
     expect(diffBoxes([fromFile], [builtInApp]).count).toBe(0);
   });
 });

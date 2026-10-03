@@ -29,6 +29,8 @@ interface Props {
   /** Open the department editor. */
   onEditDepartment?(id: string): void;
   onAddDepartment?(): void;
+  /** Broken rules, by box id. */
+  ruleWarnings?: Map<string, string[]>;
 }
 
 type SortKey = "title" | "lane" | "start" | "end" | "days" | "fte" | "engineers" | "type" | "status";
@@ -58,7 +60,7 @@ const splitTags = (t: string) =>
 
 export function TableView(props: Props) {
   const { roadmap, readOnly, conflictIds, updatedIds, onUpdate, onAdd, onDelete, onCheckpoint, onReviewed } = props;
-  const { collapsed, onToggleDepartment, onAddPerson } = props;
+  const { collapsed, onToggleDepartment, onAddPerson, ruleWarnings } = props;
   const { settings, departments, boxes, people } = roadmap;
   const personName = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
   const engineerNames = (b: Box) => (b.engineers ?? []).map((id) => personName.get(id) ?? id).join(", ");
@@ -68,11 +70,18 @@ export function TableView(props: Props) {
 
   // Lane order and labels, for the lane column and for sorting by it.
   const lanes = useMemo(() => {
-    const out = new Map<string, { label: string; dept: string; deptId: string; order: number; color: string }>();
+    const out = new Map<string, { label: string; dept: string; deptId: string; deptCode: string; order: number; color: string }>();
     let order = 0;
     for (const d of departments) {
       d.lanes.forEach((l, i) =>
-        out.set(l.id, { label: l.name ?? `FTE ${i + 1}`, dept: d.name, deptId: d.id, order: order++, color: d.color }),
+        out.set(l.id, {
+          label: l.name ?? `FTE ${i + 1}`,
+          dept: d.name,
+          deptId: d.id,
+          deptCode: d.code,
+          order: order++,
+          color: d.color,
+        }),
       );
     }
     return out;
@@ -99,6 +108,7 @@ export function TableView(props: Props) {
     const filtered = q
       ? boxes.filter((b) =>
           [
+            `${lanes.get(b.lane)?.deptCode ?? ""}-${b.code}`,
             b.title,
             b.description ?? "",
             tagsText(b),
@@ -169,7 +179,7 @@ export function TableView(props: Props) {
         <input
           className="table-search"
           type="search"
-          placeholder="Search titles, tags, lanes…"
+          placeholder="Search codes, titles, tags, lanes…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -285,6 +295,10 @@ export function TableView(props: Props) {
                   }
                 >
                   <td className="col-title">
+                    <span className="cell-code" title={ruleWarnings?.get(b.id)?.join("\n")}>
+                      {lane?.deptCode}-{b.code}
+                      {ruleWarnings?.has(b.id) && <span className="box-warn">⚠</span>}
+                    </span>
                     <TextCell
                       value={b.title}
                       readOnly={readOnly}

@@ -31,7 +31,7 @@ export { expect };
 
 export const box = (page: Page, id: string) => page.locator(`[data-box-id="${id}"]`).first();
 /** A box's title text (boxes also show engineers' initials). */
-export const boxTitle = (page: Page, id: string) => box(page, id).locator(".box-title");
+export const boxTitle = (page: Page, id: string) => box(page, id).locator(".box-name");
 export const toolbar = (page: Page) => page.locator(".draft-status");
 
 /** "Sep 14, 2026 – Oct 23, 2026" from a box's tooltip. */

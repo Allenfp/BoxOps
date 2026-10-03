@@ -3,6 +3,7 @@
 // refresh never loses work. Nothing here touches git; committing is a later step.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { newBoxCode } from "./relations";
 import * as structure from "./structure";
 import type { Box, Department, Lane, Person } from "./types";
 
@@ -317,17 +318,29 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     [applyBoxes, baseIds],
   );
 
+  /** Add a box with a fresh unique code; returns its id. */
   const addBox = useCallback(
-    (box: Omit<Box, "id">): string => {
+    (box: Omit<Box, "id" | "code">): string => {
       const id = boxId(randomTag(), box.title);
-      applyBoxes((boxes) => [...boxes, { ...box, id }]);
+      applyBoxes((boxes) => [...boxes, { ...box, id, code: newBoxCode(new Set(boxes.map((b) => b.code))) }]);
       return id;
     },
     [applyBoxes],
   );
 
+  /** Remove a box, and any rules on other boxes that point at it, as one undo step. */
   const removeBox = useCallback(
-    (id: string) => applyBoxes((boxes) => boxes.filter((b) => b.id !== id)),
+    (id: string) =>
+      applyBoxes((boxes) => {
+        const gone = boxes.find((b) => b.id === id);
+        return boxes
+          .filter((b) => b.id !== id)
+          .map((b) =>
+            gone && b.relations?.some((r) => r.box === gone.code)
+              ? { ...b, relations: b.relations.filter((r) => r.box !== gone.code) }
+              : b,
+          );
+      }),
     [applyBoxes],
   );
 
@@ -350,15 +363,15 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
   // Departments and lanes: each is one undo step. Removing never drops work:
   // boxes in a removed lane or department move to `moveTo`.
   const addDepartment = useCallback(
-    (name: string, color?: string): string => {
-      const { id } = structure.addDepartment(present, name, color);
-      apply((d) => structure.addDepartment(d, name, color).state);
+    (name: string, color?: string, code?: string): string => {
+      const { id } = structure.addDepartment(present, name, color, code);
+      apply((d) => structure.addDepartment(d, name, color, code).state);
       return id;
     },
     [apply, present],
   );
   const updateDepartment = useCallback(
-    (id: string, patch: Partial<Pick<Department, "name" | "color">>, key?: string) =>
+    (id: string, patch: Partial<Pick<Department, "name" | "color" | "code">>, key?: string) =>
       apply((d) => structure.updateDepartment(d, id, patch), key),
     [apply],
   );

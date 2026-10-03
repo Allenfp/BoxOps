@@ -31,6 +31,8 @@ export interface Lane {
 
 export interface Department {
   id: string;
+  /** Short code that prefixes its boxes' codes, e.g. "DE" in DE-A1F. */
+  code: string;
   name: string;
   color: string;
   order: number;
@@ -55,8 +57,19 @@ export interface Person {
   notes?: string;
 }
 
+/** How one box should sit in time relative to another. */
+export type RelationType = "before" | "after" | "during" | "starts_with" | "ends_with" | "overlaps" | "apart";
+
+export interface Relation {
+  type: RelationType;
+  /** The other box's 3-character code. */
+  box: string;
+}
+
 export interface Box {
   id: string;
+  /** 3 capital letters/digits, unique across the roadmap, never changes. Shown as <department code>-<code>. */
+  code: string;
   title: string;
   /** The lane the box sits in; boxes over 1 FTE also cover the lanes below. */
   lane: string;
@@ -70,6 +83,8 @@ export interface Box {
   fte: number;
   /** Ids of the engineers expected to work on it. */
   engineers?: string[];
+  /** Rules relating this box to others (warnings when broken, never blocking). */
+  relations?: Relation[];
   /** URL of the epic / ticket this box tracks (Jira, Linear, GitHub…). */
   epic?: string;
   description?: string;

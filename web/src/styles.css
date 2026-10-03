@@ -1639,3 +1639,149 @@ button.primary:hover:not(:disabled) {
   border-radius: 6px;
   background: transparent;
 }
+
+/* Box codes (DE-A1F) and broken rules */
+.box-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-right: 6px;
+  opacity: 0.75;
+}
+.box-warn {
+  margin-right: 4px;
+  color: #fff;
+  background: var(--today);
+  border-radius: 3px;
+  padding: 0 3px;
+  font-size: 0.85em;
+}
+.box.status-planned .box-warn,
+.box.status-done .box-warn {
+  color: #fff;
+}
+.box.rule-broken {
+  outline: 2px solid var(--today);
+  outline-offset: 1px;
+}
+.box.rule-broken.selected {
+  outline-color: var(--accent);
+}
+
+/* Box editor: code and rules */
+.code-chip {
+  flex: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.rule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rule-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-weight: 400;
+  color: var(--text);
+  font-size: 13px;
+}
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.rule-row > span:first-child {
+  flex: none;
+}
+.rule-list li.incoming .rule-row > span:first-child {
+  flex: 1;
+}
+/* The rule type sizes to its text; the other box takes the rest of the row. */
+.editor .rule-row select {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.editor .rule-row select:nth-of-type(2) {
+  flex: 1 1 0;
+}
+.rule-warning {
+  font-size: 12px;
+  color: var(--today);
+  line-height: 1.4;
+}
+.add-rule {
+  margin-top: 6px;
+}
+
+/* Rule warnings: toolbar, list, popup, table */
+.rules-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+.rules-list li {
+  padding: 2px 0;
+}
+.rules-list .link-button {
+  text-align: left;
+  color: var(--text);
+}
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 70;
+  width: min(440px, calc(100vw - 32px));
+  padding: 12px 40px 12px 14px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--today) 45%, var(--border));
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.22);
+  font-size: 13px;
+}
+.toast strong {
+  color: var(--today);
+}
+.toast ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.toast .icon-button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+.box-table .col-title {
+  white-space: nowrap;
+}
+.cell-code {
+  display: block;
+  padding: 2px 7px 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.cell-code .box-warn {
+  margin-left: 4px;
+}
+.code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  text-transform: uppercase;
+  max-width: 140px;
+}

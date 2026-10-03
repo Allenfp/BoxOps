@@ -28,6 +28,7 @@ test("adds a department with lanes from the timeline and saves it", async ({ pag
   expect(github.file("departments/platform.yaml")).toBe(
     [
       "id: platform",
+      "code: PL",
       "name: Platform",
       'color: "#e8913a"', // first colour no other department uses
       "order: 4",
