@@ -6,7 +6,7 @@ test.describe("first save", () => {
 
   test("asks for a token once, rejects a bad one, then commits to main", async ({ page, github }) => {
     await dragDays(page, DAGSTER, 10);
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: /^Save · \d+ changes?$/ }).click();
 
     const dialog = page.locator(".save-dialog[open]");
     await expect(dialog.locator("h2")).toHaveText("Connect to GitHub to save");

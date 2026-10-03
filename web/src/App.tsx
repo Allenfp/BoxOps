@@ -19,6 +19,7 @@ import {
 import { getToken, setToken } from "./github/token";
 import { ThemeToggle } from "./theme";
 import { KeyMenu } from "./components/KeyMenu";
+import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraft } from "./model/draft";
@@ -550,73 +551,88 @@ function RoadmapView(props: ViewProps) {
   return (
     <div className="app">
       <header className="toolbar">
-        <h1>{base.settings.title}</h1>
-        <div className="segmented" role="group" aria-label="View">
-          {VIEWS.map((v) => (
-            <button
-              key={v.id}
-              aria-pressed={view === v.id}
-              onClick={() => {
-                if (v.id !== "timeline") select(null);
-                setView(v.id);
-              }}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
-        {view === "timeline" && (
-          <>
-            <div className="segmented" role="group" aria-label="Zoom">
-              {ZOOM_LEVELS.map((z) => (
-                <button key={z} aria-pressed={z === zoom} onClick={() => setZoom(z)}>
-                  {ZOOM_LABEL[z]}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => setJumpToToday((n) => n + 1)}>Today</button>
-          </>
-        )}
-        <button onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(base.departments.map((d) => d.id)))}>
-          {allCollapsed ? "Expand all" : "Collapse all"}
-        </button>
-
-        {!preview && (
-          <div className="draft-status">
-            <button className="icon-only" onClick={draft.undo} disabled={!draft.canUndo} title="Undo (⌘Z)" aria-label="Undo">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5.5 3 2.5 6l3 3" /><path d="M2.5 6h7a4 4 0 0 1 0 8H7" /></svg>
-            </button>
-            <button className="icon-only" onClick={draft.redo} disabled={!draft.canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10.5 3 3 3-3 3" /><path d="M13.5 6h-7a4 4 0 0 0 0 8H9" /></svg>
-            </button>
-            {count > 0 ? (
-              <>
-                <span className="changes-badge" title="Kept in this browser until you save.">
-                  {count} unsaved change{count === 1 ? "" : "s"}
-                </span>
-                <button
-                  disabled={busy}
-                  onClick={() => {
-                    if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
-                      setSelected(null);
-                      draft.discard();
-                    }
-                  }}
-                >
-                  Discard
-                </button>
-                <button className="primary" onClick={() => save()} disabled={busy} title="Save to GitHub (⌘S)">
-                  {busy ? "Saving…" : "Save"}
-                </button>
-              </>
-            ) : (
-              <span className="hint">No changes</span>
-            )}
+        <div className="toolbar-zone start">
+          <h1>{base.settings.title}</h1>
+          <div className="segmented" role="group" aria-label="View">
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                aria-pressed={view === v.id}
+                onClick={() => {
+                  if (v.id !== "timeline") select(null);
+                  setView(v.id);
+                }}
+              >
+                {v.label}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
-        <div className="toolbar-end">
+        <div className="toolbar-zone middle">
+          {view === "timeline" && (
+            <>
+              <div className="segmented" role="group" aria-label="Zoom">
+                {ZOOM_LEVELS.map((z) => (
+                  <button key={z} aria-pressed={z === zoom} onClick={() => setZoom(z)}>
+                    {ZOOM_LABEL[z]}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setJumpToToday((n) => n + 1)}>Today</button>
+            </>
+          )}
+          <button onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(base.departments.map((d) => d.id)))}>
+            {allCollapsed ? "Expand all" : "Collapse all"}
+          </button>
+        </div>
+
+        <div className="toolbar-zone end">
           <WarningsMenu groups={warningGroups} />
+          {!preview && (
+            <div className="draft-status">
+              <button className="icon-only" onClick={draft.undo} disabled={!draft.canUndo} title="Undo (⌘Z)" aria-label="Undo">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5.5 3 2.5 6l3 3" /><path d="M2.5 6h7a4 4 0 0 1 0 8H7" /></svg>
+              </button>
+              <button className="icon-only" onClick={draft.redo} disabled={!draft.canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10.5 3 3 3-3 3" /><path d="M13.5 6h-7a4 4 0 0 0 0 8H9" /></svg>
+              </button>
+              {count > 0 ? (
+                <div className="split-button">
+                  <button
+                    className="primary"
+                    onClick={() => save()}
+                    disabled={busy}
+                    title="Save to GitHub (⌘S). Until then, changes are kept in this browser."
+                  >
+                    {busy ? "Saving…" : `Save · ${count} change${count === 1 ? "" : "s"}`}
+                  </button>
+                  <Popover label="More save options" buttonClass="primary split-more" button="▾" className="save-more">
+                    {(close) => (
+                      <>
+                        <button
+                          className="menu-item danger-text"
+                          disabled={busy}
+                          onClick={() => {
+                            close();
+                            if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
+                              setSelected(null);
+                              draft.discard();
+                            }
+                          }}
+                        >
+                          Discard {count === 1 ? "this change" : `all ${count} changes`}…
+                        </button>
+                        <p className="menu-note">Unsaved changes are kept in this browser, even if you close the tab.</p>
+                      </>
+                    )}
+                  </Popover>
+                </div>
+              ) : (
+                <span className="hint">No changes</span>
+              )}
+            </div>
+          )}
           <KeyMenu settings={base.settings} />
           <ThemeToggle />
         </div>

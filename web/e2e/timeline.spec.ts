@@ -36,7 +36,7 @@ test("drag moves a box in time and across lanes; edges resize", async ({ page, g
 
   await dragDays(page, DAGSTER, 5, 0, "end");
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 13, 2026");
-  await expect(toolbar(page)).toContainText("1 unsaved change");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
 });
 
 test("clicking a box opens the editor; edits apply live", async ({ page, github: _ }) => {
@@ -60,7 +60,7 @@ test("double-click creates a box; undo steps back", async ({ page, github: _ }) 
   await page.keyboard.type("Hiring plan");
   await expect(page.locator(".box.selected")).toHaveAttribute("data-box-id", /^bx-[0-9a-f]{4}-hiring-plan$/);
   await page.keyboard.press("Escape");
-  await expect(toolbar(page)).toContainText("1 unsaved change");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
 
   await focusApp(page);
   await page.keyboard.press("ControlOrMeta+z"); // the typing
@@ -72,9 +72,9 @@ test("double-click creates a box; undo steps back", async ({ page, github: _ }) 
 
 test("unsaved edits survive a reload", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 10);
-  await expect(toolbar(page)).toContainText("1 unsaved change");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
   await page.reload();
-  await expect(toolbar(page)).toContainText("1 unsaved change");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026");
 });
 
@@ -123,7 +123,7 @@ test("lanes can be renamed in place", async ({ page, github: _ }) => {
   await page.keyboard.type("Platform team");
   await page.keyboard.press("Enter");
   await expect(names.nth(1)).toContainText("Platform team");
-  await expect(toolbar(page)).toContainText("1 unsaved change");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
 
   await names.nth(0).click();
   await page.keyboard.type("Nope");
@@ -180,4 +180,19 @@ test("a title sliding along while scrolling never runs into the initials", async
     return worst;
   });
   expect(worst).toBeLessThanOrEqual(0);
+});
+
+test("discard lives under the save button's ▾ and asks first", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 5);
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await page.getByRole("button", { name: "More save options" }).click();
+  page.once("dialog", (d) => d.dismiss());
+  await page.getByRole("button", { name: "Discard this change…" }).click();
+  await expect(toolbar(page)).toContainText("Save · 1 change"); // said no
+
+  await page.getByRole("button", { name: "More save options" }).click();
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Discard this change…" }).click();
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 14, 2026 – Oct 23, 2026");
 });
