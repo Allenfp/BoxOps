@@ -38,7 +38,7 @@ Any other file under `roadmap/` is reported as unexpected.
 ## settings.yaml
 
 ```yaml
-title: BoxOps Roadmap
+title: BoxOps
 fiscal_year_start_month: 1   # 1 = calendar quarters; 2 = FY starts in February, etc.
 default_zoom: months          # weeks | months | quarters
 types:
