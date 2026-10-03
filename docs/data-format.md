@@ -104,7 +104,7 @@ of its lanes' FTE.
 
 ```yaml
 id: bx-b27c-fivetran-cost-review
-code: ERK
+code: H2B                      # example values throughout
 title: Fivetran cost review
 lane: de-1
 start: 2026-12-07
@@ -117,7 +117,7 @@ engineers:
   - sam-lee
 relations:
   - type: after
-    box: XB8
+    box: M8T
 epic: https://example.atlassian.net/browse/DATA-42
 description: Audit connector usage and cut unused syncs.
 tags:
@@ -137,7 +137,7 @@ links:
 | `status` | yes | One of the `statuses` in settings. |
 | `fte` | no | 0.5, 1, 1.5 or 2. Default 1, so it's usually left out for 1-FTE boxes. |
 | `engineers` | no | Ids from `people.yaml`. Usually one engineer per started FTE (one for 0.5–1, two for 1.5–2). |
-| `relations` | no | Rules relating this box to others: a list of `type` (below) and `box` (the other box's 3-character code; `DE-XB8` is also accepted). |
+| `relations` | no | Rules relating this box to others: a list of `type` (below) and `box` (the other box's 3-character code; the full `DE-M8T` form is also accepted). |
 | `epic` | no | `http(s)://` link to the epic or ticket. |
 | `description` | no | Free text; may span lines. |
 | `tags`, `links` | no | Lists of text. |
@@ -161,7 +161,7 @@ inclusive working days.
 | `apart` | doesn't overlap the other | they share any day |
 
 A rule lives on one box; the app also shows it on the other box, worded the
-other way round ("starts after DE-WQN finishes"). Broken rules are warnings,
+other way round ("starts after DE-H2B finishes"). Broken rules are warnings,
 like over capacity: nothing is blocked. Deleting a box in the app also removes
 rules that point at it.
 

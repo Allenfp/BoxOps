@@ -29,8 +29,9 @@ essentials are below.
   are warnings, not errors.
 - There are **no weekends**: dates must be Monday–Friday and durations are
   counted in working days. "Two weeks" means 10 working days. Holidays aren't
-  modelled; treat every weekday as a working day unless the user says
-  otherwise.
+  modelled: treat every weekday as a working day unless the user says
+  otherwise, but point it out when work (especially on-call or a deadline)
+  lands in a usual holiday period such as late December.
 
 ## Workflow
 
@@ -39,19 +40,22 @@ a commit on `main`. So:
 
 1. **Start from the latest `main`:** `git checkout main && git pull --ff-only`.
 2. **Look before you change.** From `web/` (run `npm ci` once first), save the
-   report: `npm run report --silent > /tmp/roadmap-before.txt`. It shows
-   over-capacity and fully booked departments, engineers over 1 FTE (one line
-   per stretch, at that stretch's level), unassigned boxes, broken rules, and
-   every engineer's bookings by date (use that to answer "who's free then?").
+   report to a fresh file and note its path, since shell variables may not
+   last between your commands:
+   `B=$(mktemp) && npm run report --silent > "$B" && echo "$B"`.
+   The report shows over-capacity and fully booked departments, engineers over
+   1 FTE (one line per stretch, at that stretch's level), unassigned boxes,
+   broken rules, and every engineer's bookings by date (use that to answer
+   "who's free then?").
 3. **Edit the YAML files** (recipes below). Change only what you need: don't
    reformat files, reorder fields, or rewrite unrelated lines, and keep comments.
 4. **Check your work** from `web/`:
    - `npm run validate` must end in `— OK` (e.g. `3 departments, 9 lanes,
      16 boxes — OK`). It lists any problem and exits non-zero.
-   - `npm run report --silent > /tmp/roadmap-after.txt` and
-     `diff /tmp/roadmap-before.txt /tmp/roadmap-after.txt`. Tell the user about
-     anything your change made worse: a department newly over capacity or
-     full, someone newly over 1 FTE or at a higher level, a rule now broken.
+   - `npm run report --silent | diff <before file> -` compares with step 2.
+     Tell the user about anything your change made worse: a department newly
+     over capacity or full, someone newly over 1 FTE or at a higher level, a
+     rule now broken.
 5. **Commit to `main`.** Always `git pull --ff-only` right before committing
    (validate again if anything came in). Stage only the roadmap
    (`git add roadmap/`), never `git add -A`. Write the message the way the app
@@ -72,13 +76,14 @@ itself (`web/`) are different: do those on a branch, run `npm test` and
 
 ## Commit messages
 
-Match the app, so history reads the same whichever way a change was made. The
-subject is the single change (without any "(was …)" part, at most 72
-characters), or `Roadmap: <n> changes` for several. The body has one bullet per
-change, in this order: engineers, new boxes, edited boxes, deleted boxes,
-departments. Word them like this (`<range>` is like `Mar 1, 2026 – Mar 19, 2026`,
-with no leading zeros; a lane is `<Department> / <lane label>`; quotes are
-curly “ ”):
+Match the app, so history reads the same whichever way a change was made. With
+exactly one change, the subject is that change (without any "(was …)" part, at
+most 72 characters); otherwise it's `Roadmap: <n> changes`. The body has one
+bullet per changed item, in this order: engineers, new boxes, edited boxes,
+deleted boxes, departments; within each group, by file name. All of one box's
+changes go on its one bullet. Word them like this (`<range>` is like `Mar 1, 2026 – Mar 19, 2026`,
+with no leading zeros; a lane is `<Department> / <lane label>`; `<code>` is
+always the full code with its prefix, like `DE-K7P`; quotes are curly “ ”):
 
 | Change | Line |
 |---|---|
@@ -173,10 +178,12 @@ who's free over the box's dates. If several are equally free, say who you
 picked and why, and offer the alternatives.
 
 *When nobody is free:* if the only candidates would go over 1 FTE, and the user
-asked you to staff it, assign the least loaded one and say so plainly, with
-their resulting load and dates. Offer alternatives: leave it unassigned, move
-the dates, or someone from another department. If the user didn't ask for
-staffing, leave `engineers` out rather than overloading someone.
+asked you to staff it ("sort out their work" counts), assign the least loaded
+one and say so plainly, with their resulting load and dates. Offer
+alternatives: leave it unassigned, move the dates, or someone from another
+department. If the user didn't ask for staffing, leave `engineers` out rather
+than overloading someone. Keeping people who are already on a box isn't a new
+assignment.
 
 **Move or reschedule a box.** Change `start` and `end`. To keep its length,
 shift both by the same number of working days. To move it to another lane or
@@ -193,7 +200,7 @@ boxes that point at its code (`grep -l "box: <code>" roadmap/boxes/*`).
 ```yaml
 relations:
   - type: before        # before, after, during, starts_with, ends_with, overlaps, apart
-    box: XB8            # the other box's code
+    box: M8T            # the other box's code (example; use a real one)
 ```
 
 Check with `npm run report` whether the rule holds today; a broken rule is
@@ -214,10 +221,23 @@ Never change their `id`: boxes refer to it.
 box's `engineers` list (`grep -rl "<id>" roadmap/boxes`). Delete an emptied
 `engineers:` key rather than leaving an empty list.
 
-If they leave partway through a box (one already in progress), ask the user
-how to handle it unless they said. The usual choices are to hand the whole box
-to someone else, or to split it: end their box on their last day, and add a new
-box from the next working day with the rest of the work and the new engineer.
+**Someone leaving on a future date.** Keep them on the roster until then (they
+still own their earlier boxes) and note the date in their `notes`. Then, for
+each of their boxes:
+
+- *Ends on or before their last day:* leave it.
+- *Starts after their last day:* take them off it, and staff it as above.
+- *Spans their last day (whatever its `status`):* ask the user unless they
+  said. Either hand the whole box to someone else, or split it: end the box on
+  their last day, and add a box from the next working day titled
+  `<title> (part 2)` with the rest of the work, a description pointing back to
+  the original's code, and the new engineer. When a box several people share
+  is split, the FTE is split evenly across whoever's left, so lower part 2's
+  `fte` by the leaver's share (to an allowed value) unless someone replaces
+  them.
+
+Remove them from the roster only once none of their boxes are left, or if the
+user asks.
 
 **Rename a lane.** Set or change the lane's `name`. Never change a lane `id`
 without updating every box that uses it.
