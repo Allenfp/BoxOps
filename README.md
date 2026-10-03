@@ -18,7 +18,7 @@ straight to `main`, and the site updates within a minute.
   during"…); a broken rule pops up a warning but blocks nothing. **+ Add
   department** and the ✎ on a department heading add, rename, recolour, reorder
   and remove departments and their lanes.
-- **Table.** Every box as an editable row (dates, FTE, engineers, status,
+- **Table.** Every box as an editable row (dates, FTE, engineers, status flag,
   links, description), grouped by department, with search and sorting.
 - **People.** The engineer roster: name, department, role, email, manager and
   notes. Boxes are assigned engineers from this list.

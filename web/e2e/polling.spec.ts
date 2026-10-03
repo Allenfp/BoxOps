@@ -26,7 +26,7 @@ test("incoming saves merge with unsaved edits and flag clashes", async ({ page, 
   await dragDays(page, DAGSTER, 10);
   github.deploy(
     github.otherSave({
-      [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: done"),
+      [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked"),
       [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3"),
     }),
   );

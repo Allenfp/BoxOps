@@ -9,6 +9,7 @@ export interface BoxType {
   color: string;
 }
 
+/** A status flag such as "At risk"; a box has at most one, or none. */
 export interface BoxStatus {
   id: string;
   name: string;
@@ -78,7 +79,12 @@ export interface Box {
   /** Inclusive. */
   end: Day;
   type: string;
-  status: string;
+  /**
+   * A flag that needs attention (an id from settings `statuses`, such as
+   * at_risk, late or blocked); absent when the box is on track. Progress
+   * (not started, under way, finished) comes from the dates instead.
+   */
+  status?: string;
   /** 0.5, 1, 1.5 or 2; 1 when not set. */
   fte: number;
   /** Ids of the engineers expected to work on it. */

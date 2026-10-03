@@ -1,9 +1,13 @@
-import { DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, save, test, toolbar } from "./helpers";
 
 test("shows departments, lanes, boxes and today", async ({ page, github: _ }) => {
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
   await expect(page.locator(".dept-label")).toHaveText([/Data Engineering/, /Analytics/, /ML Platform/]);
   await expect(page.locator(".today-flag")).toBeVisible();
+  // Progress comes from the dates (today is Oct 3, 2026); flags are set by hand.
+  await expect(box(page, DAGSTER)).toHaveClass(/progress-underway/); // Sep 14 – Oct 23
+  await expect(box(page, CDC)).toHaveClass(/progress-upcoming/); // from Oct 26
+  await expect(page.locator(".box-flag")).toHaveText(["At risk"]);
   // Fixture has overlaps in FTE 3 and 1-FTE boxes in the 0.5-FTE Contractor lane.
   await expect(page.locator(".overflow-label")).toHaveCount(1);
   // 4 FTE running at once (around Oct 1) against 3.5 FTE of lanes.
@@ -46,9 +50,12 @@ test("clicking a box opens the editor; edits apply live", async ({ page, github:
   await editor.locator(".editor-title").fill("Dagster upgrade, phase 1");
   await editor.getByPlaceholder("https://…").fill("https://example.atlassian.net/browse/DATA-42");
   await expect(editor.getByRole("link", { name: "Open ↗" })).toBeVisible();
-  await editor.locator("select").nth(1).selectOption("in_progress");
+  await expect(box(page, DAGSTER).locator(".box-flag")).toHaveText("At risk");
+  await editor.locator("select").nth(1).selectOption("blocked");
   await expect(boxTitle(page, DAGSTER)).toHaveText("Dagster upgrade, phase 1");
-  await expect(box(page, DAGSTER)).toHaveClass(/status-in_progress/);
+  await expect(box(page, DAGSTER).locator(".box-flag")).toHaveText("Blocked");
+  await editor.locator("select").nth(1).selectOption(""); // On track: no flag
+  await expect(box(page, DAGSTER).locator(".box-flag")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(editor).toBeHidden();
 });
@@ -96,7 +103,7 @@ test("FTE sets a box's height; 2 FTE covers the lane below", async ({ page, gith
 
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
-  expect(github.file(boxFile(warehouse))).toContain("status: in_progress\nfte: 2\n");
+  expect(github.file(boxFile(warehouse))).toContain("type: project\nfte: 2\n");
 });
 
 test("engineers are picked from the roster, and new ones can be added", async ({ page, github }) => {

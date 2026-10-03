@@ -1,4 +1,5 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
+import { NO_FLAG } from "../model/status";
 import { CollapseAll } from "./CollapseAll";
 import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
 import { BOX_FTE_OPTIONS, type Box, type Roadmap } from "../model/types";
@@ -143,7 +144,7 @@ export function TableView(props: Props) {
         case "type":
           return typeIndex.get(b.type) ?? 99;
         case "status":
-          return statusIndex.get(b.status) ?? 99;
+          return b.status === undefined ? 99 : (statusIndex.get(b.status) ?? 98); // flagged first
       }
     };
     return [...filtered].sort((a, b) => {
@@ -395,12 +396,13 @@ export function TableView(props: Props) {
                   </td>
                   <td className="col-status">
                     <select
-                      className={`status-select status-${b.status}`}
-                      value={b.status}
+                      className={`status-select${b.status ? " flagged" : ""}`}
+                      value={b.status ?? ""}
                       disabled={readOnly}
                       aria-label="Status"
-                      onChange={(e) => update(b.id, { status: e.target.value })}
+                      onChange={(e) => update(b.id, { status: e.target.value || undefined })}
                     >
+                      <option value="">{NO_FLAG}</option>
                       {settings.statuses.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.name}

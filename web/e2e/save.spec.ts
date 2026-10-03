@@ -36,14 +36,14 @@ test.describe("first save", () => {
 test("pre-save check: newer saves are shown for review before anything is written", async ({ page, github }) => {
   await dragDays(page, DAGSTER, 10);
   github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline (orders + payments)") }, "Sam Lee", "CDC pipeline: renamed");
-  const priya = github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("status: in_progress", "status: at_risk") }, "Priya Shah", "Revenue mart: at risk");
+  const priya = github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace(/^type: (\w+)$/m, "type: $1\nstatus: at_risk") }, "Priya Shah", "Revenue mart: at risk");
 
   await save(page);
   const dialog = page.locator(".save-dialog[open]");
   await expect(dialog.locator("h2")).toHaveText("The roadmap changed since you opened it");
   await expect(dialog.locator(".save-list")).toContainText("Sam Lee saved “CDC pipeline: renamed”");
   await expect(dialog.locator(".save-list")).toContainText("Priya Shah saved “Revenue mart: at risk”");
-  await expect(dialog.locator(".change-list")).toContainText("status In progress → At risk");
+  await expect(dialog.locator(".change-list")).toContainText("status On track → At risk");
   expect(github.head).toBe(priya); // nothing written yet
 
   await dialog.getByRole("button", { name: "Review changes" }).click();
@@ -94,7 +94,7 @@ test("a save that races another goes on top of it", async ({ page, github }) => 
 test("a racing save to the same box asks whose version to keep", async ({ page, github }) => {
   await dragDays(page, DAGSTER, 10);
   github.beforeRefUpdate = () => {
-    github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: done") });
+    github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked") });
   };
   await save(page);
   const dialog = page.locator(".save-dialog[open]");

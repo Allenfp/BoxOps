@@ -40,7 +40,7 @@ describe("serializeChanges", () => {
       ...draft,
       boxes: [
         ...draft.boxes,
-        { id: "bx-0001-new-thing", code: "NEW", title: "New: thing", lane: "an-3", start: 102, end: 120, type: "project", status: "planned", fte: 1 },
+        { id: "bx-0001-new-thing", code: "NEW", title: "New: thing", lane: "an-3", start: 102, end: 120, type: "project", status: "blocked", fte: 1 },
       ],
     };
     const out = serializeChanges(files, base, draft);
@@ -48,7 +48,7 @@ describe("serializeChanges", () => {
     expect(out["boxes/bx-a1f0-warehouse-migration.yaml"]).not.toContain("epic:");
     expect(out["boxes/bx-a1f0-warehouse-migration.yaml"]).toContain("tags:\n  - iceberg\n  - q4\n");
     expect(out["boxes/bx-0001-new-thing.yaml"]).toBe(
-      'id: bx-0001-new-thing\ncode: NEW\ntitle: "New: thing"\nlane: an-3\nstart: 1970-04-13\nend: 1970-05-01\ntype: project\nstatus: planned\n',
+      'id: bx-0001-new-thing\ncode: NEW\ntitle: "New: thing"\nlane: an-3\nstart: 1970-04-13\nend: 1970-05-01\ntype: project\nstatus: blocked\n',
     );
     const { issues } = loadRoadmap(applyChanges(files, out));
     expect(issues).toEqual([]);
@@ -72,12 +72,12 @@ describe("describeChanges", () => {
       start: parseDay("2026-09-24")!,
       end: parseDay("2026-11-02")!,
       lane: "de-4",
-      status: "in_progress",
+      status: undefined,
     });
     const [line] = describeChanges(base, draft, roadmap.settings);
     expect(line.text).toBe(
       "**Dagster 2.x upgrade** (DE-D9U): moved from Data Engineering / FTE 2 to Data Engineering / Contractor; " +
-        "rescheduled to Sep 24, 2026 – Nov 2, 2026 (was Sep 14, 2026 – Oct 23, 2026); status At risk → In progress",
+        "rescheduled to Sep 24, 2026 – Nov 2, 2026 (was Sep 14, 2026 – Oct 23, 2026); status At risk → On track",
     );
   });
 });
@@ -90,7 +90,7 @@ describe("commitMessage", () => {
     ]);
     expect(one.split("\n")[0]).toBe("Dagster 2.x upgrade: rescheduled to Sep 24, 2026 – Nov 2, 2026");
     const long = commitMessage([
-      { kind: "changed", text: "**A very long box title that goes on**: moved from Data Engineering / FTE 2 to Analytics / Open req (Q1); status At risk → Done" },
+      { kind: "changed", text: "**A very long box title that goes on**: moved from Data Engineering / FTE 2 to Analytics / Open req (Q1); status At risk → On track" },
     ]);
     expect(long.split("\n")[0].length).toBeLessThanOrEqual(72);
     expect(long.split("\n")[0].endsWith("…")).toBe(true);
@@ -135,6 +135,16 @@ describe("fte, engineers and the roster", () => {
     expect(out["boxes/bx-c93d-dagster-upgrade.yaml"]).toContain("status: at_risk\nfte: 1.5\nengineers:\n  - sam-lee\n");
     const back = { ...d, boxes: d.boxes.map((x) => (x.id === "bx-c93d-dagster-upgrade" ? { ...x, fte: 1 } : x)) };
     expect(serializeChanges(withPeople, b, back)["boxes/bx-c93d-dagster-upgrade.yaml"]).not.toContain("fte:");
+  });
+
+  it("clearing a flag removes the status line; setting one adds it", () => {
+    const { roadmap: r } = loadRoadmap(withPeople);
+    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people };
+    const set = (id: string, status: string | undefined) => ({ ...b, boxes: b.boxes.map((x) => (x.id === id ? { ...x, status } : x)) });
+    const cleared = serializeChanges(withPeople, b, set("bx-c93d-dagster-upgrade", undefined))["boxes/bx-c93d-dagster-upgrade.yaml"];
+    expect(cleared).not.toContain("status");
+    const blocked = serializeChanges(withPeople, b, set("bx-d4e1-cdc-pipeline", "blocked"))["boxes/bx-d4e1-cdc-pipeline.yaml"];
+    expect(blocked).toMatch(/^type: \w+\nstatus: blocked\n/m);
   });
 
   it("adds engineers to people.yaml, keeping the existing entries as written", () => {

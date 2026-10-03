@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { NO_FLAG } from "../model/status";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import { RELATION_ORDER, RELATION_TYPES, type Violation, fullCode, incoming } from "../model/relations";
 import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type RelationType, type Settings } from "../model/types";
@@ -181,7 +182,8 @@ export function BoxEditor(props: Props) {
         </label>
         <label>
           Status
-          <select value={box.status} onChange={(e) => onChange({ status: e.target.value }, "status")}>
+          <select value={box.status ?? ""} onChange={(e) => onChange({ status: e.target.value || undefined }, "status")}>
+            <option value="">{NO_FLAG}</option>
             {settings.statuses.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}

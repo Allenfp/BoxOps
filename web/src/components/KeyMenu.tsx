@@ -1,9 +1,12 @@
-// The colour key, tucked into a small toolbar popover: box types, status
-// marks and the warning sign.
+// The colour key, tucked into a small toolbar popover: box types, progress
+// marks, flags and the warning sign.
 
 import type { CSSProperties } from "react";
 import type { Settings } from "../model/types";
 import { Popover } from "./Popover";
+import { type Progress, PROGRESS_NAME } from "../model/status";
+
+const PROGRESS: Progress[] = ["upcoming", "underway", "finished"];
 
 export function KeyMenu({ settings }: { settings: Settings }) {
   return (
@@ -32,12 +35,20 @@ export function KeyMenu({ settings }: { settings: Settings }) {
               </li>
             ))}
           </ul>
-          <h3>Status</h3>
+          <h3>Progress (from the dates)</h3>
+          <ul>
+            {PROGRESS.map((p) => (
+              <li key={p} className={`progress-${p}`} style={{ "--c": "var(--text-muted)" } as CSSProperties}>
+                <span className="status-mark" />
+                {PROGRESS_NAME[p]}
+              </li>
+            ))}
+          </ul>
+          <h3>Flags (set by hand)</h3>
           <ul>
             {settings.statuses.map((s) => (
-              <li key={s.id} className={`status-${s.id}`} style={{ "--c": "var(--text-muted)" } as CSSProperties}>
-                <span className="status-mark" />
-                {s.name}
+              <li key={s.id}>
+                <span className="box-flag">{s.name}</span>
               </li>
             ))}
           </ul>

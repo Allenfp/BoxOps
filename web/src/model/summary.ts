@@ -1,5 +1,6 @@
 // Human-readable description of a draft, for the Save dialog and the commit message.
 
+import { flagName } from "./status";
 import { prettyDay } from "./dates";
 import { diffDraft, type DraftState } from "./draft";
 import { RELATION_TYPES, fullCode } from "./relations";
@@ -24,7 +25,6 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
   const changes = diffDraft(base, draft);
   const baseLanes = laneLabels(base.departments);
   const lanes = laneLabels(draft.departments);
-  const status = new Map(settings.statuses.map((s) => [s.id, s.name]));
   const type = new Map(settings.types.map((t) => [t.id, t.name]));
   const baseBoxes = new Map(base.boxes.map((b) => [b.id, b]));
   const names = new Map([...base.people, ...draft.people].map((p) => [p.id, p.name]));
@@ -56,7 +56,7 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
       const shifted = b.end - b.start === was.end - was.start;
       parts.push(shifted ? `rescheduled to ${range(b)} (was ${range(was)})` : `dates now ${range(b)} (was ${range(was)})`);
     }
-    if (was.status !== b.status) parts.push(`status ${status.get(was.status) ?? was.status} → ${status.get(b.status) ?? b.status}`);
+    if (was.status !== b.status) parts.push(`status ${flagName(settings, was.status)} → ${flagName(settings, b.status)}`);
     if (was.type !== b.type) parts.push(`type ${type.get(was.type) ?? was.type} → ${type.get(b.type) ?? b.type}`);
     if (was.fte !== b.fte) parts.push(`FTE ${was.fte} → ${b.fte}`);
     if ((was.engineers ?? []).join() !== (b.engineers ?? []).join()) parts.push(`engineers now ${who(b.engineers)}`);

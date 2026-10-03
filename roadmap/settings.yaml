@@ -15,12 +15,10 @@ types:
   - id: support
     name: Support / On-call
     color: "#e8913a"
-statuses:
-  - id: planned
-    name: Planned
-  - id: in_progress
-    name: In progress
+statuses:          # flags for boxes that need attention; most boxes have none
   - id: at_risk
     name: At risk
-  - id: done
-    name: Done
+  - id: late
+    name: Late
+  - id: blocked
+    name: Blocked

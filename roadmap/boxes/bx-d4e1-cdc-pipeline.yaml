@@ -5,6 +5,5 @@ lane: de-2
 start: 2026-10-26
 end: 2027-02-26
 type: project
-status: planned
 engineers:
   - alex-kim

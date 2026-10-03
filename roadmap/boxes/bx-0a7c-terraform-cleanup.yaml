@@ -5,7 +5,6 @@ lane: de-4
 start: 2026-08-19
 end: 2026-10-16
 type: maintenance
-status: in_progress
 fte: 1
 engineers:
   - alex-kim

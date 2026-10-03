@@ -23,7 +23,7 @@ test("edits cells and saves them", async ({ page, github }) => {
   await expect(row(page, "CDC pipeline for orders DB")).toHaveCount(1);
 
   const r = row(page, "Dagster 2.x upgrade (phase 1)");
-  await r.getByLabel("Status").selectOption("in_progress");
+  await r.getByLabel("Status").selectOption("blocked");
   await r.getByLabel("End").fill("2026-11-20");
   await r.getByLabel("Lane").selectOption("de-4");
   await r.getByLabel("Epic link").fill("not a url");
@@ -59,7 +59,7 @@ test("edits cells and saves them", async ({ page, github }) => {
       "start: 2026-09-14",
       "end: 2026-11-20",
       "type: maintenance",
-      "status: in_progress",
+      "status: blocked",
       "fte: 1.5",
       "engineers:",
       "  - alex-kim",

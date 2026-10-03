@@ -5,5 +5,4 @@ lane: de-3
 start: 2026-11-02
 end: 2026-12-11
 type: research
-status: planned
 description: Overlaps on-call on purpose to show over-allocation.

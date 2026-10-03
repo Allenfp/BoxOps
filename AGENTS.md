@@ -94,7 +94,7 @@ always the full code with its prefix, like `DE-K7P`; quotes are curly “ ”):
 | … new lane | `moved from <old lane> to <new lane>` |
 | … same length, new dates | `rescheduled to <range> (was <old range>)` |
 | … other date change | `dates now <range> (was <old range>)` |
-| … status, type or FTE | `status At risk → Done`, `type <old> → <new>`, `FTE 1 → 1.5` (names, not ids) |
+| … status, type or FTE | `status On track → Blocked`, `status At risk → On track`, `type <old> → <new>`, `FTE 1 → 1.5` (names, not ids; no status is "On track") |
 | … engineers | `engineers now Sam Lee, Alex Kim` (or `engineers now nobody`) |
 | … epic, description, tags, links | `epic link updated` / `epic link removed`, `description edited`, `tags edited`, `links edited` |
 | … rule added or removed | `now finishes before <other title> (<code>)`, `no longer happens during <other title> (<code>)` |
@@ -160,7 +160,6 @@ lane: ml-1
 start: 2027-06-07
 end: 2027-06-18
 type: research
-status: planned
 ```
 
 Add `fte:` only if it isn't 1, and `engineers:` with ids from `people.yaml`.
@@ -189,8 +188,12 @@ assignment.
 shift both by the same number of working days. To move it to another lane or
 department, change `lane`.
 
-**Resize, re-staff or update a box.** Edit `end`, `fte`, `engineers`, `status`,
-`description` and so on in place. Set `status: done` when finished.
+**Resize, re-staff or update a box.** Edit `end`, `fte`, `engineers`,
+`description` and so on in place. Progress (not started, under way, finished)
+comes from the dates, so there's nothing to update when work starts or ends.
+
+**Flag a problem.** Set `status:` to `at_risk`, `late` or `blocked` (after
+`type`); delete the line once it's resolved. Most boxes have no `status`.
 
 **Delete a box.** Delete its file, and remove any `relations` entries on other
 boxes that point at its code (`grep -l "box: <code>" roadmap/boxes/*`).
@@ -227,7 +230,7 @@ each of their boxes:
 
 - *Ends on or before their last day:* leave it.
 - *Starts after their last day:* take them off it, and staff it as above.
-- *Spans their last day (whatever its `status`):* ask the user unless they
+- *Spans their last day (flagged or not):* ask the user unless they
   said. Either hand the whole box to someone else, or split it: end the box on
   their last day, and add a box from the next working day titled
   `<title> (part 2)` with the rest of the work, a description pointing back to
@@ -265,7 +268,7 @@ too: `grep -l "sam-lee" roadmap/boxes/*` finds Sam's boxes.
 - IDs and file names never change once saved. `id` must equal the file name.
 - Dates are weekdays, inclusive, `YYYY-MM-DD`, and `end` is not before `start`.
 - `fte` on a box is 0.5, 1, 1.5 or 2; on a lane, more than 0 and at most 1.
-- Everything a box refers to must exist: `lane`, `type`, `status` (in
+- Everything a box refers to must exist: `lane`, `type`, `status` if set (in
   `settings.yaml`) and each `engineers` id.
 - Always run `npm run validate` before pushing; never push a failing roadmap.
 - Stage only `roadmap/` for roadmap changes.

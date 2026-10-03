@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flagName, PROGRESS_NAME, progress } from "../model/status";
 import { CollapseAll } from "./CollapseAll";
 import {
   type Day,
@@ -89,7 +90,6 @@ export function Timeline(props: Props) {
   const scale = useMemo(() => makeScale(rangeStart, rangeEnd, zoom), [rangeStart, rangeEnd, zoom]);
   const bands = useMemo(() => headerBands(scale, fy), [scale, fy]);
   const typeColor = useMemo(() => new Map(settings.types.map((t) => [t.id, t.color])), [settings.types]);
-  const statusName = useMemo(() => new Map(settings.statuses.map((s) => [s.id, s.name])), [settings.statuses]);
   const personName = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
   const deptCode = useMemo(
     () => new Map(departments.flatMap((d) => d.lanes.map((l) => [l.id, d.code] as const))),
@@ -261,9 +261,12 @@ export function Timeline(props: Props) {
     const showPeople = variant !== "compact" && engineers.length > 0 && width >= 160 + 20 * engineers.length;
     // Keep their space clear: the sliding (sticky) title stops before them.
     const peopleW = showPeople ? 8 + engineers.length * (slots === 1 ? 16 : 20) + 6 : 0;
+    const stage = progress(b, now);
+    const flag = b.status && flagName(settings, b.status);
     const classes = [
       "box",
-      `status-${b.status}`,
+      `progress-${stage}`,
+      flag && `flagged flag-${b.status}`,
       variant !== "full" && variant,
       slots === 1 && "half",
       b.id === selectedId && "selected",
@@ -277,7 +280,7 @@ export function Timeline(props: Props) {
       ...warnings.map((w) => `⚠ ${w}\n`),
       `${code}  ${b.title}`,
       `${prettyDay(b.start)} – ${prettyDay(b.end)}`,
-      `${workdays(b.start, b.end)} working days · ${b.fte} FTE · ${statusName.get(b.status) ?? b.status}`,
+      `${workdays(b.start, b.end)} working days · ${b.fte} FTE · ${PROGRESS_NAME[stage]}${flag ? ` · ${flag}` : ""}`,
       engineers.length ? `Engineers: ${engineers.join(", ")}` : "No engineer assigned",
       b.description && `\n${b.description}`,
     ];
@@ -293,13 +296,14 @@ export function Timeline(props: Props) {
       >
         {variant !== "compact" && (
           <span className="box-title">
-            <span className="status-mark" aria-label={statusName.get(b.status) ?? b.status} />
+            <span className="status-mark" aria-label={PROGRESS_NAME[stage]} />
             {(warnings.length > 0 || clash) && (
               <span className="box-warn" aria-label={warnings.length ? "Breaks a rule" : "Clash"}>
                 ⚠
               </span>
             )}
             <span className="box-code">{code}</span>
+            {flag && <span className="box-flag">{flag}</span>}
             <span className="box-name">{b.title || "Untitled"}</span>
           </span>
         )}

@@ -7,7 +7,7 @@ an invalid roadmap is not deployed.
 
 ```
 roadmap/
-  settings.yaml           title, fiscal year, box types, statuses
+  settings.yaml           title, fiscal year, box types, status flags
   people.yaml             the engineer roster
   departments/<id>.yaml   one file per department, with its lanes
   boxes/<id>.yaml         one file per box (a piece of planned work)
@@ -46,8 +46,8 @@ types:
     name: Project
     color: "#4f7cff"
 statuses:
-  - id: planned
-    name: Planned
+  - id: at_risk
+    name: At risk
 ```
 
 | Field | Required | Meaning |
@@ -56,12 +56,17 @@ statuses:
 | `fiscal_year_start_month` | no | 1–12. Quarter labels follow it (`FY27 Q1` when it isn't 1). Default 1. |
 | `default_zoom` | no | `weeks`, `months` or `quarters`. Default `months`. |
 | `types` | yes* | Kinds of box, each with `id`, `name` and `color` (CSS colour). A box's `type` must be one of these ids. |
-| `statuses` | yes* | Box states, each with `id` and `name`. A box's `status` must be one of these ids. |
+| `statuses` | no | Flags for boxes that need attention, each with `id` and `name`. A box's `status`, if it has one, must be one of these ids. |
 
-\* If missing, a single default type (`project`) or status (`planned`) is used.
+\* If missing, a single default type (`project`) is used. If `statuses` is
+missing, the flags are `at_risk`, `late` and `blocked`.
 
-The current statuses are `planned`, `in_progress`, `at_risk` and `done`; the
-types are `project`, `maintenance`, `research` and `support`.
+The current flags are `at_risk` (At risk), `late` (Late) and `blocked`
+(Blocked); the types are `project`, `maintenance`, `research` and `support`.
+
+A box's progress isn't stored: the app works it out from the dates (not
+started before `start`, under way until `end`, finished after). `status` is
+only for flagging a problem, and most boxes have none ("on track").
 
 ## departments/&lt;id&gt;.yaml
 
@@ -110,7 +115,7 @@ lane: de-1
 start: 2026-12-07
 end: 2027-01-15
 type: maintenance
-status: planned
+status: blocked                # optional; leave out when on track
 fte: 1.5
 engineers:
   - jordan-diaz
@@ -134,7 +139,7 @@ links:
 | `lane` | yes | The lane it sits in (any department). |
 | `start`, `end` | yes | Inclusive weekday dates; `end` on or after `start`. |
 | `type` | yes | One of the `types` in settings. |
-| `status` | yes | One of the `statuses` in settings. |
+| `status` | no | A flag: one of the `statuses` in settings (`at_risk`, `late`, `blocked`). Leave it out when the box is on track; delete the line to clear a flag. |
 | `fte` | no | 0.5, 1, 1.5 or 2. Default 1, so it's usually left out for 1-FTE boxes. |
 | `engineers` | no | Ids from `people.yaml`. Usually one engineer per started FTE (one for 0.5–1, two for 1.5–2). |
 | `relations` | no | Rules relating this box to others: a list of `type` (below) and `box` (the other box's 3-character code; the full `DE-M8T` form is also accepted). |

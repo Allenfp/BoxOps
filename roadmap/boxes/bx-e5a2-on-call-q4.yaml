@@ -5,7 +5,6 @@ lane: de-3
 start: 2026-09-29
 end: 2026-12-29
 type: support
-status: in_progress
 fte: 0.5
 engineers:
   - sam-lee

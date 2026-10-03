@@ -323,7 +323,6 @@ function RoadmapView(props: ViewProps) {
         title: "New box",
         fte: 1,
         type: base.settings.types[0].id,
-        status: base.settings.statuses[0].id,
       });
       draft.checkpoint();
       setSelected({ id, session: Date.now() });
@@ -724,7 +723,6 @@ function RoadmapView(props: ViewProps) {
               title: "New box",
               fte: 1,
               type: base.settings.types[0].id,
-              status: base.settings.statuses[0].id,
             });
             draft.checkpoint();
             return id;

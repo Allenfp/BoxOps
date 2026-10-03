@@ -39,7 +39,11 @@ export const DEFAULT_SETTINGS: Settings = {
   fiscal_year_start_month: 1,
   default_zoom: "months",
   types: [{ id: "project", name: "Project", color: "#4f7cff" }],
-  statuses: [{ id: "planned", name: "Planned" }],
+  statuses: [
+    { id: "at_risk", name: "At risk" },
+    { id: "late", name: "Late" },
+    { id: "blocked", name: "Blocked" },
+  ],
 };
 
 type Obj = Record<string, unknown>;
@@ -163,7 +167,7 @@ export function loadRoadmap(files: RoadmapFiles): { roadmap: Roadmap; issues: Is
       continue;
     }
     if (!typeIds.has(box.type)) r.fail(`type: "${box.type}" is not defined in settings.yaml`);
-    if (!statusIds.has(box.status)) r.fail(`status: "${box.status}" is not defined in settings.yaml`);
+    if (box.status !== undefined && !statusIds.has(box.status)) r.fail(`status: "${box.status}" is not defined in settings.yaml`);
     // The roadmap has no weekends: the app never writes them, so flag hand edits that do.
     for (const [field, day] of [["start", box.start], ["end", box.end]] as const) {
       if (isWeekend(day)) r.fail(`${field}: ${WEEKDAY[dayParts(day).weekday]} — roadmap dates must be weekdays`);
@@ -345,10 +349,10 @@ function loadBox(path: string, text: string, issues: Issue[]): Box | null {
   const title = r.str(doc, "title");
   const lane = r.str(doc, "lane");
   const type = r.str(doc, "type");
-  const status = r.str(doc, "status");
+  const status = r.optStr(doc, "status");
   const startText = r.str(doc, "start");
   const endText = r.str(doc, "end");
-  if (!id || !code || !title || !lane || !type || !status || !startText || !endText) return null;
+  if (!id || !code || !title || !lane || !type || !startText || !endText) return null;
   if (!BOX_CODE.test(code)) {
     r.fail(`code: "${code}" must be exactly 3 capital letters or digits`);
     return null;

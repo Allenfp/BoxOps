@@ -546,7 +546,7 @@ button.icon-only:disabled {
   position: sticky;
   left: calc(var(--label-w) + 8px);
 }
-.box.status-done {
+.box.progress-finished {
   background: color-mix(in srgb, var(--c) 7%, var(--surface));
   border-color: color-mix(in srgb, var(--c) 25%, transparent);
   color: var(--text-muted);
@@ -560,7 +560,7 @@ button.icon-only:disabled {
   border: 0;
 }
 
-/* Status: ○ planned (and any custom status), ◐ in progress, ● done, ! at risk. */
+/* Progress, from the dates: ○ not started, ◐ under way, ● finished. */
 .status-mark {
   display: inline-block;
   width: 9px;
@@ -570,15 +570,24 @@ button.icon-only:disabled {
   border: 1.5px solid var(--c);
   vertical-align: -0.5px;
 }
-.status-in_progress .status-mark {
+.progress-underway .status-mark {
   background: linear-gradient(90deg, var(--c) 50%, transparent 50%);
 }
-.status-done .status-mark {
+.progress-finished .status-mark {
   background: var(--c);
 }
-.status-at_risk .status-mark {
-  background: var(--warn);
-  border-color: var(--warn);
+/* A flag someone set (At risk, Late, Blocked): the one word on a box in the warning colour. */
+.box-flag {
+  margin-right: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-weight: 600;
+  line-height: 1;
+}
+.box.half .box-flag {
+  padding: 0 4px;
 }
 
 /* Editing: drag, resize, select */
@@ -1344,11 +1353,12 @@ button.primary:hover:not(:disabled) {
 .status-select {
   font-weight: 600;
 }
-.box-table .status-select.status-at_risk {
-  color: var(--warn);
-}
-.box-table .status-select.status-done {
+.box-table .status-select {
   color: var(--text-muted);
+}
+.box-table .status-select.flagged {
+  color: var(--warn);
+  font-weight: 600;
 }
 .row-delete {
   opacity: 0;
