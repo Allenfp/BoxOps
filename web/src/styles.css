@@ -107,44 +107,140 @@ button:hover {
   color: #fff;
   position: relative;
 }
-.legend {
-  display: flex;
-  gap: 12px;
-  margin: 0 0 0 auto;
-  padding: 0;
-  list-style: none;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
 .swatch {
   width: 10px;
   height: 10px;
   border-radius: 3px;
 }
-.theme-toggle {
-  flex: none;
+/* Right-hand end of the toolbar: warnings, key, theme. */
+.toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+button.icon-only {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  line-height: 1;
   color: var(--text-muted);
-  font-size: 12px;
 }
-.issues-button {
+button.icon-only:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.theme-toggle {
+  color: var(--text-muted);
+}
+.warnings-button {
   color: var(--warn);
-  border-color: var(--warn);
-}
-.issues {
-  margin: 0;
-  padding: 8px 16px 8px 32px;
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
   background: var(--warn-bg);
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  max-height: 30vh;
-  overflow: auto;
+  font-weight: 600;
+}
+.key-menu > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+.key-dots {
+  display: inline-grid;
+  grid-template-columns: repeat(2, 5px);
+  gap: 2px;
+}
+.key-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 1.5px;
 }
 
+/* Toolbar popovers */
+.popover {
+  position: relative;
+}
+.popover-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  min-width: 220px;
+  max-width: min(460px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow: auto;
+  padding: 10px 14px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18);
+  font-size: 13px;
+}
+.popover-panel h3 {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.popover-panel h3:first-child,
+.popover-panel section:first-child h3 {
+  margin-top: 0;
+}
+.popover-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.popover-panel li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.key-menu .status-mark {
+  margin-right: 0;
+}
+.key-warn {
+  width: 10px;
+  color: var(--warn);
+  font-weight: 600;
+}
+.key-updated {
+  width: 7px;
+  height: 7px;
+  margin: 0 1.5px;
+  border-radius: 50%;
+  background: var(--updated);
+}
+.warnings-menu .popover-panel {
+  width: 440px;
+}
+.warnings-menu section + section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.warnings-menu li {
+  display: block;
+  line-height: 1.4;
+}
+.warnings-menu .link-button {
+  text-align: left;
+  color: var(--text);
+  text-decoration: none;
+}
+.warnings-menu .link-button:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.key-menu .popover-panel {
+  width: 280px;
+}
+.popover-panel .count {
+  font-weight: 400;
+}
 /* Timeline scaffolding: one scroll container, sticky header row and label column. */
 
 .timeline {
@@ -444,13 +540,13 @@ button:hover {
   border: 1.5px solid var(--c);
   vertical-align: -0.5px;
 }
-.box.status-in_progress .status-mark {
+.status-in_progress .status-mark {
   background: linear-gradient(90deg, var(--c) 50%, transparent 50%);
 }
-.box.status-done .status-mark {
+.status-done .status-mark {
   background: var(--c);
 }
-.box.status-at_risk .status-mark {
+.status-at_risk .status-mark {
   background: var(--warn);
   border-color: var(--warn);
 }
@@ -1704,19 +1800,6 @@ button.primary:hover:not(:disabled) {
 }
 
 /* Rule warnings: toolbar, list, popup, table */
-.rules-button {
-  border: 0;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-}
-.rules-list li {
-  padding: 2px 0;
-}
-.rules-list .link-button {
-  text-align: left;
-  color: var(--text);
-}
 .toast {
   position: fixed;
   right: 16px;

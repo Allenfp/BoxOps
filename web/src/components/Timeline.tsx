@@ -361,7 +361,7 @@ export function Timeline(props: Props) {
             const previewHere = preview && dragged && laneDept.get(preview.lane) === dept.id ? preview : null;
             const previewLane = previewHere ? layout.lanes.get(previewHere.lane) : undefined;
             return (
-              <section key={dept.id} className="dept" style={{ "--dept": dept.color } as CSSProperties}>
+              <section key={dept.id} className="dept" data-dept-id={dept.id} style={{ "--dept": dept.color } as CSSProperties}>
                 <div className="row dept-row" style={{ height: DEPT_H }}>
                   <DeptLabel
                     dept={dept}

@@ -71,8 +71,14 @@ test("a broken rule warns (popup, marks, list) but blocks nothing", async ({ pag
   );
   await expect(box(page, DAGSTER)).toHaveClass(/rule-broken/);
   await expect(box(page, CDC)).toHaveClass(/rule-broken/);
-  await page.getByRole("button", { name: "⚠ 1 rule warning" }).click();
-  await expect(page.locator(".rules-list li")).toHaveCount(1);
+  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+  const warnings = page.getByRole("dialog", { name: /warning/ });
+  await expect(warnings.locator("section", { hasText: "Broken rules" }).locator("li")).toHaveCount(1);
+  // Clicking it closes the list and selects the box.
+  await warnings.getByRole("button", { name: /DE-D9U Dagster/ }).click();
+  await expect(warnings).toHaveCount(0);
+  await expect(box(page, DAGSTER)).toHaveClass(/selected/);
+  await page.keyboard.press("Escape");
 
   // From CDC's side the rule reads the other way round, and shows the warning.
   dialog = await editorFor(page, CDC);

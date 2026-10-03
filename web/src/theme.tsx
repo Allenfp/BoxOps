@@ -35,8 +35,8 @@ export function ThemeToggle() {
     setTheme(next);
   };
   return (
-    <button className="theme-toggle" onClick={toggle} title={`Switch to ${next} mode`} aria-label={`Switch to ${next} mode`}>
-      {theme === "light" ? "☾ Dark" : "☀ Light"}
+    <button className="icon-only theme-toggle" onClick={toggle} title={`Switch to ${next} mode`} aria-label={`Switch to ${next} mode`}>
+      {theme === "light" ? "☾" : "☀"}
     </button>
   );
 }

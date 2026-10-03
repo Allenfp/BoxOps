@@ -34,7 +34,9 @@ test("incoming saves merge with unsaved edits and flag clashes", async ({ page, 
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026");
   await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
-  await expect(toolbar(page)).toContainText("1 clash");
+  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+  await expect(page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: "Clashes" }).locator("li")).toHaveCount(1);
+  await page.keyboard.press("Escape");
   await expect(page.locator(".banner")).toContainText("your unsaved changes were kept");
 
   await save(page);

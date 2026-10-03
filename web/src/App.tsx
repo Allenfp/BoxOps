@@ -18,8 +18,11 @@ import {
 } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { ThemeToggle } from "./theme";
+import { KeyMenu } from "./components/KeyMenu";
+import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
+import { overStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraft } from "./model/draft";
-import { addWorkdays, startOfWeek, today } from "./model/dates";
+import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import { loadRoadmap } from "./model/load";
 import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
@@ -211,7 +214,6 @@ function RoadmapView(props: ViewProps) {
     () => initial.collapsed ?? new Set(base.departments.filter((d) => d.collapsed).map((d) => d.id)),
   );
   const [jumpToToday, setJumpToToday] = useState(0);
-  const [showIssues, setShowIssues] = useState(false);
   const [deptEditor, setDeptEditor] = useState<DepartmentEditorTarget | null>(null);
   const editDepartment = (id: string) => {
     select(null);
@@ -466,7 +468,6 @@ function RoadmapView(props: ViewProps) {
     for (const v of violations) for (const b of [v.from, v.to]) m.set(b.id, [...(m.get(b.id) ?? []), v.message]);
     return m;
   }, [violations]);
-  const [showRules, setShowRules] = useState(false);
   const [newlyBroken, setNewlyBroken] = useState<Violation[]>([]);
   const knownBroken = useRef<Set<string> | null>(null);
   useEffect(() => {
@@ -488,6 +489,58 @@ function RoadmapView(props: ViewProps) {
     () => new Set(draft.conflicts.filter((k) => k.startsWith("box:")).map((k) => k.slice(4))),
     [draft.conflicts],
   );
+  /** Show a box on the timeline: expand its department, select it, scroll to it. */
+  const goToBox = (id: string) => {
+    const box = draft.boxes.find((b) => b.id === id);
+    const dept = box && draft.departments.find((d) => d.lanes.some((l) => l.id === box.lane));
+    setView("timeline");
+    if (dept) setCollapsed((prev) => (prev.has(dept.id) ? new Set([...prev].filter((x) => x !== dept.id)) : prev));
+    select(id);
+    requestAnimationFrame(() =>
+      document.querySelector(`[data-box-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }),
+    );
+  };
+  const goToDepartment = (id: string) => {
+    setView("timeline");
+    setCollapsed((prev) => new Set([...prev].filter((x) => x !== id)));
+    requestAnimationFrame(() => document.querySelector(`[data-dept-id="${id}"]`)?.scrollIntoView({ block: "nearest" }));
+  };
+
+  // Departments over capacity now or later (past overloads are history, not a warning).
+  const overCapacity = useMemo(() => {
+    const now = today();
+    return draft.departments.flatMap((d) => {
+      const laneIds = new Set(d.lanes.map((l) => l.id));
+      const fte = d.lanes.reduce((n, l) => n + l.fte, 0);
+      const over = overStretches(
+        draft.boxes.filter((b) => laneIds.has(b.lane)),
+        fte,
+      ).filter((x) => x.to >= now);
+      if (!over.length) return [];
+      const peak = Math.max(...over.map((x) => x.fte));
+      const more = over.length > 1 ? `, and ${over.length - 1} more stretch${over.length > 2 ? "es" : ""}` : "";
+      return [
+        {
+          id: d.id,
+          text: `${d.name}: up to ${peak} FTE planned against ${fte}, ${prettyDay(over[0].from)} – ${prettyDay(over[0].to)}${more}`,
+        },
+      ];
+    });
+  }, [draft.boxes, draft.departments]);
+
+  const warningGroups: WarningGroup[] = [
+    {
+      title: "Clashes with someone else’s save",
+      items: draft.conflicts.map((k) => ({
+        text: `${describeItem(k)}: you’ll choose whose version to keep when you save`,
+        onGo: k.startsWith("box:") ? () => goToBox(k.slice(4)) : undefined,
+      })),
+    },
+    { title: "Broken rules", items: violations.map((v) => ({ text: v.message, onGo: () => goToBox(v.from.id) })) },
+    { title: "Over capacity", items: overCapacity.map((o) => ({ text: o.text, onGo: () => goToDepartment(o.id) })) },
+    { title: "Problems in the roadmap files", items: issues.map((i) => ({ text: `roadmap/${i.path}: ${i.message}` })) },
+  ];
+
   const mainUrl = () => {
     const q = new URLSearchParams(window.location.search);
     q.delete("ref");
@@ -530,11 +583,11 @@ function RoadmapView(props: ViewProps) {
 
         {!preview && (
           <div className="draft-status">
-            <button onClick={draft.undo} disabled={!draft.canUndo} title="Undo (⌘Z)">
-              Undo
+            <button className="icon-only" onClick={draft.undo} disabled={!draft.canUndo} title="Undo (⌘Z)" aria-label="Undo">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5.5 3 2.5 6l3 3" /><path d="M2.5 6h7a4 4 0 0 1 0 8H7" /></svg>
             </button>
-            <button onClick={draft.redo} disabled={!draft.canRedo} title="Redo (⇧⌘Z)">
-              Redo
+            <button className="icon-only" onClick={draft.redo} disabled={!draft.canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10.5 3 3 3-3 3" /><path d="M13.5 6h-7a4 4 0 0 0 0 8H9" /></svg>
             </button>
             {count > 0 ? (
               <>
@@ -559,36 +612,14 @@ function RoadmapView(props: ViewProps) {
             ) : (
               <span className="hint">No changes</span>
             )}
-            {draft.conflicts.length > 0 && (
-              <span
-                className="pill warn"
-                title="Someone else saved changes to items you're also editing. You'll choose whose version to keep when you save."
-              >
-                ⚠ {draft.conflicts.length} clash{draft.conflicts.length === 1 ? "" : "es"}
-              </span>
-            )}
-            {violations.length > 0 && (
-              <button className="pill warn rules-button" onClick={() => setShowRules((x) => !x)} aria-expanded={showRules}>
-                ⚠ {violations.length} rule warning{violations.length === 1 ? "" : "s"}
-              </button>
-            )}
           </div>
         )}
 
-        <ul className="legend">
-          {base.settings.types.map((t) => (
-            <li key={t.id}>
-              <span className="swatch" style={{ background: t.color }} />
-              {t.name}
-            </li>
-          ))}
-        </ul>
-        {issues.length > 0 && (
-          <button className="issues-button" onClick={() => setShowIssues((s) => !s)}>
-            ⚠ {issues.length} data issue{issues.length === 1 ? "" : "s"}
-          </button>
-        )}
-        <ThemeToggle />
+        <div className="toolbar-end">
+          <WarningsMenu groups={warningGroups} />
+          <KeyMenu settings={base.settings} />
+          <ThemeToggle />
+        </div>
       </header>
 
       {preview && (
@@ -634,33 +665,6 @@ function RoadmapView(props: ViewProps) {
           </button>
         </div>
       )}
-      {showRules && violations.length > 0 && (
-        <ul className="issues rules-list">
-          {violations.map((v, n) => (
-            <li key={n}>
-              <button
-                className="link-button"
-                onClick={() => {
-                  setView("timeline");
-                  select(v.from.id);
-                }}
-              >
-                {v.message}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {showIssues && (
-        <ul className="issues">
-          {issues.map((i, n) => (
-            <li key={n}>
-              <code>roadmap/{i.path}</code> {i.message}
-            </li>
-          ))}
-        </ul>
-      )}
-
       {view === "people" ? (
         <PeopleView
           roadmap={roadmap}

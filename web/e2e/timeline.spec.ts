@@ -141,15 +141,15 @@ test("light by default, even on a dark system; dark is a remembered toggle", asy
   const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   await page.emulateMedia({ colorScheme: "dark" });
   const toggle = page.locator(".theme-toggle");
-  await expect(toggle).toHaveText("☾ Dark");
+  await expect(toggle).toHaveAttribute("aria-label", "Switch to dark mode");
   expect(await bg()).toBe("rgb(246, 247, 249)");
 
   await toggle.click();
-  await expect(toggle).toHaveText("☀ Light");
+  await expect(toggle).toHaveAttribute("aria-label", "Switch to light mode");
   expect(await bg()).toBe("rgb(15, 18, 24)");
 
   await page.reload();
-  await expect(page.locator(".theme-toggle")).toHaveText("☀ Light");
+  await expect(page.locator(".theme-toggle")).toHaveAttribute("aria-label", "Switch to light mode");
   expect(await bg()).toBe("rgb(15, 18, 24)");
 
   await page.locator(".theme-toggle").click();
