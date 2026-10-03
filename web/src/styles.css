@@ -1431,3 +1431,40 @@ button.primary:hover:not(:disabled) {
   font-size: 12px;
   color: var(--accent);
 }
+
+/* Description wraps onto as many lines as it needs. */
+.box-table textarea.cell-input {
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 6px;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: block;
+}
+.box-table textarea.cell-input:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.box-table textarea.cell-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.box-table tbody tr:not(.group-row) td {
+  vertical-align: top;
+}
+.box-table tbody tr:not(.group-row) td.col-days {
+  padding-top: 9px;
+}
+/* The pinned title column must stay opaque on hover, or scrolled cells show through it. */
+.box-table tbody tr:hover td.col-title {
+  background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
+}

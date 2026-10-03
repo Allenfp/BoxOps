@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
 import { BOX_FTE_OPTIONS, type Box, type Roadmap } from "../model/types";
 import { EngineerPicker } from "./EngineerPicker";
@@ -411,7 +411,7 @@ export function TableView(props: Props) {
                       onCommit={(v) => update(b.id, { description: v || undefined })}
                       onBlur={onCheckpoint}
                       ariaLabel="Description"
-                      showFullOnHover
+                      multiline
                     />
                   </td>
                   <td className="col-actions">
@@ -437,6 +437,7 @@ export function TableView(props: Props) {
 /**
  * A spreadsheet-style text cell: edits locally, saves on Enter or when focus
  * leaves, Esc puts the old value back. One saved edit = one undo step.
+ * `multiline` cells wrap and grow to fit; Shift+Enter adds a line break there.
  */
 function TextCell({
   value,
@@ -448,7 +449,7 @@ function TextCell({
   invalid,
   autoFocus,
   ariaLabel,
-  showFullOnHover,
+  multiline,
 }: {
   value: string;
   onCommit(value: string): void;
@@ -459,12 +460,11 @@ function TextCell({
   invalid?(value: string): boolean;
   autoFocus?: boolean;
   ariaLabel: string;
-  /** Long text: show all of it in a tooltip, since one line can't. */
-  showFullOnHover?: boolean;
+  multiline?: boolean;
 }) {
   const [text, setText] = useState(value);
   const editing = useRef(false);
-  const ref = useRef<HTMLInputElement>(null);
+  const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
 
   // Follow outside changes (undo, someone else's save) unless mid-edit.
   useEffect(() => {
@@ -479,33 +479,42 @@ function TextCell({
     }
   }, [autoFocus]);
 
+  // A wrapping cell is exactly as tall as its text.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!multiline || !el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [multiline, text]);
+
   const bad = (required && !text.trim()) || invalid?.(text.trim());
-  return (
-    <input
-      ref={ref}
-      className={`cell-input${bad ? " invalid" : ""}`}
-      value={text}
-      placeholder={placeholder}
-      disabled={readOnly}
-      aria-label={ariaLabel}
-      aria-invalid={bad || undefined}
-      title={showFullOnHover && text ? text : undefined}
-      onFocus={() => (editing.current = true)}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={() => {
+  const props = {
+    ref,
+    className: `cell-input${multiline ? " multiline" : ""}${bad ? " invalid" : ""}`,
+    value: text,
+    placeholder,
+    disabled: readOnly,
+    "aria-label": ariaLabel,
+    "aria-invalid": bad || undefined,
+    onFocus: () => (editing.current = true),
+    onChange: (e: { target: { value: string } }) => setText(e.target.value),
+    onBlur: () => {
+      editing.current = false;
+      if (text !== value) onCommit(text.trim() === "" && !required ? "" : text);
+      onBlur();
+    },
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+      if (e.key === "Enter" && !(multiline && e.shiftKey)) {
+        e.preventDefault();
+        e.currentTarget.blur();
+      }
+      if (e.key === "Escape") {
+        setText(value);
         editing.current = false;
-        if (text !== value) onCommit(text.trim() === "" && !required ? "" : text);
-        onBlur();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") e.currentTarget.blur();
-        if (e.key === "Escape") {
-          setText(value);
-          editing.current = false;
-          // Let the blur that follows see the restored value.
-          requestAnimationFrame(() => ref.current?.blur());
-        }
-      }}
-    />
-  );
+        // Let the blur that follows see the restored value.
+        requestAnimationFrame(() => ref.current?.blur());
+      }
+    },
+  };
+  return multiline ? <textarea rows={1} {...props} /> : <input {...props} />;
 }
