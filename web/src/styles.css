@@ -93,6 +93,10 @@ button:hover {
   text-overflow: ellipsis;
   min-width: 0;
 }
+.logo {
+  flex: none;
+  display: block;
+}
 .toolbar-zone {
   display: flex;
   align-items: center;

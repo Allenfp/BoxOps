@@ -1,4 +1,4 @@
-# BoxOps Roadmap
+# <img src="web/public/favicon.svg" width="32" height="32" alt="" align="top"> BoxOps Roadmap
 
 A team roadmap that lives in this repo. The plan is a set of small YAML files in
 `roadmap/`. A web app on GitHub Pages shows them as a swim-lane timeline and lets

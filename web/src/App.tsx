@@ -19,6 +19,7 @@ import {
 import { getToken, setToken } from "./github/token";
 import { ThemeToggle } from "./theme";
 import { KeyMenu } from "./components/KeyMenu";
+import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overStretches } from "./model/report";
@@ -553,6 +554,7 @@ function RoadmapView(props: ViewProps) {
     <div className="app">
       <header className="toolbar">
         <div className="toolbar-zone start">
+          <Logo />
           <h1>{base.settings.title}</h1>
           <div className="segmented" role="group" aria-label="View">
             {VIEWS.map((v) => (
