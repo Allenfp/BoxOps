@@ -50,6 +50,9 @@ export interface Person {
   /** Job title, e.g. "Senior Data Engineer". */
   role?: string;
   email?: string;
+  /** Their manager's name (free text: managers needn't be on the roster). */
+  manager?: string;
+  notes?: string;
 }
 
 export interface Box {

@@ -190,7 +190,15 @@ function loadPeople(text: string | undefined, departmentIds: Set<string>, issues
     }
     const email = r.optStr(o, "email", where);
     if (email !== undefined && !EMAIL.test(email)) r.fail(`${where}email: "${email}" doesn't look like an email address`);
-    return { id, name, department, role: r.optStr(o, "role", where), email };
+    return {
+      id,
+      name,
+      department,
+      role: r.optStr(o, "role", where),
+      email,
+      manager: r.optStr(o, "manager", where),
+      notes: r.optStr(o, "notes", where),
+    };
   });
 }
 

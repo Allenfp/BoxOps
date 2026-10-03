@@ -1480,7 +1480,7 @@ button.primary:hover:not(:disabled) {
 
 /* People tab */
 .people-table {
-  min-width: 1240px;
+  min-width: 1300px;
 }
 .people-table .col-name {
   width: 220px;
@@ -1494,40 +1494,10 @@ button.primary:hover:not(:disabled) {
 .people-table .col-email {
   width: 230px;
 }
-.people-table .col-now {
-  width: 80px;
-  padding-top: 9px !important;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-}
-.people-table .col-load {
-  width: 230px;
-  padding-top: 9px !important;
-  font-size: 12px;
-}
-.people-table .col-boxes {
-  padding-top: 6px !important;
+.people-table .col-manager {
+  width: 190px;
 }
 .th-label {
   display: inline-block;
   padding: 6px;
-}
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.chip {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  white-space: nowrap;
-}
-.over-line {
-  display: block;
-}
-.box-table tr.overloaded td:first-child {
-  border-left-color: var(--warn);
 }

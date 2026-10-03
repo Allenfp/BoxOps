@@ -1,8 +1,6 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
-import { prettyDay, today as todayDay } from "../model/dates";
 import { EMAIL } from "../model/load";
 import type { Person, Roadmap } from "../model/types";
-import { workload } from "../model/workload";
 import { TextCell } from "./TextCell";
 
 interface Props {
@@ -28,9 +26,8 @@ const COLUMNS = [
   { label: "Department", className: "col-dept" },
   { label: "Role", className: "col-role" },
   { label: "Email", className: "col-email" },
-  { label: "Boxes", className: "col-boxes" },
-  { label: "Now", className: "col-now" },
-  { label: "Workload", className: "col-load" },
+  { label: "Manager", className: "col-manager" },
+  { label: "Notes", className: "col-notes" },
   { label: "", className: "col-actions" },
 ];
 
@@ -39,7 +36,6 @@ export function PeopleView(props: Props) {
   const { departments, people, boxes } = roadmap;
   const [query, setQuery] = useState("");
   const [focusId, setFocusId] = useState<string | null>(null);
-  const now = useMemo(() => todayDay(), []);
 
   // Stable row keys while an unsaved person's id follows their name.
   const rowKeys = useRef(new Map<string, string>());
@@ -52,12 +48,17 @@ export function PeopleView(props: Props) {
     if (next !== id) rowKeys.current.set(next, keyFor(id));
   };
 
-  const loads = useMemo(() => new Map(people.map((p) => [p.id, workload(p.id, boxes, now)])), [people, boxes, now]);
+  /** How many boxes each person is on, to warn before removing them. */
+  const boxCount = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const b of boxes) for (const id of b.engineers ?? []) n.set(id, (n.get(id) ?? 0) + 1);
+    return n;
+  }, [boxes]);
   const deptIds = new Set(departments.map((d) => d.id));
   const q = query.trim().toLowerCase();
   const matches = (p: Person) =>
     !q ||
-    [p.name, p.role ?? "", p.email ?? "", ...(loads.get(p.id)?.boxes.map((b) => b.title) ?? [])]
+    [p.name, p.role ?? "", p.email ?? "", p.manager ?? "", p.notes ?? ""]
       .join(" ")
       .toLowerCase()
       .includes(q);
@@ -72,7 +73,7 @@ export function PeopleView(props: Props) {
   const shown = people.filter(matches).length;
 
   const remove = (p: Person) => {
-    const n = loads.get(p.id)?.boxes.length ?? 0;
+    const n = boxCount.get(p.id) ?? 0;
     if (
       n === 0 ||
       confirm(`Remove ${p.name}? They're on ${n} box${n === 1 ? "" : "es"} and will be unassigned. You can undo this.`)
@@ -87,7 +88,7 @@ export function PeopleView(props: Props) {
         <input
           className="table-search"
           type="search"
-          placeholder="Search names, roles, emails, boxes…"
+          placeholder="Search names, roles, managers, notes…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -123,7 +124,6 @@ export function PeopleView(props: Props) {
             if (g.id === NO_DEPT && g.all.length === 0) return null;
             if (q && rows.length === 0) return null;
             const isCollapsed = g.id !== NO_DEPT && collapsed.has(g.id) && !q;
-            const overloaded = g.all.filter((p) => (loads.get(p.id)?.over.length ?? 0) > 0).length;
             return (
               <tbody key={g.id || "none"} className="dept-group" style={{ "--dept": g.color } as CSSProperties}>
                 <tr className="group-row">
@@ -139,7 +139,6 @@ export function PeopleView(props: Props) {
                         <span className="dept-name">{g.name}</span>
                         <span className="dept-meta">
                           {q ? `${rows.length} of ${g.all.length}` : g.all.length} engineer{g.all.length === 1 ? "" : "s"}
-                          {overloaded > 0 && <span className="warn-text"> · {overloaded} over 1 FTE</span>}
                         </span>
                       </button>
                       {!readOnly && g.id !== NO_DEPT && (
@@ -165,10 +164,8 @@ export function PeopleView(props: Props) {
                   </tr>
                 )}
                 {!isCollapsed &&
-                  rows.map((p) => {
-                    const load = loads.get(p.id)!;
-                    return (
-                      <tr key={keyFor(p.id)} className={load.over.length ? "overloaded" : undefined}>
+                  rows.map((p) => (
+                      <tr key={keyFor(p.id)}>
                         <td className="col-name">
                           <TextCell
                             value={p.name}
@@ -216,38 +213,25 @@ export function PeopleView(props: Props) {
                             ariaLabel="Email"
                           />
                         </td>
-                        <td className="col-boxes">
-                          {load.boxes.length === 0 ? (
-                            <span className="hint">None</span>
-                          ) : (
-                            <span className="chips">
-                              {[...load.boxes]
-                                .sort((a, b) => a.start - b.start)
-                                .map((b) => (
-                                  <span
-                                    key={b.id}
-                                    className="chip"
-                                    title={`${b.title}\n${prettyDay(b.start)} – ${prettyDay(b.end)} · ${b.fte} FTE shared by ${b.engineers!.length}`}
-                                  >
-                                    {b.title}
-                                  </span>
-                                ))}
-                            </span>
-                          )}
+                        <td className="col-manager">
+                          <TextCell
+                            value={p.manager ?? ""}
+                            readOnly={readOnly}
+                            placeholder="Manager's name"
+                            onCommit={(manager) => update(p.id, { manager: manager.trim() || undefined })}
+                            onBlur={onCheckpoint}
+                            ariaLabel="Manager"
+                          />
                         </td>
-                        <td className="col-now">{load.today ? `${load.today} FTE` : "—"}</td>
-                        <td className="col-load">
-                          {load.over.length === 0 ? (
-                            <span className="hint">{load.peak ? `OK · peak ${load.peak} FTE` : "Free"}</span>
-                          ) : (
-                            <span className="warn-text">
-                              {load.over.map((o) => (
-                                <span key={o.from} className="over-line">
-                                  {o.fte} FTE {prettyDay(o.from).replace(/, \d{4}$/, "")} – {prettyDay(o.to)}
-                                </span>
-                              ))}
-                            </span>
-                          )}
+                        <td className="col-notes">
+                          <TextCell
+                            value={p.notes ?? ""}
+                            readOnly={readOnly}
+                            multiline
+                            onCommit={(notes) => update(p.id, { notes: notes.trim() || undefined })}
+                            onBlur={onCheckpoint}
+                            ariaLabel="Notes"
+                          />
                         </td>
                         <td className="col-actions">
                           {!readOnly && (
@@ -262,8 +246,7 @@ export function PeopleView(props: Props) {
                           )}
                         </td>
                       </tr>
-                    );
-                  })}
+                  ))}
               </tbody>
             );
           })}

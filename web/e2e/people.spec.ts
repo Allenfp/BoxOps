@@ -33,21 +33,28 @@ test("adds an engineer, fills in their details and saves them", async ({ page, g
   );
 });
 
-test("shows each engineer's boxes and flags anyone over 1 FTE", async ({ page, github: _ }) => {
-  // Assign Sam to two overlapping boxes from the box editor, then come back.
-  await page.getByRole("button", { name: "Timeline" }).click();
-  for (const id of [DAGSTER, "bx-a1f0-warehouse-migration"]) {
-    await page.locator(`[data-box-id="${id}"] .box-title`).first().click();
-    await page.getByRole("button", { name: "Engineers" }).click();
-    await page.getByRole("option", { name: "Sam Lee" }).click();
-    await page.keyboard.press("Escape");
-    await page.keyboard.press("Escape");
-  }
-  await page.getByRole("button", { name: "People" }).click();
+test("records a manager and wrapping notes", async ({ page, github }) => {
   const sam = person(page, "Sam Lee");
-  await expect(sam.locator(".chip")).toHaveText(["Warehouse migration to Iceberg", "Dagster 2.x upgrade"]);
-  await expect(sam.locator(".col-load")).toContainText("2 FTE Sep 14 – Oct 23, 2026");
-  await expect(page.locator(".group-row", { hasText: "Data Engineering" })).toContainText("1 over 1 FTE");
+  await sam.getByLabel("Manager").fill("Dana Whitfield");
+  await sam.getByLabel("Manager").press("Enter");
+  const notes = sam.getByLabel("Notes");
+  await notes.click();
+  await page.keyboard.type("Owns the Dagster migration. Out for two weeks in December, so plan Fivetran work around that.");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("Prefers async updates.");
+  await page.keyboard.press("Enter");
+  expect((await notes.boundingBox())!.height).toBeGreaterThan(40); // wrapped onto several lines
+
+  await page.locator(".table-search").fill("dana");
+  await expect(page.locator('input[aria-label="Name"]')).toHaveCount(1);
+  await page.locator(".table-search").fill("");
+
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file("people.yaml")).toContain(
+    "  - id: sam-lee\n    name: Sam Lee\n    department: data-eng\n    manager: Dana Whitfield\n    notes: |-\n",
+  );
+  expect(github.file("people.yaml")).toContain("so plan Fivetran work around that.\n      Prefers async updates.\n");
 });
 
 test("removing an engineer unassigns them, and undo brings it all back", async ({ page, github }) => {

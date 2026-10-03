@@ -69,7 +69,7 @@ roadmap/
   settings.yaml            # title, fiscal_year_start_month, default_zoom, types, statuses
   departments/<id>.yaml    # id, name, color, order, collapsed, lanes: [{id, name?, fte}]
   boxes/<id>.yaml          # id, title, lane, start, end, type, status, fte, engineers, epic, description, tags, links
-  people.yaml              # people: [{id, name, department?, role?, email?}] — the engineer roster (People tab)
+  people.yaml              # people: [{id, name, department?, role?, email?, manager?, notes?}] — the engineer roster (People tab)
 ```
 
 - IDs are stable and never derived from the display name at runtime. Lane ids are

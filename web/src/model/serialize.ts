@@ -31,7 +31,7 @@ const BOX_KEYS = [
 ];
 const DEPT_KEYS = ["id", "name", "color", "order", "collapsed", "lanes"];
 const LANE_KEYS = ["id", "name", "fte"];
-const PERSON_KEYS = ["id", "name", "department", "role", "email"];
+const PERSON_KEYS = ["id", "name", "department", "role", "email", "manager", "notes"];
 
 /** A key that is absent from the file means this value. */
 const DEFAULTS: Record<string, unknown> = { fte: 1, collapsed: false, order: 0, color: DEFAULT_DEPT_COLOR };
