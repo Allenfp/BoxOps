@@ -28,7 +28,9 @@ essentials are below.
   boxes is over 1 FTE (a box's FTE is split evenly across its engineers). Both
   are warnings, not errors.
 - There are **no weekends**: dates must be Monday–Friday and durations are
-  counted in working days.
+  counted in working days. "Two weeks" means 10 working days. Holidays aren't
+  modelled; treat every weekday as a working day unless the user says
+  otherwise.
 
 ## Workflow
 
@@ -36,23 +38,26 @@ People edit the roadmap in the web app at the same time, and every app save is
 a commit on `main`. So:
 
 1. **Start from the latest `main`:** `git checkout main && git pull --ff-only`.
-2. **Look before you change.** From `web/` (run `npm ci` once first), run
-   `npm run report` and keep the output: it shows over-capacity departments,
-   overloaded engineers, unassigned boxes, broken rules, and every engineer's
-   bookings by date (use that to answer "who's free then?").
+2. **Look before you change.** From `web/` (run `npm ci` once first), save the
+   report: `npm run report --silent > /tmp/roadmap-before.txt`. It shows
+   over-capacity and fully booked departments, engineers over 1 FTE (one line
+   per stretch, at that stretch's level), unassigned boxes, broken rules, and
+   every engineer's bookings by date (use that to answer "who's free then?").
 3. **Edit the YAML files** (recipes below). Change only what you need: don't
    reformat files, reorder fields, or rewrite unrelated lines, and keep comments.
 4. **Check your work** from `web/`:
    - `npm run validate` must end in `— OK` (e.g. `3 departments, 9 lanes,
      16 boxes — OK`). It lists any problem and exits non-zero.
-   - `npm run report` again. Compare with step 2 and tell the user about
-     anything your change made worse (a department over capacity, someone over
-     1 FTE, a rule now broken).
-5. **Commit to `main`.** Pull first if time has passed (`git pull --ff-only`;
-   validate again if anything came in). Stage only the roadmap
+   - `npm run report --silent > /tmp/roadmap-after.txt` and
+     `diff /tmp/roadmap-before.txt /tmp/roadmap-after.txt`. Tell the user about
+     anything your change made worse: a department newly over capacity or
+     full, someone newly over 1 FTE or at a higher level, a rule now broken.
+5. **Commit to `main`.** Always `git pull --ff-only` right before committing
+   (validate again if anything came in). Stage only the roadmap
    (`git add roadmap/`), never `git add -A`. Write the message the way the app
    does (see [Commit messages](#commit-messages)). Commits use the local git
-   identity; add whatever co-author trailer you normally add.
+   identity. If you normally add a trailer such as `Co-Authored-By:`, add it
+   after a blank line at the end.
 6. **Push:** `git push origin main`. Changes to `roadmap/` deploy in about 30
    seconds, and open browser tabs pick them up within a few minutes.
 7. **If the push is rejected** because someone saved meanwhile:
@@ -70,23 +75,30 @@ itself (`web/`) are different: do those on a branch, run `npm test` and
 Match the app, so history reads the same whichever way a change was made. The
 subject is the single change (without any "(was …)" part, at most 72
 characters), or `Roadmap: <n> changes` for several. The body has one bullet per
-change, worded like this (`<range>` is like `Mar 1, 2026 – Mar 19, 2026`; a lane
-is `<Department> / <lane label>`):
+change, in this order: engineers, new boxes, edited boxes, deleted boxes,
+departments. Word them like this (`<range>` is like `Mar 1, 2026 – Mar 19, 2026`,
+with no leading zeros; a lane is `<Department> / <lane label>`; quotes are
+curly “ ”):
 
 | Change | Line |
 |---|---|
 | New box | `Added <title> (<code>) to <lane>, <range>` |
 | Deleted box | `Deleted <title> (<code>, <lane>, <range>)` |
 | Edited box | `<title> (<code>): ` then the parts that changed, joined by `; ` |
-| … renamed | `renamed from "<old title>"` |
+| … renamed | `renamed from “<old title>”` |
 | … new lane | `moved from <old lane> to <new lane>` |
 | … same length, new dates | `rescheduled to <range> (was <old range>)` |
 | … other date change | `dates now <range> (was <old range>)` |
 | … status, type or FTE | `status At risk → Done`, `type <old> → <new>`, `FTE 1 → 1.5` (names, not ids) |
-| … engineers | `engineers now Sam Lee, Alex Kim` |
+| … engineers | `engineers now Sam Lee, Alex Kim` (or `engineers now nobody`) |
 | … epic, description, tags, links | `epic link updated` / `epic link removed`, `description edited`, `tags edited`, `links edited` |
 | … rule added or removed | `now finishes before <other title> (<code>)`, `no longer happens during <other title> (<code>)` |
 | Department code changed | `<Department>'s code is now <NEW> (was <OLD>): its boxes are <NEW>-…` |
+| … anything else | `edited` |
+| Department added | `Added department <name> (<n> lanes, <fte> FTE)` |
+| Department renamed, recoloured, deleted | `Renamed department <old> to <new>`, `Changed the colour of <name>`, `Deleted department <name>` |
+| Departments reordered | `Reordered departments` |
+| Lane added, removed, resized, reordered | `Added lane <label> (<fte> FTE) to <Department>`, `Removed lane <label> from <Department>`, `Lane <label> in <Department> is now 0.5 FTE (was 1)`, `Reordered the lanes in <Department>` |
 | Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
 | Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` |
 
@@ -160,6 +172,12 @@ capacity.
 who's free over the box's dates. If several are equally free, say who you
 picked and why, and offer the alternatives.
 
+*When nobody is free:* if the only candidates would go over 1 FTE, and the user
+asked you to staff it, assign the least loaded one and say so plainly, with
+their resulting load and dates. Offer alternatives: leave it unassigned, move
+the dates, or someone from another department. If the user didn't ask for
+staffing, leave `engineers` out rather than overloading someone.
+
 **Move or reschedule a box.** Change `start` and `end`. To keep its length,
 shift both by the same number of working days. To move it to another lane or
 department, change `lane`.
@@ -195,6 +213,11 @@ Never change their `id`: boxes refer to it.
 **Remove an engineer.** Delete their entry *and* remove their id from every
 box's `engineers` list (`grep -rl "<id>" roadmap/boxes`). Delete an emptied
 `engineers:` key rather than leaving an empty list.
+
+If they leave partway through a box (one already in progress), ask the user
+how to handle it unless they said. The usual choices are to hand the whole box
+to someone else, or to split it: end their box on their last day, and add a new
+box from the next working day with the rest of the work and the new engineer.
 
 **Rename a lane.** Set or change the lane's `name`. Never change a lane `id`
 without updating every box that uses it.

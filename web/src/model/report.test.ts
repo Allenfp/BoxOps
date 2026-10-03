@@ -4,10 +4,10 @@ import { overStretches } from "./report";
 
 const d = (s: string) => parseDay(s)!;
 const item = (start: string, end: string, fte: number) => ({ start: d(start), end: d(end), fte });
-const fmt = (xs: ReturnType<typeof overStretches>) => xs.map((s) => [formatDay(s.from), formatDay(s.to), s.peak]);
+const fmt = (xs: ReturnType<typeof overStretches>) => xs.map((s) => [formatDay(s.from), formatDay(s.to), s.fte]);
 
 describe("overStretches", () => {
-  it("finds working-day stretches over the limit, with their peak", () => {
+  it("finds working-day stretches over the limit, one per level", () => {
     const items = [
       item("2026-10-05", "2026-10-23", 1.5),
       item("2026-10-12", "2026-10-16", 1),
@@ -15,8 +15,12 @@ describe("overStretches", () => {
     ];
     // Over 3 FTE only Wed–Fri Oct 14–16 (1.5 + 1 + 1).
     expect(fmt(overStretches(items, 3))).toEqual([["2026-10-14", "2026-10-16", 3.5]]);
-    // Over 2 FTE from Oct 12 (2.5) through Oct 23 (still 2.5 after the 1-FTE box ends).
-    expect(fmt(overStretches(items, 2))).toEqual([["2026-10-12", "2026-10-23", 3.5]]);
+    // Over 2 FTE: 2.5 on Oct 12–13, 3.5 on Oct 14–16, 2.5 again on Oct 19–23.
+    expect(fmt(overStretches(items, 2))).toEqual([
+      ["2026-10-12", "2026-10-13", 2.5],
+      ["2026-10-14", "2026-10-16", 3.5],
+      ["2026-10-19", "2026-10-23", 2.5],
+    ]);
   });
 
   it("exactly at the limit is fine, and back-to-back work doesn't overlap", () => {
@@ -26,6 +30,12 @@ describe("overStretches", () => {
   it("a stretch running over a weekend stays one stretch", () => {
     const items = [item("2026-10-08", "2026-10-13", 1), item("2026-10-08", "2026-10-13", 1)];
     expect(fmt(overStretches(items, 1))).toEqual([["2026-10-08", "2026-10-13", 2]]);
+  });
+
+  it("finds stretches at exactly a level (a full department)", async () => {
+    const { levelStretches } = await import("./report");
+    const items = [item("2026-10-05", "2026-10-16", 1), item("2026-10-12", "2026-10-23", 1)];
+    expect(fmt(levelStretches(items, (f) => f === 2))).toEqual([["2026-10-12", "2026-10-16", 2]]);
   });
 });
 
@@ -47,6 +57,6 @@ describe("formatReport", () => {
     );
     expect(text).toContain("Engineer bookings (FTE is their share of the box)\n  Sam (sam), eng\n    Oct 5, 2026 – Oct 16, 2026  0.75 FTE  Pipes (PIP)\n  Ana (ana)\n");
     expect(text).toContain("Engineers over 1 FTE\n  none");
-    expect(text).toContain("Eng (eng): 1 FTE of lanes, 1 boxes\n    OVER CAPACITY Oct 5, 2026 – Oct 16, 2026: up to 1.5 FTE planned");
+    expect(text).toContain("Eng (eng): 1 FTE of lanes, 1 boxes\n    OVER CAPACITY Oct 5, 2026 – Oct 16, 2026: 1.5 FTE planned of 1");
   });
 });

@@ -9,14 +9,17 @@ import type { Box, Roadmap } from "./types";
 export interface Stretch {
   from: Day;
   to: Day;
-  /** Most FTE in use on any working day of the stretch. */
-  peak: number;
+  /** FTE in use on every working day of the stretch. */
+  fte: number;
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
-/** Working-day stretches where the FTE in use is over `limit`. */
-export function overStretches(items: { start: Day; end: Day; fte: number }[], limit: number): Stretch[] {
+/**
+ * Working-day stretches where the FTE in use satisfies `when`, split wherever
+ * the level changes, so each stretch has one level.
+ */
+export function levelStretches(items: { start: Day; end: Day; fte: number }[], when: (fte: number) => boolean): Stretch[] {
   const delta = new Map<number, number>();
   for (const it of items) {
     const s = workIndex(it.start);
@@ -28,20 +31,25 @@ export function overStretches(items: { start: Day; end: Day; fte: number }[], li
   const points = [...delta.keys()].sort((a, b) => a - b);
   const out: Stretch[] = [];
   let load = 0;
-  let run: { from: number; peak: number } | null = null;
-  for (let i = 0; i < points.length; i++) {
+  for (let i = 0; i < points.length - 1; i++) {
     load = round(load + delta.get(points[i])!);
-    if (load > limit) run = run ? { from: run.from, peak: Math.max(run.peak, load) } : { from: points[i], peak: load };
-    else if (run) {
-      out.push({ from: dayOfWorkIndex(run.from), to: dayOfWorkIndex(points[i] - 1), peak: run.peak });
-      run = null;
+    if (!when(load)) continue;
+    const last = out[out.length - 1];
+    if (last && last.fte === load && workIndex(last.to) + 1 === points[i]) {
+      last.to = dayOfWorkIndex(points[i + 1] - 1); // same level carries on
+    } else {
+      out.push({ from: dayOfWorkIndex(points[i]), to: dayOfWorkIndex(points[i + 1] - 1), fte: load });
     }
   }
   return out;
 }
 
+/** Working-day stretches where the FTE in use is over `limit`, one per level. */
+export const overStretches = (items: { start: Day; end: Day; fte: number }[], limit: number) =>
+  levelStretches(items, (fte) => fte > limit);
+
 export interface Report {
-  departments: { id: string; name: string; fte: number; boxes: number; over: Stretch[] }[];
+  departments: { id: string; name: string; fte: number; boxes: number; over: Stretch[]; full: Stretch[] }[];
   /** Every engineer's bookings, and where they're over 1 FTE (a box's FTE is split evenly across its engineers). */
   people: { id: string; name: string; department?: string; bookings: { box: Box; fte: number }[]; over: Stretch[] }[];
   unassigned: Box[];
@@ -55,7 +63,14 @@ export function buildReport(roadmap: Roadmap): Report {
     departments: roadmap.departments.map((d) => {
       const boxes = roadmap.boxes.filter((b) => deptOf.get(b.lane) === d.id);
       const fte = d.lanes.reduce((n, l) => n + l.fte, 0);
-      return { id: d.id, name: d.name, fte, boxes: boxes.length, over: overStretches(boxes, fte) };
+      return {
+        id: d.id,
+        name: d.name,
+        fte,
+        boxes: boxes.length,
+        over: overStretches(boxes, fte),
+        full: levelStretches(boxes, (load) => load === fte),
+      };
     }),
     people: roadmap.people.map((p) => {
       const bookings = roadmap.boxes
@@ -76,14 +91,15 @@ export function formatReport(r: Report): string {
   const lines: string[] = ["Departments"];
   for (const d of r.departments) {
     lines.push(`  ${d.name} (${d.id}): ${d.fte} FTE of lanes, ${d.boxes} boxes`);
-    if (d.over.length === 0) lines.push("    capacity OK");
-    for (const s of d.over) lines.push(`    OVER CAPACITY ${range(s)}: up to ${s.peak} FTE planned`);
+    if (d.over.length === 0) lines.push("    within capacity");
+    for (const s of d.over) lines.push(`    OVER CAPACITY ${range(s)}: ${s.fte} FTE planned of ${d.fte}`);
+    for (const s of d.full) lines.push(`    full (no spare FTE) ${range(s)}`);
   }
   const overloaded = r.people.filter((p) => p.over.length);
   lines.push("", "Engineers over 1 FTE");
   if (overloaded.length === 0) lines.push("  none");
   for (const p of overloaded) {
-    for (const s of p.over) lines.push(`  ${p.name} (${p.id}): ${s.peak} FTE, ${range(s)}`);
+    for (const s of p.over) lines.push(`  ${p.name} (${p.id}): ${s.fte} FTE, ${range(s)}`);
   }
   lines.push("", "Engineer bookings (FTE is their share of the box)");
   for (const p of r.people) {
