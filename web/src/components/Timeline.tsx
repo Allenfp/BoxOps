@@ -37,6 +37,8 @@ interface Props {
   onRenameLane(laneId: string, name: string | undefined): void;
   /** Previewing another branch: look, don't touch. */
   readOnly?: boolean;
+  /** Boxes someone else changed while we were editing them too. */
+  conflictIds?: Set<string>;
 }
 
 interface LaneLayout {
@@ -203,7 +205,14 @@ export function Timeline(props: Props) {
   const boxEl = (b: Box, style: CSSProperties, variant: "full" | "compact" | "dragging" = "full") => {
     const width = typeof style.width === "number" ? style.width : 0;
     const interactive = variant !== "compact" && !readOnly;
-    const classes = ["box", `status-${b.status}`, variant !== "full" && variant, b.id === selectedId && "selected"];
+    const clash = props.conflictIds?.has(b.id);
+    const classes = [
+      "box",
+      `status-${b.status}`,
+      variant !== "full" && variant,
+      b.id === selectedId && "selected",
+      clash && "conflict",
+    ];
     return (
       <div
         key={b.id}
@@ -212,7 +221,7 @@ export function Timeline(props: Props) {
         style={{ ...style, "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
         title={
           variant === "full" && b.id !== selectedId
-            ? `${b.title}\n${prettyDay(b.start)} – ${prettyDay(b.end)}\n${statusName.get(b.status) ?? b.status}${
+            ? `${clash ? "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n\n" : ""}${b.title}\n${prettyDay(b.start)} – ${prettyDay(b.end)}\n${statusName.get(b.status) ?? b.status}${
                 b.description ? `\n\n${b.description}` : ""
               }`
             : undefined

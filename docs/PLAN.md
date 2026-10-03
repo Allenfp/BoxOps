@@ -37,6 +37,15 @@ GitHub Pages (static app)                 GitHub repo
 - **Freshness.** On load the app compares the bundled commit with the head of
   `main` (one API call) and reads newer files from GitHub, so the minute
   between a save and the redeploy never shows a stale roadmap.
+- **Live updates (polling).** Every 2 minutes, while the tab is visible, the app
+  revalidates the site's own `roadmap.json` (a 304 when unchanged; no GitHub
+  API calls, so no rate limit). A newer commit is merged into the screen in
+  place: others' changes come in, unsaved edits are kept, and items both sides
+  changed are flagged and resolved at save time. Others see a save roughly
+  1–3 minutes later (deploy time plus the poll interval). Commits the tab has
+  already shown or saved on top of are ignored, so the lagging deploy never
+  rolls a tab back. Anonymous GitHub API requests count against a 60/hour
+  per-IP limit even when they return 304, which is why polling doesn't use it.
 - **Conflicts.** Saves only conflict per file (one file per box/department):
   if someone else changed a file you also changed since you loaded, you choose
   keep mine / keep theirs. Everything else from both sides is kept.
@@ -103,6 +112,6 @@ yet against GitHub itself.
 2. **Local editing.** Box create/move/resize/edit, lane and department management,
    draft persistence, undo and redo, Changes panel.
 3. **Write-back.** Token sign-in, direct save to `main`, conflict handling,
-   freshness check, branch preview.
+   freshness check, 2-minute polling for others' saves, branch preview.
 4. **Polish.** Milestones, dependencies, capacity view, filters, export, optional
    OAuth Worker.

@@ -21,11 +21,16 @@ const git = (...args: string[]) => {
  * has edits that aren't committed (a PR would be built on HEAD, not on them).
  */
 function source() {
+  // Who made the latest commit and what it says, for "Sam saved: …" notices.
+  const author = git("log", "-1", "--format=%an");
+  const subject = git("log", "-1", "--format=%s");
   if (process.env.GITHUB_ACTIONS) {
     return {
       repo: process.env.GITHUB_REPOSITORY,
       branch: process.env.GITHUB_REF_NAME,
       commit: process.env.GITHUB_SHA,
+      author,
+      subject,
     };
   }
   const remote = git("remote", "get-url", "origin");
@@ -33,6 +38,8 @@ function source() {
     repo: /github\.com[:/](.+?)(?:\.git)?$/.exec(remote)?.[1] ?? "",
     branch: git("rev-parse", "--abbrev-ref", "HEAD"),
     commit: git("rev-parse", "HEAD"),
+    author,
+    subject,
     dirty: git("status", "--porcelain", "--", ".") !== "",
   };
 }

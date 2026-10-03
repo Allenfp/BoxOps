@@ -875,3 +875,15 @@ button.primary:hover:not(:disabled) {
 .save-dialog .form {
   margin-bottom: 0;
 }
+
+/* Someone else changed this box while we were editing it too. */
+.box.conflict {
+  outline: 2px dashed var(--warn);
+  outline-offset: 2px;
+}
+.box.conflict.selected {
+  outline-style: solid;
+}
+.banner .warn-text {
+  font-weight: 600;
+}

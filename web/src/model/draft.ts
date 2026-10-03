@@ -11,11 +11,15 @@ export interface DraftState {
 }
 
 interface History {
+  /** The loaded roadmap this draft is relative to. */
+  base: DraftState;
   past: DraftState[];
   present: DraftState;
   future: DraftState[];
   /** Consecutive edits with the same key (typing in one field) form one undo step. */
   lastKey?: string;
+  /** Items (`box:<id>`, `dept:<id>`) someone else changed while we were editing them too. */
+  conflicts: string[];
 }
 
 export interface Changes {
@@ -67,6 +71,66 @@ function normalize(v: unknown): unknown {
   return out;
 }
 
+const sameOrBothMissing = <T extends object>(a: T | undefined, b: T | undefined) =>
+  a === undefined || b === undefined ? a === b : same(a, b);
+
+function mergeById<T extends { id: string }>(
+  oldBase: T[],
+  draft: T[],
+  newBase: T[],
+  kind: string,
+  conflicts: string[],
+): T[] {
+  const o = new Map(oldBase.map((x) => [x.id, x]));
+  const d = new Map(draft.map((x) => [x.id, x]));
+  const n = new Map(newBase.map((x) => [x.id, x]));
+  const ids = [...new Set([...newBase.map((x) => x.id), ...draft.map((x) => x.id)])];
+  const out: T[] = [];
+  for (const id of ids) {
+    const ours = !sameOrBothMissing(o.get(id), d.get(id));
+    const theirs = !sameOrBothMissing(o.get(id), n.get(id));
+    if (ours && theirs && !sameOrBothMissing(d.get(id), n.get(id))) conflicts.push(`${kind}:${id}`);
+    const value = ours ? d.get(id) : n.get(id);
+    if (value) out.push(value);
+  }
+  return out;
+}
+
+/**
+ * Move a draft onto a newer roadmap (someone else saved). Their changes come in
+ * for everything we haven't touched; our edits stay. Items both of us changed
+ * keep our version and are reported, so the user decides before saving.
+ */
+export function rebaseDraft(oldBase: DraftState, draft: DraftState, newBase: DraftState) {
+  const conflicts: string[] = [];
+  return {
+    draft: {
+      boxes: mergeById(oldBase.boxes, draft.boxes, newBase.boxes, "box", conflicts),
+      departments: mergeById(oldBase.departments, draft.departments, newBase.departments, "dept", conflicts),
+    },
+    conflicts,
+  };
+}
+
+const entityOf = (state: DraftState, key: string) => {
+  const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+  return kind === "box" ? state.boxes.find((b) => b.id === id) : state.departments.find((d) => d.id === id);
+};
+
+/** `draft` with these items put back to how they are in `base` (taking "theirs"). */
+export function revertItems(draft: DraftState, base: DraftState, keys: string[]): DraftState {
+  const revert = <T extends { id: string }>(items: T[], baseItems: T[], kind: string) => {
+    const keyed = new Set(keys.filter((k) => k.startsWith(`${kind}:`)).map((k) => k.slice(kind.length + 1)));
+    if (!keyed.size) return items;
+    const kept = items.filter((x) => !keyed.has(x.id));
+    return [...kept, ...baseItems.filter((x) => keyed.has(x.id))];
+  };
+  return {
+    boxes: revert(draft.boxes, base.boxes, "box"),
+    departments: revert(draft.departments, base.departments, "dept"),
+  };
+}
+
 export function slugify(text: string): string {
   return (
     text
@@ -99,22 +163,33 @@ function tagOf(id: string): string {
 
 const storageKey = (scope: string) => `boxops-draft:${scope}`;
 
-function readStored(scope: string, baseHash: string, base: DraftState): DraftState | null {
+interface Stored {
+  baseHash: string;
+  /** The roadmap the draft was made against, so it can be carried onto a newer one. */
+  base?: DraftState;
+  boxes: Box[];
+  departments?: Department[];
+}
+
+/** The saved draft, carried onto `base` if someone saved since it was written. */
+function readStored(scope: string, baseHash: string, base: DraftState): { draft: DraftState; conflicts: string[] } | null {
   try {
     const raw = localStorage.getItem(storageKey(scope));
     if (!raw) return null;
-    const saved = JSON.parse(raw) as { baseHash: string } & Partial<DraftState>;
-    if (saved.baseHash !== baseHash || !Array.isArray(saved.boxes)) return null;
-    return { boxes: saved.boxes, departments: saved.departments ?? base.departments };
+    const saved = JSON.parse(raw) as Stored;
+    if (!Array.isArray(saved.boxes)) return null;
+    const draft = { boxes: saved.boxes, departments: saved.departments ?? base.departments };
+    if (saved.baseHash === baseHash) return { draft, conflicts: [] };
+    return saved.base ? rebaseDraft(saved.base, draft, base) : null;
   } catch {
     return null;
   }
 }
 
-function writeStored(scope: string, baseHash: string, draft: DraftState | null): void {
+function writeStored(scope: string, baseHash: string, base: DraftState, draft: DraftState | null): void {
   try {
     if (draft === null) localStorage.removeItem(storageKey(scope));
-    else localStorage.setItem(storageKey(scope), JSON.stringify({ baseHash, ...draft }));
+    else localStorage.setItem(storageKey(scope), JSON.stringify({ baseHash, base, ...draft } satisfies Stored));
   } catch {
     // Private browsing or full storage: the draft just won't survive a refresh.
   }
@@ -131,18 +206,38 @@ export function hashText(text: string): string {
 }
 
 export function useDraft(base: DraftState, scope: string, baseHash: string) {
-  const [history, setHistory] = useState<History>(() => ({
-    past: [],
-    present: readStored(scope, baseHash, base) ?? base,
-    future: [],
-  }));
+  const [history, setHistory] = useState<History>(() => {
+    const stored = readStored(scope, baseHash, base);
+    return { base, past: [], present: stored?.draft ?? base, future: [], conflicts: stored?.conflicts ?? [] };
+  });
+
+  // A newer roadmap arrived (our own save, or someone else's): carry the draft
+  // over. Undo history refers to the old roadmap, so it starts fresh.
+  if (history.base !== base) {
+    const r = rebaseDraft(history.base, history.present, base);
+    const next: History = {
+      base,
+      past: [],
+      present: r.draft,
+      future: [],
+      conflicts: [...new Set([...history.conflicts, ...r.conflicts])],
+    };
+    // Setting state while rendering makes React re-render straight away with it.
+    setHistory(next);
+  }
   const { present } = history;
+
+  /** Conflicts that still matter: the item still differs from the latest roadmap. */
+  const conflicts = useMemo(
+    () => history.conflicts.filter((k) => !sameOrBothMissing(entityOf(base, k), entityOf(present, k))),
+    [history.conflicts, base, present],
+  );
 
   const changes = useMemo(() => diffDraft(base, present), [base, present]);
 
   useEffect(() => {
-    writeStored(scope, baseHash, changes.count ? present : null);
-  }, [scope, baseHash, present, changes.count]);
+    writeStored(scope, baseHash, base, changes.count ? present : null);
+  }, [scope, baseHash, base, present, changes.count]);
 
   const apply = useCallback((update: (draft: DraftState) => DraftState, key?: string) => {
     setHistory((h) => {
@@ -150,6 +245,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
       if (next === h.present) return h;
       const coalesce = key !== undefined && key === h.lastKey;
       return {
+        ...h,
         past: coalesce ? h.past : [...h.past, h.present].slice(-200),
         present: next,
         future: [],
@@ -210,7 +306,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     () =>
       setHistory((h) =>
         h.past.length
-          ? { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] }
+          ? { ...h, past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] }
           : h,
       ),
     [],
@@ -218,12 +314,14 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
   const redo = useCallback(
     () =>
       setHistory((h) =>
-        h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h,
+        h.future.length ? { ...h, past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h,
       ),
     [],
   );
   /** Throw the whole draft away (undoable). */
   const discard = useCallback(() => apply(() => base), [apply, base]);
+  /** Resolve conflicts by taking the latest saved version of these items. */
+  const takeTheirs = useCallback((keys: string[]) => apply((d) => revertItems(d, base, keys)), [apply, base]);
   /** Ends typing coalescing, e.g. when the editor closes. */
   const checkpoint = useCallback(() => setHistory((h) => (h.lastKey ? { ...h, lastKey: undefined } : h)), []);
 
@@ -231,6 +329,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     boxes: present.boxes,
     departments: present.departments,
     changes,
+    conflicts,
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
     updateBox,
@@ -240,6 +339,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     undo,
     redo,
     discard,
+    takeTheirs,
     checkpoint,
   };
 }

@@ -48,3 +48,39 @@ describe("department changes", () => {
     expect(diffDraft(base, cleared).count).toBe(0);
   });
 });
+
+describe("rebaseDraft", () => {
+  it("takes their changes, keeps ours, and flags items both changed", async () => {
+    const { rebaseDraft, revertItems } = await import("./draft");
+    const oldBase = { boxes: [box("a"), box("b"), box("c"), box("d")], departments: [] };
+    const draft = {
+      boxes: [box("a", { title: "A mine" }), box("b"), box("c", { end: 200 }), box("d"), box("new")],
+      departments: [],
+    };
+    const newBase = {
+      boxes: [box("a", { title: "A theirs" }), box("b", { status: "done" }), box("c"), box("theirs-new")],
+      departments: [],
+    };
+    const r = rebaseDraft(oldBase, draft, newBase);
+    const byId = Object.fromEntries(r.draft.boxes.map((b) => [b.id, b]));
+    expect(byId.a.title).toBe("A mine"); // both changed: ours kept…
+    expect(r.conflicts).toEqual(["box:a"]); // …and flagged
+    expect(byId.b.status).toBe("done"); // only theirs changed
+    expect(byId.c.end).toBe(200); // only ours changed
+    expect(byId.d).toBeUndefined(); // they deleted it, we didn't touch it
+    expect(Object.keys(byId).sort()).toEqual(["a", "b", "c", "new", "theirs-new"]);
+
+    const theirs = revertItems(r.draft, newBase, r.conflicts);
+    expect(theirs.boxes.find((b) => b.id === "a")!.title).toBe("A theirs");
+  });
+
+  it("is a no-op after our own save", async () => {
+    const { rebaseDraft } = await import("./draft");
+    const oldBase = { boxes: [box("a")], departments: [] };
+    const draft = { boxes: [box("a", { end: 300 })], departments: [] };
+    const saved = { boxes: [box("a", { end: 300 })], departments: [] };
+    const r = rebaseDraft(oldBase, draft, saved);
+    expect(r.conflicts).toEqual([]);
+    expect(diffBoxes(saved.boxes, r.draft.boxes).count).toBe(0);
+  });
+});

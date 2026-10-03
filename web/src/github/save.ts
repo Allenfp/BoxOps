@@ -15,6 +15,9 @@ export interface Source {
   commit: string;
   /** Local dev only: roadmap/ has edits that aren't in `commit`. */
   dirty?: boolean;
+  /** Author and first line of `commit`'s message. */
+  author?: string;
+  subject?: string;
 }
 
 export const ROADMAP_DIR = "roadmap";
@@ -51,6 +54,8 @@ export interface SaveRequest {
 
 export interface SaveResult {
   commit: string;
+  /** The commit this save went on top of (ours, or someone else's newer one). */
+  parent: string;
   url: string;
   /** The whole roadmap as of the new commit, including anyone else's saves. */
   files: RoadmapFiles;
@@ -102,6 +107,7 @@ export async function saveToBranch(req: SaveRequest): Promise<SaveResult> {
     }
     return {
       commit: commit.sha,
+      parent: head,
       url: `https://github.com/${source.repo}/commit/${commit.sha}`,
       files: applyChanges(headFiles, changes),
     };

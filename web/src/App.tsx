@@ -3,9 +3,17 @@ import { BoxEditor } from "./components/BoxEditor";
 import { type SaveProblem, SaveDialog } from "./components/SaveDialog";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHub, GitHubError } from "./github/api";
-import { SaveConflict, type SaveResult, type Source, latestCommit, loadCommit, loadFromGitHub, saveToBranch } from "./github/save";
+import {
+  SaveConflict,
+  type SaveResult,
+  type Source,
+  latestCommit,
+  loadCommit,
+  loadFromGitHub,
+  saveToBranch,
+} from "./github/save";
 import { getToken, setToken } from "./github/token";
-import { type DraftState, hashText, useDraft } from "./model/draft";
+import { type DraftState, hashText, revertItems, useDraft } from "./model/draft";
 import { loadRoadmap } from "./model/load";
 import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
 import { commitMessage, describeChanges } from "./model/summary";
@@ -25,6 +33,20 @@ type LoadState = { status: "loading" } | { status: "error"; message: string } | 
 
 const ZOOM_LABEL: Record<ZoomLevel, string> = { weeks: "Weeks", months: "Months", quarters: "Quarters" };
 
+/** How often open tabs look for other people's saves. */
+const POLL_MS = 2 * 60_000;
+
+interface Bundle {
+  files: RoadmapFiles;
+  source: Source;
+}
+
+/** A save by someone else that just arrived in this tab. */
+interface RemoteUpdate {
+  author?: string;
+  subject?: string;
+}
+
 /** View state lives in the URL so a link reproduces what you see. */
 function readUrlState(): { zoom?: ZoomLevel; collapsed?: Set<string> } {
   const q = new URLSearchParams(window.location.search);
@@ -39,11 +61,14 @@ function readUrlState(): { zoom?: ZoomLevel; collapsed?: Set<string> } {
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
-async function load(): Promise<Loaded> {
+/** The site's own copy of the roadmap; rewritten by every deploy. `no-cache` revalidates, so an unchanged file costs a 304. */
+async function fetchBundle(): Promise<Bundle> {
   const res = await fetch("roadmap.json", { cache: "no-cache" });
   if (!res.ok) throw new Error(`roadmap.json: HTTP ${res.status}`);
-  const bundle = (await res.json()) as { files: RoadmapFiles; source: Source };
+  return (await res.json()) as Bundle;
+}
 
+async function load(bundle: Bundle): Promise<Loaded> {
   const gh = new GitHub(getToken());
   const ref = new URLSearchParams(window.location.search).get("ref");
   if (ref && ref !== bundle.source.branch) {
@@ -75,27 +100,76 @@ function fromFiles(files: RoadmapFiles, source: Source): Loaded {
 export function App() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [lastSave, setLastSave] = useState<{ commit: string; url: string } | null>(null);
+  const [remote, setRemote] = useState<RemoteUpdate | null>(null);
+  /**
+   * Every commit this tab has already shown or moved past. The deployed bundle
+   * lags behind saves, so a bundle we've seen is old news, never an update.
+   */
+  const seen = useRef(new Set<string>());
+  const saving = useRef(false);
 
   useEffect(() => {
-    load()
-      .then((loaded) => setState({ status: "ready", ...loaded }))
+    fetchBundle()
+      .then(async (bundle) => {
+        seen.current.add(bundle.source.commit);
+        const loaded = await load(bundle);
+        seen.current.add(loaded.source.commit);
+        setState({ status: "ready", ...loaded });
+      })
       .catch((e: Error) => setState({ status: "error", message: e.message }));
   }, []);
+
+  // Look for other people's saves every couple of minutes while the tab is visible.
+  const pollable = state.status === "ready" && !state.preview && !state.source.dirty;
+  useEffect(() => {
+    if (!pollable) return;
+    let lastCheck = Date.now();
+    const check = async () => {
+      if (document.hidden || saving.current) return;
+      lastCheck = Date.now();
+      try {
+        const bundle = await fetchBundle();
+        const commit = bundle.source.commit;
+        if (seen.current.has(commit) || saving.current) return;
+        seen.current.add(commit);
+        setState({ status: "ready", ...fromFiles(bundle.files, bundle.source) });
+        setRemote({ author: bundle.source.author, subject: bundle.source.subject });
+      } catch {
+        // Offline or mid-deploy: try again next time.
+      }
+    };
+    const timer = setInterval(check, POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden && Date.now() - lastCheck >= POLL_MS) void check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [pollable]);
 
   if (state.status === "loading") return <div className="splash">Loading roadmap…</div>;
   if (state.status === "error") return <div className="splash error">Couldn’t load the roadmap: {state.message}</div>;
   const source = state.source;
   return (
     <RoadmapView
-      // A new commit is a new starting point: fresh draft, fresh undo history.
-      key={source.commit}
       {...state}
       lastSave={lastSave}
+      remote={remote}
       onDismissSave={() => setLastSave(null)}
-      onReload={(files, commit) => setState({ status: "ready", ...fromFiles(files, { ...source, commit, dirty: false }) })}
+      onDismissRemote={() => setRemote(null)}
+      onSavingChange={(busy) => (saving.current = busy)}
+      onReload={(files, commit) => {
+        seen.current.add(commit);
+        setState({ status: "ready", ...fromFiles(files, { repo: source.repo, branch: source.branch, commit }) });
+      }}
       onSaved={(result: SaveResult) => {
-        setState({ status: "ready", ...fromFiles(result.files, { ...source, commit: result.commit, dirty: false }) });
+        seen.current.add(result.parent);
+        seen.current.add(result.commit);
+        setState({ status: "ready", ...fromFiles(result.files, { repo: source.repo, branch: source.branch, commit: result.commit }) });
         setLastSave({ commit: result.commit, url: result.url });
+        setRemote(null);
       }}
     />
   );
@@ -103,14 +177,18 @@ export function App() {
 
 interface ViewProps extends Loaded {
   lastSave: { commit: string; url: string } | null;
+  remote: RemoteUpdate | null;
   onDismissSave(): void;
-  /** Replace what's on screen with this commit's files (draft is dropped). */
+  onDismissRemote(): void;
+  onSavingChange(busy: boolean): void;
+  /** Show this newer commit; the draft is carried over onto it. */
   onReload(files: RoadmapFiles, commit: string): void;
   onSaved(result: SaveResult): void;
 }
 
 function RoadmapView(props: ViewProps) {
-  const { roadmap: base, issues, files, source, preview, lastSave, onDismissSave, onReload, onSaved } = props;
+  const { roadmap: base, issues, files, source, preview, lastSave, remote } = props;
+  const { onDismissSave, onDismissRemote, onSavingChange, onReload, onSaved } = props;
   const initial = useMemo(readUrlState, []);
   const [zoom, setZoom] = useState<ZoomLevel>(initial.zoom ?? base.settings.default_zoom);
   const [collapsed, setCollapsed] = useState<Set<string>>(
@@ -118,9 +196,14 @@ function RoadmapView(props: ViewProps) {
   );
   const [jumpToToday, setJumpToToday] = useState(0);
   const [showIssues, setShowIssues] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const setBusy = (b: boolean) => {
+    setBusyState(b);
+    onSavingChange(b);
+  };
   const [problem, setProblem] = useState<SaveProblem | null>(null);
-  const conflict = useRef<SaveConflict | null>(null);
+  /** A save found newer saves on GitHub; once the draft is carried over, ask about any clashes. */
+  const askAfterRebase = useRef(false);
 
   const baseHash = useMemo(() => hashText(JSON.stringify(files)), [files]);
   const draftBase = useMemo(() => ({ boxes: base.boxes, departments: base.departments }), [base]);
@@ -231,34 +314,32 @@ function RoadmapView(props: ViewProps) {
     [issues],
   );
 
-  /** What a file path is, in words, for the conflict dialog. */
-  const describePath = (path: string) => {
-    const id = path.replace(/^.*\//, "").replace(/\.ya?ml$/, "");
-    if (path.startsWith("boxes/")) {
+  /** A conflict key (`box:<id>` / `dept:<id>`) in words, for the conflict dialog. */
+  const describeItem = (key: string) => {
+    const id = key.slice(key.indexOf(":") + 1);
+    if (key.startsWith("box:")) {
       const box = draft.boxes.find((b) => b.id === id) ?? base.boxes.find((b) => b.id === id);
       return `Box “${box?.title ?? id}”`;
     }
-    if (path.startsWith("departments/")) {
-      return `Department “${draft.departments.find((d) => d.id === id)?.name ?? id}” (lanes)`;
-    }
-    return path;
+    return `Department “${draft.departments.find((d) => d.id === id)?.name ?? id}” (lanes)`;
   };
 
   const save = async (opts: { token?: string; keep?: "mine" | "theirs" } = {}) => {
-    let changes: FileChanges = serializeChanges(files, draftBase, draftState);
+    // Items someone else changed while we were editing them: the user picks first.
+    const clashes = draft.conflicts;
+    if (clashes.length && !opts.keep) return setProblem({ kind: "conflict", items: clashes.map(describeItem) });
+    let target = draftState;
+    if (opts.keep === "theirs" && clashes.length) {
+      target = revertItems(draftState, draftBase, clashes);
+      draft.takeTheirs(clashes);
+    }
+
+    const changes: FileChanges = serializeChanges(files, draftBase, target);
     if (Object.keys(changes).length === 0) return;
     const invalid = newProblems(applyChanges(files, changes));
     if (invalid.length) return setProblem({ kind: "invalid", issues: invalid });
     const token = opts.token ?? getToken();
     if (!token) return setProblem({ kind: "token" });
-
-    let overwrite: string[] = [];
-    const c = conflict.current;
-    if (opts.keep && c) {
-      if (opts.keep === "mine") overwrite = c.paths;
-      else changes = Object.fromEntries(Object.entries(changes).filter(([p]) => !c.paths.includes(p)));
-      if (Object.keys(changes).length === 0) return onReload(c.headFiles, c.headCommit);
-    }
 
     select(null);
     setBusy(true);
@@ -268,16 +349,18 @@ function RoadmapView(props: ViewProps) {
         source,
         baseFiles: files,
         changes,
-        message: commitMessage(lines),
-        overwrite,
+        message: commitMessage(describeChanges(draftBase, target, base.settings)),
         validate: newProblems,
       });
       setToken(token);
+      setBusy(false);
       onSaved(result);
     } catch (e) {
       if (e instanceof SaveConflict) {
-        conflict.current = e;
-        setProblem({ kind: "conflict", items: e.paths.map(describePath) });
+        // Someone saved the same items since we loaded: move onto their version,
+        // then ask (see the effect below) once the clashes are known.
+        askAfterRebase.current = true;
+        onReload(e.headFiles, e.headCommit);
       } else if (e instanceof GitHubError && e.status === 401) {
         setToken(null);
         setProblem({ kind: "token", rejected: true });
@@ -289,6 +372,19 @@ function RoadmapView(props: ViewProps) {
   };
   const saveRef = useRef(save);
   saveRef.current = save;
+
+  useEffect(() => {
+    if (!askAfterRebase.current) return;
+    askAfterRebase.current = false;
+    if (draft.conflicts.length) setProblem({ kind: "conflict", items: draft.conflicts.map(describeItem) });
+    else void saveRef.current(); // their changes didn't actually clash with ours
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
+
+  const conflictBoxIds = useMemo(
+    () => new Set(draft.conflicts.filter((k) => k.startsWith("box:")).map((k) => k.slice(4))),
+    [draft.conflicts],
+  );
   const mainUrl = () => {
     const q = new URLSearchParams(window.location.search);
     q.delete("ref");
@@ -344,6 +440,14 @@ function RoadmapView(props: ViewProps) {
             ) : (
               <span className="hint">No changes</span>
             )}
+            {draft.conflicts.length > 0 && (
+              <span
+                className="pill warn"
+                title="Someone else saved changes to items you're also editing. You'll choose whose version to keep when you save."
+              >
+                ⚠ {draft.conflicts.length} clash{draft.conflicts.length === 1 ? "" : "es"}
+              </span>
+            )}
           </div>
         )}
 
@@ -379,6 +483,25 @@ function RoadmapView(props: ViewProps) {
           </button>
         </div>
       )}
+      {remote && (
+        <div className="banner">
+          <span>
+            {remote.author ? <strong>{remote.author}</strong> : "Someone"} saved
+            {remote.subject ? <> “{remote.subject}”</> : " changes"}. The roadmap has been updated
+            {count > 0 ? "; your unsaved changes were kept" : ""}.
+            {draft.conflicts.length > 0 && (
+              <span className="warn-text">
+                {" "}
+                They also changed {draft.conflicts.length === 1 ? "an item" : `${draft.conflicts.length} items`} you’re
+                editing; you’ll choose whose version to keep when you save.
+              </span>
+            )}
+          </span>
+          <button className="icon-button" onClick={onDismissRemote} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
       {showIssues && (
         <ul className="issues">
           {issues.map((i, n) => (
@@ -401,6 +524,7 @@ function RoadmapView(props: ViewProps) {
         onCreateBox={createBox}
         onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
         readOnly={preview || busy}
+        conflictIds={conflictBoxIds}
       />
       {!preview && selected && selectedBox && (
         <BoxEditor
