@@ -841,31 +841,6 @@ button.primary:hover:not(:disabled) {
 .save-dialog .hint a {
   color: var(--accent);
 }
-.token-row {
-  margin: 0;
-}
-.steps {
-  margin-top: 12px;
-  padding-left: 22px;
-  font-size: 13px;
-}
-.steps li {
-  padding: 2px 0;
-}
-.step-todo {
-  color: var(--text-muted);
-}
-.step-active {
-  font-weight: 600;
-}
-.step-done::marker {
-  content: "✓  ";
-  color: #21a67a;
-}
-.step-failed {
-  color: var(--today);
-  font-weight: 600;
-}
 .dialog-foot {
   display: flex;
   justify-content: flex-end;
@@ -873,4 +848,30 @@ button.primary:hover:not(:disabled) {
   margin: 16px 0 0;
   padding: 12px 20px;
   border-top: 1px solid var(--border);
+}
+.save-dialog .form .dialog-foot {
+  margin: 6px -20px 0;
+}
+.save-dialog .lead {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 14px;
+  margin-bottom: 4px;
+}
+.save-dialog .form .lead {
+  margin-left: 0;
+  margin-right: 0;
+}
+.save-dialog > .hint {
+  display: block;
+  margin-top: 8px;
+}
+.conflict-list {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.save-dialog .form {
+  margin-bottom: 0;
 }

@@ -99,12 +99,12 @@ export class GitHub {
     });
   }
 
-  createBranch({ owner, repo }: RepoRef, branch: string, sha: string) {
-    return this.request<unknown>("POST", `/repos/${owner}/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha });
-  }
-
-  createPull({ owner, repo }: RepoRef, pr: { title: string; body: string; head: string; base: string }) {
-    return this.request<{ number: number; html_url: string }>("POST", `/repos/${owner}/${repo}/pulls`, pr);
+  /** Move a branch to `sha`; GitHub refuses (422) unless it is a fast-forward. */
+  updateBranch({ owner, repo }: RepoRef, branch: string, sha: string) {
+    return this.request<unknown>("PATCH", `/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {
+      sha,
+      force: false,
+    });
   }
 }
 

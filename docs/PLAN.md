@@ -9,7 +9,8 @@ in the browser and the app commits the change to a new branch and opens a PR.
 | Topic | Decision |
 |---|---|
 | Repo visibility | Public during development. Data is baked into the Pages build. Revisit if it goes private (Pages from a private repo needs a paid plan and is still public outside Enterprise). |
-| Auth | Pasted fine-grained personal access token, scoped to this repo with **Contents: write** and **Pull requests: write**. Kept in `sessionStorage`. An OAuth proxy (Cloudflare Worker) is a possible later add-on. |
+| Auth | Pasted fine-grained personal access token, scoped to this repo with **Contents: write**. Kept in `sessionStorage`. An OAuth proxy (Cloudflare Worker) is a possible later add-on. |
+| Saving (changed 2026-10-03) | **Save commits straight to `main`**, like saving a file. No branches or PRs. Concurrent saves to different items merge automatically; the same item edited by two people asks "keep mine / keep theirs". |
 | Multi-person work | One box = one lane. Work needing two FTEs is two boxes (optionally sharing an `initiative` tag). |
 | Lanes | A lane is anonymous **FTE capacity** (`fte: 1` or `0.5`), not a person. No link to `config/people.yaml`. |
 | Stack | Vite + TypeScript + React in `web/`. Vitest for logic tests. GitHub Actions for deploy and validation. |
@@ -21,23 +22,27 @@ GitHub Pages (static app)                 GitHub repo
 ┌─────────────────────────┐   read    ┌──────────────────────────────┐
 │ load roadmap/** → state │◄──────────│ main: roadmap/*.yaml         │
 │ edit locally (draft)    │           │                              │
-│ diff draft vs base      │  write    │ branch roadmap/<user>-<date> │
-│ commit + open PR        │──────────►│ PR → CI validate → merge     │
+│ diff draft vs base      │  write    │ one commit on main per save  │
+│ Save (⌘S)               │──────────►│ → Pages redeploys (~1 min)   │
 └─────────────────────────┘ (API+PAT) └──────────────────────────────┘
 ```
 
 - **Read path.** The Pages build bundles `roadmap/**` into `roadmap.json`, so
   anonymous viewers need no token and spend no API quota. Signed-in editors load
   the live tree from the API (`?ref=<branch>` previews any branch or PR).
-- **Write path.** One atomic commit through the Git Data API: get base ref →
-  create blobs → create tree (`base_tree`) → create commit → create branch →
-  open PR. Editors without write access get the fork flow (fork, commit to the
-  fork, cross-repo PR).
-- **Conflicts.** The draft records the commit SHA it was based on and the branch
-  is cut from that SHA, so GitHub shows genuine conflicts on the PR. One file per
-  entity keeps those rare. Later: in-app rebase onto latest `main`, merged per entity.
-- **CI.** Every PR runs the same validator the app uses (schema + references,
-  e.g. every box's lane exists). Merges to `main` redeploy Pages.
+- **Write path.** One atomic commit through the Git Data API onto the tip of
+  `main`: read head → create tree (`base_tree` = head) → create commit →
+  fast-forward `main`. If someone saves between our read and write, GitHub
+  refuses the update and the save retries once.
+- **Freshness.** On load the app compares the bundled commit with the head of
+  `main` (one API call) and reads newer files from GitHub, so the minute
+  between a save and the redeploy never shows a stale roadmap.
+- **Conflicts.** Saves only conflict per file (one file per box/department):
+  if someone else changed a file you also changed since you loaded, you choose
+  keep mine / keep theirs. Everything else from both sides is kept.
+- **Validation.** The app checks the roadmap as it will be after the save
+  (including anyone else's saves) and refuses invalid saves. The deploy runs
+  the same validator; hand-made PRs are checked by `validate.yml`.
 
 ## Data model
 
@@ -72,10 +77,10 @@ a lane that has boxes prompts to reassign them). Departments are collapsible,
 reorderable lane groups. A collapsed department shows a summary strip with its
 boxes and FTE total.
 
-**Draft and PR.** All edits go into a local draft saved in `localStorage`, with
-undo and redo. A Changes panel lists added, modified and deleted items, and each
-one can be discarded. The commit dialog pre-fills the branch name, commit message
-and a readable PR summary ("Moved *Warehouse migration* to Q2"), then links to the PR.
+**Draft and save.** All edits go into a local draft saved in `localStorage`, with
+undo and redo. Save (⌘S) commits the draft to `main` with a readable commit
+message ("Dagster 2.x upgrade: rescheduled to Sep 24 – Nov 2"). Later: a Changes
+panel listing each edit with per-item discard.
 
 **Viewing.** Filter by type, status, tag and department; search; view state in the
 URL; PNG/PDF export. Later: compare against a past commit to show schedule slip.
@@ -85,12 +90,11 @@ URL; PNG/PDF export. Later: compare against a past commit to show schedule slip.
 Status (2026-10-03): phases 0 and 1 done. Phase 2 mostly done: drag to move
 (across lanes too), drag edges to resize, the box editor, double-click to
 create, lane renaming, undo/redo, and a draft saved in the browser. Still to do:
-adding, removing and reordering lanes and departments. Phase 3 built, tested
-against a fake GitHub API but not yet against GitHub itself: Save dialog
-(plain-English change list, validation gate, editable title, description and
-branch), pasted token, one commit on a new branch from the loaded commit, PR,
-and `?ref=<branch>` read-only previews. Not built: the fork flow for editors
-without write access (they get a clear error instead).
+adding, removing and reordering lanes and departments. Phase 3 done as direct
+saves to `main` (replacing the original branch + PR design): Save / ⌘S, token
+prompt on first save, conflict resolution, a freshness check on load, and
+`?ref=<branch>` read-only previews. Tested against a stateful fake GitHub; not
+yet against GitHub itself.
 
 0. **Scaffold.** Schema and validator, sample data, Vite app, Pages deploy and PR
    validation Actions.
@@ -98,7 +102,7 @@ without write access (they get a clear error instead).
    collapsing, overlap stacking.
 2. **Local editing.** Box create/move/resize/edit, lane and department management,
    draft persistence, undo and redo, Changes panel.
-3. **Write-back.** Token sign-in, atomic commit to a branch, PR creation, fork
-   fallback, branch preview.
+3. **Write-back.** Token sign-in, direct save to `main`, conflict handling,
+   freshness check, branch preview.
 4. **Polish.** Milestones, dependencies, capacity view, filters, export, optional
    OAuth Worker.

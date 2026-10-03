@@ -80,3 +80,19 @@ describe("describeChanges", () => {
     );
   });
 });
+
+describe("commitMessage", () => {
+  it("uses a clean one-line subject", async () => {
+    const { commitMessage } = await import("./summary");
+    const one = commitMessage([
+      { kind: "changed", text: "**Dagster 2.x upgrade**: rescheduled to Sep 24, 2026 – Nov 2, 2026 (was Sep 14, 2026 – Oct 23, 2026)" },
+    ]);
+    expect(one.split("\n")[0]).toBe("Dagster 2.x upgrade: rescheduled to Sep 24, 2026 – Nov 2, 2026");
+    const long = commitMessage([
+      { kind: "changed", text: "**A very long box title that goes on**: moved from Data Engineering / FTE 2 to Analytics / Open req (Q1); status At risk → Done" },
+    ]);
+    expect(long.split("\n")[0].length).toBeLessThanOrEqual(72);
+    expect(long.split("\n")[0].endsWith("…")).toBe(true);
+    expect(commitMessage([{ kind: "added", text: "a" }, { kind: "deleted", text: "b" }]).split("\n")[0]).toBe("Roadmap: 2 changes");
+  });
+});

@@ -1,4 +1,4 @@
-// Human-readable description of a draft, for the Save dialog and the PR body.
+// Human-readable description of a draft, for the Save dialog and the commit message.
 
 import { prettyDay } from "./dates";
 import { diffDraft, type DraftState } from "./draft";
@@ -74,16 +74,16 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
   return lines;
 }
 
-/** Default PR title: the change itself when there is one, otherwise a count. */
-export function defaultTitle(lines: ChangeLine[]): string {
-  if (lines.length === 1) return lines[0].text.replace(/\*\*/g, "").slice(0, 100);
-  return `Roadmap update: ${lines.length} changes`;
+/** Cut at a word boundary, marking the cut with an ellipsis. */
+function shorten(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : cut.length).replace(/[;,:]$/, "")}…`;
 }
 
-export function prBody(lines: ChangeLine[]): string {
-  return [
-    "Roadmap changes made in the BoxOps web app.",
-    "",
-    ...lines.map((l) => `- ${l.text}`),
-  ].join("\n");
+/** Commit message: the change itself when there is one, otherwise a count, then the details. */
+export function commitMessage(lines: ChangeLine[]): string {
+  const plain = (t: string) => t.replace(/\*\*/g, "");
+  const subject = lines.length === 1 ? shorten(plain(lines[0].text).replace(/ \(was [^)]*\)/g, ""), 72) : `Roadmap: ${lines.length} changes`;
+  return [subject, "", ...lines.map((l) => `- ${plain(l.text)}`), "", "Saved from the BoxOps web app."].join("\n");
 }

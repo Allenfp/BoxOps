@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoxEditor } from "./components/BoxEditor";
-import { SaveDialog } from "./components/SaveDialog";
+import { type SaveProblem, SaveDialog } from "./components/SaveDialog";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
-import { GitHub } from "./github/api";
-import { type Source, loadFromGitHub } from "./github/save";
-import { getToken } from "./github/token";
-import { hashText, useDraft } from "./model/draft";
+import { GitHub, GitHubError } from "./github/api";
+import { SaveConflict, type SaveResult, type Source, latestCommit, loadCommit, loadFromGitHub, saveToBranch } from "./github/save";
+import { getToken, setToken } from "./github/token";
+import { type DraftState, hashText, useDraft } from "./model/draft";
 import { loadRoadmap } from "./model/load";
+import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
+import { commitMessage, describeChanges } from "./model/summary";
 import type { Box, Issue, Roadmap, RoadmapFiles, ZoomLevel } from "./model/types";
 import { ZOOM_LEVELS } from "./model/types";
 
@@ -42,16 +44,37 @@ async function load(): Promise<Loaded> {
   if (!res.ok) throw new Error(`roadmap.json: HTTP ${res.status}`);
   const bundle = (await res.json()) as { files: RoadmapFiles; source: Source };
 
+  const gh = new GitHub(getToken());
   const ref = new URLSearchParams(window.location.search).get("ref");
   if (ref && ref !== bundle.source.branch) {
-    const { files, source } = await loadFromGitHub(new GitHub(getToken()), bundle.source.repo, ref);
+    const { files, source } = await loadFromGitHub(gh, bundle.source.repo, ref);
     return { ...loadRoadmap(files), files, source, preview: true };
+  }
+
+  // The site is rebuilt a minute or so after each save. If someone saved since
+  // this build, read the newer roadmap from GitHub so nobody edits a stale copy.
+  // (Skipped when running locally with uncommitted roadmap/ edits.)
+  if (!bundle.source.dirty) {
+    const head = await latestCommit(gh, bundle.source);
+    if (head && head !== bundle.source.commit) {
+      try {
+        const files = await loadCommit(gh, bundle.source.repo, head);
+        return { ...loadRoadmap(files), files, source: { ...bundle.source, commit: head }, preview: false };
+      } catch {
+        // Fall back to the bundled copy.
+      }
+    }
   }
   return { ...loadRoadmap(bundle.files), files: bundle.files, source: bundle.source, preview: false };
 }
 
+function fromFiles(files: RoadmapFiles, source: Source): Loaded {
+  return { ...loadRoadmap(files), files, source, preview: false };
+}
+
 export function App() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [lastSave, setLastSave] = useState<{ commit: string; url: string } | null>(null);
 
   useEffect(() => {
     load()
@@ -61,10 +84,33 @@ export function App() {
 
   if (state.status === "loading") return <div className="splash">Loading roadmap…</div>;
   if (state.status === "error") return <div className="splash error">Couldn’t load the roadmap: {state.message}</div>;
-  return <RoadmapView {...state} />;
+  const source = state.source;
+  return (
+    <RoadmapView
+      // A new commit is a new starting point: fresh draft, fresh undo history.
+      key={source.commit}
+      {...state}
+      lastSave={lastSave}
+      onDismissSave={() => setLastSave(null)}
+      onReload={(files, commit) => setState({ status: "ready", ...fromFiles(files, { ...source, commit, dirty: false }) })}
+      onSaved={(result: SaveResult) => {
+        setState({ status: "ready", ...fromFiles(result.files, { ...source, commit: result.commit, dirty: false }) });
+        setLastSave({ commit: result.commit, url: result.url });
+      }}
+    />
+  );
 }
 
-function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) {
+interface ViewProps extends Loaded {
+  lastSave: { commit: string; url: string } | null;
+  onDismissSave(): void;
+  /** Replace what's on screen with this commit's files (draft is dropped). */
+  onReload(files: RoadmapFiles, commit: string): void;
+  onSaved(result: SaveResult): void;
+}
+
+function RoadmapView(props: ViewProps) {
+  const { roadmap: base, issues, files, source, preview, lastSave, onDismissSave, onReload, onSaved } = props;
   const initial = useMemo(readUrlState, []);
   const [zoom, setZoom] = useState<ZoomLevel>(initial.zoom ?? base.settings.default_zoom);
   const [collapsed, setCollapsed] = useState<Set<string>>(
@@ -72,13 +118,17 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
   );
   const [jumpToToday, setJumpToToday] = useState(0);
   const [showIssues, setShowIssues] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [savedPr, setSavedPr] = useState<{ number: number; url: string; branch: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<SaveProblem | null>(null);
+  const conflict = useRef<SaveConflict | null>(null);
 
   const baseHash = useMemo(() => hashText(JSON.stringify(files)), [files]);
   const draftBase = useMemo(() => ({ boxes: base.boxes, departments: base.departments }), [base]);
   const draft = useDraft(draftBase, `${source.repo}@${source.branch}`, baseHash);
-  const draftState = useMemo(() => ({ boxes: draft.boxes, departments: draft.departments }), [draft.boxes, draft.departments]);
+  const draftState: DraftState = useMemo(
+    () => ({ boxes: draft.boxes, departments: draft.departments }),
+    [draft.boxes, draft.departments],
+  );
   const roadmap = useMemo(() => ({ ...base, ...draftState }), [base, draftState]);
 
   // `session` makes each opening of the editor its own run of undo steps.
@@ -108,8 +158,14 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
   useEffect(() => {
     if (preview) return;
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || saving) return;
       const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "s") {
+        // Like saving a file — and never the browser's "save page" dialog.
+        e.preventDefault();
+        if (!busy && !problem) saveRef.current();
+        return;
+      }
+      if (isTyping(e.target) || busy) return;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) draft.redo();
@@ -125,7 +181,7 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draft, selected, preview, saving]);
+  }, [draft, selected, preview, busy, problem]);
 
   const toggle = (id: string) =>
     setCollapsed((prev) => {
@@ -159,11 +215,80 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
   };
 
   const { count } = draft.changes;
-  const previewUrl = (branch: string) => {
-    const q = new URLSearchParams(window.location.search);
-    q.set("ref", branch);
-    return `?${q}`;
+  const lines = useMemo(
+    () => describeChanges(draftBase, draftState, base.settings),
+    [draftBase, draftState, base.settings],
+  );
+
+  /** Problems these files have that the loaded roadmap didn't (pre-existing ones don't block saving). */
+  const newProblems = useCallback(
+    (next: RoadmapFiles) => {
+      const known = new Set(issues.map((i) => `${i.path}|${i.message}`));
+      return loadRoadmap(next)
+        .issues.filter((i) => !known.has(`${i.path}|${i.message}`))
+        .map((i) => `${i.path}: ${i.message}`);
+    },
+    [issues],
+  );
+
+  /** What a file path is, in words, for the conflict dialog. */
+  const describePath = (path: string) => {
+    const id = path.replace(/^.*\//, "").replace(/\.ya?ml$/, "");
+    if (path.startsWith("boxes/")) {
+      const box = draft.boxes.find((b) => b.id === id) ?? base.boxes.find((b) => b.id === id);
+      return `Box “${box?.title ?? id}”`;
+    }
+    if (path.startsWith("departments/")) {
+      return `Department “${draft.departments.find((d) => d.id === id)?.name ?? id}” (lanes)`;
+    }
+    return path;
   };
+
+  const save = async (opts: { token?: string; keep?: "mine" | "theirs" } = {}) => {
+    let changes: FileChanges = serializeChanges(files, draftBase, draftState);
+    if (Object.keys(changes).length === 0) return;
+    const invalid = newProblems(applyChanges(files, changes));
+    if (invalid.length) return setProblem({ kind: "invalid", issues: invalid });
+    const token = opts.token ?? getToken();
+    if (!token) return setProblem({ kind: "token" });
+
+    let overwrite: string[] = [];
+    const c = conflict.current;
+    if (opts.keep && c) {
+      if (opts.keep === "mine") overwrite = c.paths;
+      else changes = Object.fromEntries(Object.entries(changes).filter(([p]) => !c.paths.includes(p)));
+      if (Object.keys(changes).length === 0) return onReload(c.headFiles, c.headCommit);
+    }
+
+    select(null);
+    setBusy(true);
+    try {
+      const result = await saveToBranch({
+        gh: new GitHub(token),
+        source,
+        baseFiles: files,
+        changes,
+        message: commitMessage(lines),
+        overwrite,
+        validate: newProblems,
+      });
+      setToken(token);
+      onSaved(result);
+    } catch (e) {
+      if (e instanceof SaveConflict) {
+        conflict.current = e;
+        setProblem({ kind: "conflict", items: e.paths.map(describePath) });
+      } else if (e instanceof GitHubError && e.status === 401) {
+        setToken(null);
+        setProblem({ kind: "token", rejected: true });
+      } else {
+        setProblem({ kind: "error", message: (e as Error).message });
+      }
+      setBusy(false);
+    }
+  };
+  const saveRef = useRef(save);
+  saveRef.current = save;
   const mainUrl = () => {
     const q = new URLSearchParams(window.location.search);
     q.delete("ref");
@@ -198,10 +323,11 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
             </button>
             {count > 0 ? (
               <>
-                <span className="changes-badge" title="Kept in this browser until you save them as a pull request.">
-                  {count} change{count === 1 ? "" : "s"} not committed
+                <span className="changes-badge" title="Kept in this browser until you save.">
+                  {count} unsaved change{count === 1 ? "" : "s"}
                 </span>
                 <button
+                  disabled={busy}
                   onClick={() => {
                     if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
                       setSelected(null);
@@ -211,14 +337,8 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
                 >
                   Discard
                 </button>
-                <button
-                  className="primary"
-                  onClick={() => {
-                    select(null);
-                    setSaving(true);
-                  }}
-                >
-                  Save…
+                <button className="primary" onClick={() => save()} disabled={busy} title="Save to GitHub (⌘S)">
+                  {busy ? "Saving…" : "Save"}
                 </button>
               </>
             ) : (
@@ -247,17 +367,14 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
           Previewing branch <code>{source.branch}</code> (read-only). <a href={mainUrl()}>Back to the live roadmap</a>
         </div>
       )}
-      {savedPr && (
+      {lastSave && (
         <div className="banner success">
-          Pull request{" "}
-          <a href={savedPr.url} target="_blank" rel="noopener noreferrer">
-            #{savedPr.number}
-          </a>{" "}
-          opened. Your changes will appear here once it’s merged.{" "}
-          <a href={previewUrl(savedPr.branch)} target="_blank" rel="noopener noreferrer">
-            Preview it
+          Saved to <code>{source.branch}</code> as commit{" "}
+          <a href={lastSave.url} target="_blank" rel="noopener noreferrer">
+            {lastSave.commit.slice(0, 7)}
           </a>
-          <button className="icon-button" onClick={() => setSavedPr(null)} aria-label="Dismiss">
+          . The public site picks it up in about a minute.
+          <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
             ×
           </button>
         </div>
@@ -283,7 +400,7 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
         onPlaceBox={placeBox}
         onCreateBox={createBox}
         onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
-        readOnly={preview}
+        readOnly={preview || busy}
       />
       {!preview && selected && selectedBox && (
         <BoxEditor
@@ -299,20 +416,25 @@ function RoadmapView({ roadmap: base, issues, files, source, preview }: Loaded) 
           onClose={() => select(null)}
         />
       )}
-      {saving && (
+      {problem && (
         <SaveDialog
+          problem={problem}
           source={source}
-          baseFiles={files}
-          baseIssues={issues}
-          base={draftBase}
-          draft={draftState}
-          settings={base.settings}
-          onClose={() => setSaving(false)}
-          onSaved={(pr) => {
-            setSaving(false);
-            setSavedPr(pr);
-            draft.discard();
+          lines={lines}
+          busy={busy}
+          onSubmitToken={(token) => {
+            setProblem(null);
+            void save({ token });
           }}
+          onResolve={(keep) => {
+            setProblem(null);
+            void save({ keep });
+          }}
+          onRetry={() => {
+            setProblem(null);
+            void save();
+          }}
+          onClose={() => setProblem(null)}
         />
       )}
     </div>
