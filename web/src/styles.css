@@ -933,3 +933,238 @@ button.primary:hover:not(:disabled) {
 .save-dialog > .change-list {
   margin: 0 20px;
 }
+
+/* Table view */
+
+.table-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.table-search {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  width: min(320px, 50vw);
+}
+.table-toolbar .primary {
+  margin-left: auto;
+}
+.table-scroll {
+  flex: 1;
+  overflow: auto;
+}
+.box-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: 1180px;
+  font-size: 13px;
+}
+.box-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0 4px;
+  height: 34px;
+  white-space: nowrap;
+}
+.sort-button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 6px 6px;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.sort-button:hover {
+  background: transparent;
+  color: var(--text);
+}
+.sort-mark {
+  font-size: 9px;
+  width: 9px;
+  color: var(--accent);
+}
+.box-table td {
+  border-bottom: 1px solid var(--grid);
+  padding: 3px 4px;
+  vertical-align: middle;
+}
+.box-table tbody tr td:first-child {
+  border-left: 4px solid var(--dept, transparent);
+}
+.box-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.box-table tr.updated td {
+  background: color-mix(in srgb, var(--updated) 9%, var(--surface));
+}
+.box-table tr.updated td:first-child {
+  border-left-color: var(--updated);
+}
+.box-table tr.conflict td {
+  background: color-mix(in srgb, var(--warn) 9%, var(--surface));
+}
+.box-table tr.conflict td:first-child {
+  border-left-color: var(--warn);
+}
+
+/* Cells read as text until hovered or focused. */
+.box-table input,
+.box-table select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 6px;
+  width: 100%;
+  min-width: 0;
+}
+.box-table input:hover:not(:disabled),
+.box-table select:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.box-table input:focus,
+.box-table select:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.box-table select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.box-table :disabled {
+  cursor: default;
+  opacity: 1;
+}
+.cell-input.invalid {
+  border-color: var(--today);
+}
+.box-table {
+  table-layout: fixed;
+  min-width: 1640px;
+}
+/* Titles stay pinned while the table scrolls sideways. */
+.box-table .col-title {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--border);
+}
+.box-table th.col-title {
+  z-index: 3;
+  background: var(--surface-2);
+}
+.col-title {
+  width: 260px;
+}
+.col-title .cell-input {
+  font-weight: 600;
+}
+.col-lane {
+  width: 230px;
+}
+.col-date {
+  width: 132px;
+}
+.col-days {
+  width: 58px;
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  padding-right: 12px !important;
+}
+.col-type {
+  width: 170px;
+}
+.col-status {
+  width: 130px;
+}
+.col-epic {
+  width: 240px;
+}
+.col-tags {
+  width: 160px;
+}
+.col-actions {
+  width: 40px;
+  text-align: center;
+}
+/* Empty cells stay quiet; their hint shows when you point at or edit them. */
+.box-table input::placeholder {
+  color: transparent;
+}
+.box-table tr:hover input::placeholder,
+.box-table input:focus::placeholder {
+  color: var(--text-muted);
+}
+.type-cell,
+.epic-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.type-cell .swatch {
+  flex: none;
+  margin-left: 6px;
+}
+.open-link {
+  flex: none;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 0 4px;
+}
+.status-select {
+  font-weight: 600;
+}
+.box-table .status-select.status-at_risk {
+  color: var(--today);
+}
+.box-table .status-select.status-done {
+  color: var(--text-muted);
+}
+.box-table .status-select.status-in_progress {
+  color: var(--accent);
+}
+.row-delete {
+  opacity: 0;
+}
+.box-table tr:hover .row-delete,
+.row-delete:focus-visible {
+  opacity: 1;
+}
+.row-delete:hover {
+  color: var(--today);
+}
+.empty {
+  padding: 24px 16px;
+  color: var(--text-muted);
+}

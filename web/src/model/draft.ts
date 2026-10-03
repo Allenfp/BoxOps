@@ -59,12 +59,16 @@ function same<T extends object>(a: T, b: T): boolean {
   return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
 }
 
-/** Drop empty optional fields (recursively) so "" and undefined compare equal. */
+/**
+ * Canonical form for comparing: empty optional fields dropped (so "" and
+ * undefined compare equal) and keys sorted (a box built in the app lists its
+ * fields in a different order than one read from a file).
+ */
 function normalize(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(normalize);
   if (typeof v !== "object" || v === null) return v;
   const out: Record<string, unknown> = {};
-  for (const [k, x] of Object.entries(v)) {
+  for (const [k, x] of Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     if (x === undefined || x === "" || (Array.isArray(x) && x.length === 0)) continue;
     out[k] = normalize(x);
   }

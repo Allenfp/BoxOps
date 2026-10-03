@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoxEditor } from "./components/BoxEditor";
 import { type SaveProblem, SaveDialog } from "./components/SaveDialog";
+import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHub, GitHubError } from "./github/api";
 import {
@@ -15,6 +16,7 @@ import {
 } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraft } from "./model/draft";
+import { startOfWeek, today } from "./model/dates";
 import { loadRoadmap } from "./model/load";
 import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
 import { commitMessage, describeChanges } from "./model/summary";
@@ -48,12 +50,15 @@ interface RemoteUpdate {
   subject?: string;
 }
 
+type ViewMode = "timeline" | "table";
+
 /** View state lives in the URL so a link reproduces what you see. */
-function readUrlState(): { zoom?: ZoomLevel; collapsed?: Set<string> } {
+function readUrlState(): { view: ViewMode; zoom?: ZoomLevel; collapsed?: Set<string> } {
   const q = new URLSearchParams(window.location.search);
   const zoom = q.get("zoom") as ZoomLevel | null;
   const collapsed = q.get("collapsed");
   return {
+    view: q.get("view") === "table" ? "table" : "timeline",
     zoom: zoom && ZOOM_LEVELS.includes(zoom) ? zoom : undefined,
     collapsed: collapsed === null ? undefined : new Set(collapsed.split(",").filter(Boolean)),
   };
@@ -191,6 +196,7 @@ function RoadmapView(props: ViewProps) {
   const { roadmap: base, issues, files, source, preview, lastSave, remote } = props;
   const { onDismissSave, onDismissRemote, onSavingChange, onReload, onSaved } = props;
   const initial = useMemo(readUrlState, []);
+  const [view, setView] = useState<ViewMode>(initial.view);
   const [zoom, setZoom] = useState<ZoomLevel>(initial.zoom ?? base.settings.default_zoom);
   const [collapsed, setCollapsed] = useState<Set<string>>(
     () => initial.collapsed ?? new Set(base.departments.filter((d) => d.collapsed).map((d) => d.id)),
@@ -231,10 +237,12 @@ function RoadmapView(props: ViewProps) {
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
+    if (view === "table") q.set("view", "table");
+    else q.delete("view");
     q.set("zoom", zoom);
     q.set("collapsed", [...collapsed].join(","));
     history.replaceState(null, "", `?${q}`);
-  }, [zoom, collapsed]);
+  }, [view, zoom, collapsed]);
 
   useEffect(() => {
     document.title = preview ? `${base.settings.title} (${source.branch})` : base.settings.title;
@@ -437,19 +445,37 @@ function RoadmapView(props: ViewProps) {
     <div className="app">
       <header className="toolbar">
         <h1>{base.settings.title}</h1>
-        <div className="segmented" role="group" aria-label="Zoom">
-          {ZOOM_LEVELS.map((z) => (
-            <button key={z} aria-pressed={z === zoom} onClick={() => setZoom(z)}>
-              {ZOOM_LABEL[z]}
-            </button>
-          ))}
+        <div className="segmented" role="group" aria-label="View">
+          <button aria-pressed={view === "timeline"} onClick={() => setView("timeline")}>
+            Timeline
+          </button>
+          <button
+            aria-pressed={view === "table"}
+            onClick={() => {
+              select(null);
+              setView("table");
+            }}
+          >
+            Table
+          </button>
         </div>
-        <button onClick={() => setJumpToToday((n) => n + 1)}>Today</button>
-        <button
-          onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(base.departments.map((d) => d.id)))}
-        >
-          {allCollapsed ? "Expand all" : "Collapse all"}
-        </button>
+        {view === "timeline" && (
+          <>
+            <div className="segmented" role="group" aria-label="Zoom">
+              {ZOOM_LEVELS.map((z) => (
+                <button key={z} aria-pressed={z === zoom} onClick={() => setZoom(z)}>
+                  {ZOOM_LABEL[z]}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setJumpToToday((n) => n + 1)}>Today</button>
+            <button
+              onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(base.departments.map((d) => d.id)))}
+            >
+              {allCollapsed ? "Expand all" : "Collapse all"}
+            </button>
+          </>
+        )}
 
         {!preview && (
           <div className="draft-status">
@@ -561,7 +587,33 @@ function RoadmapView(props: ViewProps) {
         </ul>
       )}
 
-      <Timeline
+      {view === "table" ? (
+        <TableView
+          roadmap={roadmap}
+          readOnly={preview || busy}
+          conflictIds={conflictBoxIds}
+          updatedIds={updatedIds}
+          onUpdate={(id, patch, key) => draft.updateBox(id, patch, key)}
+          onAdd={() => {
+            const firstLane = draft.departments.find((d) => d.lanes.length)?.lanes[0];
+            const start = startOfWeek(today());
+            const id = draft.addBox({
+              lane: firstLane?.id ?? "",
+              start,
+              end: start + 13,
+              title: "New box",
+              type: base.settings.types[0].id,
+              status: base.settings.statuses[0].id,
+            });
+            draft.checkpoint();
+            return id;
+          }}
+          onDelete={(id) => draft.removeBox(id)}
+          onCheckpoint={draft.checkpoint}
+          onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
+        />
+      ) : (
+        <Timeline
         roadmap={roadmap}
         zoom={zoom}
         collapsed={collapsed}
@@ -579,7 +631,8 @@ function RoadmapView(props: ViewProps) {
         conflictIds={conflictBoxIds}
         updatedIds={updatedIds}
       />
-      {!preview && selected && selectedBox && (
+      )}
+      {view === "timeline" && !preview && selected && selectedBox && (
         <BoxEditor
           key={selected.session}
           box={selectedBox}

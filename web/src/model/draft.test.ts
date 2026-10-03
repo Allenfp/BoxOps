@@ -84,3 +84,11 @@ describe("rebaseDraft", () => {
     expect(diffBoxes(saved.boxes, r.draft.boxes).count).toBe(0);
   });
 });
+
+describe("comparison", () => {
+  it("ignores field order", () => {
+    const fromFile = box("n");
+    const builtInApp = { status: "planned", type: "project", lane: "l1", end: 110, start: 100, title: "n", id: "n" } as Box;
+    expect(diffBoxes([fromFile], [builtInApp]).count).toBe(0);
+  });
+});

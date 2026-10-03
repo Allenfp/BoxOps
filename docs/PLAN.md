@@ -91,6 +91,18 @@ undo and redo. Save (⌘S) commits the draft to `main` with a readable commit
 message ("Dagster 2.x upgrade: rescheduled to Sep 24 – Nov 2"). Later: a Changes
 panel listing each edit with per-item discard.
 
+**Table view.** A Timeline / Table switch (`?view=table`). The table lists
+every box with editable cells (title, lane, dates, type, status, epic link,
+tags, description), sortable columns, search, add and delete, all through the
+same draft, undo and Save. Text cells save on Enter or leaving the cell; Esc
+cancels.
+
+**Pre-save check.** Save first asks GitHub for the latest commit. If others
+saved since the tab loaded, their changes are merged onto the screen and the
+save pauses on a dialog listing who saved what, with Review / Save now (or
+keep mine / keep theirs for items both sides edited). Boxes changed by others
+are outlined in teal until reviewed.
+
 **Viewing.** Filter by type, status, tag and department; search; view state in the
 URL; PNG/PDF export. Later: compare against a past commit to show schedule slip.
 
