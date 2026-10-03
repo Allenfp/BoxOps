@@ -1,0 +1,275 @@
+import { type CSSProperties, useMemo, useRef, useState } from "react";
+import { prettyDay, today as todayDay } from "../model/dates";
+import { EMAIL } from "../model/load";
+import type { Person, Roadmap } from "../model/types";
+import { workload } from "../model/workload";
+import { TextCell } from "./TextCell";
+
+interface Props {
+  roadmap: Roadmap;
+  readOnly?: boolean;
+  /** Collapsed departments; shared with the other views. */
+  collapsed: Set<string>;
+  onToggleDepartment(id: string): void;
+  /** Add an engineer; returns their id. */
+  onAdd(department?: string): string;
+  /** Edit an engineer; returns their id afterwards (an unsaved person's id follows their name). */
+  onUpdate(id: string, patch: Partial<Omit<Person, "id">>): string;
+  /** Remove an engineer and unassign them from their boxes. */
+  onRemove(id: string): void;
+  onCheckpoint(): void;
+}
+
+/** People without a department (or with one that no longer exists). */
+const NO_DEPT = "";
+
+const COLUMNS = [
+  { label: "Name", className: "col-name" },
+  { label: "Department", className: "col-dept" },
+  { label: "Role", className: "col-role" },
+  { label: "Email", className: "col-email" },
+  { label: "Boxes", className: "col-boxes" },
+  { label: "Now", className: "col-now" },
+  { label: "Workload", className: "col-load" },
+  { label: "", className: "col-actions" },
+];
+
+export function PeopleView(props: Props) {
+  const { roadmap, readOnly, collapsed, onToggleDepartment, onAdd, onUpdate, onRemove, onCheckpoint } = props;
+  const { departments, people, boxes } = roadmap;
+  const [query, setQuery] = useState("");
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const now = useMemo(() => todayDay(), []);
+
+  // Stable row keys while an unsaved person's id follows their name.
+  const rowKeys = useRef(new Map<string, string>());
+  const keyFor = (id: string) => {
+    if (!rowKeys.current.has(id)) rowKeys.current.set(id, id);
+    return rowKeys.current.get(id)!;
+  };
+  const update = (id: string, patch: Partial<Omit<Person, "id">>) => {
+    const next = onUpdate(id, patch);
+    if (next !== id) rowKeys.current.set(next, keyFor(id));
+  };
+
+  const loads = useMemo(() => new Map(people.map((p) => [p.id, workload(p.id, boxes, now)])), [people, boxes, now]);
+  const deptIds = new Set(departments.map((d) => d.id));
+  const q = query.trim().toLowerCase();
+  const matches = (p: Person) =>
+    !q ||
+    [p.name, p.role ?? "", p.email ?? "", ...(loads.get(p.id)?.boxes.map((b) => b.title) ?? [])]
+      .join(" ")
+      .toLowerCase()
+      .includes(q);
+
+  const groups = [
+    ...departments.map((d) => ({ id: d.id, name: d.name, color: d.color })),
+    { id: NO_DEPT, name: "No department", color: "#8a94a6" },
+  ].map((g) => ({
+    ...g,
+    all: people.filter((p) => (p.department && deptIds.has(p.department) ? p.department : NO_DEPT) === g.id),
+  }));
+  const shown = people.filter(matches).length;
+
+  const remove = (p: Person) => {
+    const n = loads.get(p.id)?.boxes.length ?? 0;
+    if (
+      n === 0 ||
+      confirm(`Remove ${p.name}? They're on ${n} box${n === 1 ? "" : "es"} and will be unassigned. You can undo this.`)
+    ) {
+      onRemove(p.id);
+    }
+  };
+
+  return (
+    <div className="table-view people-view">
+      <div className="table-toolbar">
+        <input
+          className="table-search"
+          type="search"
+          placeholder="Search names, roles, emails, boxes…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <span className="hint">
+          {shown === people.length ? `${people.length} engineers` : `${shown} of ${people.length} engineers`}
+        </span>
+        {!readOnly && (
+          <button
+            className="primary"
+            onClick={() => {
+              setQuery("");
+              setFocusId(onAdd());
+            }}
+          >
+            + Add engineer
+          </button>
+        )}
+      </div>
+
+      <div className="table-scroll">
+        <table className="box-table people-table">
+          <thead>
+            <tr>
+              {COLUMNS.map((c, i) => (
+                <th key={i} className={c.className}>
+                  <span className="th-label">{c.label}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          {groups.map((g) => {
+            const rows = g.all.filter(matches).sort((a, b) => a.name.localeCompare(b.name));
+            if (g.id === NO_DEPT && g.all.length === 0) return null;
+            if (q && rows.length === 0) return null;
+            const isCollapsed = g.id !== NO_DEPT && collapsed.has(g.id) && !q;
+            const overloaded = g.all.filter((p) => (loads.get(p.id)?.over.length ?? 0) > 0).length;
+            return (
+              <tbody key={g.id || "none"} className="dept-group" style={{ "--dept": g.color } as CSSProperties}>
+                <tr className="group-row">
+                  <td colSpan={COLUMNS.length}>
+                    <div className="group-head">
+                      <button
+                        className="group-toggle"
+                        onClick={() => g.id !== NO_DEPT && onToggleDepartment(g.id)}
+                        aria-expanded={!isCollapsed}
+                        disabled={!!q || g.id === NO_DEPT}
+                      >
+                        <span className={`chevron${isCollapsed ? "" : " open"}`}>▸</span>
+                        <span className="dept-name">{g.name}</span>
+                        <span className="dept-meta">
+                          {q ? `${rows.length} of ${g.all.length}` : g.all.length} engineer{g.all.length === 1 ? "" : "s"}
+                          {overloaded > 0 && <span className="warn-text"> · {overloaded} over 1 FTE</span>}
+                        </span>
+                      </button>
+                      {!readOnly && g.id !== NO_DEPT && (
+                        <button
+                          className="icon-button group-add"
+                          title={`Add an engineer to ${g.name}`}
+                          aria-label={`Add an engineer to ${g.name}`}
+                          onClick={() => {
+                            setQuery("");
+                            if (collapsed.has(g.id)) onToggleDepartment(g.id);
+                            setFocusId(onAdd(g.id));
+                          }}
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                {!isCollapsed && rows.length === 0 && (
+                  <tr className="empty-row">
+                    <td colSpan={COLUMNS.length}>No engineers in {g.name} yet.</td>
+                  </tr>
+                )}
+                {!isCollapsed &&
+                  rows.map((p) => {
+                    const load = loads.get(p.id)!;
+                    return (
+                      <tr key={keyFor(p.id)} className={load.over.length ? "overloaded" : undefined}>
+                        <td className="col-name">
+                          <TextCell
+                            value={p.name}
+                            required
+                            readOnly={readOnly}
+                            autoFocus={focusId === p.id}
+                            onCommit={(name) => update(p.id, { name: name.trim() })}
+                            onBlur={onCheckpoint}
+                            ariaLabel="Name"
+                          />
+                        </td>
+                        <td className="col-dept">
+                          <select
+                            value={p.department && deptIds.has(p.department) ? p.department : NO_DEPT}
+                            disabled={readOnly}
+                            aria-label="Department"
+                            onChange={(e) => update(p.id, { department: e.target.value || undefined })}
+                          >
+                            {departments.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name}
+                              </option>
+                            ))}
+                            <option value={NO_DEPT}>No department</option>
+                          </select>
+                        </td>
+                        <td className="col-role">
+                          <TextCell
+                            value={p.role ?? ""}
+                            readOnly={readOnly}
+                            placeholder="e.g. Data Engineer"
+                            onCommit={(role) => update(p.id, { role: role.trim() || undefined })}
+                            onBlur={onCheckpoint}
+                            ariaLabel="Role"
+                          />
+                        </td>
+                        <td className="col-email">
+                          <TextCell
+                            value={p.email ?? ""}
+                            readOnly={readOnly}
+                            placeholder="name@company.com"
+                            invalid={(v) => v !== "" && !EMAIL.test(v)}
+                            onCommit={(email) => update(p.id, { email: email.trim() || undefined })}
+                            onBlur={onCheckpoint}
+                            ariaLabel="Email"
+                          />
+                        </td>
+                        <td className="col-boxes">
+                          {load.boxes.length === 0 ? (
+                            <span className="hint">None</span>
+                          ) : (
+                            <span className="chips">
+                              {[...load.boxes]
+                                .sort((a, b) => a.start - b.start)
+                                .map((b) => (
+                                  <span
+                                    key={b.id}
+                                    className="chip"
+                                    title={`${b.title}\n${prettyDay(b.start)} – ${prettyDay(b.end)} · ${b.fte} FTE shared by ${b.engineers!.length}`}
+                                  >
+                                    {b.title}
+                                  </span>
+                                ))}
+                            </span>
+                          )}
+                        </td>
+                        <td className="col-now">{load.today ? `${load.today} FTE` : "—"}</td>
+                        <td className="col-load">
+                          {load.over.length === 0 ? (
+                            <span className="hint">{load.peak ? `OK · peak ${load.peak} FTE` : "Free"}</span>
+                          ) : (
+                            <span className="warn-text">
+                              {load.over.map((o) => (
+                                <span key={o.from} className="over-line">
+                                  {o.fte} FTE {prettyDay(o.from).replace(/, \d{4}$/, "")} – {prettyDay(o.to)}
+                                </span>
+                              ))}
+                            </span>
+                          )}
+                        </td>
+                        <td className="col-actions">
+                          {!readOnly && (
+                            <button
+                              className="icon-button row-delete"
+                              title={`Remove ${p.name}`}
+                              aria-label={`Remove ${p.name}`}
+                              onClick={() => remove(p)}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            );
+          })}
+        </table>
+        {q && shown === 0 && <p className="empty">No engineers match “{query}”.</p>}
+      </div>
+    </div>
+  );
+}

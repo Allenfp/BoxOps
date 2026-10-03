@@ -1477,3 +1477,57 @@ button.primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--text-muted) 6%, transparent);
   border-top-color: var(--grid-major);
 }
+
+/* People tab */
+.people-table {
+  min-width: 1240px;
+}
+.people-table .col-name {
+  width: 220px;
+}
+.people-table .col-dept {
+  width: 180px;
+}
+.people-table .col-role {
+  width: 200px;
+}
+.people-table .col-email {
+  width: 230px;
+}
+.people-table .col-now {
+  width: 80px;
+  padding-top: 9px !important;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.people-table .col-load {
+  width: 230px;
+  padding-top: 9px !important;
+  font-size: 12px;
+}
+.people-table .col-boxes {
+  padding-top: 6px !important;
+}
+.th-label {
+  display: inline-block;
+  padding: 6px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chip {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.over-line {
+  display: block;
+}
+.box-table tr.overloaded td:first-child {
+  border-left-color: var(--warn);
+}

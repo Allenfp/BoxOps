@@ -23,6 +23,8 @@ const ID = /^[a-z0-9][a-z0-9_-]*$/;
 
 export const DEFAULT_DEPT_COLOR = "#8a94a6";
 
+export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const DEFAULT_SETTINGS: Settings = {
   title: "Roadmap",
   fiscal_year_start_month: 1,
@@ -186,7 +188,9 @@ function loadPeople(text: string | undefined, departmentIds: Set<string>, issues
     if (department !== undefined && !departmentIds.has(department)) {
       r.fail(`${where}department: "${department}" does not exist`);
     }
-    return { id, name, department };
+    const email = r.optStr(o, "email", where);
+    if (email !== undefined && !EMAIL.test(email)) r.fail(`${where}email: "${email}" doesn't look like an email address`);
+    return { id, name, department, role: r.optStr(o, "role", where), email };
   });
 }
 

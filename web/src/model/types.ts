@@ -47,6 +47,9 @@ export interface Person {
   name: string;
   /** Department they usually work in, to list them first there. */
   department?: string;
+  /** Job title, e.g. "Senior Data Engineer". */
+  role?: string;
+  email?: string;
 }
 
 export interface Box {

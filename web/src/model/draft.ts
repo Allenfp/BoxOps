@@ -346,6 +346,53 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     [apply, present.people],
   );
 
+  const basePeople = useMemo(() => new Set(base.people.map((p) => p.id)), [base.people]);
+
+  /**
+   * Edit an engineer's details. Returns their id afterwards: someone not saved
+   * yet gets an id that follows their name (and their boxes follow along);
+   * once saved, the id never changes.
+   */
+  const updatePerson = useCallback(
+    (id: string, patch: Partial<Omit<Person, "id">>, key?: string): string => {
+      let newId = id;
+      if (patch.name?.trim() && !basePeople.has(id)) {
+        const taken = new Set(present.people.filter((p) => p.id !== id).map((p) => p.id));
+        const slug = slugify(patch.name).replace(/^box$/, "engineer");
+        newId = slug;
+        for (let n = 2; taken.has(newId); n++) newId = `${slug}-${n}`;
+      }
+      apply(
+        (d) => ({
+          ...d,
+          people: d.people.map((p) => (p.id === id ? { ...p, ...patch, id: newId } : p)),
+          boxes:
+            newId === id
+              ? d.boxes
+              : d.boxes.map((b) =>
+                  b.engineers?.includes(id) ? { ...b, engineers: b.engineers.map((e) => (e === id ? newId : e)) } : b,
+                ),
+        }),
+        key,
+      );
+      return newId;
+    },
+    [apply, basePeople, present.people],
+  );
+
+  /** Remove an engineer and unassign them from every box, as one undo step. */
+  const removePerson = useCallback(
+    (id: string) =>
+      apply((d) => ({
+        ...d,
+        people: d.people.filter((p) => p.id !== id),
+        boxes: d.boxes.map((b) =>
+          b.engineers?.includes(id) ? { ...b, engineers: b.engineers.filter((e) => e !== id) } : b,
+        ),
+      })),
+    [apply],
+  );
+
   const undo = useCallback(
     () =>
       setHistory((h) =>
@@ -382,6 +429,8 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     removeBox,
     updateLane,
     addPerson,
+    updatePerson,
+    removePerson,
     undo,
     redo,
     discard,

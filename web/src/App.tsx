@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoxEditor } from "./components/BoxEditor";
 import { type SaveProblem, SaveDialog } from "./components/SaveDialog";
+import { PeopleView } from "./components/PeopleView";
 import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHub, GitHubError } from "./github/api";
@@ -50,7 +51,12 @@ interface RemoteUpdate {
   subject?: string;
 }
 
-type ViewMode = "timeline" | "table";
+type ViewMode = "timeline" | "table" | "people";
+const VIEWS: { id: ViewMode; label: string }[] = [
+  { id: "timeline", label: "Timeline" },
+  { id: "table", label: "Table" },
+  { id: "people", label: "People" },
+];
 
 /** View state lives in the URL so a link reproduces what you see. */
 function readUrlState(): { view: ViewMode; zoom?: ZoomLevel; collapsed?: Set<string> } {
@@ -58,7 +64,7 @@ function readUrlState(): { view: ViewMode; zoom?: ZoomLevel; collapsed?: Set<str
   const zoom = q.get("zoom") as ZoomLevel | null;
   const collapsed = q.get("collapsed");
   return {
-    view: q.get("view") === "table" ? "table" : "timeline",
+    view: VIEWS.find((v) => v.id === q.get("view"))?.id ?? "timeline",
     zoom: zoom && ZOOM_LEVELS.includes(zoom) ? zoom : undefined,
     collapsed: collapsed === null ? undefined : new Set(collapsed.split(",").filter(Boolean)),
   };
@@ -240,8 +246,8 @@ function RoadmapView(props: ViewProps) {
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    if (view === "table") q.set("view", "table");
-    else q.delete("view");
+    if (view === "timeline") q.delete("view");
+    else q.set("view", view);
     q.set("zoom", zoom);
     q.set("collapsed", [...collapsed].join(","));
     history.replaceState(null, "", `?${q}`);
@@ -335,6 +341,10 @@ function RoadmapView(props: ViewProps) {
     if (key.startsWith("box:")) {
       const box = draft.boxes.find((b) => b.id === id) ?? base.boxes.find((b) => b.id === id);
       return `Box “${box?.title ?? id}”`;
+    }
+    if (key.startsWith("person:")) {
+      const person = draft.people.find((p) => p.id === id) ?? base.people.find((p) => p.id === id);
+      return `Engineer “${person?.name ?? id}”`;
     }
     return `Department “${draft.departments.find((d) => d.id === id)?.name ?? id}” (lanes)`;
   };
@@ -450,18 +460,18 @@ function RoadmapView(props: ViewProps) {
       <header className="toolbar">
         <h1>{base.settings.title}</h1>
         <div className="segmented" role="group" aria-label="View">
-          <button aria-pressed={view === "timeline"} onClick={() => setView("timeline")}>
-            Timeline
-          </button>
-          <button
-            aria-pressed={view === "table"}
-            onClick={() => {
-              select(null);
-              setView("table");
-            }}
-          >
-            Table
-          </button>
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              aria-pressed={view === v.id}
+              onClick={() => {
+                if (v.id !== "timeline") select(null);
+                setView(v.id);
+              }}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
         {view === "timeline" && (
           <>
@@ -589,7 +599,22 @@ function RoadmapView(props: ViewProps) {
         </ul>
       )}
 
-      {view === "table" ? (
+      {view === "people" ? (
+        <PeopleView
+          roadmap={roadmap}
+          readOnly={preview || busy}
+          collapsed={collapsed}
+          onToggleDepartment={toggle}
+          onAdd={(department) => {
+            const id = draft.addPerson("New engineer", department);
+            draft.checkpoint();
+            return id;
+          }}
+          onUpdate={(id, patch) => draft.updatePerson(id, patch)}
+          onRemove={(id) => draft.removePerson(id)}
+          onCheckpoint={draft.checkpoint}
+        />
+      ) : view === "table" ? (
         <TableView
           roadmap={roadmap}
           readOnly={preview || busy}
