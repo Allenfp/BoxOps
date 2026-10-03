@@ -1,0 +1,66 @@
+import { type Page, test as base, expect } from "@playwright/test";
+import { FakeGitHub, TOKEN } from "./fake-github";
+
+/** Every test runs on Oct 3, 2026 so "today" and the sample boxes line up. */
+export const TODAY = new Date("2026-10-03T09:00:00");
+
+export const DAGSTER = "bx-c93d-dagster-upgrade";
+export const CDC = "bx-d4e1-cdc-pipeline";
+export const REVENUE = "bx-1b8d-revenue-mart";
+export const boxFile = (id: string) => `boxes/${id}.yaml`;
+
+/** `page` comes with the clock pinned, the fake GitHub installed, and the app open. */
+export const test = base.extend<{ github: FakeGitHub; signedIn: boolean }>({
+  signedIn: [true, { option: true }],
+  github: async ({ page, signedIn }, use) => {
+    const github = new FakeGitHub();
+    await page.clock.install({ time: TODAY });
+    await github.install(page);
+    if (signedIn) {
+      await page.addInitScript((token) => sessionStorage.setItem("boxops-github-token", token), TOKEN);
+    }
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto("./?zoom=months");
+    await expect(page.locator(".box").first()).toBeVisible();
+    await use(github);
+    expect(errors, "uncaught page errors").toEqual([]);
+  },
+});
+export { expect };
+
+export const box = (page: Page, id: string) => page.locator(`[data-box-id="${id}"]`).first();
+export const toolbar = (page: Page) => page.locator(".draft-status");
+
+/** "Sep 14, 2026 – Oct 23, 2026" from a box's tooltip. */
+export async function boxDates(page: Page, id: string): Promise<string> {
+  const title = (await box(page, id).getAttribute("title")) ?? "";
+  return title.split("\n").find((l) => l.includes(" – ")) ?? "";
+}
+
+/** Drag a box (or one of its edge handles) by dx/dy pixels. */
+export async function drag(page: Page, id: string, dx: number, dy = 0, grip: "middle" | "start" | "end" = "middle") {
+  const b = (await box(page, id).boundingBox())!;
+  const x = grip === "start" ? b.x + 3 : grip === "end" ? b.x + b.width - 3 : b.x + Math.min(b.width / 2, 60);
+  const y = b.y + b.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx / 2, y + dy / 2, { steps: 4 });
+  await page.mouse.move(x + dx, y + dy, { steps: 4 });
+  await page.mouse.up();
+}
+
+/** Click somewhere neutral so keyboard shortcuts reach the app, not a field. */
+export async function focusApp(page: Page) {
+  await page.locator(".tl-corner, .table-toolbar .hint").first().click();
+}
+
+export async function save(page: Page) {
+  await focusApp(page);
+  await page.keyboard.press("ControlOrMeta+s");
+}
+
+/** Make the app's 2-minute check for others' saves happen now. */
+export async function pollNow(page: Page) {
+  await page.clock.fastForward(2 * 60_000 + 1000);
+}

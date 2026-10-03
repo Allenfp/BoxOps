@@ -74,5 +74,5 @@ export default defineConfig({
   // Relative asset paths so the site works under https://<user>.github.io/BoxOps/.
   base: "./",
   plugins: [react(), roadmapData()],
-  test: { environment: "node" },
+  test: { environment: "node", include: ["src/**/*.test.ts"] },
 });

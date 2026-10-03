@@ -208,3 +208,7 @@ __marimo__/
 
 # web app
 node_modules/
+
+# Playwright
+web/test-results/
+web/playwright-report/

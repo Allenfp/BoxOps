@@ -49,6 +49,13 @@ GitHub Pages (static app)                 GitHub repo
 - **Conflicts.** Saves only conflict per file (one file per box/department):
   if someone else changed a file you also changed since you loaded, you choose
   keep mine / keep theirs. Everything else from both sides is kept.
+- **Tests.** Unit tests (Vitest, `web/src/**/*.test.ts`) and browser tests
+  (Playwright + WebKit, `web/e2e/`). Browser tests run against the production
+  build with a fake GitHub and a fixed copy of the roadmap
+  (`web/e2e/fixtures/roadmap/`) and a clock pinned to 2026-10-03, so they never
+  depend on live data or the network. CI: every branch push/PR runs everything;
+  pushes to `main` run browser tests before deploying only if something outside
+  `roadmap/` changed, so app saves still go live in about a minute.
 - **Validation.** The app checks the roadmap as it will be after the save
   (including anyone else's saves) and refuses invalid saves. The deploy runs
   the same validator; hand-made PRs are checked by `validate.yml`.
