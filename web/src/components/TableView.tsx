@@ -1,14 +1,5 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import {
-  type Day,
-  formatDay,
-  nextWorkday,
-  parseDay,
-  prevWorkday,
-  quarterLabel,
-  startOfQuarter,
-  workdays,
-} from "../model/dates";
+import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
 import { BOX_FTE_OPTIONS, type Box, type Roadmap } from "../model/types";
 import { EngineerPicker } from "./EngineerPicker";
 
@@ -36,7 +27,7 @@ interface Props {
   onReviewed(id: string): void;
 }
 
-type SortKey = "title" | "lane" | "start" | "end" | "days" | "quarter" | "fte" | "engineers" | "type" | "status";
+type SortKey = "title" | "lane" | "start" | "end" | "days" | "fte" | "engineers" | "type" | "status";
 
 const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: "title", label: "Title", className: "col-title" },
@@ -44,7 +35,6 @@ const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: "start", label: "Start", className: "col-date" },
   { key: "end", label: "End", className: "col-date" },
   { key: "days", label: "Work days", className: "col-days" },
-  { key: "quarter", label: "Quarter", className: "col-quarter" },
   { key: "fte", label: "FTE", className: "col-fte" },
   { key: "engineers", label: "Engineers", className: "col-engineers" },
   { key: "type", label: "Type", className: "col-type" },
@@ -66,14 +56,8 @@ export function TableView(props: Props) {
   const { roadmap, readOnly, conflictIds, updatedIds, onUpdate, onAdd, onDelete, onCheckpoint, onReviewed } = props;
   const { collapsed, onToggleDepartment, onAddPerson } = props;
   const { settings, departments, boxes, people } = roadmap;
-  const fy = settings.fiscal_year_start_month;
   const personName = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
   const engineerNames = (b: Box) => (b.engineers ?? []).map((id) => personName.get(id) ?? id).join(", ");
-  /** "Q4 2026", or "Q4 2026 – Q1 2027" when a box crosses quarters. */
-  const quarterOf = (b: Box) => {
-    const q = (d: Day) => quarterLabel(startOfQuarter(d, fy), fy);
-    return q(b.start) === q(b.end) ? q(b.start) : `${q(b.start)} – ${q(b.end)}`;
-  };
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "lane", dir: 1 });
   const [query, setQuery] = useState("");
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -117,7 +101,6 @@ export function TableView(props: Props) {
             lanes.get(b.lane)?.label ?? "",
             lanes.get(b.lane)?.dept ?? "",
             engineerNames(b),
-            quarterOf(b),
           ]
             .join(" ")
             .toLowerCase()
@@ -136,8 +119,6 @@ export function TableView(props: Props) {
           return b.end;
         case "days":
           return workdays(b.start, b.end);
-        case "quarter":
-          return b.start;
         case "fte":
           return b.fte;
         case "engineers":
@@ -154,7 +135,7 @@ export function TableView(props: Props) {
       return (va < vb ? -1 : va > vb ? 1 : a.start - b.start || a.id.localeCompare(b.id)) * sort.dir;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boxes, query, sort, lanes, typeIndex, statusIndex, personName, fy]);
+  }, [boxes, query, sort, lanes, typeIndex, statusIndex, personName]);
 
   // Sorted rows, bucketed by department (in department order).
   const groups = useMemo(() => {
@@ -339,7 +320,6 @@ export function TableView(props: Props) {
                     />
                   </td>
                   <td className="col-days">{workdays(b.start, b.end)}</td>
-                  <td className="col-quarter">{quarterOf(b)}</td>
                   <td className="col-fte">
                     <select
                       value={b.fte}

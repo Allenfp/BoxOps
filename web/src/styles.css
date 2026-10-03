@@ -1069,14 +1069,8 @@ button.primary:hover:not(:disabled) {
 }
 .box-table {
   table-layout: fixed;
-  /* The other columns' widths add up to 1976px; the rest (about 380px) is Description. */
-  min-width: 2360px;
-}
-.col-quarter {
-  width: 150px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  font-size: 12px;
+  /* The other columns' widths add up to 1826px; the rest (about 380px) is Description. */
+  min-width: 2210px;
 }
 .col-fte {
   width: 64px;

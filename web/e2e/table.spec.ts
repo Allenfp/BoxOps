@@ -35,7 +35,6 @@ test("edits cells and saves them", async ({ page, github }) => {
   await r.getByLabel("Tags").press("Enter");
   await r.getByLabel("FTE").selectOption("1.5");
   await expect(r.locator(".col-days")).toHaveText("50"); // working days, Sep 14 – Nov 20
-  await expect(r.locator(".col-quarter")).toHaveText("Q3 2026 – Q4 2026");
   await r.getByRole("button", { name: "Engineers" }).click();
   await page.getByRole("option", { name: "Alex Kim" }).click();
   await page.keyboard.press("Escape");
