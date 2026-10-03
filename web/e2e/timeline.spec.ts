@@ -157,3 +157,27 @@ test("light by default, even on a dark system; dark is a remembered toggle", asy
   await page.reload();
   expect(await bg()).toBe("rgb(246, 247, 249)");
 });
+
+test("a title sliding along while scrolling never runs into the initials", async ({ page, github: _ }) => {
+  const warehouse = "bx-a1f0-warehouse-migration";
+  await box(page, warehouse).locator(".box-name").click();
+  await page.getByRole("button", { name: "Engineers" }).click();
+  await page.getByRole("option", { name: "Sam Lee" }).click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(box(page, warehouse).locator(".avatar")).toHaveText(["SL"]);
+  const worst = await page.evaluate(async () => {
+    const tl = document.querySelector(".timeline")!;
+    let worst = 0;
+    for (let x = 0; x <= tl.scrollWidth; x += 40) {
+      tl.scrollLeft = x;
+      await new Promise(requestAnimationFrame);
+      for (const bx of document.querySelectorAll(".box")) {
+        const t = bx.querySelector(".box-title"), people = bx.querySelector(".box-people");
+        if (t && people) worst = Math.max(worst, t.getBoundingClientRect().right - people.getBoundingClientRect().left);
+      }
+    }
+    return worst;
+  });
+  expect(worst).toBeLessThanOrEqual(0);
+});

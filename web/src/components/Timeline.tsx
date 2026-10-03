@@ -254,6 +254,10 @@ export function Timeline(props: Props) {
     const warnings = props.ruleWarnings?.get(b.id) ?? [];
     const code = `${deptCode.get(b.lane) ?? "?"}-${b.code}`;
     const engineers = (b.engineers ?? []).map((id) => personName.get(id) ?? id);
+    // Initials only where they won't crowd the title.
+    const showPeople = variant !== "compact" && engineers.length > 0 && width >= 160 + 20 * engineers.length;
+    // Keep their space clear: the sliding (sticky) title stops before them.
+    const peopleW = showPeople ? 8 + engineers.length * (slots === 1 ? 16 : 20) + 6 : 0;
     const classes = [
       "box",
       `status-${b.status}`,
@@ -279,7 +283,7 @@ export function Timeline(props: Props) {
         key={b.id}
         data-box-id={b.id}
         className={classes.filter(Boolean).join(" ")}
-        style={{ ...style, "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
+        style={{ ...style, ...(showPeople && { paddingRight: peopleW }), "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
         title={variant === "full" && b.id !== selectedId ? tooltip.filter(Boolean).join("\n") : undefined}
         onPointerDown={interactive ? (e) => startDrag(e, b) : undefined}
         onClick={interactive || readOnly ? undefined : () => onSelect(b.id)}
@@ -296,8 +300,7 @@ export function Timeline(props: Props) {
             <span className="box-name">{b.title || "Untitled"}</span>
           </span>
         )}
-        {/* Initials only where they won't crowd the title. */}
-        {variant !== "compact" && engineers.length > 0 && width >= 160 + 20 * engineers.length && (
+        {showPeople && (
           <span className="box-people">
             {engineers.map((n) => (
               <span key={n} className="avatar" title={n}>
