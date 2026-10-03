@@ -99,6 +99,14 @@ export class GitHub {
     });
   }
 
+  /** Commits after `base` up to `head`, oldest first: who saved what in between. */
+  compare({ owner, repo }: RepoRef, base: string, head: string) {
+    return this.request<{ commits: { sha: string; commit: { author: { name: string }; message: string } }[] }>(
+      "GET",
+      `/repos/${owner}/${repo}/compare/${base}...${head}`,
+    ).then((r) => r.commits.map((c) => ({ sha: c.sha, author: c.commit.author.name, subject: c.commit.message.split("\n")[0] })));
+  }
+
   /** Move a branch to `sha`; GitHub refuses (422) unless it is a fast-forward. */
   updateBranch({ owner, repo }: RepoRef, branch: string, sha: string) {
     return this.request<unknown>("PATCH", `/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {

@@ -10,10 +10,11 @@ import {
   latestCommit,
   loadCommit,
   loadFromGitHub,
+  parseRepo,
   saveToBranch,
 } from "./github/save";
 import { getToken, setToken } from "./github/token";
-import { type DraftState, hashText, revertItems, useDraft } from "./model/draft";
+import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraft } from "./model/draft";
 import { loadRoadmap } from "./model/load";
 import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
 import { commitMessage, describeChanges } from "./model/summary";
@@ -204,6 +205,8 @@ function RoadmapView(props: ViewProps) {
   const [problem, setProblem] = useState<SaveProblem | null>(null);
   /** A save found newer saves on GitHub; once the draft is carried over, ask about any clashes. */
   const askAfterRebase = useRef(false);
+  /** The next roadmap change is our own save, not someone else's. */
+  const ownSave = useRef(false);
 
   const baseHash = useMemo(() => hashText(JSON.stringify(files)), [files]);
   const draftBase = useMemo(() => ({ boxes: base.boxes, departments: base.departments }), [base]);
@@ -340,12 +343,32 @@ function RoadmapView(props: ViewProps) {
     if (invalid.length) return setProblem({ kind: "invalid", issues: invalid });
     const token = opts.token ?? getToken();
     if (!token) return setProblem({ kind: "token" });
+    const gh = new GitHub(token);
 
     select(null);
     setBusy(true);
     try {
+      // Pre-save check: if anyone saved since this tab loaded, bring their
+      // changes in and let the user review before anything is written.
+      if (!opts.keep) {
+        const head = await gh.branchSha(parseRepo(source.repo), source.branch);
+        if (head !== source.commit) {
+          const headFiles = await loadCommit(gh, source.repo, head);
+          const saves = await gh.compare(parseRepo(source.repo), source.commit, head).catch(() => []);
+          const { roadmap: latest } = loadRoadmap(headFiles);
+          const latestState = { boxes: latest.boxes, departments: latest.departments };
+          const theirs = describeChanges(draftBase, latestState, base.settings);
+          const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
+          setToken(token);
+          setBusy(false);
+          onReload(headFiles, head);
+          setProblem({ kind: "updated", saves, changes: theirs, clashes: clashes.map(describeItem) });
+          return;
+        }
+      }
+
       const result = await saveToBranch({
-        gh: new GitHub(token),
+        gh,
         source,
         baseFiles: files,
         changes,
@@ -354,6 +377,8 @@ function RoadmapView(props: ViewProps) {
       });
       setToken(token);
       setBusy(false);
+      ownSave.current = true;
+      setUpdatedIds(new Set());
       onSaved(result);
     } catch (e) {
       if (e instanceof SaveConflict) {
@@ -380,6 +405,23 @@ function RoadmapView(props: ViewProps) {
     else void saveRef.current(); // their changes didn't actually clash with ours
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files]);
+
+  // Boxes someone else added or changed since this tab loaded, highlighted for
+  // review until clicked, until the notice is dismissed, or until we save.
+  const [updatedIds, setUpdatedIds] = useState<Set<string>>(new Set());
+  const prevBase = useRef(draftBase);
+  useEffect(() => {
+    const prev = prevBase.current;
+    prevBase.current = draftBase;
+    if (prev === draftBase) return;
+    if (ownSave.current) {
+      ownSave.current = false;
+      return;
+    }
+    const d = diffBoxes(prev.boxes, draftBase.boxes);
+    const ids = [...d.added, ...d.modified].map((b) => b.id);
+    if (ids.length) setUpdatedIds((cur) => new Set([...cur, ...ids]));
+  }, [draftBase]);
 
   const conflictBoxIds = useMemo(
     () => new Set(draft.conflicts.filter((k) => k.startsWith("box:")).map((k) => k.slice(4))),
@@ -497,7 +539,14 @@ function RoadmapView(props: ViewProps) {
               </span>
             )}
           </span>
-          <button className="icon-button" onClick={onDismissRemote} aria-label="Dismiss">
+          <button
+            className="icon-button"
+            onClick={() => {
+              onDismissRemote();
+              setUpdatedIds(new Set());
+            }}
+            aria-label="Dismiss"
+          >
             ×
           </button>
         </div>
@@ -519,12 +568,16 @@ function RoadmapView(props: ViewProps) {
         onToggleDepartment={toggle}
         jumpToToday={jumpToToday}
         selectedId={selectedBox ? selectedBox.id : null}
-        onSelect={select}
+        onSelect={(id) => {
+          if (id) setUpdatedIds((cur) => (cur.has(id) ? new Set([...cur].filter((x) => x !== id)) : cur));
+          select(id);
+        }}
         onPlaceBox={placeBox}
         onCreateBox={createBox}
         onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
         readOnly={preview || busy}
         conflictIds={conflictBoxIds}
+        updatedIds={updatedIds}
       />
       {!preview && selected && selectedBox && (
         <BoxEditor
@@ -553,6 +606,10 @@ function RoadmapView(props: ViewProps) {
           onResolve={(keep) => {
             setProblem(null);
             void save({ keep });
+          }}
+          onSaveNow={() => {
+            setProblem(null);
+            void save();
           }}
           onRetry={() => {
             setProblem(null);

@@ -7,7 +7,15 @@ export type SaveProblem =
   | { kind: "token"; rejected?: boolean }
   | { kind: "invalid"; issues: string[] }
   | { kind: "conflict"; items: string[] }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string }
+  | {
+      /** Pre-save check: others saved since this tab loaded. Their changes are now on screen. */
+      kind: "updated";
+      saves: { author: string; subject: string }[];
+      changes: ChangeLine[];
+      /** Items both sides changed. */
+      clashes: string[];
+    };
 
 interface Props {
   problem: SaveProblem;
@@ -16,6 +24,8 @@ interface Props {
   busy: boolean;
   onSubmitToken(token: string): void;
   onResolve(keep: "mine" | "theirs"): void;
+  /** Save after reviewing others' changes (no clashes). */
+  onSaveNow(): void;
   onRetry(): void;
   onClose(): void;
 }
@@ -32,7 +42,7 @@ function Bolded({ text }: { text: string }) {
   );
 }
 
-export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onResolve, onRetry, onClose }: Props) {
+export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onResolve, onSaveNow, onRetry, onClose }: Props) {
   const [token, setToken] = useState("");
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -45,6 +55,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
     invalid: "Can’t save yet",
     conflict: "Someone else changed the same items",
     error: "Save failed",
+    updated: "The roadmap changed since you opened it",
   }[problem.kind];
 
   return (
@@ -151,6 +162,8 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
         </>
       )}
 
+      {problem.kind === "updated" && <Updated problem={problem} busy={busy} onResolve={onResolve} onSaveNow={onSaveNow} onClose={onClose} />}
+
       {problem.kind === "error" && (
         <>
           <div className="callout error">{problem.message}</div>
@@ -166,6 +179,90 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
         </>
       )}
     </dialog>
+  );
+}
+
+const MAX_SAVES = 4;
+
+function Updated({
+  problem,
+  busy,
+  onResolve,
+  onSaveNow,
+  onClose,
+}: {
+  problem: Extract<SaveProblem, { kind: "updated" }>;
+  busy: boolean;
+  onResolve(keep: "mine" | "theirs"): void;
+  onSaveNow(): void;
+  onClose(): void;
+}) {
+  const { saves, changes, clashes } = problem;
+  const shown = saves.slice(-MAX_SAVES);
+  return (
+    <>
+      <p className="lead">Your changes haven’t been saved yet. Since you opened the roadmap:</p>
+      {saves.length > 0 && (
+        <ul className="save-list">
+          {saves.length > MAX_SAVES && <li className="hint">…and {saves.length - MAX_SAVES} earlier saves</li>}
+          {shown.map((c, i) => (
+            <li key={i}>
+              <strong>{c.author}</strong> saved “{c.subject}”
+            </li>
+          ))}
+        </ul>
+      )}
+      <h3>What changed</h3>
+      <ul className="change-list">
+        {changes.map((l, i) => (
+          <li key={i}>
+            <span className={`kind kind-${l.kind}`}>{KIND_LABEL[l.kind]}</span>
+            <span>
+              <Bolded text={l.text} />
+            </span>
+          </li>
+        ))}
+      </ul>
+      {clashes.length > 0 && (
+        <div className="callout warn">
+          You also edited {clashes.length === 1 ? "this item" : "these items"}:
+          <ul>
+            {clashes.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          Review them, or choose whose version to keep.
+        </div>
+      )}
+      <p className="hint">
+        Their changes are now on your timeline, outlined in teal. Your unsaved edits are still there; adjust them if
+        needed, then save again.
+      </p>
+      <footer className="dialog-foot">
+        {clashes.length > 0 ? (
+          <>
+            <button onClick={onClose} disabled={busy}>
+              Review changes
+            </button>
+            <button onClick={() => onResolve("theirs")} disabled={busy}>
+              Keep theirs &amp; save
+            </button>
+            <button className="primary" onClick={() => onResolve("mine")} disabled={busy}>
+              Keep mine &amp; save
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={onClose} disabled={busy}>
+              Review changes
+            </button>
+            <button className="primary" onClick={onSaveNow} disabled={busy}>
+              {busy ? "Saving…" : "Save now"}
+            </button>
+          </>
+        )}
+      </footer>
+    </>
   );
 }
 

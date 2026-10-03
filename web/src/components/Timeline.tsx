@@ -39,6 +39,8 @@ interface Props {
   readOnly?: boolean;
   /** Boxes someone else changed while we were editing them too. */
   conflictIds?: Set<string>;
+  /** Boxes someone else changed since this tab loaded (for review). */
+  updatedIds?: Set<string>;
 }
 
 interface LaneLayout {
@@ -212,6 +214,7 @@ export function Timeline(props: Props) {
       variant !== "full" && variant,
       b.id === selectedId && "selected",
       clash && "conflict",
+      props.updatedIds?.has(b.id) && "updated",
     ];
     return (
       <div
@@ -221,7 +224,9 @@ export function Timeline(props: Props) {
         style={{ ...style, "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
         title={
           variant === "full" && b.id !== selectedId
-            ? `${clash ? "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n\n" : ""}${b.title}\n${prettyDay(b.start)} – ${prettyDay(b.end)}\n${statusName.get(b.status) ?? b.status}${
+            ? `${clash ? "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n\n" : ""}${
+                props.updatedIds?.has(b.id) && !clash ? "● Changed by someone else since you opened the roadmap.\n\n" : ""
+              }${b.title}\n${prettyDay(b.start)} – ${prettyDay(b.end)}\n${statusName.get(b.status) ?? b.status}${
                 b.description ? `\n\n${b.description}` : ""
               }`
             : undefined

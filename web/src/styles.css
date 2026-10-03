@@ -12,6 +12,7 @@
   --warn: #c2410c;
   --warn-bg: #fff1e6;
   --accent: #4f7cff;
+  --updated: #0d9488;
   --box-text-solid: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   font-size: 14px;
@@ -33,6 +34,7 @@
     --today: #ff6369;
     --warn: #fb923c;
     --warn-bg: #3a2414;
+    --updated: #2dd4bf;
   }
 }
 
@@ -886,4 +888,48 @@ button.primary:hover:not(:disabled) {
 }
 .banner .warn-text {
   font-weight: 600;
+}
+
+/* Pre-save check */
+.save-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+.save-list li {
+  padding: 2px 0;
+}
+.save-dialog .callout.warn ul {
+  margin: 4px 0;
+  font-weight: 600;
+}
+
+/* Changed by someone else since this tab loaded; cleared once reviewed. */
+.box.updated {
+  box-shadow:
+    0 0 0 2px var(--updated),
+    0 0 0 5px color-mix(in srgb, var(--updated) 25%, transparent);
+}
+.box.updated.status-at_risk {
+  box-shadow:
+    inset 4px 0 0 var(--today),
+    0 0 0 2px var(--updated),
+    0 0 0 5px color-mix(in srgb, var(--updated) 25%, transparent);
+}
+.box.updated::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--updated);
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+.save-dialog > h3 {
+  margin: 14px 20px 6px;
+}
+.save-dialog > .change-list {
+  margin: 0 20px;
 }
