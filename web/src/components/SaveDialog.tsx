@@ -47,7 +47,11 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = dialogRef.current;
-    if (d && !d.open) d.showModal();
+    if (d && !d.open) {
+      d.showModal();
+      // showModal() focuses the first focusable element (the close button); start in the first field instead.
+      d.querySelector<HTMLInputElement>("input:not([type=color])")?.focus();
+    }
   }, []);
 
   const title = {

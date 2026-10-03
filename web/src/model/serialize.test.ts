@@ -40,7 +40,7 @@ describe("serializeChanges", () => {
       ...draft,
       boxes: [
         ...draft.boxes,
-        { id: "bx-0001-new-thing", title: "New: thing", lane: "an-3", start: 100, end: 120, type: "project", status: "planned", fte: 1 },
+        { id: "bx-0001-new-thing", title: "New: thing", lane: "an-3", start: 102, end: 120, type: "project", status: "planned", fte: 1 },
       ],
     };
     const out = serializeChanges(files, base, draft);
@@ -48,7 +48,7 @@ describe("serializeChanges", () => {
     expect(out["boxes/bx-a1f0-warehouse-migration.yaml"]).not.toContain("epic:");
     expect(out["boxes/bx-a1f0-warehouse-migration.yaml"]).toContain("tags:\n  - iceberg\n  - q4\n");
     expect(out["boxes/bx-0001-new-thing.yaml"]).toBe(
-      'id: bx-0001-new-thing\ntitle: "New: thing"\nlane: an-3\nstart: 1970-04-11\nend: 1970-05-01\ntype: project\nstatus: planned\n',
+      'id: bx-0001-new-thing\ntitle: "New: thing"\nlane: an-3\nstart: 1970-04-13\nend: 1970-05-01\ntype: project\nstatus: planned\n',
     );
     const { issues } = loadRoadmap(applyChanges(files, out));
     expect(issues).toEqual([]);
@@ -150,5 +150,21 @@ describe("fte, engineers and the roster", () => {
       "people:\n  - id: a\n    name: A\n",
     );
     expect(describeChanges(b, d, r.settings)[0].text).toBe("Added engineer **Priya Shah**");
+  });
+});
+
+describe("weekday dates", () => {
+  it("flags a weekend start or end without dropping the box", () => {
+    const { roadmap: r, issues } = loadRoadmap({
+      ...files,
+      "boxes/bx-c93d-dagster-upgrade.yaml": files["boxes/bx-c93d-dagster-upgrade.yaml"]
+        .replace("start: 2026-09-14", "start: 2026-09-12")
+        .replace("end: 2026-10-23", "end: 2026-10-25"),
+    });
+    expect(issues.map((i) => i.message)).toEqual([
+      "start: Saturday — roadmap dates must be weekdays",
+      "end: Sunday — roadmap dates must be weekdays",
+    ]);
+    expect(r.boxes.some((b) => b.id === "bx-c93d-dagster-upgrade")).toBe(true);
   });
 });

@@ -114,3 +114,44 @@ describe("layoutDepartment", () => {
     expect(overflowed(l)).toEqual(["w"]);
   });
 });
+
+describe("fully booked departments", () => {
+  it("finds an arrangement when placing one box at a time can't", async () => {
+    const { parseDay } = await import("../model/dates");
+    // Data Engineering as it was on 2026-10-03: 3.5 FTE of lanes, fully booked
+    // at times. Placing one box at a time stranded On-call rotation Q4.
+    const de: Department = {
+      ...dept,
+      lanes: [
+        { id: "de-1", fte: 1 },
+        { id: "de-2", fte: 1 },
+        { id: "de-3", fte: 1 },
+        { id: "de-4", fte: 0.5 },
+      ],
+    };
+    const rows: [string, string, string, string, number][] = [
+      ["terraform-cleanup", "de-4", "2026-08-19", "2026-10-16", 1],
+      ["legacy-sunset", "de-4", "2026-05-04", "2026-07-31", 1],
+      ["warehouse-migration", "de-1", "2026-08-03", "2026-11-27", 0.5],
+      ["fivetran-cost-review", "de-1", "2026-12-07", "2027-01-15", 1.5],
+      ["dagster-upgrade", "de-2", "2026-09-14", "2026-10-23", 1],
+      ["cdc-pipeline", "de-2", "2026-10-26", "2027-02-26", 1],
+      ["on-call-q4", "de-3", "2026-09-29", "2026-12-29", 0.5],
+      ["streaming-spike", "de-3", "2027-01-04", "2027-02-11", 1],
+    ];
+    const boxes = rows.map(([id, lane, s, e, fte]) => box(id, lane, parseDay(s)!, parseDay(e)!, fte));
+    const l = layoutDepartment(de, boxes);
+    expect(l.overCapacity).toBe(false);
+    expect(l.peakFte).toBe(3.5);
+    expect(overflowed(l)).toEqual([]);
+    // Nothing drawn on top of anything else.
+    for (const a of boxes) {
+      for (const b of boxes) {
+        if (a === b || a.end < b.start || b.end < a.start) continue;
+        const pa = l.boxes.get(a.id)!;
+        const pb = l.boxes.get(b.id)!;
+        expect(pa.slot + pa.slots <= pb.slot || pb.slot + pb.slots <= pa.slot).toBe(true);
+      }
+    }
+  });
+});

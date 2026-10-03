@@ -3,6 +3,7 @@
 // refresh never loses work. Nothing here touches git; committing is a later step.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import * as structure from "./structure";
 import type { Box, Department, Lane, Person } from "./types";
 
 export interface DraftState {
@@ -27,8 +28,10 @@ export interface Changes {
   added: Box[];
   modified: Box[];
   removed: Box[];
-  /** Departments whose settings or lanes changed. */
+  /** Departments added, or whose settings or lanes changed. */
   departments: Department[];
+  /** Departments deleted. */
+  removedDepartments: Department[];
   /** Engineers added, renamed or removed. */
   people: { added: Person[]; changed: Person[]; removed: Person[] };
   count: number;
@@ -55,6 +58,8 @@ export function diffDraft(base: DraftState, current: DraftState): Changes {
     const was = baseDepts.get(d.id);
     return !was || !same(was, d);
   });
+  const currentDepts = new Set(current.departments.map((d) => d.id));
+  const removedDepartments = base.departments.filter((d) => !currentDepts.has(d.id));
   const basePeople = new Map(base.people.map((p) => [p.id, p]));
   const currentPeople = new Set(current.people.map((p) => p.id));
   const people = {
@@ -63,7 +68,13 @@ export function diffDraft(base: DraftState, current: DraftState): Changes {
     removed: base.people.filter((p) => !currentPeople.has(p.id)),
   };
   const peopleCount = people.added.length + people.changed.length + people.removed.length;
-  return { ...boxes, departments, people, count: boxes.count + departments.length + peopleCount };
+  return {
+    ...boxes,
+    departments,
+    removedDepartments,
+    people,
+    count: boxes.count + departments.length + removedDepartments.length + peopleCount,
+  };
 }
 
 function same<T extends object>(a: T, b: T): boolean {
@@ -321,15 +332,52 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
   );
 
   const updateLane = useCallback(
-    (laneId: string, patch: Partial<Omit<Lane, "id">>) =>
-      apply((d) => ({
-        ...d,
-        departments: d.departments.map((dept) =>
-          dept.lanes.some((l) => l.id === laneId)
-            ? { ...dept, lanes: dept.lanes.map((l) => (l.id === laneId ? { ...l, ...patch } : l)) }
-            : dept,
-        ),
-      })),
+    (laneId: string, patch: Partial<Omit<Lane, "id">>, key?: string) =>
+      apply(
+        (d) => ({
+          ...d,
+          departments: d.departments.map((dept) =>
+            dept.lanes.some((l) => l.id === laneId)
+              ? { ...dept, lanes: dept.lanes.map((l) => (l.id === laneId ? { ...l, ...patch } : l)) }
+              : dept,
+          ),
+        }),
+        key,
+      ),
+    [apply],
+  );
+
+  // Departments and lanes: each is one undo step. Removing never drops work:
+  // boxes in a removed lane or department move to `moveTo`.
+  const addDepartment = useCallback(
+    (name: string, color?: string): string => {
+      const { id } = structure.addDepartment(present, name, color);
+      apply((d) => structure.addDepartment(d, name, color).state);
+      return id;
+    },
+    [apply, present],
+  );
+  const updateDepartment = useCallback(
+    (id: string, patch: Partial<Pick<Department, "name" | "color">>, key?: string) =>
+      apply((d) => structure.updateDepartment(d, id, patch), key),
+    [apply],
+  );
+  const moveDepartment = useCallback((id: string, dir: -1 | 1) => apply((d) => structure.moveDepartment(d, id, dir)), [apply]);
+  const removeDepartment = useCallback(
+    (id: string, moveTo?: string) => apply((d) => structure.removeDepartment(d, id, moveTo)),
+    [apply],
+  );
+  const addLane = useCallback(
+    (deptId: string, fte = 1): string => {
+      const { laneId } = structure.addLane(present, deptId, fte);
+      apply((d) => structure.addLane(d, deptId, fte).state);
+      return laneId;
+    },
+    [apply, present],
+  );
+  const moveLane = useCallback((laneId: string, dir: -1 | 1) => apply((d) => structure.moveLane(d, laneId, dir)), [apply]);
+  const removeLane = useCallback(
+    (laneId: string, moveTo?: string) => apply((d) => structure.removeLane(d, laneId, moveTo)),
     [apply],
   );
 
@@ -428,6 +476,13 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     addBox,
     removeBox,
     updateLane,
+    addDepartment,
+    updateDepartment,
+    moveDepartment,
+    removeDepartment,
+    addLane,
+    moveLane,
+    removeLane,
     addPerson,
     updatePerson,
     removePerson,

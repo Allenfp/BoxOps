@@ -3,7 +3,7 @@
 // never blanks the whole roadmap. CI treats any issue as a failure.
 
 import { parse } from "yaml";
-import { parseDay } from "./dates";
+import { dayParts, isWeekend, parseDay } from "./dates";
 import type {
   Box,
   BoxStatus,
@@ -22,6 +22,8 @@ import { BOX_FTE_OPTIONS, ZOOM_LEVELS } from "./types";
 const ID = /^[a-z0-9][a-z0-9_-]*$/;
 
 export const DEFAULT_DEPT_COLOR = "#8a94a6";
+
+const WEEKDAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -153,6 +155,10 @@ export function loadRoadmap(files: RoadmapFiles): { roadmap: Roadmap; issues: Is
     }
     if (!typeIds.has(box.type)) r.fail(`type: "${box.type}" is not defined in settings.yaml`);
     if (!statusIds.has(box.status)) r.fail(`status: "${box.status}" is not defined in settings.yaml`);
+    // The roadmap has no weekends: the app never writes them, so flag hand edits that do.
+    for (const [field, day] of [["start", box.start], ["end", box.end]] as const) {
+      if (isWeekend(day)) r.fail(`${field}: ${WEEKDAY[dayParts(day).weekday]} — roadmap dates must be weekdays`);
+    }
     for (const id of box.engineers ?? []) {
       if (!personIds.has(id)) r.fail(`engineers: "${id}" is not in people.yaml`);
     }

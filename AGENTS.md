@@ -1,0 +1,201 @@
+# Working on the BoxOps roadmap (for AI assistants)
+
+This repo is a team roadmap. The data is plain YAML in `roadmap/`; a web app in
+`web/` (published at https://allenfp.github.io/BoxOps/) displays and edits it.
+You can do everything the app does by editing the YAML files and pushing to
+`main`. This file explains how.
+
+Read [docs/data-format.md](docs/data-format.md) for the full file format. The
+essentials are below.
+
+## How the roadmap works
+
+- **Departments** (`roadmap/departments/<id>.yaml`) contain **lanes**. A lane is
+  anonymous capacity of 1 or 0.5 FTE, not a person.
+- **Boxes** (`roadmap/boxes/<id>.yaml`) are pieces of planned work. Each sits in
+  a lane, runs from `start` to `end` (inclusive weekdays), needs 0.5–2 FTE, and
+  can name the **engineers** working on it.
+- **Engineers** are listed in `roadmap/people.yaml`.
+- A department is **over capacity** when, on some day, its boxes need more FTE
+  than its lanes hold. An engineer is **overloaded** when their share of their
+  boxes is over 1 FTE (a box's FTE is split evenly across its engineers). Both
+  are warnings, not errors.
+- There are **no weekends**: dates must be Monday–Friday and durations are
+  counted in working days.
+
+## Workflow
+
+People edit the roadmap in the web app at the same time, and every app save is
+a commit on `main`. So:
+
+1. **Start from the latest `main`:** `git checkout main && git pull --ff-only`.
+2. **Look before you change.** From `web/` (run `npm ci` once first), run
+   `npm run report` and keep the output: it shows over-capacity departments,
+   overloaded engineers, unassigned boxes, and every engineer's bookings by
+   date (use that to answer "who's free then?").
+3. **Edit the YAML files** (recipes below). Change only what you need: don't
+   reformat files, reorder fields, or rewrite unrelated lines, and keep comments.
+4. **Check your work** from `web/`:
+   - `npm run validate` must end in `— OK` (e.g. `3 departments, 9 lanes,
+     16 boxes — OK`). It lists any problem and exits non-zero.
+   - `npm run report` again. Compare with step 2 and tell the user about
+     anything your change made worse (a department over capacity, someone over
+     1 FTE).
+5. **Commit to `main`.** Pull first if time has passed (`git pull --ff-only`;
+   validate again if anything came in). Stage only the roadmap
+   (`git add roadmap/`), never `git add -A`. Write the message the way the app
+   does (see [Commit messages](#commit-messages)). Commits use the local git
+   identity; add whatever co-author trailer you normally add.
+6. **Push:** `git push origin main`. Changes to `roadmap/` deploy in about 30
+   seconds, and open browser tabs pick them up within a few minutes.
+7. **If the push is rejected** because someone saved meanwhile:
+   `git pull --rebase`, then validate again and push. If the rebase conflicts
+   in a file someone else also changed, stop and ask the user whose version to
+   keep. Never force-push.
+
+Don't open pull requests or create branches for roadmap edits unless asked:
+the team's convention is that saves go straight to `main`. Changes to the app
+itself (`web/`) are different: do those on a branch, run `npm test` and
+`npm run e2e`, and merge only when the user says to (merging deploys).
+
+## Commit messages
+
+Match the app, so history reads the same whichever way a change was made. The
+subject is the single change (without any "(was …)" part, at most 72
+characters), or `Roadmap: <n> changes` for several. The body has one bullet per
+change, worded like this (`<range>` is like `Mar 1, 2026 – Mar 19, 2026`; a lane
+is `<Department> / <lane label>`):
+
+| Change | Line |
+|---|---|
+| New box | `Added <title> to <lane>, <range>` |
+| Deleted box | `Deleted <title> (<lane>, <range>)` |
+| Edited box | `<title>: ` then the parts that changed, joined by `; ` |
+| … renamed | `renamed from "<old title>"` |
+| … new lane | `moved from <old lane> to <new lane>` |
+| … same length, new dates | `rescheduled to <range> (was <old range>)` |
+| … other date change | `dates now <range> (was <old range>)` |
+| … status, type or FTE | `status At risk → Done`, `type <old> → <new>`, `FTE 1 → 1.5` (names, not ids) |
+| … engineers | `engineers now Sam Lee, Alex Kim` |
+| … epic, description, tags, links | `epic link updated` / `epic link removed`, `description edited`, `tags edited`, `links edited` |
+| Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
+| Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` |
+
+For example:
+
+```
+Roadmap: 2 changes
+
+- Added Data quality checks to Data Engineering / FTE 2, Mar 1, 2027 – Mar 19, 2027
+- Updated engineer Jordan Diaz
+```
+
+The app ends its messages with "Saved from the BoxOps web app."; don't add that
+to hand-made commits.
+
+## Lane labels
+
+A lane without a `name` is labelled by its position in its department: the
+second lane is `FTE 2`. That's a position, not a size, so a 1.5-FTE box in the
+second lane is still "Data Engineering / FTE 2".
+
+## Recipes
+
+Working-day arithmetic comes up often. In Python:
+
+```python
+from datetime import date, timedelta
+
+def add_workdays(d: date, n: int) -> date:
+    """Move d by n working days (n may be negative)."""
+    step = 1 if n >= 0 else -1
+    while n:
+        d += timedelta(days=step)
+        if d.weekday() < 5:
+            n -= step
+    return d
+
+def workdays(start: date, end: date) -> int:
+    """Working days from start to end, inclusive."""
+    return sum((start + timedelta(i)).weekday() < 5 for i in range((end - start).days + 1))
+```
+
+**Add a box.** Pick an id `bx-<4 random hex digits>-<slug>` (the slug is the
+title in lowercase, non-letters/digits replaced by `-`, at most 40 characters),
+check no file of that name exists, and create `roadmap/boxes/<id>.yaml`:
+
+```yaml
+id: bx-3f9c-q3-planning
+title: Q3 planning
+lane: ml-1
+start: 2027-06-07
+end: 2027-06-18
+type: research
+status: planned
+```
+
+Add `fte:` only if it isn't 1, and `engineers:` with ids from `people.yaml`.
+
+*Choosing a lane:* use the department the work belongs to, and a lane that's
+free for those dates (check the other boxes' `lane`, `start` and `end`). A box
+over 1 FTE also covers the lane(s) below its own, so pick one whose next lane
+is free too. The app redraws boxes into any free space in the department, so
+the lane is a preference; the department and dates are what count for
+capacity.
+
+*Choosing engineers:* usually one per started FTE (one for 0.5–1, two for
+1.5–2), from the same department. Use the bookings in `npm run report` to find
+who's free over the box's dates. If several are equally free, say who you
+picked and why, and offer the alternatives.
+
+**Move or reschedule a box.** Change `start` and `end`. To keep its length,
+shift both by the same number of working days. To move it to another lane or
+department, change `lane`.
+
+**Resize, re-staff or update a box.** Edit `end`, `fte`, `engineers`, `status`,
+`description` and so on in place. Set `status: done` when finished.
+
+**Delete a box.** Delete its file.
+
+**Add an engineer.** Append to `people:` in `roadmap/people.yaml` with a new
+id (a slug of their name, unique), `name`, and ideally `department`. Fields go
+in this order: `id`, `name`, `department`, `role`, `email`, `manager`, `notes`.
+
+**Edit an engineer.** Change or add fields on their entry in the order above.
+Never change their `id`: boxes refer to it.
+
+**Remove an engineer.** Delete their entry *and* remove their id from every
+box's `engineers` list (`grep -rl "<id>" roadmap/boxes`). Delete an emptied
+`engineers:` key rather than leaving an empty list.
+
+**Rename a lane.** Set or change the lane's `name`. Never change a lane `id`
+without updating every box that uses it.
+
+**Add a lane or department.** Lane ids must be unique across all departments;
+follow the department's pattern (`de-1`, `de-2` → `de-3`), or use
+`<department id>-<n>` for a new department. A new department is a new file
+whose `id` matches its file name; give it an `order` after the others and a
+`color`. (People can do this in the app too, from **+ Add department** or the
+✎ on a department heading.)
+
+**Remove a lane or department.** First move its boxes: set each affected box's
+`lane` to a lane that stays. Then delete the lane entry, or the department
+file. For a department, also delete `department:` from people who had it.
+Renumber the remaining departments' `order` 1, 2, 3… if you like; only the
+order matters.
+
+**Answer questions.** `npm run report` covers capacity, overloads, unassigned
+boxes and each engineer's bookings by date. The files are small and greppable
+too: `grep -l "sam-lee" roadmap/boxes/*` finds Sam's boxes.
+
+## Rules
+
+- IDs and file names never change once saved. `id` must equal the file name.
+- Dates are weekdays, inclusive, `YYYY-MM-DD`, and `end` is not before `start`.
+- `fte` on a box is 0.5, 1, 1.5 or 2; on a lane, more than 0 and at most 1.
+- Everything a box refers to must exist: `lane`, `type`, `status` (in
+  `settings.yaml`) and each `engineers` id.
+- Always run `npm run validate` before pushing; never push a failing roadmap.
+- Stage only `roadmap/` for roadmap changes.
+- Pull before editing and never force-push: people save from the app all the
+  time.

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoxEditor } from "./components/BoxEditor";
+import { DepartmentEditor, type DepartmentEditorTarget } from "./components/DepartmentEditor";
 import { type SaveProblem, SaveDialog } from "./components/SaveDialog";
 import { PeopleView } from "./components/PeopleView";
 import { TableView } from "./components/TableView";
@@ -209,6 +210,17 @@ function RoadmapView(props: ViewProps) {
   );
   const [jumpToToday, setJumpToToday] = useState(0);
   const [showIssues, setShowIssues] = useState(false);
+  const [deptEditor, setDeptEditor] = useState<DepartmentEditorTarget | null>(null);
+  const editDepartment = (id: string) => {
+    select(null);
+    draft.checkpoint();
+    setDeptEditor({ kind: "edit", id });
+  };
+  const addDepartment = () => {
+    select(null);
+    draft.checkpoint();
+    setDeptEditor({ kind: "new" });
+  };
   const [busy, setBusyState] = useState(false);
   const setBusy = (b: boolean) => {
     setBusyState(b);
@@ -645,6 +657,8 @@ function RoadmapView(props: ViewProps) {
           onAddPerson={(name, department) => draft.addPerson(name, department)}
           onCheckpoint={draft.checkpoint}
           onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
+          onEditDepartment={editDepartment}
+          onAddDepartment={addDepartment}
         />
       ) : (
         <Timeline
@@ -664,6 +678,8 @@ function RoadmapView(props: ViewProps) {
         readOnly={preview || busy}
         conflictIds={conflictBoxIds}
         updatedIds={updatedIds}
+        onEditDepartment={editDepartment}
+        onAddDepartment={addDepartment}
       />
       )}
       {view === "timeline" && !preview && selected && selectedBox && (
@@ -680,6 +696,34 @@ function RoadmapView(props: ViewProps) {
             setSelected(null);
           }}
           onClose={() => select(null)}
+        />
+      )}
+      {deptEditor && !preview && (
+        <DepartmentEditor
+          target={deptEditor}
+          departments={draft.departments}
+          boxes={draft.boxes}
+          people={draft.people}
+          onCreate={(name, color) => {
+            const id = draft.addDepartment(name, color);
+            setCollapsed((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+            return id;
+          }}
+          onUpdate={draft.updateDepartment}
+          onMove={draft.moveDepartment}
+          onRemove={draft.removeDepartment}
+          onAddLane={(id) => draft.addLane(id)}
+          onUpdateLane={draft.updateLane}
+          onMoveLane={draft.moveLane}
+          onRemoveLane={draft.removeLane}
+          onClose={() => {
+            draft.checkpoint();
+            setDeptEditor(null);
+          }}
         />
       )}
       {problem && (

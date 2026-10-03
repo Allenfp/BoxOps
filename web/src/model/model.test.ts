@@ -73,14 +73,14 @@ describe("loadRoadmap", () => {
     const { roadmap, issues } = loadRoadmap({
       "settings.yaml": settings,
       "departments/eng.yaml": dept,
-      "boxes/b1.yaml": "id: b1\ntitle: One\nlane: e2\nstart: 2026-01-05\nend: 2026-02-01\ntype: project\nstatus: planned\n",
+      "boxes/b1.yaml": "id: b1\ntitle: One\nlane: e2\nstart: 2026-01-05\nend: 2026-01-30\ntype: project\nstatus: planned\n",
     });
     expect(issues).toEqual([]);
     expect(roadmap.departments[0].lanes).toEqual([
       { id: "e1", name: undefined, fte: 1 },
       { id: "e2", name: undefined, fte: 0.5 },
     ]);
-    expect(formatDay(roadmap.boxes[0].end)).toBe("2026-02-01");
+    expect(formatDay(roadmap.boxes[0].end)).toBe("2026-01-30");
   });
 
   it("reports bad boxes without dropping the rest", () => {

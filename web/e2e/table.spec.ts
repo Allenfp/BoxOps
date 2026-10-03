@@ -104,7 +104,7 @@ test("departments collapse, shared with the timeline", async ({ page, github: _ 
   await group("Data Engineering").click();
   await expect(page.locator('input[aria-label="Title"]')).toHaveCount(4);
   await page.getByRole("button", { name: "Timeline" }).click();
-  await expect(page.locator(".dept-label", { hasText: "Data Engineering" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".dept-label", { hasText: "Data Engineering" }).locator(".dept-toggle")).toHaveAttribute("aria-expanded", "false");
   await page.getByRole("button", { name: "Table" }).click();
 
   await page.locator(".table-search").fill("dagster");

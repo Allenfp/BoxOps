@@ -9,9 +9,10 @@
 // Drawing is separate. A box goes in its own lane when there's room there;
 // otherwise in the nearest free space in the department (boxes are FTE, not
 // people, so any free lane is as good). Several placement orders are tried and
-// the tidiest kept. Only when the department really is over capacity (or, very
-// rarely, when free space is split up so a box can't sit in one piece) does a
-// box go into the extra area below the lanes.
+// the tidiest kept; if that still leaves a box out although the FTE fits, a
+// bounded search finds an arrangement. Only when the department really is over
+// capacity (or, very rarely, the search gives up) does a box go into the extra
+// area below the lanes.
 
 import type { Day } from "../model/dates";
 import type { Box, Department } from "../model/types";
@@ -106,6 +107,56 @@ function place(order: Box[], lanes: DepartmentLayout["lanes"], capacity: number)
   return { boxes, height, score: [overflowed, height - capacity, awayFromLane] };
 }
 
+/**
+ * When the quick placement leaves a box out but the FTE fits (a fully booked
+ * department), search for an arrangement that fits everything: boxes in start
+ * order, each trying its own lane first, then the nearest spaces, backtracking
+ * on dead ends. Departments are small, and a step limit keeps it bounded.
+ */
+function search(boxes: Box[], lanes: DepartmentLayout["lanes"], capacity: number, budget = 50_000): Attempt | null {
+  const order = [...boxes].sort((a, b) => a.start - b.start || b.fte - a.fte || a.id.localeCompare(b.id));
+  const used: [Day, Day][][] = Array.from({ length: capacity }, () => []);
+  const free = (from: number, count: number, b: Box) => {
+    for (let s = from; s < from + count; s++) {
+      for (const [start, end] of used[s]) if (start <= b.end && b.start <= end) return false;
+    }
+    return true;
+  };
+  const candidates = (b: Box) => {
+    const lane = lanes.get(b.lane)!;
+    const need = slotsOf(b.fte);
+    const out: number[] = [];
+    for (let s = lane.slot; s < lane.slot + lane.slots; s++) out.push(s);
+    for (let d = 1; d <= capacity; d++) out.push(lane.slot - d, lane.slot + lane.slots - 1 + d);
+    return out.filter((s, i) => s >= 0 && s + need <= capacity && out.indexOf(s) === i);
+  };
+  const choice: number[] = [];
+  let steps = 0;
+  const go = (i: number): boolean => {
+    if (i === order.length) return true;
+    if (++steps > budget) return false;
+    const b = order[i];
+    const need = slotsOf(b.fte);
+    for (const s of candidates(b)) {
+      if (!free(s, need, b)) continue;
+      for (let k = s; k < s + need; k++) used[k].push([b.start, b.end]);
+      choice[i] = s;
+      if (go(i + 1)) return true;
+      for (let k = s; k < s + need; k++) used[k].pop();
+    }
+    return false;
+  };
+  if (!go(0)) return null;
+  const placed = new Map<string, Placed>();
+  let away = 0;
+  order.forEach((b, i) => {
+    const lane = lanes.get(b.lane)!;
+    if (choice[i] < lane.slot || choice[i] >= lane.slot + lane.slots) away++;
+    placed.set(b.id, { slot: choice[i], slots: slotsOf(b.fte), overflow: false });
+  });
+  return { boxes: placed, height: capacity, score: [0, 0, away] };
+}
+
 const better = (a: Attempt, b: Attempt) => {
   for (let i = 0; i < 3; i++) if (a.score[i] !== b.score[i]) return a.score[i] < b.score[i];
   return false;
@@ -137,6 +188,7 @@ export function layoutDepartment(dept: Department, boxes: Box[]): DepartmentLayo
   }
 
   const peak = peakSlots(mine);
+  if (best.score[0] > 0 && peak <= capacity) best = search(mine, lanes, capacity) ?? best;
   return {
     lanes,
     capacity,

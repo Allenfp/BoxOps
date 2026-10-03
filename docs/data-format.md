@@ -1,0 +1,194 @@
+# Roadmap data format
+
+Everything the roadmap shows lives in `roadmap/` as YAML. The web app reads and
+writes these files; you can also edit them by hand. Every push to `main` is
+checked by the same validator the app uses (`cd web && npm run validate`), and
+an invalid roadmap is not deployed.
+
+```
+roadmap/
+  settings.yaml           title, fiscal year, box types, statuses
+  people.yaml             the engineer roster
+  departments/<id>.yaml   one file per department, with its lanes
+  boxes/<id>.yaml         one file per box (a piece of planned work)
+```
+
+Any other file under `roadmap/` is reported as unexpected.
+
+## Common rules
+
+- **IDs** are lowercase letters, digits, `-` and `_`, starting with a letter or
+  digit (`^[a-z0-9][a-z0-9_-]*$`). A department's or box's `id` must equal its
+  file name without `.yaml`. IDs never change once saved: other files refer to
+  them.
+- **Dates** are `YYYY-MM-DD`. A box's `start` and `end` are **inclusive** and
+  must be **weekdays**: the roadmap has no weekends. Durations are counted in
+  working days (Monday–Friday).
+- **FTE** (full-time equivalent) measures capacity. A lane holds 1 or 0.5 FTE;
+  a box needs 0.5, 1, 1.5 or 2.
+- Optional fields can be left out. An empty string or empty list means the same
+  as leaving the field out.
+- Fields the app doesn't know about are kept untouched when the app edits a
+  file, and so are comments.
+
+## settings.yaml
+
+```yaml
+title: BoxOps Roadmap
+fiscal_year_start_month: 1   # 1 = calendar quarters; 2 = FY starts in February, etc.
+default_zoom: months          # weeks | months | quarters
+types:
+  - id: project
+    name: Project
+    color: "#4f7cff"
+statuses:
+  - id: planned
+    name: Planned
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `title` | no | Shown in the toolbar and browser tab. Default `Roadmap`. |
+| `fiscal_year_start_month` | no | 1–12. Quarter labels follow it (`FY27 Q1` when it isn't 1). Default 1. |
+| `default_zoom` | no | `weeks`, `months` or `quarters`. Default `months`. |
+| `types` | yes* | Kinds of box, each with `id`, `name` and `color` (CSS colour). A box's `type` must be one of these ids. |
+| `statuses` | yes* | Box states, each with `id` and `name`. A box's `status` must be one of these ids. |
+
+\* If missing, a single default type (`project`) or status (`planned`) is used.
+
+The current statuses are `planned`, `in_progress`, `at_risk` and `done`; the
+types are `project`, `maintenance`, `research` and `support`.
+
+## departments/&lt;id&gt;.yaml
+
+```yaml
+id: data-eng
+name: Data Engineering
+color: "#4f7cff"
+order: 1
+lanes:
+  - id: de-1
+    fte: 1
+  - id: de-4
+    name: Contractor
+    fte: 0.5
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | Must match the file name. |
+| `name` | yes | Shown as the department heading. |
+| `color` | no | Department colour. Default `#8a94a6`. |
+| `order` | no | Departments are shown by `order`, then name. Default 0. |
+| `collapsed` | no | `true` to start collapsed. |
+| `lanes` | no | The department's capacity, top to bottom. |
+
+Each lane:
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | **Unique across all departments**; boxes refer to a lane by this id alone. |
+| `name` | no | Label. Without one, the lane shows as `FTE 1`, `FTE 2`… by position. |
+| `fte` | no | Capacity: more than 0, at most 1. Default 1. |
+
+A lane is anonymous capacity, not a person. A department's capacity is the sum
+of its lanes' FTE.
+
+## boxes/&lt;id&gt;.yaml
+
+```yaml
+id: bx-b27c-fivetran-cost-review
+title: Fivetran cost review
+lane: de-1
+start: 2026-12-07
+end: 2027-01-15
+type: maintenance
+status: planned
+fte: 1.5
+engineers:
+  - jordan-diaz
+  - sam-lee
+epic: https://example.atlassian.net/browse/DATA-42
+description: Audit connector usage and cut unused syncs.
+tags:
+  - cost
+links:
+  - https://example.com/notes
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | Must match the file name. New boxes use `bx-<4 hex digits>-<slug of the title>`, e.g. `bx-7f3a-q2-planning`. |
+| `title` | yes | Shown on the box. |
+| `lane` | yes | The lane it sits in (any department). |
+| `start`, `end` | yes | Inclusive weekday dates; `end` on or after `start`. |
+| `type` | yes | One of the `types` in settings. |
+| `status` | yes | One of the `statuses` in settings. |
+| `fte` | no | 0.5, 1, 1.5 or 2. Default 1, so it's usually left out for 1-FTE boxes. |
+| `engineers` | no | Ids from `people.yaml`. Usually one engineer per started FTE (one for 0.5–1, two for 1.5–2). |
+| `epic` | no | `http(s)://` link to the epic or ticket. |
+| `description` | no | Free text; may span lines. |
+| `tags`, `links` | no | Lists of text. |
+
+The app writes fields in the order shown above, inserting new fields where they
+belong rather than at the end.
+
+### FTE and capacity
+
+A box is drawn as tall as its FTE and sits in its own lane when there's room:
+a 2-FTE box also covers the lane below it, and two 0.5-FTE boxes can share a
+1-FTE lane. If its lane is taken at those dates, the app draws it in the nearest
+free space in the department.
+
+A department is **over capacity** on any working day when the FTE of the boxes
+running that day is more than its lanes add up to. Over capacity is a warning,
+not an error: it's allowed, and the app shows it in red. An engineer is
+**overloaded** when their share of the boxes they're on is more than 1 FTE on
+some day; a box's FTE is split evenly across its engineers.
+
+`cd web && npm run report` lists both, plus boxes with no engineer.
+
+## people.yaml
+
+```yaml
+# Engineers who can be assigned to boxes.
+people:
+  - id: sam-lee
+    name: Sam Lee
+    department: data-eng
+    role: Senior Data Engineer
+    email: sam@example.com
+    manager: Dana Whitfield
+    notes: |-
+      Owns the Dagster migration.
+      Out for two weeks in December.
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | Unique. New people use a slug of their name (`sam-lee`; `sam-lee-2` if taken). |
+| `name` | yes | Shown everywhere. |
+| `department` | no | A department id; they're listed first in that department's pickers. |
+| `role` | no | Job title. |
+| `email` | no | Must look like an email address. |
+| `manager` | no | Free text; managers needn't be on the roster. |
+| `notes` | no | Free text; may span lines. |
+
+Removing someone from the roster also means removing their id from every box's
+`engineers` list; otherwise validation fails.
+
+## What the validator checks
+
+`npm run validate` (and every deploy) fails on:
+
+- YAML that doesn't parse, or a file that isn't a mapping at the top level
+- missing required fields, or fields of the wrong kind
+- malformed or impossible dates; `end` before `start`; weekend dates
+- ids that don't match the file name, aren't valid, or are used twice
+- a lane id used in two departments
+- a box whose `lane`, `type`, `status` or `engineers` don't exist
+- a box `fte` other than 0.5, 1, 1.5 or 2; a lane `fte` outside (0, 1]
+- a person's `department` that doesn't exist, or an invalid `email`
+- unexpected files in `roadmap/`
+
+Over capacity and overloaded engineers are not validation errors.

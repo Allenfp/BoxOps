@@ -138,6 +138,7 @@ export function serializeChanges(baseFiles: RoadmapFiles, base: DraftState, draf
     const path = pathFor(baseFiles, "departments", d.id);
     out[path] = writeFile(baseFiles[path], deptToPlain(d), DEPT_KEYS, { lanes: LANE_KEYS });
   }
+  for (const d of changes.removedDepartments) out[pathFor(baseFiles, "departments", d.id)] = null;
 
   if (changes.people.added.length + changes.people.changed.length + changes.people.removed.length) {
     const path = "people.yaml";

@@ -26,6 +26,9 @@ interface Props {
   onCheckpoint(): void;
   /** The user looked at this row (clears its "changed by someone else" mark). */
   onReviewed(id: string): void;
+  /** Open the department editor. */
+  onEditDepartment?(id: string): void;
+  onAddDepartment?(): void;
 }
 
 type SortKey = "title" | "lane" | "start" | "end" | "days" | "fte" | "engineers" | "type" | "status";
@@ -231,6 +234,16 @@ export function TableView(props: Props) {
                           {searching ? `${group.rows.length} of ${total}` : total} box{total === 1 ? "" : "es"} · {fte} FTE
                         </span>
                       </button>
+                      {!readOnly && props.onEditDepartment && (
+                        <button
+                          className="icon-button group-edit"
+                          title="Edit department and lanes"
+                          aria-label={`Edit ${dept.name}`}
+                          onClick={() => props.onEditDepartment!(dept.id)}
+                        >
+                          ✎
+                        </button>
+                      )}
                       {!readOnly && dept.lanes.length > 0 && (
                         <button
                           className="icon-button group-add"
@@ -428,6 +441,17 @@ export function TableView(props: Props) {
               </tbody>
             );
           })}
+          {!readOnly && props.onAddDepartment && !searching && (
+            <tbody>
+              <tr className="add-dept-row">
+                <td colSpan={COLUMNS.length}>
+                  <button className="link-button add-dept" onClick={props.onAddDepartment}>
+                    + Add department
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          )}
         </table>
         {rows.length === 0 && <p className="empty">No boxes match “{query}”.</p>}
       </div>

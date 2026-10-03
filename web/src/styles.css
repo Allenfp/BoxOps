@@ -1501,3 +1501,141 @@ button.primary:hover:not(:disabled) {
   display: inline-block;
   padding: 6px;
 }
+
+/* Department heading: a toggle plus an edit button */
+.label.dept-label {
+  padding: 0;
+  gap: 0;
+}
+.dept-toggle {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  font-weight: 600;
+}
+.dept-toggle:hover {
+  background: color-mix(in srgb, var(--dept) 8%, transparent);
+}
+.dept-edit,
+.group-edit {
+  font-size: 14px;
+}
+.group-edit {
+  padding: 0 6px;
+  opacity: 0.55;
+}
+.group-row:hover .group-edit,
+.group-edit:focus-visible {
+  opacity: 1;
+}
+.dept-edit {
+  opacity: 0;
+  margin-right: 4px;
+  padding: 2px 6px;
+}
+.dept-label:hover .dept-edit,
+.dept-edit:focus-visible {
+  opacity: 1;
+}
+.add-dept-row {
+  border-bottom: 0;
+}
+.add-dept-row .label {
+  border-right: 0;
+  background: transparent;
+  padding: 8px 12px;
+}
+.box-table .add-dept-row td {
+  padding: 10px 12px !important;
+  border-bottom: 0;
+  background: transparent !important;
+}
+.add-dept {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Department editor */
+.dept-editor .form {
+  margin-bottom: 0;
+}
+.button-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.lane-list {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lane-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lane-edit-row input {
+  flex: 1;
+}
+.lane-edit-row select,
+.dept-editor .remove-callout select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 6px;
+}
+.lane-edit-row .icon-button {
+  font-size: 14px;
+  padding: 2px 6px;
+}
+.row-remove:hover:not(:disabled) {
+  color: var(--today);
+}
+.remove-callout {
+  margin: 6px 0 0 !important;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+}
+.color-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.swatch-button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.swatch-button.chosen {
+  border-color: var(--surface);
+  box-shadow: 0 0 0 2px var(--text);
+}
+.color-choice input[type="color"] {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+}

@@ -63,22 +63,48 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
   }
 
   const baseDepts = new Map(base.departments.map((d) => [d.id, d]));
+  const laneLabel = (d: Department, laneId: string) => {
+    const i = d.lanes.findIndex((l) => l.id === laneId);
+    return d.lanes[i]?.name ?? `FTE ${i + 1}`;
+  };
+  let reordered = false;
   for (const d of changes.departments) {
     const was = baseDepts.get(d.id);
     if (!was) {
-      lines.push({ kind: "added", text: `Added department **${d.name}**` });
+      const fte = d.lanes.reduce((n, l) => n + l.fte, 0);
+      lines.push({ kind: "added", text: `Added department **${d.name}** (${d.lanes.length} lane${d.lanes.length === 1 ? "" : "s"}, ${fte} FTE)` });
       continue;
     }
-    d.lanes.forEach((l, i) => {
+    if (was.name !== d.name) lines.push({ kind: "changed", text: `Renamed department **${was.name}** to **${d.name}**` });
+    if (was.color !== d.color) lines.push({ kind: "changed", text: `Changed the colour of **${d.name}**` });
+    if (was.order !== d.order) reordered = true;
+    const wasIds = was.lanes.map((l) => l.id);
+    const nowIds = d.lanes.map((l) => l.id);
+    for (const l of d.lanes) {
       const old = was.lanes.find((x) => x.id === l.id);
-      const oldName = old ? (old.name ?? `FTE ${was.lanes.indexOf(old) + 1}`) : undefined;
-      const newName = l.name ?? `FTE ${i + 1}`;
-      if (oldName !== undefined && oldName !== newName) {
+      if (!old) {
+        lines.push({ kind: "added", text: `Added lane **${laneLabel(d, l.id)}** (${l.fte} FTE) to ${d.name}` });
+        continue;
+      }
+      const oldName = laneLabel(was, l.id);
+      const newName = laneLabel(d, l.id);
+      if (old.name !== l.name && oldName !== newName) {
         lines.push({ kind: "changed", text: `Renamed lane **${oldName}** to **${newName}** in ${d.name}` });
       }
-    });
-    if (was.name !== d.name) lines.push({ kind: "changed", text: `Renamed department **${was.name}** to **${d.name}**` });
+      if (old.fte !== l.fte) lines.push({ kind: "changed", text: `Lane **${newName}** in ${d.name} is now ${l.fte} FTE (was ${old.fte})` });
+    }
+    for (const l of was.lanes) {
+      if (!nowIds.includes(l.id)) lines.push({ kind: "deleted", text: `Removed lane **${laneLabel(was, l.id)}** from ${d.name}` });
+    }
+    const kept = wasIds.filter((id) => nowIds.includes(id));
+    if (kept.join() !== nowIds.filter((id) => wasIds.includes(id)).join()) {
+      lines.push({ kind: "changed", text: `Reordered the lanes in ${d.name}` });
+    }
   }
+  for (const d of changes.removedDepartments) {
+    lines.push({ kind: "deleted", text: `Deleted department **${d.name}**` });
+  }
+  if (reordered) lines.push({ kind: "changed", text: "Reordered departments" });
   return lines;
 }
 

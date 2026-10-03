@@ -58,6 +58,9 @@ interface Props {
   conflictIds?: Set<string>;
   /** Boxes someone else changed since this tab loaded (for review). */
   updatedIds?: Set<string>;
+  /** Open the department editor (✎ on a department heading). */
+  onEditDepartment?(id: string): void;
+  onAddDepartment?(): void;
 }
 
 type DragMode = "move" | "start" | "end";
@@ -344,6 +347,7 @@ export function Timeline(props: Props) {
                     peakFte={layout.peakFte}
                     collapsed={isCollapsed}
                     onToggle={() => onToggleDepartment(dept.id)}
+                    onEdit={readOnly || !props.onEditDepartment ? undefined : () => props.onEditDepartment!(dept.id)}
                   />
                   <div className="track" style={{ width: scale.width }}>
                     {isCollapsed && deptBoxes.map((b) => boxEl(b, span(b.start, b.end), "compact"))}
@@ -451,6 +455,16 @@ export function Timeline(props: Props) {
             );
           })}
 
+          {!readOnly && props.onAddDepartment && (
+            <div className="row add-dept-row">
+              <div className="label" style={{ width: LABEL_W }}>
+                <button className="link-button add-dept" onClick={props.onAddDepartment}>
+                  + Add department
+                </button>
+              </div>
+            </div>
+          )}
+
           {showToday && <div className="today-line" style={{ left: LABEL_W + todayX }} />}
         </div>
       </div>
@@ -538,27 +552,35 @@ function DeptLabel({
   peakFte,
   collapsed,
   onToggle,
+  onEdit,
 }: {
   dept: Department;
   over: boolean;
   peakFte: number;
   collapsed: boolean;
   onToggle(): void;
+  onEdit?(): void;
 }) {
   const fte = dept.lanes.reduce((sum, l) => sum + l.fte, 0);
   return (
-    <button
-      className="label dept-label"
-      style={{ width: LABEL_W }}
-      onClick={onToggle}
-      aria-expanded={!collapsed}
-      title={over ? `Over capacity: up to ${peakFte} FTE planned at once, ${fte} FTE available.` : undefined}
-    >
-      <span className={`chevron${collapsed ? "" : " open"}`}>▸</span>
-      <span className="dept-name">{dept.name}</span>
-      <span className="dept-meta">
-        {fte} FTE{over && <span className="warn-text"> · {peakFte} planned</span>}
-      </span>
-    </button>
+    <div className="label dept-label" style={{ width: LABEL_W }}>
+      <button
+        className="dept-toggle"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        title={over ? `Over capacity: up to ${peakFte} FTE planned at once, ${fte} FTE available.` : undefined}
+      >
+        <span className={`chevron${collapsed ? "" : " open"}`}>▸</span>
+        <span className="dept-name">{dept.name}</span>
+        <span className="dept-meta">
+          {fte} FTE{over && <span className="warn-text"> · {peakFte} planned</span>}
+        </span>
+      </button>
+      {onEdit && (
+        <button className="icon-button dept-edit" onClick={onEdit} aria-label={`Edit ${dept.name}`} title="Edit department and lanes">
+          ✎
+        </button>
+      )}
+    </div>
   );
 }
