@@ -1,8 +1,8 @@
 id: bx-f6b3-streaming-spike
 title: Streaming ingestion spike
 lane: de-3
-start: 2026-11-02
-end: 2026-12-11
+start: 2027-01-03
+end: 2027-02-11
 type: research
 status: planned
 description: Overlaps on-call on purpose to show over-allocation.
