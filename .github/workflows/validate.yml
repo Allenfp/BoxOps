@@ -1,0 +1,27 @@
+# Every roadmap change (from the app or by hand) must pass the same checks the app runs.
+name: Validate roadmap
+
+on:
+  pull_request:
+    paths: ["roadmap/**", "web/**", ".github/workflows/validate.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run validate
+      - run: npm test
+      - run: npm run build
