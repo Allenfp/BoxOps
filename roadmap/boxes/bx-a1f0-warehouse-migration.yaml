@@ -1,0 +1,9 @@
+id: bx-a1f0-warehouse-migration
+title: Warehouse migration to Iceberg
+lane: de-1
+start: 2026-08-03
+end: 2026-11-27
+type: project
+status: in_progress
+description: Move raw and staging layers to Iceberg tables.
+epic: https://github.com/Allenfp/BoxOps/issues/1
