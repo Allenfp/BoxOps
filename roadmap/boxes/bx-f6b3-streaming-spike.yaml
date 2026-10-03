@@ -5,4 +5,6 @@ start: 2027-01-04
 end: 2027-02-11
 type: research
 status: planned
+engineers:
+  - sam-lee
 description: Overlaps on-call on purpose to show over-allocation.

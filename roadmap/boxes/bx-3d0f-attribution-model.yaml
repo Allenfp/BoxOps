@@ -5,3 +5,5 @@ start: 2026-09-07
 end: 2027-03-26
 type: project
 status: in_progress
+engineers:
+  - morgan-chen

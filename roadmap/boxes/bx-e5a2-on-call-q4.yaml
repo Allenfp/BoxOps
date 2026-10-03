@@ -6,3 +6,5 @@ end: 2026-12-29
 type: support
 status: in_progress
 fte: 0.5
+engineers:
+  - sam-lee

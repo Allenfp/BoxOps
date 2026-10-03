@@ -6,3 +6,5 @@ end: 2026-10-16
 type: maintenance
 status: in_progress
 fte: 1
+engineers:
+  - alex-kim

@@ -5,3 +5,5 @@ start: 2026-10-05
 end: 2027-03-12
 type: project
 status: planned
+engineers:
+  - taylor-brooks

@@ -6,5 +6,7 @@ end: 2026-11-27
 type: project
 status: in_progress
 fte: 0.5
+engineers:
+  - sam-lee
 description: Move raw and staging layers to Iceberg tables.
 epic: https://github.com/Allenfp/BoxOps/issues/1
