@@ -329,14 +329,22 @@ export function Timeline(props: Props) {
           {departments.map((dept) => {
             const layout = layouts.get(dept.id)!;
             const isCollapsed = collapsed.has(dept.id);
-            const over = layout.height > layout.capacity;
+            // Over capacity is FTE arithmetic; the extra area is where boxes that couldn't be drawn in the lanes go.
+            const over = layout.overCapacity;
+            const extra = layout.height > layout.capacity;
             const deptBoxes = boxes.filter((b) => b.id !== draggingId && laneDept.get(b.lane) === dept.id);
             const previewHere = preview && dragged && laneDept.get(preview.lane) === dept.id ? preview : null;
             const previewLane = previewHere ? layout.lanes.get(previewHere.lane) : undefined;
             return (
               <section key={dept.id} className="dept" style={{ "--dept": dept.color } as CSSProperties}>
                 <div className="row dept-row" style={{ height: DEPT_H }}>
-                  <DeptLabel dept={dept} over={over} collapsed={isCollapsed} onToggle={() => onToggleDepartment(dept.id)} />
+                  <DeptLabel
+                    dept={dept}
+                    over={over}
+                    peakFte={layout.peakFte}
+                    collapsed={isCollapsed}
+                    onToggle={() => onToggleDepartment(dept.id)}
+                  />
                   <div className="track" style={{ width: scale.width }}>
                     {isCollapsed && deptBoxes.map((b) => boxEl(b, span(b.start, b.end), "compact"))}
                   </div>
@@ -362,11 +370,23 @@ export function Timeline(props: Props) {
                           </div>
                         );
                       })}
-                      {over && (
-                        <div className="lane-label overflow-label" style={{ height: (layout.height - layout.capacity) * SLOT_H }}>
-                          <span className="pill warn" title="More FTE is planned here than the department's lanes hold">
-                            Over capacity
-                          </span>
+                      {extra && (
+                        <div
+                          className={`lane-label overflow-label${over ? "" : " squeezed"}`}
+                          style={{ height: (layout.height - layout.capacity) * SLOT_H }}
+                        >
+                          {over ? (
+                            <span
+                              className="pill warn"
+                              title={`Up to ${layout.peakFte} FTE is planned at once; the lanes hold ${layout.capacity / 2} FTE.`}
+                            >
+                              Over capacity
+                            </span>
+                          ) : (
+                            <span className="pill" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
+                              Doesn’t fit side by side
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -387,9 +407,9 @@ export function Timeline(props: Props) {
                           />
                         );
                       })}
-                      {over && (
+                      {extra && (
                         <div
-                          className="overflow-band"
+                          className={`overflow-band${over ? "" : " squeezed"}`}
                           style={{ top: layout.capacity * SLOT_H, height: (layout.height - layout.capacity) * SLOT_H }}
                         />
                       )}
@@ -515,21 +535,29 @@ function LaneName({
 function DeptLabel({
   dept,
   over,
+  peakFte,
   collapsed,
   onToggle,
 }: {
   dept: Department;
   over: boolean;
+  peakFte: number;
   collapsed: boolean;
   onToggle(): void;
 }) {
   const fte = dept.lanes.reduce((sum, l) => sum + l.fte, 0);
   return (
-    <button className="label dept-label" style={{ width: LABEL_W }} onClick={onToggle} aria-expanded={!collapsed}>
+    <button
+      className="label dept-label"
+      style={{ width: LABEL_W }}
+      onClick={onToggle}
+      aria-expanded={!collapsed}
+      title={over ? `Over capacity: up to ${peakFte} FTE planned at once, ${fte} FTE available.` : undefined}
+    >
       <span className={`chevron${collapsed ? "" : " open"}`}>▸</span>
       <span className="dept-name">{dept.name}</span>
       <span className="dept-meta">
-        {fte} FTE{over && <span className="warn-text"> · over</span>}
+        {fte} FTE{over && <span className="warn-text"> · {peakFte} planned</span>}
       </span>
     </button>
   );

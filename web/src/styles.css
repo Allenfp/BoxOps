@@ -1468,3 +1468,12 @@ button.primary:hover:not(:disabled) {
 .box-table tbody tr:hover td.col-title {
   background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
 }
+/* Extra area when the FTE fits but free space is too split up to draw a box in one piece. */
+.lane-labels .overflow-label.squeezed {
+  background: var(--surface-2);
+  border-left-color: var(--grid-major);
+}
+.overflow-band.squeezed {
+  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
+  border-top-color: var(--grid-major);
+}

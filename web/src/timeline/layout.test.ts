@@ -14,6 +14,8 @@ const dept: Department = {
     { id: "c", fte: 0.5 },
   ],
 };
+const threeFte: Department = { ...dept, lanes: [{ id: "a", fte: 1 }, { id: "b", fte: 1 }, { id: "c", fte: 1 }] };
+
 const box = (id: string, lane: string, start: number, end: number, fte = 1): Box => ({
   id,
   title: id,
@@ -24,6 +26,7 @@ const box = (id: string, lane: string, start: number, end: number, fte = 1): Box
   type: "project",
   status: "planned",
 });
+const overflowed = (l: ReturnType<typeof layoutDepartment>) => [...l.boxes].filter(([, p]) => p.overflow).map(([id]) => id);
 
 describe("layoutDepartment", () => {
   it("sizes lanes in half-FTE slots", () => {
@@ -41,21 +44,12 @@ describe("layoutDepartment", () => {
   it("a 2-FTE box covers its lane and the one below", () => {
     const l = layoutDepartment(dept, [box("big", "a", 0, 10, 2)]);
     expect(l.boxes.get("big")).toEqual({ slot: 0, slots: 4, overflow: false });
-    expect(l.height).toBe(5);
+    expect(l.overCapacity).toBe(false);
   });
 
-  it("two half boxes share a lane; a third is over capacity", () => {
-    const l = layoutDepartment(dept, [box("h1", "a", 0, 10, 0.5), box("h2", "a", 5, 15, 0.5), box("h3", "a", 6, 8, 0.5)]);
-    expect(l.boxes.get("h1")).toEqual({ slot: 0, slots: 1, overflow: false });
-    expect(l.boxes.get("h2")).toEqual({ slot: 1, slots: 1, overflow: false });
-    expect(l.boxes.get("h3")).toEqual({ slot: 5, slots: 1, overflow: true });
-    expect(l.height).toBe(6);
-  });
-
-  it("a big box can't extend into a busy lane", () => {
-    const l = layoutDepartment(dept, [box("x", "b", 0, 20), box("big", "a", 5, 10, 2)]);
-    expect(l.boxes.get("x")!.overflow).toBe(false);
-    expect(l.boxes.get("big")!.overflow).toBe(true);
+  it("boxes stay in their own lane when there's room", () => {
+    const l = layoutDepartment(threeFte, [box("p", "a", 0, 9), box("q", "b", 0, 9), box("r", "c", 0, 9)]);
+    expect(["p", "q", "r"].map((id) => l.boxes.get(id)!.slot)).toEqual([0, 2, 4]);
   });
 
   it("boxes one after another reuse the lane", () => {
@@ -63,8 +57,60 @@ describe("layoutDepartment", () => {
     expect(l.boxes.get("q")).toEqual({ slot: 0, slots: 2, overflow: false });
   });
 
-  it("a 1-FTE box doesn't fit a half lane", () => {
-    const l = layoutDepartment(dept, [box("w", "c", 0, 4)]);
-    expect(l.boxes.get("w")!.overflow).toBe(true);
+  it("a busy lane sends a box to free space elsewhere, not over capacity", () => {
+    const l = layoutDepartment(threeFte, [box("p", "a", 0, 9), box("q", "a", 0, 9)]);
+    expect(overflowed(l)).toEqual([]);
+    expect(l.overCapacity).toBe(false);
+  });
+
+  // 1.5 + 1 + 0.5 = 3 FTE in a 3-FTE department must fit, whatever lanes the
+  // boxes are in and whichever starts first.
+  it("1.5 + 1 + 0.5 always fits in 3 FTE", () => {
+    const lanes = ["a", "b", "c"];
+    const sizes = [1.5, 1, 0.5];
+    const starts = [
+      [0, 0, 0],
+      [0, 1, 2],
+      [2, 1, 0],
+      [1, 0, 2],
+      [0, 2, 1],
+    ];
+    for (const la of lanes) {
+      for (const lb of lanes) {
+        for (const lc of lanes) {
+          for (const s of starts) {
+            const boxes = [box("x", la, s[0], 20, sizes[0]), box("y", lb, s[1], 20, sizes[1]), box("z", lc, s[2], 20, sizes[2])];
+            const l = layoutDepartment(threeFte, boxes);
+            expect({ lanes: [la, lb, lc], starts: s, overflow: overflowed(l), over: l.overCapacity }).toEqual({
+              lanes: [la, lb, lc],
+              starts: s,
+              overflow: [],
+              over: false,
+            });
+            expect(l.peakFte).toBe(3);
+          }
+        }
+      }
+    }
+  });
+
+  it("3.5 FTE at once in 3 FTE is over capacity", () => {
+    const l = layoutDepartment(threeFte, [box("x", "a", 0, 9, 1.5), box("y", "b", 0, 9, 1.5), box("z", "c", 5, 9, 0.5)]);
+    expect(l.overCapacity).toBe(true);
+    expect(l.peakFte).toBe(3.5);
+    expect(overflowed(l)).toEqual(["z"]);
+  });
+
+  it("over capacity only counts boxes running on the same day", () => {
+    // 2 + 2 FTE, but one ends the day before the other starts.
+    const l = layoutDepartment(threeFte, [box("x", "a", 0, 9, 2), box("y", "b", 10, 19, 2)]);
+    expect(l.overCapacity).toBe(false);
+    expect(l.peakFte).toBe(2);
+  });
+
+  it("a half lane can't hold a 1-FTE box when nothing else is free", () => {
+    const l = layoutDepartment(dept, [box("p", "a", 0, 4), box("q", "b", 0, 4), box("w", "c", 0, 4)]);
+    expect(l.overCapacity).toBe(true); // 3 FTE in 2.5
+    expect(overflowed(l)).toEqual(["w"]);
   });
 });

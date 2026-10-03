@@ -6,7 +6,10 @@ test("shows departments, lanes, boxes and today", async ({ page, github: _ }) =>
   await expect(page.locator(".today-flag")).toBeVisible();
   // Fixture has overlaps in FTE 3 and 1-FTE boxes in the 0.5-FTE Contractor lane.
   await expect(page.locator(".overflow-label")).toHaveCount(1);
-  await expect(page.locator(".dept-label", { hasText: "Data Engineering" })).toContainText("over");
+  // 4 FTE running at once (around Oct 1) against 3.5 FTE of lanes.
+  await expect(page.locator(".dept-label", { hasText: "Data Engineering" })).toContainText("3.5 FTE · 4 planned");
+  await expect(page.locator(".overflow-label")).toContainText("Over capacity");
+  await expect(page.locator(".dept-label", { hasText: "Analytics" })).not.toContainText("planned");
 
   await page.getByRole("button", { name: "Quarters" }).click();
   await expect(page.locator(".band-0")).toContainText("Q4 2026");
