@@ -431,6 +431,7 @@ export function TableView(props: Props) {
                       onCommit={(v) => update(b.id, { description: v || undefined })}
                       onBlur={onCheckpoint}
                       ariaLabel="Description"
+                      showFullOnHover
                     />
                   </td>
                   <td className="col-actions">
@@ -467,6 +468,7 @@ function TextCell({
   invalid,
   autoFocus,
   ariaLabel,
+  showFullOnHover,
 }: {
   value: string;
   onCommit(value: string): void;
@@ -477,6 +479,8 @@ function TextCell({
   invalid?(value: string): boolean;
   autoFocus?: boolean;
   ariaLabel: string;
+  /** Long text: show all of it in a tooltip, since one line can't. */
+  showFullOnHover?: boolean;
 }) {
   const [text, setText] = useState(value);
   const editing = useRef(false);
@@ -505,6 +509,7 @@ function TextCell({
       disabled={readOnly}
       aria-label={ariaLabel}
       aria-invalid={bad || undefined}
+      title={showFullOnHover && text ? text : undefined}
       onFocus={() => (editing.current = true)}
       onChange={(e) => setText(e.target.value)}
       onBlur={() => {

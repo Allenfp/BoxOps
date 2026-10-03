@@ -1069,7 +1069,8 @@ button.primary:hover:not(:disabled) {
 }
 .box-table {
   table-layout: fixed;
-  min-width: 2000px;
+  /* The other columns' widths add up to 1976px; the rest (about 380px) is Description. */
+  min-width: 2360px;
 }
 .col-quarter {
   width: 150px;
