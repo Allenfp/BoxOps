@@ -289,8 +289,10 @@ button.icon-only:disabled {
   z-index: 7;
   flex: none;
   display: flex;
-  align-items: flex-end;
-  padding: 0 12px 6px;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 6px 12px;
   background: var(--surface);
   border-right: 1px solid var(--border);
   color: var(--text-muted);
@@ -659,6 +661,19 @@ button:disabled {
   margin: 0 2px;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+}
+
+/* Collapse all / Expand all, beside the departments. */
+button.collapse-all {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+button.collapse-all:hover {
+  background: none;
+  text-decoration: underline;
 }
 
 /* Matches the today line on the timeline. */

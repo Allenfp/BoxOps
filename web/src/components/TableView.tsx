@@ -1,4 +1,5 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
+import { CollapseAll } from "./CollapseAll";
 import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
 import { BOX_FTE_OPTIONS, type Box, type Roadmap } from "../model/types";
 import { EngineerPicker } from "./EngineerPicker";
@@ -21,6 +22,8 @@ interface Props {
   /** Collapsed departments; shared with the timeline. */
   collapsed: Set<string>;
   onToggleDepartment(id: string): void;
+  allCollapsed: boolean;
+  onToggleAll(): void;
   onDelete(id: string): void;
   /** A cell lost focus: end its undo step. */
   onCheckpoint(): void;
@@ -186,6 +189,7 @@ export function TableView(props: Props) {
         <span className="hint">
           {rows.length === boxes.length ? `${boxes.length} boxes` : `${rows.length} of ${boxes.length} boxes`}
         </span>
+        <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />
         {!readOnly && (
           <button
             className="primary"

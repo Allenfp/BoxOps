@@ -310,7 +310,8 @@ function RoadmapView(props: ViewProps) {
       else next.add(id);
       return next;
     });
-  const allCollapsed = base.departments.every((d) => collapsed.has(d.id));
+  const allCollapsed = draft.departments.every((d) => collapsed.has(d.id));
+  const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(draft.departments.map((d) => d.id)));
 
   const placeBox = useCallback((id: string, p: BoxPlacement) => draft.updateBox(id, p), [draft]);
 
@@ -584,9 +585,6 @@ function RoadmapView(props: ViewProps) {
               </button>
             </>
           )}
-          <button onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(base.departments.map((d) => d.id)))}>
-            {allCollapsed ? "Expand all" : "Collapse all"}
-          </button>
         </div>
 
         <div className="toolbar-zone end">
@@ -688,6 +686,8 @@ function RoadmapView(props: ViewProps) {
           roadmap={roadmap}
           readOnly={preview || busy}
           collapsed={collapsed}
+          allCollapsed={allCollapsed}
+          onToggleAll={toggleAll}
           onToggleDepartment={toggle}
           onAdd={(department) => {
             const id = draft.addPerson("New engineer", department);
@@ -706,6 +706,8 @@ function RoadmapView(props: ViewProps) {
           updatedIds={updatedIds}
           onUpdate={(id, patch, key) => draft.updateBox(id, patch, key)}
           collapsed={collapsed}
+          allCollapsed={allCollapsed}
+          onToggleAll={toggleAll}
           onToggleDepartment={toggle}
           onAdd={(departmentId) => {
             const dept =
@@ -738,6 +740,8 @@ function RoadmapView(props: ViewProps) {
         roadmap={roadmap}
         zoom={zoom}
         collapsed={collapsed}
+        allCollapsed={allCollapsed}
+        onToggleAll={toggleAll}
         onToggleDepartment={toggle}
         jumpToToday={jumpToToday}
         selectedId={selectedBox ? selectedBox.id : null}

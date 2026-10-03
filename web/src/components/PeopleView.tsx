@@ -1,4 +1,5 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
+import { CollapseAll } from "./CollapseAll";
 import { EMAIL } from "../model/load";
 import type { Person, Roadmap } from "../model/types";
 import { TextCell } from "./TextCell";
@@ -9,6 +10,8 @@ interface Props {
   /** Collapsed departments; shared with the other views. */
   collapsed: Set<string>;
   onToggleDepartment(id: string): void;
+  allCollapsed: boolean;
+  onToggleAll(): void;
   /** Add an engineer; returns their id. */
   onAdd(department?: string): string;
   /** Edit an engineer; returns their id afterwards (an unsaved person's id follows their name). */
@@ -95,6 +98,7 @@ export function PeopleView(props: Props) {
         <span className="hint">
           {shown === people.length ? `${people.length} engineers` : `${shown} of ${people.length} engineers`}
         </span>
+        <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />
         {!readOnly && (
           <button
             className="primary"

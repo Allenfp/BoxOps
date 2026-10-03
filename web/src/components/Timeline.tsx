@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { CollapseAll } from "./CollapseAll";
 import {
   type Day,
   addMonths,
@@ -44,6 +45,8 @@ interface Props {
   zoom: ZoomLevel;
   collapsed: Set<string>;
   onToggleDepartment(id: string): void;
+  allCollapsed: boolean;
+  onToggleAll(): void;
   /** Incremented to request a scroll to today. */
   jumpToToday: number;
   selectedId: string | null;
@@ -333,6 +336,7 @@ export function Timeline(props: Props) {
       <div className="tl-canvas" style={{ width: LABEL_W + scale.width }}>
         <div className="tl-head">
           <div className="tl-corner" style={{ width: LABEL_W }}>
+            <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />
             <span>{readOnly ? "Read-only preview" : "Double-click a lane to add a box"}</span>
           </div>
           <div className="tl-bands" style={{ width: scale.width }}>
