@@ -136,3 +136,24 @@ test("lanes can be renamed in place", async ({ page, github: _ }) => {
   await expect(names.nth(1)).toContainText("FTE 2");
   await expect(toolbar(page)).toContainText("No changes");
 });
+
+test("light by default, even on a dark system; dark is a remembered toggle", async ({ page, github: _ }) => {
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await page.emulateMedia({ colorScheme: "dark" });
+  const toggle = page.locator(".theme-toggle");
+  await expect(toggle).toHaveText("☾ Dark");
+  expect(await bg()).toBe("rgb(246, 247, 249)");
+
+  await toggle.click();
+  await expect(toggle).toHaveText("☀ Light");
+  expect(await bg()).toBe("rgb(15, 18, 24)");
+
+  await page.reload();
+  await expect(page.locator(".theme-toggle")).toHaveText("☀ Light");
+  expect(await bg()).toBe("rgb(15, 18, 24)");
+
+  await page.locator(".theme-toggle").click();
+  expect(await bg()).toBe("rgb(246, 247, 249)");
+  await page.reload();
+  expect(await bg()).toBe("rgb(246, 247, 249)");
+});

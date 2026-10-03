@@ -19,22 +19,21 @@
   background: var(--bg);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1218;
-    --surface: #161a22;
-    --surface-2: #1d222c;
-    --text: #e6e9ef;
-    --text-muted: #8b93a3;
-    --border: #262c38;
-    --grid: #1d222b;
-    --grid-major: #2e3542;
-    --weekend: rgba(255, 255, 255, 0.025);
-    --today: #ff6369;
-    --warn: #fb923c;
-    --warn-bg: #3a2414;
-    --updated: #2dd4bf;
-  }
+/* Dark theme, chosen with the toolbar toggle (data-theme on <html>, set in theme.tsx). Light is the default. */
+:root[data-theme="dark"] {
+  --bg: #0f1218;
+  --surface: #161a22;
+  --surface-2: #1d222c;
+  --text: #e6e9ef;
+  --text-muted: #8b93a3;
+  --border: #262c38;
+  --grid: #1d222b;
+  --grid-major: #2e3542;
+  --weekend: rgba(255, 255, 255, 0.025);
+  --today: #ff6369;
+  --warn: #fb923c;
+  --warn-bg: #3a2414;
+  --updated: #2dd4bf;
 }
 
 * {
@@ -126,6 +125,11 @@ button:hover {
   width: 10px;
   height: 10px;
   border-radius: 3px;
+}
+.theme-toggle {
+  flex: none;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 .issues-button {
   color: var(--warn);

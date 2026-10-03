@@ -17,6 +17,7 @@ import {
   saveToBranch,
 } from "./github/save";
 import { getToken, setToken } from "./github/token";
+import { ThemeToggle } from "./theme";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraft } from "./model/draft";
 import { addWorkdays, startOfWeek, today } from "./model/dates";
 import { loadRoadmap } from "./model/load";
@@ -587,6 +588,7 @@ function RoadmapView(props: ViewProps) {
             ⚠ {issues.length} data issue{issues.length === 1 ? "" : "s"}
           </button>
         )}
+        <ThemeToggle />
       </header>
 
       {preview && (
