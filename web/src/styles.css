@@ -13,9 +13,8 @@
   --warn-bg: #fff1e6;
   --accent: #4f7cff;
   --updated: #0d9488;
-  --box-text-solid: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text);
   background: var(--bg);
 }
@@ -190,7 +189,7 @@ button:hover {
 .tl-band.band-1 {
   height: 22px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .band-cell {
   position: absolute;
@@ -218,7 +217,7 @@ button:hover {
   transform: translateX(-50%);
   background: var(--today);
   color: #fff;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 8px;
@@ -372,7 +371,7 @@ button:hover {
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .pill {
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 8px;
   background: var(--surface-2);
@@ -387,7 +386,8 @@ button:hover {
   background: color-mix(in srgb, var(--warn) 5%, transparent);
 }
 
-/* Boxes. --c is the box type's colour; status sets the fill style. */
+/* Boxes. --c is the box type's colour, and the only colour a box carries:
+   status is the small mark before the title, warnings are one ⚠. */
 
 .box {
   position: absolute;
@@ -395,18 +395,18 @@ button:hover {
   border-radius: 5px;
   padding: 0 8px;
   font-size: 12px;
-  line-height: 26px;
+  line-height: 24px;
   white-space: nowrap;
   /* clip, not hidden: hidden would make the box a scroll container and break the sticky title. */
   overflow: clip;
   z-index: 1;
   cursor: default;
-  background: var(--c);
-  color: var(--box-text-solid);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+  background: color-mix(in srgb, var(--c) 15%, var(--surface));
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
 }
 .box-title {
-  font-weight: 500;
+  font-weight: 600;
   display: inline-block;
   max-width: 100%;
   overflow: hidden;
@@ -416,30 +416,39 @@ button:hover {
   position: sticky;
   left: calc(var(--label-w) + 8px);
 }
-.box.status-planned {
-  background: color-mix(in srgb, var(--c) 16%, var(--surface));
-  color: var(--text);
-  border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
-  line-height: 24px;
-}
-.box.status-at_risk {
-  box-shadow:
-    inset 4px 0 0 var(--today),
-    0 0 0 1px var(--today);
-}
 .box.status-done {
-  background: color-mix(in srgb, var(--c) 30%, var(--surface-2));
+  background: color-mix(in srgb, var(--c) 7%, var(--surface));
+  border-color: color-mix(in srgb, var(--c) 25%, transparent);
   color: var(--text-muted);
-  text-decoration: line-through;
-  box-shadow: none;
 }
 .box.compact {
   height: 8px;
   top: 13px;
   padding: 0;
-  opacity: 0.55;
+  background: var(--c);
+  opacity: 0.45;
   border: 0;
-  box-shadow: none;
+}
+
+/* Status: ○ planned (and any custom status), ◐ in progress, ● done, ! at risk. */
+.status-mark {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--c);
+  vertical-align: -0.5px;
+}
+.box.status-in_progress .status-mark {
+  background: linear-gradient(90deg, var(--c) 50%, transparent 50%);
+}
+.box.status-done .status-mark {
+  background: var(--c);
+}
+.box.status-at_risk .status-mark {
+  background: var(--warn);
+  border-color: var(--warn);
 }
 
 /* Editing: drag, resize, select */
@@ -494,7 +503,7 @@ button:hover {
   position: absolute;
   top: -18px;
   z-index: 6;
-  font-size: 11px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 4px;
   background: var(--text);
@@ -566,7 +575,7 @@ button:disabled {
 .editor-title {
   flex: 1;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text);
   background: transparent;
@@ -634,7 +643,7 @@ button:disabled {
 .button-link {
   flex: none;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--accent);
   text-decoration: none;
   border: 1px solid var(--border);
@@ -765,8 +774,8 @@ button.primary:hover:not(:disabled) {
 }
 .kind {
   flex: none;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 1px 6px;
@@ -880,11 +889,8 @@ button.primary:hover:not(:disabled) {
 
 /* Someone else changed this box while we were editing it too. */
 .box.conflict {
-  outline: 2px dashed var(--warn);
-  outline-offset: 2px;
-}
-.box.conflict.selected {
-  outline-style: solid;
+  border-color: var(--warn);
+  border-style: dashed;
 }
 .banner .warn-text {
   font-weight: 600;
@@ -905,17 +911,6 @@ button.primary:hover:not(:disabled) {
 }
 
 /* Changed by someone else since this tab loaded; cleared once reviewed. */
-.box.updated {
-  box-shadow:
-    0 0 0 2px var(--updated),
-    0 0 0 5px color-mix(in srgb, var(--updated) 25%, transparent);
-}
-.box.updated.status-at_risk {
-  box-shadow:
-    inset 4px 0 0 var(--today),
-    0 0 0 2px var(--updated),
-    0 0 0 5px color-mix(in srgb, var(--updated) 25%, transparent);
-}
 .box.updated::after {
   content: "";
   position: absolute;
@@ -1164,13 +1159,10 @@ button.primary:hover:not(:disabled) {
   font-weight: 600;
 }
 .box-table .status-select.status-at_risk {
-  color: var(--today);
+  color: var(--warn);
 }
 .box-table .status-select.status-done {
   color: var(--text-muted);
-}
-.box-table .status-select.status-in_progress {
-  color: var(--accent);
 }
 .row-delete {
   opacity: 0;
@@ -1297,21 +1289,14 @@ button.primary:hover:not(:disabled) {
 
 /* Boxes vary in height with FTE; the title is centred on the first full lane. */
 .box:not(.compact) {
-  line-height: 38px;
-}
-.box.status-planned:not(.compact) {
   line-height: 36px;
 }
 .box-people {
   margin-top: 6px;
 }
 .box.half {
-  font-size: 11px;
-  line-height: 16px;
-  padding: 0 6px;
-}
-.box.half.status-planned {
   line-height: 14px;
+  padding: 0 6px;
 }
 .box-people {
   position: absolute;
@@ -1332,11 +1317,11 @@ button.primary:hover:not(:disabled) {
   height: 18px;
   border-radius: 50%;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   color: var(--text);
   background: color-mix(in srgb, var(--surface) 85%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 50%, transparent);
+  box-shadow: 0 0 0 1px var(--border);
 }
 .box.half .avatar {
   width: 14px;
@@ -1643,30 +1628,17 @@ button.primary:hover:not(:disabled) {
 /* Box codes (DE-A1F) and broken rules */
 .box-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85em;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 0.92em;
+  color: var(--text-muted);
   margin-right: 6px;
-  opacity: 0.75;
 }
 .box-warn {
-  margin-right: 4px;
-  color: #fff;
-  background: var(--today);
-  border-radius: 3px;
-  padding: 0 3px;
-  font-size: 0.85em;
-}
-.box.status-planned .box-warn,
-.box.status-done .box-warn {
-  color: #fff;
+  margin-right: 5px;
+  color: var(--warn);
+  font-weight: 600;
 }
 .box.rule-broken {
-  outline: 2px solid var(--today);
-  outline-offset: 1px;
-}
-.box.rule-broken.selected {
-  outline-color: var(--accent);
+  border-color: var(--warn);
 }
 
 /* Box editor: code and rules */
@@ -1674,7 +1646,7 @@ button.primary:hover:not(:disabled) {
   flex: none;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 3px 6px;
   border-radius: 5px;
   background: var(--surface-2);
@@ -1720,7 +1692,7 @@ button.primary:hover:not(:disabled) {
 }
 .rule-warning {
   font-size: 12px;
-  color: var(--today);
+  color: var(--warn);
   line-height: 1.4;
 }
 .add-rule {
@@ -1732,7 +1704,7 @@ button.primary:hover:not(:disabled) {
   border: 0;
   cursor: pointer;
   font: inherit;
-  font-size: 10px;
+  font-size: 12px;
 }
 .rules-list li {
   padding: 2px 0;
@@ -1750,12 +1722,12 @@ button.primary:hover:not(:disabled) {
   padding: 12px 40px 12px 14px;
   border-radius: 10px;
   background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--today) 45%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border));
   box-shadow: 0 12px 32px rgba(16, 24, 40, 0.22);
   font-size: 13px;
 }
 .toast strong {
-  color: var(--today);
+  color: var(--warn);
 }
 .toast ul {
   margin: 6px 0;
@@ -1773,7 +1745,7 @@ button.primary:hover:not(:disabled) {
   display: block;
   padding: 2px 7px 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
 }

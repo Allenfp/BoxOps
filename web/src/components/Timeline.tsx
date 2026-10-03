@@ -286,12 +286,18 @@ export function Timeline(props: Props) {
       >
         {variant !== "compact" && (
           <span className="box-title">
+            <span className="status-mark" aria-label={statusName.get(b.status) ?? b.status} />
+            {(warnings.length > 0 || clash) && (
+              <span className="box-warn" aria-label={warnings.length ? "Breaks a rule" : "Clash"}>
+                ⚠
+              </span>
+            )}
             <span className="box-code">{code}</span>
-            {warnings.length > 0 && <span className="box-warn" aria-label="Breaks a rule">⚠</span>}
             <span className="box-name">{b.title || "Untitled"}</span>
           </span>
         )}
-        {variant !== "compact" && engineers.length > 0 && width >= 120 && (
+        {/* Initials only where they won't crowd the title. */}
+        {variant !== "compact" && engineers.length > 0 && width >= 160 + 20 * engineers.length && (
           <span className="box-people">
             {engineers.map((n) => (
               <span key={n} className="avatar" title={n}>
