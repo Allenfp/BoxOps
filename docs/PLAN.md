@@ -14,7 +14,7 @@ in the browser and the app commits the change to a new branch and opens a PR.
 | Multi-person work (changed 2026-10-03) | A box has an FTE of 0.5, 1, 1.5 or 2 (default 1) and is that tall: a 2-FTE box covers its lane and the one below; two 0.5 boxes share a lane. Anything that doesn't fit goes in a department's "over capacity" area. |
 | Engineers (2026-10-03) | Boxes name the engineers expected to work on them (one or more), picked from `roadmap/people.yaml`, which the app can add to. Lanes stay anonymous capacity. |
 | Working days (2026-10-03) | Weekends are never drawn or counted: the time axis, durations, dragging and date pickers all work in weekdays. |
-| Lanes | A lane is anonymous **FTE capacity** (`fte: 1` or `0.5`), not a person. No link to `config/people.yaml`. |
+| Lanes | A lane is anonymous **FTE capacity** (`fte: 1` or `0.5`), not a person. People are assigned to boxes, not lanes. |
 | Stack | Vite + TypeScript + React in `web/`. Vitest for logic tests. GitHub Actions for deploy and validation. |
 
 ## Architecture
