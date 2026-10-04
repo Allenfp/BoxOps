@@ -1942,6 +1942,11 @@ button.primary:hover:not(:disabled) {
   font-weight: 600;
   color: var(--text-muted);
 }
+/* A Jira key standing in for the BoxOps code */
+.box-code.jira,
+.cell-code.jira {
+  color: var(--accent);
+}
 .cell-code .box-warn {
   margin-left: 4px;
 }

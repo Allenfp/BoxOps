@@ -3,6 +3,7 @@ import { useAnchor } from "./useAnchor";
 import { boxScale, SCALE_HELP } from "../model/scale";
 import { NO_FLAG } from "../model/status";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
+import { jiraKey } from "../model/jira";
 import { RELATION_ORDER, RELATION_TYPES, type Violation, fullCode, incoming } from "../model/relations";
 import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type RelationType, type Settings } from "../model/types";
 import { EngineerPicker } from "./EngineerPicker";
@@ -101,6 +102,7 @@ export function BoxEditor(props: Props) {
   });
 
   const epicValid = !box.epic || /^https?:\/\/\S+$/.test(box.epic);
+  const jira = epicValid ? jiraKey(box.epic) : undefined;
   const days = workdays(box.start, box.end);
   const typeColor = settings.types.find((t) => t.id === box.type)?.color;
 
@@ -211,6 +213,11 @@ export function BoxEditor(props: Props) {
             )}
           </span>
           {!epicValid && <span className="field-error">Use a full http(s) link.</span>}
+          {jira && (
+            <span className="hint">
+              Labelled {jira} on the timeline and table (BoxOps code {fullCode(box, departments)})
+            </span>
+          )}
         </label>
         <div className="span-2 field">
           <span className="field-label">

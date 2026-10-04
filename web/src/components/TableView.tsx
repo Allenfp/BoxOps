@@ -1,6 +1,7 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { NO_FLAG } from "../model/status";
 import { boxScale } from "../model/scale";
+import { jiraKey } from "../model/jira";
 import { ScaleBadge } from "./ScaleBadge";
 import { CollapseAll } from "./CollapseAll";
 import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
@@ -124,6 +125,7 @@ export function TableView(props: Props) {
       ? boxes.filter((b) =>
           [
             `${lanes.get(b.lane)?.deptCode ?? ""}-${b.code}`,
+            jiraKey(b.epic) ?? "",
             b.title,
             b.description ?? "",
             tagsText(b),
@@ -346,8 +348,13 @@ export function TableView(props: Props) {
                   }
                 >
                   <td className="col-title">
-                    <span className="cell-code" title={ruleWarnings?.get(b.id)?.join("\n")}>
-                      {lane?.deptCode}-{b.code}
+                    <span
+                      className={`cell-code${jiraKey(b.epic) ? " jira" : ""}`}
+                      title={[jiraKey(b.epic) && `BoxOps ${lane?.deptCode}-${b.code}`, ...(ruleWarnings?.get(b.id) ?? [])]
+                        .filter(Boolean)
+                        .join("\n") || undefined}
+                    >
+                      {jiraKey(b.epic) ?? `${lane?.deptCode}-${b.code}`}
                       {ruleWarnings?.has(b.id) && <span className="box-warn">⚠</span>}
                     </span>
                     <TextCell

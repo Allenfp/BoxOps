@@ -10,6 +10,7 @@ import {
 } from "react";
 import { flagName, PROGRESS_NAME, progress } from "../model/status";
 import { boxScale } from "../model/scale";
+import { jiraKey } from "../model/jira";
 import { ScaleBadge } from "./ScaleBadge";
 import { capacityOn, hasDates, laneDates, laneDatesShort } from "../model/lanes";
 import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
@@ -335,6 +336,8 @@ export function Timeline(props: Props) {
     const clash = props.conflictIds?.has(b.id);
     const warnings = props.ruleWarnings?.get(b.id) ?? [];
     const code = `${deptCode.get(b.lane) ?? "?"}-${b.code}`;
+    // A Jira epic link labels the box with its key; the BoxOps code moves to the tooltip and editor.
+    const jira = jiraKey(b.epic);
     const engineers = (b.engineers ?? []).map((id) => personName.get(id) ?? id);
     // Initials only where they won't crowd the title.
     // Scale (FTE × working days) sits at the far right, after the initials.
@@ -365,7 +368,7 @@ export function Timeline(props: Props) {
       clash && "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n",
       props.updatedIds?.has(b.id) && !clash && "● Changed by someone else since you opened the roadmap.\n",
       ...warnings.map((w) => `⚠ ${w}\n`),
-      `${code}  ${b.title}`,
+      jira ? `${jira}  ${b.title}  (BoxOps ${code})` : `${code}  ${b.title}`,
       `${prettyDay(b.start)} – ${prettyDay(b.end)}`,
       `${workdays(b.start, b.end)} working days · ${b.fte} FTE · Scale ${scale} · ${PROGRESS_NAME[stage]}${flag ? ` · ${flag}` : ""}`,
       engineers.length ? `Engineers: ${engineers.join(", ")}` : "No engineer assigned",
@@ -389,7 +392,7 @@ export function Timeline(props: Props) {
                 ⚠
               </span>
             )}
-            <span className="box-code">{code}</span>
+            <span className={`box-code${jira ? " jira" : ""}`}>{jira ?? code}</span>
             {flag && <span className="box-flag">{flag}</span>}
             <span className="box-name">{b.title || "Untitled"}</span>
           </span>
