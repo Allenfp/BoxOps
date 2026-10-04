@@ -35,6 +35,7 @@ import { type DepartmentLayout, laneAtSlot, layoutDepartment } from "../timeline
 import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
 import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
+import { UseChart } from "./UseChart";
 
 const LABEL_W = 240;
 /** Height of half an FTE; a 1-FTE lane is two of these. */
@@ -48,7 +49,9 @@ export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
 
 interface Props {
   /** Personal display preferences: density and what a box shows. */
-  display?: Pick<Prefs, "density" | "showCodes" | "showScale" | "showInitials" | "showFlags" | "showPto">;
+  display?: Pick<Prefs, "density" | "showCodes" | "showScale" | "showInitials" | "showFlags" | "showPto" | "collapsedView">;
+  /** Every box, finished ones too, for capacity used (`roadmap` may leave some out). */
+  allBoxes?: Box[];
   roadmap: Roadmap;
   zoom: ZoomLevel;
   collapsed: Set<string>;
@@ -97,6 +100,8 @@ export function Timeline(props: Props) {
   // Rows are shorter in the compact density; a lane is two half-FTE slots.
   const SLOT_H = display.density === "compact" ? 18 : 22;
   const DEPT_H = display.density === "compact" ? 30 : 34;
+  // A collapsed row with a capacity chart is a little taller, so the chart can be read.
+  const CHART_H = display.density === "compact" ? 40 : 48;
   const { roadmap, zoom, collapsed, onToggleDepartment, jumpToToday, selectedId, onSelect, onCreateBox, readOnly } =
     props;
   const { settings, departments, boxes, people } = roadmap;
@@ -477,7 +482,10 @@ export function Timeline(props: Props) {
             const previewLane = previewHere ? layout.lanes.get(previewHere.lane) : undefined;
             return (
               <section key={dept.id} className="dept" data-dept-id={dept.id} style={{ "--dept": dept.color } as CSSProperties}>
-                <div className="row dept-row" style={{ height: DEPT_H }}>
+                <div
+                  className="row dept-row"
+                  style={{ height: isCollapsed && display.collapsedView !== "boxes" ? CHART_H : DEPT_H }}
+                >
                   <DeptLabel
                     dept={dept}
                     now={now}
@@ -488,7 +496,18 @@ export function Timeline(props: Props) {
                     onEdit={readOnly || !props.onEditDepartment ? undefined : () => props.onEditDepartment!(dept.id)}
                   />
                   <div className="track" style={{ width: scale.width }}>
-                    {isCollapsed && deptBoxes.map((b) => boxEl(b, span(b.start, b.end), "compact"))}
+                    {isCollapsed &&
+                      (display.collapsedView === "boxes" ? (
+                        deptBoxes.map((b) => boxEl(b, span(b.start, b.end), "compact"))
+                      ) : (
+                        <UseChart
+                          dept={dept}
+                          boxes={(props.allBoxes ?? boxes).filter((b) => laneDept.get(b.lane) === dept.id)}
+                          scale={scale}
+                          height={CHART_H}
+                          kind={display.collapsedView}
+                        />
+                      ))}
                   </div>
                 </div>
                 {!isCollapsed && (

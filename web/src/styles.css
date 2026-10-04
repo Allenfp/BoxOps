@@ -2709,3 +2709,46 @@ kbd {
   justify-content: flex-end;
   margin-top: 4px;
 }
+
+/* ---- Collapsed department: capacity used ---- */
+.use-chart {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: block;
+  overflow: visible;
+}
+.use-full {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.55;
+}
+.use-marks {
+  color: var(--dept);
+}
+.use-marks.over {
+  color: var(--warn);
+}
+.use-chart.bars .use-marks rect {
+  fill: currentColor;
+  opacity: 0.75;
+}
+.use-chart.line polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.use-chart .use-area {
+  fill: currentColor;
+  opacity: 0.14;
+  stroke: none;
+}
+.use-hit {
+  fill: transparent;
+}
+.use-hit:hover {
+  fill: var(--text);
+  opacity: 0.05;
+}

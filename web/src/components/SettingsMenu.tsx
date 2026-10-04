@@ -3,6 +3,7 @@
 
 import { getToken, setToken } from "../github/token";
 import {
+  type CollapsedView,
   type Density,
   type Prefs,
   resetPrefs,
@@ -183,6 +184,16 @@ export function SettingsMenu(props: Props) {
                   ))}
                 </select>
               </label>
+              <Choice<CollapsedView>
+                label="Collapsed rows"
+                value={prefs.collapsedView}
+                options={[
+                  ["line", "Line"],
+                  ["bars", "Bars"],
+                  ["boxes", "Boxes"],
+                ]}
+                onChange={(collapsedView) => setPrefs({ collapsedView })}
+              />
               <Toggle label="Show PTO rows" pref="showPto" />
               <Toggle label="Hide finished boxes" pref="hideFinished" />
             </section>

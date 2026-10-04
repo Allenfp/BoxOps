@@ -8,6 +8,8 @@ import type { ZoomLevel } from "./model/types";
 export type ThemePref = "light" | "dark" | "system";
 export type Density = "comfortable" | "compact";
 export type ViewMode = "timeline" | "table" | "people";
+/** What a collapsed department's row shows. */
+export type CollapsedView = "line" | "bars" | "boxes";
 
 export interface Prefs {
   theme: ThemePref;
@@ -23,6 +25,8 @@ export interface Prefs {
   openOn: ViewMode;
   showPto: boolean;
   hideFinished: boolean;
+  /** Capacity used, as a line or bars; or the boxes squeezed into one row. */
+  collapsedView: CollapsedView;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -35,6 +39,7 @@ export const DEFAULT_PREFS: Prefs = {
   openOn: "timeline",
   showPto: true,
   hideFinished: false,
+  collapsedView: "line",
 };
 
 const KEY = "boxops-prefs";

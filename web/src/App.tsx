@@ -860,6 +860,7 @@ function RoadmapView(props: ViewProps) {
       ) : (
         <Timeline
         roadmap={shown}
+        allBoxes={roadmap.boxes}
         display={prefs}
         zoom={zoom}
         collapsed={collapsed}

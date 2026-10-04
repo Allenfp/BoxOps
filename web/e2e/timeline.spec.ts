@@ -241,3 +241,26 @@ test("in the box editor, Esc closes the calendar but not the editor", async ({ p
   await expect(calendar).toHaveCount(0);
   await expect(editor).toBeVisible();
 });
+
+test("a collapsed department shows capacity used, as a line or bars (a setting)", async ({ page, github: _ }) => {
+  const ml = page.locator(".dept", { hasText: "ML Platform" });
+  await expect(ml.locator(".use-chart.line polyline")).not.toHaveCount(0);
+  await expect(ml.locator(".box")).toHaveCount(0);
+
+  // Data Engineering runs 4 FTE on 3.5 FTE of lanes around 2026-10-01.
+  const de = page.locator(".dept", { hasText: "Data Engineering" });
+  await de.locator(".dept-toggle").click();
+  await expect(de.locator(".use-chart")).toHaveAttribute("aria-label", /^Data Engineering: capacity used by week, up to \d+%$/);
+  await expect(de.locator('.use-hit[data-week="2026-09-28"] title')).toHaveText(/^Week of 2026-09-28: [\d.]+ of 3.5 FTE used \(\d+%\); over capacity on 2026-\d\d-\d\d: 4 of 3.5 FTE$/);
+
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("group", { name: "Collapsed rows" }).getByRole("button", { name: "Bars" }).click();
+  await page.keyboard.press("Escape");
+  await expect(de.locator(".use-chart.bars .use-marks rect")).not.toHaveCount(0);
+
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("group", { name: "Collapsed rows" }).getByRole("button", { name: "Boxes" }).click();
+  await page.keyboard.press("Escape");
+  await expect(de.locator(".use-chart")).toHaveCount(0);
+  await expect(de.locator(".box.compact")).not.toHaveCount(0);
+});
