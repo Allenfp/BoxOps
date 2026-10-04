@@ -5,7 +5,7 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Time off (PTO) | Built, not deployed | PTO blocks on the timeline and table, stored per engineer in `people.yaml`; the People tab lists it read-only; a warning when someone is on a box during PTO. Doesn't reduce capacity yet. |
+| 1 | Time off (PTO) | Done (2026-10-03) | PTO blocks on the timeline and table, stored per engineer in `people.yaml`; the People tab lists it read-only; a warning when someone is on a box during PTO. Doesn't reduce capacity yet. |
 | 2 | Engineer load view | Idea | |
 | 3 | Unstaffed demand | Idea | |
 | 4 | Rules that cascade | Idea | |
@@ -17,8 +17,8 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 | 10 | Export | Idea | |
 | 11 | Change digest | Idea | |
 | 12 | Jira sync | Idea | |
-| 13 | Lane start and end dates | Built, not deployed | Optional `start` and `end` on a lane, set in the department editor. Capacity, over-capacity warnings and the timeline follow them. |
-| 14 | Box scale | Built, not deployed | FTE × working days, shown right of the initials on each box, in the editor and tooltip, and as a sortable table column. Not stored. The underlined number shows a short hover card: the sum in Eng Days, weeks/months/quarters (FTE per Month = ~20), and the share of the department it takes while it runs. |
+| 13 | Lane start and end dates | Done (2026-10-03) | Optional `start` and `end` on a lane, set in the department editor. Capacity, over-capacity warnings and the timeline follow them. |
+| 14 | Box scale | Done (2026-10-03) | FTE × working days, shown right of the initials on each box, in the editor and tooltip, and as a sortable table column. Not stored. The underlined number shows a short hover card: the sum in Eng Days, weeks/months/quarters (FTE per Month = ~20), and the share of the department it takes while it runs. |
 
 ## Planning and capacity
 
