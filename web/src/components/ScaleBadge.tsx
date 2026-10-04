@@ -54,7 +54,7 @@ export function ScaleBadge({ box, departments, className }: Props) {
                 {percent(stats.dept.share)} of {stats.dept.name} while it runs
               </div>
             )}
-            <div className="hint">Month = ~20 Eng Days</div>
+            <div className="hint">FTE per Month = ~20</div>
           </div>,
           document.body,
         )}
