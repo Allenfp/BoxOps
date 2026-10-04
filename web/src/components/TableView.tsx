@@ -1,6 +1,7 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { NO_FLAG } from "../model/status";
-import { boxScale, SCALE_HELP } from "../model/scale";
+import { boxScale } from "../model/scale";
+import { ScaleBadge } from "./ScaleBadge";
 import { CollapseAll } from "./CollapseAll";
 import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
 import { BOX_FTE_OPTIONS, type Box, type Roadmap, type TimeOff } from "../model/types";
@@ -413,8 +414,8 @@ export function TableView(props: Props) {
                       ))}
                     </select>
                   </td>
-                  <td className="col-scale" title={SCALE_HELP}>
-                    {boxScale(b)}
+                  <td className="col-scale">
+                    <ScaleBadge box={b} boxes={boxes} departments={departments} />
                   </td>
                   <td className="col-engineers">
                     <EngineerPicker

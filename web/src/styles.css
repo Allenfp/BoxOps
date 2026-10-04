@@ -2136,3 +2136,85 @@ button.primary:hover:not(:disabled) {
 .box.half .box-scale {
   line-height: 14px;
 }
+
+/* The scale number is underlined; hovering it shows .scale-pop. */
+.scale-number {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+.scale-pop {
+  position: fixed;
+  z-index: 60;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.22);
+  font-size: 12px;
+  color: var(--text);
+  pointer-events: none;
+}
+.scale-pop-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.scale-pop-head strong {
+  font-size: 13px;
+}
+.scale-pop table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.scale-pop th,
+.scale-pop td {
+  padding: 3px 0;
+  text-align: right;
+  font-weight: 400;
+}
+.scale-pop thead th {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.scale-pop th:first-child {
+  text-align: left;
+}
+.scale-pop tbody th {
+  max-width: 130px;
+  line-height: 1.3;
+}
+.scale-pop-sub {
+  display: block;
+}
+.scale-pop tbody td {
+  font-weight: 600;
+}
+.scale-pop tbody tr + tr th,
+.scale-pop tbody tr + tr td {
+  border-top: 1px solid var(--grid);
+}
+.scale-pop ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--border);
+}
+.scale-pop li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+.scale-pop li b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.scale-pop p {
+  margin: 8px 0 0;
+}

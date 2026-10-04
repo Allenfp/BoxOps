@@ -9,7 +9,8 @@ import {
   useState,
 } from "react";
 import { flagName, PROGRESS_NAME, progress } from "../model/status";
-import { boxScale, SCALE_HELP } from "../model/scale";
+import { boxScale } from "../model/scale";
+import { ScaleBadge } from "./ScaleBadge";
 import { capacityOn, hasDates, laneDates, laneDatesShort } from "../model/lanes";
 import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import { CollapseAll } from "./CollapseAll";
@@ -402,9 +403,7 @@ export function Timeline(props: Props) {
                 </span>
               ))}
             {showScale && (
-              <span className="box-scale" title={SCALE_HELP} aria-label={`Scale ${scale}`}>
-                {scale}
-              </span>
+              <ScaleBadge box={b} boxes={boxes} departments={departments} className="box-scale" />
             )}
           </span>
         )}

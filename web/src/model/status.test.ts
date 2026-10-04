@@ -1,7 +1,9 @@
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseDay } from "./dates";
-import { DEFAULT_SETTINGS } from "./load";
-import { boxScale } from "./scale";
+import { DEFAULT_SETTINGS, loadRoadmap } from "./load";
+import { readRoadmapDir } from "./files";
+import { boxScale, percent, scaleStats } from "./scale";
 import { flagName, progress } from "./status";
 
 const d = (s: string) => parseDay(s)!;
@@ -26,5 +28,21 @@ describe("boxScale", () => {
     // Mon Oct 5 – Fri Oct 16: 10 working days.
     expect(boxScale({ fte: 1.5, start: parseDay("2026-10-05")!, end: parseDay("2026-10-16")! })).toBe(15);
     expect(boxScale({ fte: 0.5, start: parseDay("2026-10-05")!, end: parseDay("2026-10-07")! })).toBe(1.5);
+  });
+});
+
+describe("scaleStats", () => {
+  const { roadmap } = loadRoadmap(readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap")));
+
+  it("compares a box's scale with a week, month and quarter", () => {
+    const dagster = roadmap.boxes.find((b) => b.id === "bx-c93d-dagster-upgrade")!; // 1 FTE × 30 days in Data Engineering (3.5 FTE)
+    const s = scaleStats({ ...dagster, engineers: ["sam-lee", "alex-kim"] }, roadmap.boxes, roadmap.departments);
+    expect(s.scale).toBe(30);
+    expect([percent(s.ofPerson.week), percent(s.ofPerson.month), percent(s.ofPerson.quarter)]).toEqual(["600%", "138%", "46%"]);
+    expect(s.dept).toMatchObject({ name: "Data Engineering", fte: 3.5 });
+    expect([percent(s.dept!.of.week), percent(s.dept!.of.month), percent(s.dept!.of.quarter)]).toEqual(["171%", "40%", "13%"]);
+    expect(s.perEngineer).toEqual({ value: 15, engineers: 2 });
+    expect(s.inDept).toMatchObject({ of: 8 });
+    expect(percent(0.031)).toBe("3.1%");
   });
 });

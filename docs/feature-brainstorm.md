@@ -18,7 +18,7 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 | 11 | Change digest | Idea | |
 | 12 | Jira sync | Idea | |
 | 13 | Lane start and end dates | Built, not deployed | Optional `start` and `end` on a lane, set in the department editor. Capacity, over-capacity warnings and the timeline follow them. |
-| 14 | Box scale | Built, not deployed | FTE × working days, shown right of the initials on each box, in the editor and tooltip, and as a sortable table column. Not stored. |
+| 14 | Box scale | Built, not deployed | FTE × working days, shown right of the initials on each box, in the editor and tooltip, and as a sortable table column. Not stored. The underlined number shows a hover card: % of a week, month and quarter for one engineer and for the department, per-engineer scale, and share of the department's and roadmap's work. |
 
 ## Planning and capacity
 

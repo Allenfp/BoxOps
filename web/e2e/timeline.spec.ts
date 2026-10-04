@@ -122,6 +122,15 @@ test("engineers are picked from the roster, and new ones can be added", async ({
   await expect(scale).toHaveText("30");
   const last = (await box(page, DAGSTER).locator(".avatar").last().boundingBox())!;
   expect((await scale.boundingBox())!.x).toBeGreaterThan(last.x + last.width);
+  await expect(scale).toHaveCSS("text-decoration-line", "underline");
+  await scale.hover();
+  const pop = page.getByRole("tooltip");
+  await expect(pop).toContainText("Scale 30");
+  await expect(pop).toContainText("1 FTE × 30 working days");
+  await expect(pop.locator("tbody tr").first()).toHaveText(/One engineer\s*600%\s*138%\s*46%/);
+  await expect(pop).toContainText("Per engineer15 (2 assigned)");
+  await page.mouse.move(5, 5);
+  await expect(pop).toHaveCount(0);
 
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
