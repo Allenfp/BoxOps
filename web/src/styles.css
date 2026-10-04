@@ -2615,3 +2615,37 @@ kbd {
 .save-dialog:focus {
   outline: none;
 }
+
+/* Table toolbar: date range and "Hide completed" */
+.date-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.date-filter .date-input input[type="text"] {
+  width: 128px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.date-filter .date-input input[type="text"]:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: var(--accent);
+}
+.date-filter .icon-button {
+  padding: 3px;
+}
+.table-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  color: var(--text);
+}
+.date-sep {
+  color: var(--text-muted);
+}

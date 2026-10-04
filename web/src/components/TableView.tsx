@@ -18,6 +18,9 @@ interface Props {
   roadmap: Roadmap;
   /** Show PTO rows under each department (a personal preference). */
   showPto?: boolean;
+  /** Hide boxes that ended before today (a personal preference, shared with the timeline). */
+  hideFinished?: boolean;
+  onHideFinished?(hide: boolean): void;
   readOnly?: boolean;
   conflictIds?: Set<string>;
   updatedIds?: Set<string>;
@@ -86,6 +89,13 @@ export function TableView(props: Props) {
   const engineerNames = (b: Box) => (b.engineers ?? []).map((id) => personName.get(id) ?? id).join(", ");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "lane", dir: 1 });
   const [query, setQuery] = useState("");
+  // Date filter: boxes (and PTO) that overlap these dates; either end can be open.
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const fromDay = parseDay(from);
+  const toDay = parseDay(to);
+  const inDates = (start: number, end: number) => (fromDay === null || end >= fromDay) && (toDay === null || start <= toDay);
+  const now = today();
   const [focusId, setFocusId] = useState<string | null>(null);
 
   // Lane order and labels, for the lane column and for sorting by it.
@@ -125,8 +135,9 @@ export function TableView(props: Props) {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const dated = boxes.filter((b) => inDates(b.start, b.end) && !(props.hideFinished && b.end < now));
     const filtered = q
-      ? boxes.filter((b) =>
+      ? dated.filter((b) =>
           [
             `${lanes.get(b.lane)?.deptCode ?? ""}-${b.code}`,
             jiraKey(b.epic) ?? "",
@@ -141,7 +152,7 @@ export function TableView(props: Props) {
             .toLowerCase()
             .includes(q),
         )
-      : boxes;
+      : dated;
     const value = (b: Box): number | string => {
       switch (sort.key) {
         case "title":
@@ -172,7 +183,7 @@ export function TableView(props: Props) {
       return (va < vb ? -1 : va > vb ? 1 : a.start - b.start || a.id.localeCompare(b.id)) * sort.dir;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boxes, query, sort, lanes, typeIndex, statusIndex, personName]);
+  }, [boxes, query, sort, lanes, typeIndex, statusIndex, personName, fromDay, toDay, props.hideFinished, now]);
 
   // Sorted rows, bucketed by department (in department order).
   const groups = useMemo(() => {
@@ -180,7 +191,8 @@ export function TableView(props: Props) {
     for (const b of rows) byDept.get(lanes.get(b.lane)?.deptId ?? "")?.push(b);
     return departments.map((d) => ({ dept: d, rows: byDept.get(d.id) ?? [] }));
   }, [rows, departments, lanes]);
-  const searching = query.trim() !== "";
+  // Searching or a date filter: show only matching rows, with their departments open.
+  const searching = query.trim() !== "" || fromDay !== null || toDay !== null;
 
   // PTO rows, by department (their owner's), earliest first; a search matches names and notes.
   const ptoByDept = useMemo(() => {
@@ -189,11 +201,13 @@ export function TableView(props: Props) {
     if (props.showPto === false) return out;
     for (const e of ptoEntries(people).sort((a, b) => a.pto.start - b.pto.start)) {
       if (!e.person.department) continue;
+      if (!inDates(e.pto.start, e.pto.end)) continue;
       if (q && !`pto ${e.person.name} ${e.pto.note ?? ""}`.toLowerCase().includes(q)) continue;
       out.set(e.person.department, [...(out.get(e.person.department) ?? []), e]);
     }
     return out;
-  }, [people, query, props.showPto]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people, query, props.showPto, fromDay, toDay]);
   const ptoDates = (ref: PtoRef, pto: TimeOff, field: "start" | "end", text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
@@ -231,6 +245,35 @@ export function TableView(props: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <span className="date-filter" role="group" aria-label="Dates">
+          <DateInput value={from} onChange={setFrom} aria-label="From date" placeholder="From" />
+          <span className="date-sep">–</span>
+          <DateInput value={to} onChange={setTo} aria-label="To date" placeholder="To" />
+          {(from || to) && (
+            <button
+              className="icon-button"
+              aria-label="Clear dates"
+              title="Clear dates"
+              onClick={() => {
+                setFrom("");
+                setTo("");
+              }}
+            >
+              <Icon name="x" size={14} />
+            </button>
+          )}
+        </span>
+        {props.onHideFinished && (
+          <label className="toggle table-toggle">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={!!props.hideFinished}
+              onChange={(e) => props.onHideFinished!(e.target.checked)}
+            />
+            <span>Hide completed</span>
+          </label>
+        )}
         <span className="hint">
           {rows.length === boxes.length ? `${boxes.length} boxes` : `${rows.length} of ${boxes.length} boxes`}
         </span>
@@ -613,7 +656,11 @@ export function TableView(props: Props) {
             </tbody>
           )}
         </table>
-        {rows.length === 0 && <p className="empty">No boxes match “{query}”.</p>}
+        {rows.length === 0 && (
+          <p className="empty">
+            {query.trim() ? `No boxes match “${query}”${fromDay !== null || toDay !== null ? " in these dates" : ""}.` : "No boxes in these dates."}
+          </p>
+        )}
       </div>
     </div>
   );

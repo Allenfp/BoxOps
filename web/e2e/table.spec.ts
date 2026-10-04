@@ -125,3 +125,30 @@ test("departments collapse, shared with the timeline", async ({ page, github: _ 
   await page.getByRole("button", { name: "Expand all" }).click();
   await expect(page.locator('input[aria-label="Title"]')).toHaveCount(16);
 });
+
+test("a date range and a Hide completed switch filter the table", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table" }).click();
+  const titles = page.locator("tbody tr:not(.group-row) .col-title input[aria-label='Title']");
+  const count = page.locator(".table-toolbar .hint");
+  await expect(count).toHaveText("15 boxes");
+
+  // Boxes overlapping 2026-12-01 – 2026-12-31.
+  await page.getByLabel("From date").fill("2026-12-01");
+  await page.getByLabel("To date").fill("2026-12-31");
+  await expect(count).toHaveText(/^\d+ of 15 boxes$/);
+  const shown = await titles.evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  expect(shown).toContain("CDC pipeline for orders DB"); // 2026-10-26 – 2027-02-26 overlaps
+  for (const gone of ["Revenue mart v2", "Legacy ETL sunset", "Dagster 2.x upgrade"]) expect(shown).not.toContain(gone);
+  await page.getByRole("button", { name: "Clear dates" }).click();
+  await expect(count).toHaveText("15 boxes");
+
+  // Completed = ended before today (2026-10-03): Legacy ETL sunset ended 2026-07-31.
+  const legacy = page.locator("tbody tr").filter({ has: page.locator("input[value='Legacy ETL sunset']") });
+  await expect(legacy).toHaveCount(1);
+  await page.getByRole("switch", { name: "Hide completed" }).click();
+  await expect(legacy).toHaveCount(0);
+  await expect(count).toHaveText(/^1[0-4] of 15 boxes$/);
+  // It's the same preference as the timeline's.
+  await page.getByRole("button", { name: "Timeline" }).click();
+  await expect(page.locator(".box", { hasText: "Legacy ETL sunset" })).toHaveCount(0);
+});

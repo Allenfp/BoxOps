@@ -17,9 +17,10 @@ interface Props {
   autoFocus?: boolean;
   "aria-label"?: string;
   className?: string;
+  placeholder?: string;
 }
 
-export function DateInput({ value, onChange, onBlur, disabled, autoFocus, className, ...rest }: Props) {
+export function DateInput({ value, onChange, onBlur, disabled, autoFocus, className, placeholder, ...rest }: Props) {
   const [draft, setDraft] = useState<string | null>(null);
   const native = useRef<HTMLInputElement>(null);
   const shown = draft ?? value;
@@ -30,7 +31,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, classN
       <input
         type="text"
         inputMode="numeric"
-        placeholder="YYYY-MM-DD"
+        placeholder={placeholder ?? "YYYY-MM-DD"}
         maxLength={10}
         value={shown}
         disabled={disabled}

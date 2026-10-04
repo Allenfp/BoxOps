@@ -23,7 +23,7 @@ import { KeyContent } from "./components/KeyMenu";
 import { Modal } from "./components/Modal";
 import { SettingsMenu, ShortcutsContent } from "./components/SettingsMenu";
 import { TeamSettings } from "./components/TeamSettings";
-import { getPrefs, usePrefs, type ViewMode } from "./prefs";
+import { getPrefs, setPrefs, usePrefs, type ViewMode } from "./prefs";
 import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
@@ -810,8 +810,10 @@ function RoadmapView(props: ViewProps) {
         />
       ) : view === "table" ? (
         <TableView
-          roadmap={shown}
+          roadmap={roadmap}
           showPto={prefs.showPto}
+          hideFinished={prefs.hideFinished}
+          onHideFinished={(hideFinished) => setPrefs({ hideFinished })}
           readOnly={preview || busy}
           conflictIds={conflictBoxIds}
           updatedIds={updatedIds}
