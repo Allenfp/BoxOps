@@ -12,6 +12,8 @@ interface Props {
   onToggleDepartment(id: string): void;
   allCollapsed: boolean;
   onToggleAll(): void;
+  onEditDepartment?(id: string): void;
+  onAddDepartment?(): void;
   /** Add an engineer; returns their id. */
   onAdd(department?: string): string;
   /** Edit an engineer; returns their id afterwards (an unsaved person's id follows their name). */
@@ -145,6 +147,16 @@ export function PeopleView(props: Props) {
                           {q ? `${rows.length} of ${g.all.length}` : g.all.length} engineer{g.all.length === 1 ? "" : "s"}
                         </span>
                       </button>
+                      {!readOnly && g.id !== NO_DEPT && props.onEditDepartment && (
+                        <button
+                          className="icon-button group-edit"
+                          title="Edit department and lanes"
+                          aria-label={`Edit ${g.name}`}
+                          onClick={() => props.onEditDepartment!(g.id)}
+                        >
+                          ✎
+                        </button>
+                      )}
                       {!readOnly && g.id !== NO_DEPT && (
                         <button
                           className="icon-button group-add"
@@ -254,6 +266,17 @@ export function PeopleView(props: Props) {
               </tbody>
             );
           })}
+          {!readOnly && props.onAddDepartment && !q && (
+            <tbody>
+              <tr className="add-dept-row">
+                <td colSpan={COLUMNS.length}>
+                  <button className="link-button add-dept" onClick={props.onAddDepartment}>
+                    + Add department
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          )}
         </table>
         {q && shown === 0 && <p className="empty">No engineers match “{query}”.</p>}
       </div>

@@ -690,6 +690,8 @@ function RoadmapView(props: ViewProps) {
           allCollapsed={allCollapsed}
           onToggleAll={toggleAll}
           onToggleDepartment={toggle}
+          onEditDepartment={editDepartment}
+          onAddDepartment={addDepartment}
           onAdd={(department) => {
             const id = draft.addPerson("New engineer", department);
             draft.checkpoint();

@@ -87,3 +87,32 @@ test("removing an engineer unassigns them, and undo brings it all back", async (
   expect(github.file("people.yaml")).not.toContain("alex-kim");
   expect(github.file(boxFile(DAGSTER))).not.toContain("engineers");
 });
+
+test("departments can be added and edited from the People tab", async ({ page, github }) => {
+  await page.getByRole("button", { name: "People" }).click();
+  const dialog = page.locator("dialog.dept-editor[open]");
+
+  await page.getByRole("button", { name: "+ Add department" }).click();
+  await dialog.getByLabel("Department name").fill("Platform");
+  await dialog.getByRole("button", { name: "Add department" }).click();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  const platform = page.locator(".group-row").filter({ has: page.locator(".dept-name", { hasText: /^Platform$/ }) });
+  await expect(platform).toHaveCount(1);
+  await expect(platform).toContainText("0 engineers");
+
+  // Hire straight into it.
+  await page.getByRole("button", { name: "Add an engineer to Platform" }).click();
+  await page.keyboard.type("Robin Park");
+  await page.keyboard.press("Enter");
+
+  await page.getByRole("button", { name: "Edit Analytics" }).click();
+  await dialog.getByLabel("Department name").fill("Analytics & BI");
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await expect(page.locator(".group-row .dept-name", { hasText: "Analytics & BI" })).toHaveCount(1);
+
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file("departments/platform.yaml")).toContain("name: Platform\n");
+  expect(github.file("departments/analytics.yaml")).toContain("name: Analytics & BI\n");
+  expect(github.file("people.yaml")).toContain("  - id: robin-park\n    name: Robin Park\n    department: platform\n");
+});
