@@ -82,6 +82,7 @@ lanes:
   - id: de-4
     name: Contractor
     fte: 0.5
+    end: 2027-03-31   # contract ends
 ```
 
 | Field | Required | Meaning |
@@ -101,9 +102,13 @@ Each lane:
 | `id` | yes | **Unique across all departments**; boxes refer to a lane by this id alone. |
 | `name` | no | Label. Without one, the lane shows as `FTE 1`, `FTE 2`… by position. |
 | `fte` | no | Capacity: more than 0, at most 1. Default 1. |
+| `start` | no | First weekday the lane exists (a new hire's lane). Without it, the lane has always existed. |
+| `end` | no | Last weekday the lane exists (a contractor's last day). Without it, the lane never closes. |
 
-A lane is anonymous capacity, not a person. A department's capacity is the sum
-of its lanes' FTE.
+A lane is anonymous capacity, not a person. A department's capacity on a day
+is the sum of the FTE of its lanes that exist that day (all of them, unless
+some have `start` or `end`). Outside its dates a lane is hatched out on the
+timeline and no box is drawn in it.
 
 ## boxes/&lt;id&gt;.yaml
 
@@ -236,6 +241,7 @@ Removing someone from the roster also means removing their id from every box's
 - a rule with an unknown `type`, pointing at a box code that doesn't exist, or
   pointing at its own box
 - a box `fte` other than 0.5, 1, 1.5 or 2; a lane `fte` outside (0, 1]
+- a lane `start` or `end` that's malformed or on a weekend, or `end` before `start`
 - a person's `department` that doesn't exist, or an invalid `email`
 - PTO with malformed or weekend dates, or `end` before `start`
 - unexpected files in `roadmap/`

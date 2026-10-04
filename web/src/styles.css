@@ -2064,3 +2064,55 @@ button.primary:hover:not(:disabled) {
   border: 1px solid var(--grid-major);
   background: repeating-linear-gradient(-45deg, var(--surface-2) 0 3px, var(--surface) 3px 6px);
 }
+
+/* Lane dates: outside them a lane is closed (no capacity), hatched out. */
+.lane-closed {
+  position: absolute;
+  z-index: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--grid-major) 35%, transparent) 0 2px,
+    transparent 2px 7px
+  );
+  border-bottom: 1px solid var(--grid);
+}
+.pill.lane-dates {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lane-dates-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 2px 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.save-dialog .form .lane-dates-row label,
+.lane-dates-row label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+}
+.lane-dates-row .link-button {
+  font-size: 12px;
+  padding: 0;
+}
+.save-dialog .lane-dates-row input,
+.lane-dates-row input {
+  width: auto;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+.lane-dates-row .icon-button {
+  font-size: 14px;
+  padding: 0 4px;
+}

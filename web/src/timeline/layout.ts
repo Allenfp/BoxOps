@@ -15,6 +15,7 @@
 // area below the lanes.
 
 import type { Day } from "../model/dates";
+import { closedRanges } from "../model/lanes";
 import type { Box, Department } from "../model/types";
 
 export interface Placed {
@@ -42,8 +43,10 @@ export interface DepartmentLayout {
 
 const slotsOf = (fte: number) => Math.max(1, Math.round(fte * 2));
 
+type Span = Pick<Box, "start" | "end" | "fte">;
+
 /** Most half-FTE slots in use on any day (a sweep over start/end events). */
-function peakSlots(boxes: Box[]): number {
+function peakSlots(boxes: Span[]): number {
   const events: [Day, number][] = [];
   for (const b of boxes) {
     events.push([b.start, slotsOf(b.fte)], [b.end + 1, -slotsOf(b.fte)]);
@@ -65,8 +68,8 @@ interface Attempt {
   score: [number, number, number];
 }
 
-function place(order: Box[], lanes: DepartmentLayout["lanes"], capacity: number): Attempt {
-  const used: [Day, Day][][] = []; // per slot, the date ranges taken
+function place(order: Box[], lanes: DepartmentLayout["lanes"], capacity: number, closed: [Day, Day][][]): Attempt {
+  const used: [Day, Day][][] = closed.map((c) => [...c]); // per slot, the date ranges taken (closed lanes start taken)
   const free = (from: number, count: number, b: Box) => {
     for (let s = from; s < from + count; s++) {
       for (const [start, end] of used[s] ?? []) if (start <= b.end && b.start <= end) return false;
@@ -113,9 +116,15 @@ function place(order: Box[], lanes: DepartmentLayout["lanes"], capacity: number)
  * order, each trying its own lane first, then the nearest spaces, backtracking
  * on dead ends. Departments are small, and a step limit keeps it bounded.
  */
-function search(boxes: Box[], lanes: DepartmentLayout["lanes"], capacity: number, budget = 50_000): Attempt | null {
+function search(
+  boxes: Box[],
+  lanes: DepartmentLayout["lanes"],
+  capacity: number,
+  closed: [Day, Day][][],
+  budget = 50_000,
+): Attempt | null {
   const order = [...boxes].sort((a, b) => a.start - b.start || b.fte - a.fte || a.id.localeCompare(b.id));
-  const used: [Day, Day][][] = Array.from({ length: capacity }, () => []);
+  const used: [Day, Day][][] = Array.from({ length: capacity }, (_, s) => [...(closed[s] ?? [])]);
   const free = (from: number, count: number, b: Box) => {
     for (let s = from; s < from + count; s++) {
       for (const [start, end] of used[s]) if (start <= b.end && b.start <= end) return false;
@@ -171,6 +180,18 @@ export function layoutDepartment(dept: Department, boxes: Box[]): DepartmentLayo
     capacity += slots;
   }
 
+  // A lane outside its dates is taken in every slot it covers, so nothing is drawn there,
+  // and it counts against capacity like a box would.
+  const closed: [Day, Day][][] = Array.from({ length: capacity }, () => []);
+  const closedSpans: Span[] = [];
+  for (const lane of dept.lanes) {
+    const l = lanes.get(lane.id)!;
+    for (const [start, end] of closedRanges(lane)) {
+      for (let s = l.slot; s < l.slot + l.slots; s++) closed[s].push([start, end]);
+      closedSpans.push({ start, end, fte: lane.fte });
+    }
+  }
+
   const mine = boxes.filter((b) => lanes.has(b.lane));
   const laneOrder = new Map(dept.lanes.map((l, i) => [l.id, i]));
   const byStart = (a: Box, b: Box) =>
@@ -180,21 +201,22 @@ export function layoutDepartment(dept: Department, boxes: Box[]): DepartmentLayo
     [...mine].sort((a, b) => b.fte - a.fte || byStart(a, b)), // big boxes claim space first
     [...mine].sort((a, b) => b.end - b.start - (a.end - a.start) || byStart(a, b)), // long boxes first
   ];
-  let best = place(orders[0], lanes, capacity);
+  let best = place(orders[0], lanes, capacity, closed);
   for (const order of orders.slice(1)) {
     if (best.score[0] === 0 && best.score[2] === 0) break; // already perfect
-    const attempt = place(order, lanes, capacity);
+    const attempt = place(order, lanes, capacity, closed);
     if (better(attempt, best)) best = attempt;
   }
 
   const peak = peakSlots(mine);
-  if (best.score[0] > 0 && peak <= capacity) best = search(mine, lanes, capacity) ?? best;
+  const over = peakSlots([...mine, ...closedSpans]) > capacity;
+  if (best.score[0] > 0 && !over) best = search(mine, lanes, capacity, closed) ?? best;
   return {
     lanes,
     capacity,
     height: best.height,
     boxes: best.boxes,
-    overCapacity: peak > capacity,
+    overCapacity: over,
     peakFte: peak / 2,
   };
 }

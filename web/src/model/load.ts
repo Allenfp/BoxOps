@@ -345,7 +345,20 @@ function loadDepartment(path: string, text: string, issues: Issue[]): Department
       r.fail(`${where}fte: expected a number greater than 0 and at most 1`);
       return null;
     }
-    return { id: laneId, name: r.optStr(o, "name", where), fte };
+    const dates: Pick<Lane, "start" | "end"> = {};
+    for (const field of ["start", "end"] as const) {
+      const text = r.optStr(o, field, where);
+      if (text === undefined) continue;
+      const day = parseDay(text);
+      if (day === null) r.fail(`${where}${field}: "${text}" is not a valid YYYY-MM-DD date`);
+      else if (isWeekend(day)) r.fail(`${where}${field}: ${WEEKDAY[dayParts(day).weekday]} — roadmap dates must be weekdays`);
+      else dates[field] = day;
+    }
+    if (dates.start !== undefined && dates.end !== undefined && dates.end < dates.start) {
+      r.fail(`${where}end is before start`);
+      delete dates.end;
+    }
+    return { id: laneId, name: r.optStr(o, "name", where), fte, ...dates };
   });
   const seen = new Set<string>();
   const uniqueLanes = lanes.filter((l) => {

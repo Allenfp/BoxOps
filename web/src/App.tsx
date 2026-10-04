@@ -24,7 +24,7 @@ import { KeyMenu } from "./components/KeyMenu";
 import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
-import { overStretches } from "./model/report";
+import { capacityStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import { loadRoadmap } from "./model/load";
@@ -564,18 +564,19 @@ function RoadmapView(props: ViewProps) {
     const now = today();
     return draft.departments.flatMap((d) => {
       const laneIds = new Set(d.lanes.map((l) => l.id));
-      const fte = d.lanes.reduce((n, l) => n + l.fte, 0);
-      const over = overStretches(
+      const over = capacityStretches(
         draft.boxes.filter((b) => laneIds.has(b.lane)),
-        fte,
+        d.lanes,
+        (load, cap) => load > cap,
       ).filter((x) => x.to >= now);
       if (!over.length) return [];
-      const peak = Math.max(...over.map((x) => x.fte));
+      // The worst stretch (most FTE over what the lanes open then hold).
+      const worst = over.reduce((a, b) => (b.fte - b.capacity > a.fte - a.capacity ? b : a));
       const more = over.length > 1 ? `, and ${over.length - 1} more stretch${over.length > 2 ? "es" : ""}` : "";
       return [
         {
           id: d.id,
-          text: `${d.name}: up to ${peak} FTE planned against ${fte}, ${prettyDay(over[0].from)} – ${prettyDay(over[0].to)}${more}`,
+          text: `${d.name}: ${worst.fte} FTE planned against ${worst.capacity}, ${prettyDay(worst.from)} – ${prettyDay(worst.to)}${more}`,
         },
       ];
     });

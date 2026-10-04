@@ -32,7 +32,7 @@ const BOX_KEYS = [
   "links",
 ];
 const DEPT_KEYS = ["id", "code", "name", "color", "order", "collapsed", "lanes"];
-const LANE_KEYS = ["id", "name", "fte"];
+const LANE_KEYS = ["id", "name", "fte", "start", "end"];
 const PERSON_KEYS = ["id", "name", "department", "role", "email", "manager", "notes", "pto"];
 
 /** A key that is absent from the file means this value. */
@@ -162,7 +162,14 @@ export function serializeChanges(baseFiles: RoadmapFiles, base: DraftState, draf
 }
 
 function deptToPlain(d: Department): Plain {
-  return { ...d, lanes: d.lanes.map((l) => ({ ...l })) };
+  return {
+    ...d,
+    lanes: d.lanes.map((l) => ({
+      ...l,
+      start: l.start === undefined ? undefined : formatDay(l.start),
+      end: l.end === undefined ? undefined : formatDay(l.end),
+    })),
+  };
 }
 
 /** The full file set after applying changes; used to validate before committing. */

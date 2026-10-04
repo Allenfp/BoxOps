@@ -11,7 +11,8 @@ essentials are below.
 ## How the roadmap works
 
 - **Departments** (`roadmap/departments/<id>.yaml`) contain **lanes**. A lane is
-  anonymous capacity of 1 or 0.5 FTE, not a person.
+  anonymous capacity of 1 or 0.5 FTE, not a person. A lane can have `start`
+  and `end` dates when it only exists for a while (a new hire, a contractor).
 - **Boxes** (`roadmap/boxes/<id>.yaml`) are pieces of planned work. Each sits in
   a lane, runs from `start` to `end` (inclusive weekdays), needs 0.5–2 FTE, and
   can name the **engineers** working on it.
@@ -107,6 +108,7 @@ always the full code with its prefix, like `DE-K7P`; quotes are curly “ ”):
 | Departments reordered | `Reordered departments` |
 | Lane added, removed, resized, reordered | `Added lane <label> (<fte> FTE) to <Department>`, `Removed lane <label> from <Department>`, `Lane <label> in <Department> is now 0.5 FTE (was 1)`, `Reordered the lanes in <Department>` |
 | Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
+| Lane dates changed | `Lane <label> in <Department> now runs until Mar 31, 2027 (was always open)`; the dates read `from <day>`, `until <day>` or `<day> – <day>`; cleared: `… is now always open (was …)`. A new dated lane: `Added lane <label> (1 FTE, from <day>) to <Department>` |
 | Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` (a PTO-only change has just its PTO lines) |
 | PTO added, changed, removed | `PTO for <name>: <range> (<note>)` (no `(<note>)` without one), `PTO for <name>: <range> (was <old range>)`, `Removed PTO for <name>: <range>`; a single day is just that day |
 
@@ -239,6 +241,12 @@ PTO shows in the engineer's department on the timeline and table. It doesn't
 reduce capacity, but an engineer on a box during PTO is a warning: tell the
 user about any boxes it overlaps. Delete the `pto:` key when removing the last
 entry.
+
+**A lane that comes or goes.** For a new hire, give a new lane `start:` (their
+first day); for a contractor or someone leaving, give their lane `end:` (the
+last day). Weekdays only; keys go after `fte`. Then check `npm run report`:
+boxes in the lane outside its dates count against the rest of the department
+and may push it over capacity, so tell the user.
 
 **Remove an engineer.** Delete their entry *and* remove their id from every
 box's `engineers` list (`grep -rl "<id>" roadmap/boxes`). Delete an emptied

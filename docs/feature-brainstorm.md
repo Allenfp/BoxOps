@@ -5,7 +5,7 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Time off (PTO) | In progress | PTO blocks on the timeline and table, stored per engineer in `people.yaml`; the People tab lists it read-only. Doesn't reduce capacity yet. |
+| 1 | Time off (PTO) | Built, not deployed | PTO blocks on the timeline and table, stored per engineer in `people.yaml`; the People tab lists it read-only; a warning when someone is on a box during PTO. Doesn't reduce capacity yet. |
 | 2 | Engineer load view | Idea | |
 | 3 | Unstaffed demand | Idea | |
 | 4 | Rules that cascade | Idea | |
@@ -17,7 +17,7 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 | 10 | Export | Idea | |
 | 11 | Change digest | Idea | |
 | 12 | Jira sync | Idea | |
-| 13 | Lane start and end dates | In progress | Added after the brainstorm. |
+| 13 | Lane start and end dates | Built, not deployed | Optional `start` and `end` on a lane, set in the department editor. Capacity, over-capacity warnings and the timeline follow them. |
 
 ## Planning and capacity
 

@@ -4,6 +4,8 @@ import { CollapseAll } from "./CollapseAll";
 import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
 import { BOX_FTE_OPTIONS, type Box, type Roadmap, type TimeOff } from "../model/types";
 import { type PtoRef, ptoEntries, ptoKey } from "../model/pto";
+import { capacityOn, hasDates, laneDates } from "../model/lanes";
+import { today } from "../model/dates";
 import { EngineerPicker } from "./EngineerPicker";
 import { TextCell } from "./TextCell";
 
@@ -262,7 +264,13 @@ export function TableView(props: Props) {
             const ptoRows = ptoByDept.get(dept.id) ?? [];
             const members = people.filter((p) => p.department === dept.id).sort((a, b) => a.name.localeCompare(b.name));
             if (searching && group.rows.length === 0 && ptoRows.length === 0) return null;
-            const fte = dept.lanes.reduce((sum, l) => sum + l.fte, 0);
+            // Capacity today; dated lanes (listed in the tooltip) make it change over time.
+            const fte = capacityOn(dept, today());
+            const dated = dept.lanes.filter(hasDates);
+            const datedText = dept.lanes
+              .map((l, i) => (hasDates(l) ? `${l.name ?? `FTE ${i + 1}`}: ${laneDates(l)}` : ""))
+              .filter(Boolean)
+              .join("\n");
             const total = boxes.filter((b) => lanes.get(b.lane)?.deptId === dept.id).length;
             return (
               <tbody key={dept.id} className="dept-group" style={{ "--dept": dept.color } as CSSProperties}>
@@ -277,8 +285,9 @@ export function TableView(props: Props) {
                       >
                         <span className={`chevron${isCollapsed ? "" : " open"}`}>▸</span>
                         <span className="dept-name">{dept.name}</span>
-                        <span className="dept-meta">
+                        <span className="dept-meta" title={dated.length ? `FTE today. Dated lanes:\n${datedText}` : undefined}>
                           {searching ? `${group.rows.length} of ${total}` : total} box{total === 1 ? "" : "es"} · {fte} FTE
+                          {dated.length > 0 && ` today · ${dated.length} dated lane${dated.length === 1 ? "" : "s"}`}
                         </span>
                       </button>
                       {!readOnly && props.onEditDepartment && (
@@ -358,6 +367,7 @@ export function TableView(props: Props) {
                           {d.lanes.map((l, i) => (
                             <option key={l.id} value={l.id}>
                               {d.name} / {l.name ?? `FTE ${i + 1}`}
+                              {hasDates(l) ? ` (${laneDates(l)})` : ""}
                             </option>
                           ))}
                         </optgroup>

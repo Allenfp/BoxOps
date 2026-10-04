@@ -4,7 +4,7 @@
 
 import { type Day, dayOfWorkIndex, prettyDay, workIndex } from "./dates";
 import { findViolations } from "./relations";
-import type { Box, Roadmap } from "./types";
+import type { Box, Lane, Roadmap } from "./types";
 
 export interface Stretch {
   from: Day;
@@ -48,8 +48,56 @@ export function levelStretches(items: { start: Day; end: Day; fte: number }[], w
 export const overStretches = (items: { start: Day; end: Day; fte: number }[], limit: number) =>
   levelStretches(items, (fte) => fte > limit);
 
+export interface CapacityStretch extends Stretch {
+  /** FTE of the lanes open on every working day of the stretch. */
+  capacity: number;
+}
+
+/**
+ * Working-day stretches where the boxes' FTE (`load`) and the open lanes' FTE
+ * (`capacity`, which changes as dated lanes open and close) satisfy `when`;
+ * split wherever either changes.
+ */
+export function capacityStretches(
+  boxes: { start: Day; end: Day; fte: number }[],
+  lanes: Lane[],
+  when: (load: number, capacity: number) => boolean,
+): CapacityStretch[] {
+  const load = new Map<number, number>();
+  const cap = new Map<number, number>();
+  const add = (m: Map<number, number>, at: number, n: number) => m.set(at, (m.get(at) ?? 0) + n);
+  for (const b of boxes) {
+    const s = workIndex(b.start);
+    const e = workIndex(b.end + 1);
+    if (e <= s) continue;
+    add(load, s, b.fte);
+    add(load, e, -b.fte);
+  }
+  let capacity = 0;
+  for (const l of lanes) {
+    if (l.start === undefined) capacity += l.fte;
+    else add(cap, workIndex(l.start), l.fte);
+    if (l.end !== undefined) add(cap, workIndex(l.end + 1), -l.fte);
+  }
+  const points = [...new Set([...load.keys(), ...cap.keys()])].sort((a, b) => a - b);
+  const out: CapacityStretch[] = [];
+  let fte = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    fte = round(fte + (load.get(points[i]) ?? 0));
+    capacity = round(capacity + (cap.get(points[i]) ?? 0));
+    if (fte === 0 || !when(fte, capacity)) continue;
+    const last = out[out.length - 1];
+    if (last && last.fte === fte && last.capacity === capacity && workIndex(last.to) + 1 === points[i]) {
+      last.to = dayOfWorkIndex(points[i + 1] - 1);
+    } else {
+      out.push({ from: dayOfWorkIndex(points[i]), to: dayOfWorkIndex(points[i + 1] - 1), fte, capacity });
+    }
+  }
+  return out;
+}
+
 export interface Report {
-  departments: { id: string; name: string; fte: number; boxes: number; over: Stretch[]; full: Stretch[] }[];
+  departments: { id: string; name: string; fte: number; boxes: number; over: CapacityStretch[]; full: CapacityStretch[] }[];
   /** Every engineer's bookings, and where they're over 1 FTE (a box's FTE is split evenly across its engineers). */
   people: { id: string; name: string; department?: string; bookings: { box: Box; fte: number }[]; over: Stretch[] }[];
   unassigned: Box[];
@@ -68,8 +116,8 @@ export function buildReport(roadmap: Roadmap): Report {
         name: d.name,
         fte,
         boxes: boxes.length,
-        over: overStretches(boxes, fte),
-        full: levelStretches(boxes, (load) => load === fte),
+        over: capacityStretches(boxes, d.lanes, (load, cap) => load > cap),
+        full: capacityStretches(boxes, d.lanes, (load, cap) => load === cap),
       };
     }),
     people: roadmap.people.map((p) => {
@@ -92,7 +140,7 @@ export function formatReport(r: Report): string {
   for (const d of r.departments) {
     lines.push(`  ${d.name} (${d.id}): ${d.fte} FTE of lanes, ${d.boxes} boxes`);
     if (d.over.length === 0) lines.push("    within capacity");
-    for (const s of d.over) lines.push(`    OVER CAPACITY ${range(s)}: ${s.fte} FTE planned of ${d.fte}`);
+    for (const s of d.over) lines.push(`    OVER CAPACITY ${range(s)}: ${s.fte} FTE planned of ${s.capacity}`);
     for (const s of d.full) lines.push(`    full (no spare FTE) ${range(s)}`);
   }
   const overloaded = r.people.filter((p) => p.over.length);

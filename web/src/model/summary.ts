@@ -2,6 +2,7 @@
 
 import { flagName } from "./status";
 import { ptoChanges, ptoRange } from "./pto";
+import { laneDates } from "./lanes";
 import { prettyDay } from "./dates";
 import { diffDraft, type DraftState, normalize } from "./draft";
 import { RELATION_TYPES, fullCode } from "./relations";
@@ -124,13 +125,18 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
     for (const l of d.lanes) {
       const old = was.lanes.find((x) => x.id === l.id);
       if (!old) {
-        lines.push({ kind: "added", text: `Added lane **${laneLabel(d, l.id)}** (${l.fte} FTE) to ${d.name}` });
+        lines.push({ kind: "added", text: `Added lane **${laneLabel(d, l.id)}** (${l.fte} FTE${laneDates(l) ? `, ${laneDates(l)}` : ""}) to ${d.name}` });
         continue;
       }
       const oldName = laneLabel(was, l.id);
       const newName = laneLabel(d, l.id);
       if (old.name !== l.name && oldName !== newName) {
         lines.push({ kind: "changed", text: `Renamed lane **${oldName}** to **${newName}** in ${d.name}` });
+      }
+      if (old.start !== l.start || old.end !== l.end) {
+        const span = (x: typeof l) => laneDates(x) || "always open";
+        const now = laneDates(l) ? `now runs ${laneDates(l)}` : "is now always open";
+        lines.push({ kind: "changed", text: `Lane **${newName}** in ${d.name} ${now} (was ${span(old)})` });
       }
       if (old.fte !== l.fte) lines.push({ kind: "changed", text: `Lane **${newName}** in ${d.name} is now ${l.fte} FTE (was ${old.fte})` });
     }

@@ -112,3 +112,31 @@ test("deleting a department moves its boxes, and undo restores everything", asyn
   expect(github.file("people.yaml")).toMatch(/ {2}- id: taylor-brooks\n {4}name: Taylor Brooks\n$/); // kept, no department
   expect(github.headCommit().message).toContain("Deleted department ML Platform");
 });
+
+test("a lane can close on a date: hatched out after it, and capacity follows", async ({ page, github }) => {
+  await page.getByRole("button", { name: "Edit Data Engineering" }).click();
+  await expect(editor(page).getByText("Always open")).toHaveCount(4);
+  await editor(page).getByRole("button", { name: "Set when lane 4 closes" }).click();
+  await editor(page).getByLabel("Lane 4 closes").fill("2026-10-18"); // a Sunday: becomes Friday the 16th
+  await expect(editor(page).getByLabel("Lane 4 closes")).toHaveValue("2026-10-16");
+  await editor(page).getByRole("button", { name: "Done" }).click();
+
+  const de = page.locator(".dept-label", { hasText: "Data Engineering" });
+  await expect(de.locator(".dept-meta")).toHaveAttribute("title", /^3.5 FTE today/); // still open on Oct 3
+  await expect(page.locator(".lane-label", { hasText: "Contractor" }).locator(".lane-dates")).toHaveText("until Oct 16");
+  await expect(page.locator('[data-dept-track="data-eng"] .lane-closed')).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Table" }).click();
+  await expect(page.locator(".dept-group").first().locator(".dept-meta").first()).toContainText("3.5 FTE today · 1 dated lane");
+  await expect(page.locator('select[aria-label="Lane"] option', { hasText: "Contractor (until Oct 16, 2026)" }).first()).toBeAttached();
+
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file("departments/data-eng.yaml")).toContain("    name: Contractor\n    fte: 0.5\n    end: 2026-10-16\n");
+  expect(github.headCommit().message.split("\n")[0]).toBe("Lane Contractor in Data Engineering now runs until Oct 16, 2026");
+
+  // Clearing the date opens it up again.
+  await page.getByRole("button", { name: "Edit Data Engineering" }).click();
+  await editor(page).getByRole("button", { name: "Clear lane 4 closing date" }).click();
+  await expect(editor(page).getByText("Always open")).toHaveCount(4);
+});

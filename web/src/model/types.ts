@@ -28,6 +28,10 @@ export interface Lane {
   id: string;
   name?: string;
   fte: number;
+  /** First day the lane holds capacity (inclusive); open since forever when not set. */
+  start?: Day;
+  /** Last day the lane holds capacity (inclusive); open-ended when not set. */
+  end?: Day;
 }
 
 export interface Department {

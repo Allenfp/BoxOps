@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { DEPT_CODE } from "../model/load";
 import { deriveDeptCode } from "../model/relations";
 import { DEPARTMENT_COLORS } from "../model/structure";
+import { formatDay, nextWorkday, parseDay, prevWorkday } from "../model/dates";
 import type { Box, Department, Lane, Person } from "../model/types";
 
 export type DepartmentEditorTarget = { kind: "new" } | { kind: "edit"; id: string };
@@ -66,6 +67,8 @@ export function DepartmentEditor(props: Props) {
   const [created, setCreated] = useState<string | null>(null);
   // New department form.
   const used = new Set(departments.map((d) => d.color));
+  /** Lane date fields opened with "+ From" / "+ Until" but not filled in yet. */
+  const [shownDates, setShownDates] = useState<Set<string>>(new Set());
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(() => DEPARTMENT_COLORS.find((c) => !used.has(c)) ?? DEPARTMENT_COLORS[0]);
   /** Typed by the user; until then, suggested from the name. */
@@ -226,7 +229,8 @@ export function DepartmentEditor(props: Props) {
 
       <div className="field">
         <span className="field-label">
-          Lanes <span className="hint">{fte} FTE in total. Unnamed lanes show as FTE 1, FTE 2…</span>
+          Lanes <span className="hint">{fte} FTE in total. Unnamed lanes show as FTE 1, FTE 2…
+          Give a lane dates if it only exists for a while (a new hire, a contractor).</span>
         </span>
         <ul className="lane-list">
           {dept.lanes.map((lane, i) => {
@@ -268,6 +272,57 @@ export function DepartmentEditor(props: Props) {
                   >
                     ×
                   </button>
+                </div>
+                <div className="lane-dates-row">
+                  {(["start", "end"] as const).map((field) => {
+                    const label = field === "start" ? "From" : "Until";
+                    const what = field === "start" ? "opens" : "closes";
+                    // Undated: a button, so an empty date field never looks like a real date.
+                    if (lane[field] === undefined && !shownDates.has(`${lane.id}:${field}`)) {
+                      return (
+                        <button
+                          key={field}
+                          className="link-button"
+                          aria-label={`Set when lane ${i + 1} ${what}`}
+                          onClick={() => setShownDates((cur) => new Set([...cur, `${lane.id}:${field}`]))}
+                        >
+                          + {label}
+                        </button>
+                      );
+                    }
+                    return (
+                      <label key={field}>
+                        {label}
+                        <input
+                          type="date"
+                          autoFocus={lane[field] === undefined}
+                          value={lane[field] === undefined ? "" : formatDay(lane[field])}
+                          aria-label={`Lane ${i + 1} ${what}`}
+                          onChange={(e) => {
+                            const picked = parseDay(e.target.value);
+                            // Weekends don't exist: opening moves to Monday, closing to Friday.
+                            const day = picked === null ? undefined : field === "start" ? nextWorkday(picked) : prevWorkday(picked);
+                            const patch: Partial<Lane> = { [field]: day };
+                            // Keep start ≤ end: moving one past the other takes it along.
+                            if (day !== undefined && field === "start" && lane.end !== undefined && day > lane.end) patch.end = day;
+                            if (day !== undefined && field === "end" && lane.start !== undefined && day < lane.start) patch.start = day;
+                            props.onUpdateLane(lane.id, patch, `${lane.id}:${field}`);
+                          }}
+                        />
+                        <button
+                          className="icon-button"
+                          aria-label={`Clear lane ${i + 1} ${field === "start" ? "opening" : "closing"} date`}
+                          onClick={() => {
+                            setShownDates((cur) => new Set([...cur].filter((k) => k !== `${lane.id}:${field}`)));
+                            props.onUpdateLane(lane.id, { [field]: undefined });
+                          }}
+                        >
+                          ×
+                        </button>
+                      </label>
+                    );
+                  })}
+                  {lane.start === undefined && lane.end === undefined && <span className="hint">Always open</span>}
                 </div>
                 {isRemoving && (
                   <div className="callout warn remove-callout">

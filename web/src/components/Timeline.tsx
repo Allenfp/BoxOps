@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { flagName, PROGRESS_NAME, progress } from "../model/status";
+import { capacityOn, hasDates, laneDates, laneDatesShort } from "../model/lanes";
 import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import { CollapseAll } from "./CollapseAll";
 import {
@@ -452,6 +453,7 @@ export function Timeline(props: Props) {
                 <div className="row dept-row" style={{ height: DEPT_H }}>
                   <DeptLabel
                     dept={dept}
+                    now={now}
                     over={over}
                     peakFte={layout.peakFte}
                     collapsed={isCollapsed}
@@ -479,6 +481,11 @@ export function Timeline(props: Props) {
                               named={lane.name !== undefined}
                               onRename={(name) => props.onRenameLane(lane.id, name)}
                             />
+                            {hasDates(lane) && (
+                              <span className="pill lane-dates" title={`This lane holds capacity ${laneDates(lane)}`}>
+                                {laneDatesShort(lane)}
+                              </span>
+                            )}
                             {lane.fte !== 1 && <span className="pill">{lane.fte} FTE</span>}
                           </div>
                         );
@@ -518,6 +525,26 @@ export function Timeline(props: Props) {
                             data-lane={lane.id}
                             style={{ top: l.slot * SLOT_H, height: l.slots * SLOT_H }}
                           />
+                        );
+                      })}
+                      {dept.lanes.map((lane) => {
+                        // Before a lane opens and after it closes, it's hatched out: no capacity there.
+                        const l = layout.lanes.get(lane.id)!;
+                        const y = { top: l.slot * SLOT_H, height: l.slots * SLOT_H };
+                        const title = `Closed: this lane holds capacity ${laneDates(lane)}`;
+                        return (
+                          <span key={`closed-${lane.id}`}>
+                            {lane.start !== undefined && lane.start > scale.start && (
+                              <div className="lane-closed" title={title} style={{ ...y, left: 0, width: scale.x(lane.start) }} />
+                            )}
+                            {lane.end !== undefined && lane.end < scale.end && (
+                              <div
+                                className="lane-closed"
+                                title={title}
+                                style={{ ...y, left: scale.x(lane.end + 1), width: scale.width - scale.x(lane.end + 1) }}
+                              />
+                            )}
+                          </span>
                         );
                       })}
                       {extra && (
@@ -717,6 +744,7 @@ function LaneName({
 
 function DeptLabel({
   dept,
+  now,
   over,
   peakFte,
   collapsed,
@@ -724,13 +752,16 @@ function DeptLabel({
   onEdit,
 }: {
   dept: Department;
+  now: Day;
   over: boolean;
   peakFte: number;
   collapsed: boolean;
   onToggle(): void;
   onEdit?(): void;
 }) {
-  const fte = dept.lanes.reduce((sum, l) => sum + l.fte, 0);
+  // Capacity today; dated lanes make it change over time.
+  const fte = capacityOn(dept, now);
+  const dated = dept.lanes.some(hasDates);
   return (
     <div className="label dept-label" style={{ width: LABEL_W }}>
       <button
@@ -741,7 +772,7 @@ function DeptLabel({
       >
         <span className={`chevron${collapsed ? "" : " open"}`}>▸</span>
         <span className="dept-name">{dept.name}</span>
-        <span className="dept-meta">
+        <span className="dept-meta" title={dated ? `${fte} FTE today; some lanes open or close on set dates` : undefined}>
           {fte} FTE{over && <span className="warn-text"> · {peakFte} planned</span>}
         </span>
       </button>
