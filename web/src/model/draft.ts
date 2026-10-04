@@ -5,12 +5,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { newBoxCode } from "./relations";
 import * as structure from "./structure";
-import type { Box, Department, Lane, Person } from "./types";
+import type { Box, Department, Lane, Person, Settings } from "./types";
 
 export interface DraftState {
   boxes: Box[];
   departments: Department[];
   people: Person[];
+  /** Team settings (settings.yaml): box types, flags, fiscal year, default zoom. */
+  settings: Settings;
 }
 
 interface History {
@@ -35,6 +37,8 @@ export interface Changes {
   removedDepartments: Department[];
   /** Engineers added, renamed or removed. */
   people: { added: Person[]; changed: Person[]; removed: Person[] };
+  /** Team settings changed (one item, however many fields). */
+  settings: boolean;
   count: number;
 }
 
@@ -69,12 +73,14 @@ export function diffDraft(base: DraftState, current: DraftState): Changes {
     removed: base.people.filter((p) => !currentPeople.has(p.id)),
   };
   const peopleCount = people.added.length + people.changed.length + people.removed.length;
+  const settings = !same(base.settings, current.settings);
   return {
     ...boxes,
     departments,
     removedDepartments,
     people,
-    count: boxes.count + departments.length + removedDepartments.length + peopleCount,
+    settings,
+    count: boxes.count + departments.length + removedDepartments.length + peopleCount + (settings ? 1 : 0),
   };
 }
 
@@ -130,20 +136,29 @@ function mergeById<T extends { id: string }>(
  */
 export function rebaseDraft(oldBase: DraftState, draft: DraftState, newBase: DraftState) {
   const conflicts: string[] = [];
+  // Settings are one item: ours if we changed them, else theirs.
+  const oursSettings = !same(oldBase.settings, draft.settings);
+  const theirsSettings = !same(oldBase.settings, newBase.settings);
+  if (oursSettings && theirsSettings && !same(draft.settings, newBase.settings)) conflicts.push(SETTINGS_KEY);
   return {
     draft: {
       boxes: mergeById(oldBase.boxes, draft.boxes, newBase.boxes, "box", conflicts),
       departments: mergeById(oldBase.departments, draft.departments, newBase.departments, "dept", conflicts),
       people: mergeById(oldBase.people, draft.people, newBase.people, "person", conflicts),
+      settings: oursSettings ? draft.settings : newBase.settings,
     },
     conflicts,
   };
 }
 
+/** The conflict key for team settings. */
+export const SETTINGS_KEY = "settings:settings";
+
 const entityOf = (state: DraftState, key: string) => {
   const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   if (kind === "box") return state.boxes.find((b) => b.id === id);
   if (kind === "person") return state.people.find((p) => p.id === id);
+  if (kind === "settings") return state.settings;
   return state.departments.find((d) => d.id === id);
 };
 
@@ -159,6 +174,7 @@ export function revertItems(draft: DraftState, base: DraftState, keys: string[])
     boxes: revert(draft.boxes, base.boxes, "box"),
     departments: revert(draft.departments, base.departments, "dept"),
     people: revert(draft.people, base.people, "person"),
+    settings: keys.includes(SETTINGS_KEY) ? base.settings : draft.settings,
   };
 }
 
@@ -201,6 +217,7 @@ interface Stored {
   boxes: Box[];
   departments?: Department[];
   people?: Person[];
+  settings?: Settings;
 }
 
 /** The saved draft, carried onto `base` if someone saved since it was written. */
@@ -215,6 +232,7 @@ function readStored(scope: string, baseHash: string, base: DraftState): { draft:
       boxes: saved.boxes.map((b) => ({ ...b, fte: b.fte ?? 1 })),
       departments: saved.departments ?? base.departments,
       people: saved.people ?? base.people,
+      settings: saved.settings ?? base.settings,
     };
     if (saved.baseHash === baseHash) return { draft, conflicts: [] };
     if (!saved.base) return null;
@@ -222,6 +240,7 @@ function readStored(scope: string, baseHash: string, base: DraftState): { draft:
       boxes: saved.base.boxes.map((b) => ({ ...b, fte: b.fte ?? 1 })),
       departments: saved.base.departments,
       people: saved.base.people ?? [],
+      settings: saved.base.settings ?? base.settings,
     };
     return rebaseDraft(oldBase, draft, base);
   } catch {
@@ -477,10 +496,18 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
   /** Ends typing coalescing, e.g. when the editor closes. */
   const checkpoint = useCallback(() => setHistory((h) => (h.lastKey ? { ...h, lastKey: undefined } : h)), []);
 
+  /** Change team settings; `key` groups keystrokes in one field into a single undo step. */
+  const updateSettings = useCallback(
+    (patch: Partial<Settings>, key?: string) => apply((d) => ({ ...d, settings: { ...d.settings, ...patch } }), key),
+    [apply],
+  );
+
   return {
     boxes: present.boxes,
     departments: present.departments,
     people: present.people,
+    settings: present.settings,
+    updateSettings,
     changes,
     conflicts,
     canUndo: history.past.length > 0,

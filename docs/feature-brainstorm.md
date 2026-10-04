@@ -21,6 +21,7 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 | 14 | Box scale | Done (2026-10-03) | FTE × working days, shown right of the initials on each box, in the editor and tooltip, and as a sortable table column. Not stored. The underlined number shows a short hover card: the sum in Eng Days, weeks/months/quarters (FTE per Month = ~20), and the share of the department it takes while it runs. |
 | 15 | Jira key as the box label | Done (2026-10-03) | A box whose epic link is a Jira issue shows that key (DATA-123) on the timeline and table instead of its BoxOps code. The code stays in the editor and tooltip, and rules still use it. Table search matches either. |
 | 16 | Polish pass | Done (2026-10-04) | Line icons instead of Unicode symbols; a calm grey segmented control; department colour only as the stripe; no on-screen instructions (tips moved to the Key); two-line department labels; over capacity as a warning edge on the boxes; a thin Today line; dates as YYYY-MM-DD text everywhere; right-aligned number columns; one style for add buttons; the box editor in sections, with empty optional fields hidden and the footer pinned. |
+| 17 | Settings menu | Done (2026-10-04) | A gear menu with personal preferences kept in the browser (theme incl. system, density, what boxes show, opening zoom and view, PTO rows, hide finished), the key, keyboard shortcuts, token and discard, and **Team settings** that edit settings.yaml through the normal save. |
 
 ## Planning and capacity
 
@@ -79,3 +80,5 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
     issue, the box is labelled with the issue key instead of its BoxOps code.
 16. **Polish pass.** A round of visual clean-up so the app reads as one
     designed product (details in the table).
+17. **Settings menu.** Personal display preferences in the browser, plus team
+    settings saved to `settings.yaml`.

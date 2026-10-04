@@ -6,11 +6,12 @@ import { readRoadmapDir } from "./files";
 import { loadRoadmap } from "./load";
 import { applyChanges, serializeChanges } from "./serialize";
 import { describeChanges } from "./summary";
+import { DEFAULT_SETTINGS } from "./load";
 
 // The fixed sample roadmap the browser tests use, minus its roster (tests below add their own).
 const { "people.yaml": _roster, ...files } = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
 const { roadmap } = loadRoadmap(files);
-const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people };
+const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people, settings: roadmap.settings };
 
 const editBox = (id: string, patch: object): DraftState => ({
   ...base,
@@ -57,8 +58,8 @@ describe("serializeChanges", () => {
   it("renames a lane without touching the rest of the department file", () => {
     const original = "# Data team lanes\nid: eng\ncode: EN\nname: Eng\nlanes:\n  - id: e1 # first hire\n    fte: 1\n  - id: e2\n    fte: 0.5\n";
     const dept = { id: "eng", code: "EN", name: "Eng", color: "#8a94a6", order: 0, collapsed: false, lanes: [{ id: "e1", fte: 1 }, { id: "e2", fte: 0.5 }] };
-    const b: DraftState = { boxes: [], departments: [dept], people: [] };
-    const d: DraftState = { boxes: [], departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: "Platform" }, dept.lanes[1]] }], people: [] };
+    const b: DraftState = { boxes: [], departments: [dept], people: [], settings: DEFAULT_SETTINGS };
+    const d: DraftState = { boxes: [], departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: "Platform" }, dept.lanes[1]] }], people: [], settings: DEFAULT_SETTINGS };
     const out = serializeChanges({ "departments/eng.yaml": original }, b, d);
     expect(out["departments/eng.yaml"]).toBe(
       "# Data team lanes\nid: eng\ncode: EN\nname: Eng\nlanes:\n  - id: e1 # first hire\n    name: Platform\n    fte: 1\n  - id: e2\n    fte: 0.5\n",
@@ -74,7 +75,7 @@ describe("describeChanges", () => {
       lane: "de-4",
       status: undefined,
     });
-    const [line] = describeChanges(base, draft, roadmap.settings);
+    const [line] = describeChanges(base, draft);
     expect(line.text).toBe(
       "**Dagster 2.x upgrade** (DE-D9U): moved from Data Engineering / FTE 2 to Data Engineering / Contractor; " +
         "rescheduled to 2026-09-24 – 2026-11-02 (was 2026-09-14 – 2026-10-23); status At risk → On track",
@@ -126,7 +127,7 @@ describe("fte, engineers and the roster", () => {
 
   it("writes fte only when it isn't 1, and engineers as a list", () => {
     const { roadmap: r } = loadRoadmap(withPeople);
-    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people };
+    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people, settings: r.settings };
     const d: DraftState = {
       ...b,
       boxes: b.boxes.map((x) => (x.id === "bx-c93d-dagster-upgrade" ? { ...x, fte: 1.5, engineers: ["sam-lee"] } : x)),
@@ -139,7 +140,7 @@ describe("fte, engineers and the roster", () => {
 
   it("clearing a flag removes the status line; setting one adds it", () => {
     const { roadmap: r } = loadRoadmap(withPeople);
-    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people };
+    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people, settings: r.settings };
     const set = (id: string, status: string | undefined) => ({ ...b, boxes: b.boxes.map((x) => (x.id === id ? { ...x, status } : x)) });
     const cleared = serializeChanges(withPeople, b, set("bx-c93d-dagster-upgrade", undefined))["boxes/bx-c93d-dagster-upgrade.yaml"];
     expect(cleared).not.toContain("status");
@@ -149,17 +150,17 @@ describe("fte, engineers and the roster", () => {
 
   it("adds engineers to people.yaml, keeping the existing entries as written", () => {
     const { roadmap: r } = loadRoadmap(withPeople);
-    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people };
+    const b: DraftState = { boxes: r.boxes, departments: r.departments, people: r.people, settings: r.settings };
     const d: DraftState = { ...b, people: [...b.people, { id: "priya-shah", name: "Priya Shah", department: "analytics" }] };
     expect(serializeChanges(withPeople, b, d)["people.yaml"]).toBe(
       people + "  - id: priya-shah\n    name: Priya Shah\n    department: analytics\n",
     );
     // A roadmap without a roster gets a new file.
-    const none = { boxes: r.boxes, departments: r.departments, people: [] };
+    const none = { boxes: r.boxes, departments: r.departments, people: [], settings: DEFAULT_SETTINGS };
     expect(serializeChanges(files, none, { ...none, people: [{ id: "a", name: "A" }] })["people.yaml"]).toBe(
       "people:\n  - id: a\n    name: A\n",
     );
-    expect(describeChanges(b, d, r.settings)[0].text).toBe("Added engineer **Priya Shah**");
+    expect(describeChanges(b, d)[0].text).toBe("Added engineer **Priya Shah**");
   });
 });
 
@@ -176,5 +177,53 @@ describe("weekday dates", () => {
       "end: Sunday — roadmap dates must be weekdays",
     ]);
     expect(r.boxes.some((b) => b.id === "bx-c93d-dagster-upgrade")).toBe(true);
+  });
+});
+
+describe("team settings", () => {
+  const settingsFile = `# Global roadmap settings.
+title: BoxOps
+fiscal_year_start_month: 1   # calendar quarters
+default_zoom: months
+types:
+  - id: project
+    name: Project
+    color: "#4f7cff"
+  - id: maintenance
+    name: Maintenance
+    color: "#8a94a6"
+statuses:
+  - id: at_risk
+    name: At risk
+`;
+  const files = { "settings.yaml": settingsFile };
+  const r = loadRoadmap(files).roadmap;
+  const b: DraftState = { boxes: [], departments: [], people: [], settings: r.settings };
+
+  it("edits settings.yaml in place, keeping comments, and describes it in one line", () => {
+    const d: DraftState = {
+      ...b,
+      settings: {
+        ...r.settings,
+        fiscal_year_start_month: 2,
+        types: [...r.settings.types.map((t) => (t.id === "project" ? { ...t, name: "Feature" } : t)), { id: "ops", name: "Ops", color: "#8a94a6" }],
+        statuses: [],
+      },
+    };
+    // Statuses can't be emptied from the app, but an empty list must not crash the writer.
+    d.settings.statuses = r.settings.statuses;
+    const out = serializeChanges(files, b, d)["settings.yaml"]!;
+    expect(out).toContain("# Global roadmap settings.");
+    expect(out).toContain("fiscal_year_start_month: 2 # calendar quarters");
+    expect(out).toContain("  - id: project\n    name: Feature\n");
+    // A new type keeps its colour even when it matches a department default.
+    expect(out).toContain('  - id: ops\n    name: Ops\n    color: "#8a94a6"');
+    expect(describeChanges(b, d).map((l) => l.text)).toEqual([
+      "Team settings: fiscal year starts in February (was January); renamed type Project to Feature; added type Ops",
+    ]);
+  });
+
+  it("is untouched when settings don't change", () => {
+    expect(serializeChanges(files, b, b)).toEqual({});
   });
 });

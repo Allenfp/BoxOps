@@ -34,12 +34,11 @@ import type { Box, Department, Roadmap, TimeOff, ZoomLevel } from "../model/type
 import { type DepartmentLayout, laneAtSlot, layoutDepartment } from "../timeline/layout";
 import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
 import { Icon } from "./Icon";
+import { DEFAULT_PREFS, type Prefs } from "../prefs";
 
 const LABEL_W = 240;
 /** Height of half an FTE; a 1-FTE lane is two of these. */
-const SLOT_H = 22;
 const BOX_PAD = 3;
-const DEPT_H = 34;
 /** Pointer travel (px) before a press on a box becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 4;
 /** Drags move in whole multiples of this many working days. */
@@ -48,6 +47,8 @@ const SNAP_DAYS: Record<ZoomLevel, number> = { weeks: 1, months: 1, quarters: 5 
 export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
 
 interface Props {
+  /** Personal display preferences: density and what a box shows. */
+  display?: Pick<Prefs, "density" | "showCodes" | "showScale" | "showInitials" | "showFlags" | "showPto">;
   roadmap: Roadmap;
   zoom: ZoomLevel;
   collapsed: Set<string>;
@@ -92,6 +93,10 @@ const initials = (name: string) =>
     .join("");
 
 export function Timeline(props: Props) {
+  const display = props.display ?? DEFAULT_PREFS;
+  // Rows are shorter in the compact density; a lane is two half-FTE slots.
+  const SLOT_H = display.density === "compact" ? 18 : 22;
+  const DEPT_H = display.density === "compact" ? 30 : 34;
   const { roadmap, zoom, collapsed, onToggleDepartment, jumpToToday, selectedId, onSelect, onCreateBox, readOnly } =
     props;
   const { settings, departments, boxes, people } = roadmap;
@@ -344,9 +349,12 @@ export function Timeline(props: Props) {
     // Scale (FTE × working days) sits at the far right, after the initials.
     const scale = boxScale(b);
     const scaleW = 6 + String(scale).length * 7;
-    const showScale = variant !== "compact" && width >= 120;
+    const showScale = display.showScale && variant !== "compact" && width >= 120;
     const showPeople =
-      variant !== "compact" && engineers.length > 0 && width >= 160 + 20 * engineers.length + (showScale ? scaleW : 0);
+      display.showInitials &&
+      variant !== "compact" &&
+      engineers.length > 0 &&
+      width >= 160 + 20 * engineers.length + (showScale ? scaleW : 0);
     // Keep their space clear: the sliding (sticky) title stops before them.
     const peopleW =
       showPeople || showScale
@@ -394,8 +402,8 @@ export function Timeline(props: Props) {
                 <Icon name="alert" size={12} />
               </span>
             )}
-            <span className={`box-code${jira ? " jira" : ""}`}>{jira ?? code}</span>
-            {flag && <span className="box-flag">{flag}</span>}
+            {display.showCodes && <span className={`box-code${jira ? " jira" : ""}`}>{jira ?? code}</span>}
+            {flag && display.showFlags && <span className="box-flag">{flag}</span>}
             <span className="box-name">{b.title || "Untitled"}</span>
           </span>
         )}
@@ -607,7 +615,7 @@ export function Timeline(props: Props) {
                     </div>
                   </div>
                 )}
-                {!isCollapsed && people.some((p) => p.department === dept.id) && (() => {
+                {!isCollapsed && display.showPto && people.some((p) => p.department === dept.id) && (() => {
                   const entries = ptoByDept.get(dept.id) ?? [];
                   const { rows, count } = packRows(entries);
                   const height = Math.max(1, count) * SLOT_H;

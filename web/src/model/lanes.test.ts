@@ -14,7 +14,7 @@ import type { Box, Department } from "./types";
 const d = (s: string) => parseDay(s)!;
 const files = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
 const { roadmap } = loadRoadmap(files);
-const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people };
+const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people, settings: roadmap.settings };
 
 // Two lanes; the contractor's lane closes after Oct 30.
 const dept: Department = {
@@ -86,7 +86,7 @@ describe("lane dates", () => {
     expect(loadRoadmap({ ...files, "departments/data-eng.yaml": out }).roadmap.departments.find((x) => x.id === "data-eng")!.lanes[3].end).toBe(
       d("2027-03-31"),
     );
-    expect(describeChanges(base, draft, roadmap.settings).map((l) => l.text)).toEqual([
+    expect(describeChanges(base, draft).map((l) => l.text)).toEqual([
       "Lane **Contractor** in Data Engineering now runs until 2027-03-31 (was always open)",
     ]);
   });

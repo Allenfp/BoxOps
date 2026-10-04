@@ -2,7 +2,7 @@
 // place through the `yaml` Document API, so comments, key order and quoting in
 // the original survive and a PR diff shows only the lines that really changed.
 
-import { Document, isMap, isSeq, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
+import { Document, isMap, isScalar, isSeq, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
 import { formatDay } from "./dates";
 import { diffDraft, type DraftState } from "./draft";
 import { DEFAULT_DEPT_COLOR } from "./load";
@@ -34,6 +34,8 @@ const BOX_KEYS = [
 const DEPT_KEYS = ["id", "code", "name", "color", "order", "collapsed", "lanes"];
 const LANE_KEYS = ["id", "name", "fte", "start", "end"];
 const PERSON_KEYS = ["id", "name", "department", "role", "email", "manager", "notes", "pto"];
+const SETTINGS_KEYS = ["title", "fiscal_year_start_month", "default_zoom", "types", "statuses"];
+const SETTINGS_CHILDREN = { types: ["id", "name", "color"], statuses: ["id", "name"] };
 
 /** A key that is absent from the file means this value. */
 const DEFAULTS: Record<string, unknown> = { fte: 1, collapsed: false, order: 0, color: DEFAULT_DEPT_COLOR };
@@ -61,7 +63,14 @@ function sameValue(a: unknown, b: unknown): boolean {
  * Bring `map` in line with `value` for the keys we own. Keys we don't know
  * about are left alone, so hand-added fields survive app edits.
  */
-function mergeMap(doc: Document, map: YAMLMap, value: Plain, keys: string[], childKeys: Record<string, string[]>) {
+function mergeMap(
+  doc: Document,
+  map: YAMLMap,
+  value: Plain,
+  keys: string[],
+  childKeys: Record<string, string[]>,
+  defaults: Record<string, unknown> = DEFAULTS,
+) {
   for (const key of keys) {
     const v = value[key];
     const node = map.get(key, true);
@@ -69,15 +78,17 @@ function mergeMap(doc: Document, map: YAMLMap, value: Plain, keys: string[], chi
       if (map.has(key)) map.delete(key);
       continue;
     }
-    if (!map.has(key) && sameValue(v, DEFAULTS[key])) continue;
+    if (!map.has(key) && sameValue(v, defaults[key])) continue;
     if (Array.isArray(v) && isSeq(node) && childKeys[key]) {
-      mergeIdSeq(doc, node, v as Plain[], childKeys[key]);
+      mergeIdSeq(doc, node, v as Plain[], childKeys[key], defaults);
       continue;
     }
     const current = node === undefined ? undefined : map.toJSON()[key];
     if (sameValue(current, v)) continue;
     if (map.has(key)) {
-      map.set(key, doc.createNode(v));
+      // A plain value is changed in place, so a comment beside it survives.
+      if (isScalar(node) && (typeof v !== "object" || v === null)) node.value = v;
+      else map.set(key, doc.createNode(v));
       continue;
     }
     // A new field goes after the nearest field that comes before it in the usual order.
@@ -91,25 +102,25 @@ function mergeMap(doc: Document, map: YAMLMap, value: Plain, keys: string[], chi
 }
 
 /** Merge a list of `{id, …}` mappings, keeping each surviving item's node (and comments). */
-function mergeIdSeq(doc: Document, seq: YAMLSeq, items: Plain[], keys: string[]) {
+function mergeIdSeq(doc: Document, seq: YAMLSeq, items: Plain[], keys: string[], defaults: Record<string, unknown>) {
   const byId = new Map<unknown, YAMLMap>();
   for (const node of seq.items) {
     if (isMap(node)) byId.set(node.get("id"), node);
   }
   seq.items = items.map((item) => {
     const existing = byId.get(item.id);
-    if (!existing) return doc.createNode(ordered(item, keys));
-    mergeMap(doc, existing, item, keys, {});
+    if (!existing) return doc.createNode(ordered(item, keys, defaults));
+    mergeMap(doc, existing, item, keys, {}, defaults);
     return existing;
   });
 }
 
 /** `value` with owned keys first in canonical order, empty and default-valued fields dropped. */
-function ordered(value: Plain, keys: string[]): Plain {
+function ordered(value: Plain, keys: string[], defaults: Record<string, unknown> = DEFAULTS): Plain {
   const out: Plain = {};
   for (const k of keys) {
     const v = value[k];
-    if (isEmpty(v) || (k in DEFAULTS && sameValue(v, DEFAULTS[k]))) continue;
+    if (isEmpty(v) || (k in defaults && sameValue(v, defaults[k]))) continue;
     out[k] =
       Array.isArray(v) && k === "lanes"
         ? v.map((l) => ordered(l as Plain, LANE_KEYS))
@@ -120,11 +131,17 @@ function ordered(value: Plain, keys: string[]): Plain {
   return out;
 }
 
-function writeFile(original: string | undefined, value: Plain, keys: string[], childKeys: Record<string, string[]>) {
-  if (original === undefined) return new Document(ordered(value, keys)).toString(TO_STRING);
+function writeFile(
+  original: string | undefined,
+  value: Plain,
+  keys: string[],
+  childKeys: Record<string, string[]>,
+  defaults: Record<string, unknown> = DEFAULTS,
+) {
+  if (original === undefined) return new Document(ordered(value, keys, defaults)).toString(TO_STRING);
   const doc = parseDocument(original);
-  if (!isMap(doc.contents)) return new Document(ordered(value, keys)).toString(TO_STRING);
-  mergeMap(doc, doc.contents, value, keys, childKeys);
+  if (!isMap(doc.contents)) return new Document(ordered(value, keys, defaults)).toString(TO_STRING);
+  mergeMap(doc, doc.contents, value, keys, childKeys, defaults);
   return doc.toString(TO_STRING);
 }
 
@@ -152,6 +169,11 @@ export function serializeChanges(baseFiles: RoadmapFiles, base: DraftState, draf
   if (changes.people.added.length + changes.people.changed.length + changes.people.removed.length) {
     const path = "people.yaml";
     out[path] = writeFile(baseFiles[path], { people: draft.people.map(personToPlain) }, ["people"], { people: PERSON_KEYS });
+  }
+
+  // Team settings: no implied defaults (a type's colour is always written out).
+  if (changes.settings) {
+    out["settings.yaml"] = writeFile(baseFiles["settings.yaml"], { ...draft.settings }, SETTINGS_KEYS, SETTINGS_CHILDREN, {});
   }
 
   // Drop no-op rewrites (e.g. a field changed and changed back).

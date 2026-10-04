@@ -16,6 +16,8 @@ import { DateInput } from "./DateInput";
 
 interface Props {
   roadmap: Roadmap;
+  /** Show PTO rows under each department (a personal preference). */
+  showPto?: boolean;
   readOnly?: boolean;
   conflictIds?: Set<string>;
   updatedIds?: Set<string>;
@@ -184,13 +186,14 @@ export function TableView(props: Props) {
   const ptoByDept = useMemo(() => {
     const q = query.trim().toLowerCase();
     const out = new Map<string, ReturnType<typeof ptoEntries>>();
+    if (props.showPto === false) return out;
     for (const e of ptoEntries(people).sort((a, b) => a.pto.start - b.pto.start)) {
       if (!e.person.department) continue;
       if (q && !`pto ${e.person.name} ${e.pto.note ?? ""}`.toLowerCase().includes(q)) continue;
       out.set(e.person.department, [...(out.get(e.person.department) ?? []), e]);
     }
     return out;
-  }, [people, query]);
+  }, [people, query, props.showPto]);
   const ptoDates = (ref: PtoRef, pto: TimeOff, field: "start" | "end", text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
@@ -584,7 +587,7 @@ export function TableView(props: Props) {
                       </tr>
                     );
                   })}
-                {!isCollapsed && !readOnly && !searching && members.length > 0 && props.onAddPto && (
+                {!isCollapsed && !readOnly && !searching && members.length > 0 && props.onAddPto && props.showPto !== false && (
                   <tr className="add-pto-row">
                     <td colSpan={COLUMNS.length}>
                       <button className="add-button" onClick={() => props.onAddPto!(dept.id)}>

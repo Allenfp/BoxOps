@@ -11,7 +11,7 @@ import type { TimeOff } from "./types";
 
 const files = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
 const { roadmap } = loadRoadmap(files);
-const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people };
+const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people, settings: roadmap.settings };
 const d = (s: string) => parseDay(s)!;
 const withPto = (id: string, pto: TimeOff[]): DraftState => ({
   ...base,
@@ -55,21 +55,21 @@ describe("PTO", () => {
     );
     const saved = { ...files, "people.yaml": text };
     const loaded = loadRoadmap(saved).roadmap;
-    const savedBase = { boxes: loaded.boxes, departments: loaded.departments, people: loaded.people };
+    const savedBase = { boxes: loaded.boxes, departments: loaded.departments, people: loaded.people, settings: loaded.settings };
     const cleared = { ...savedBase, people: savedBase.people.map((p) => (p.id === "sam-lee" ? { ...p, pto: [] } : p)) };
     expect(serializeChanges(saved, savedBase, cleared)["people.yaml"]).toBe(files["people.yaml"]);
   });
 
   it("describes additions, moves and removals", () => {
     const one = withPto("sam-lee", [{ start: d("2026-12-14"), end: d("2026-12-25"), note: "Holiday" }]);
-    expect(describeChanges(base, one, roadmap.settings).map((l) => l.text)).toEqual([
+    expect(describeChanges(base, one).map((l) => l.text)).toEqual([
       "PTO for **Sam Lee**: 2026-12-14 – 2026-12-25 (Holiday)",
     ]);
     const moved = withPto("sam-lee", [{ start: d("2026-12-21"), end: d("2026-12-25"), note: "Holiday" }]);
-    expect(describeChanges(one, moved, roadmap.settings).map((l) => l.text)).toEqual([
+    expect(describeChanges(one, moved).map((l) => l.text)).toEqual([
       "PTO for **Sam Lee**: 2026-12-21 – 2026-12-25 (Holiday) (was 2026-12-14 – 2026-12-25)",
     ]);
-    expect(describeChanges(one, base, roadmap.settings).map((l) => l.text)).toEqual([
+    expect(describeChanges(one, base).map((l) => l.text)).toEqual([
       "Removed PTO for **Sam Lee**: 2026-12-14 – 2026-12-25",
     ]);
   });

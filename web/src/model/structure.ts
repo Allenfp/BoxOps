@@ -128,6 +128,7 @@ export function removeDepartment(state: DraftState, id: string, moveTo?: string)
     throw new Error("This department has boxes: choose a lane in another department to move them to.");
   }
   return {
+    ...state,
     boxes: state.boxes.map((b) => (laneIds.includes(b.lane) ? { ...b, lane: moveTo! } : b)),
     departments: renumber(state.departments.filter((d) => d.id !== id)),
     people: state.people.map((p) => (p.department === id ? { ...p, department: undefined } : p)),

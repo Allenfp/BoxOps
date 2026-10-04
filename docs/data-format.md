@@ -37,6 +37,8 @@ Any other file under `roadmap/` is reported as unexpected.
 
 ## settings.yaml
 
+Edited by hand or in the app (gear menu, **Team settings**). A box type or flag that boxes still use can't be removed in the app; there is always at least one of each.
+
 ```yaml
 title: BoxOps
 fiscal_year_start_month: 1   # 1 = calendar quarters; 2 = FY starts in February, etc.

@@ -23,8 +23,9 @@ function laneLabels(departments: Department[]): Map<string, string> {
 
 const range = (b: Box) => `${prettyDay(b.start)} – ${prettyDay(b.end)}`;
 
-export function describeChanges(base: DraftState, draft: DraftState, settings: Settings): ChangeLine[] {
+export function describeChanges(base: DraftState, draft: DraftState): ChangeLine[] {
   const changes = diffDraft(base, draft);
+  const settings = draft.settings;
   const baseLanes = laneLabels(base.departments);
   const lanes = laneLabels(draft.departments);
   const type = new Map(settings.types.map((t) => [t.id, t.name]));
@@ -152,7 +153,41 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
     lines.push({ kind: "deleted", text: `Deleted department **${d.name}**` });
   }
   if (reordered) lines.push({ kind: "changed", text: "Reordered departments" });
+  if (changes.settings) lines.push({ kind: "changed", text: `Team settings: ${settingsParts(base.settings, draft.settings).join("; ") || "edited"}` });
   return lines;
+}
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const ZOOM_NAME = { weeks: "Weeks", months: "Months", quarters: "Quarters" } as const;
+
+/** What changed in the team settings, as short phrases. */
+function settingsParts(was: Settings, now: Settings): string[] {
+  const parts: string[] = [];
+  if (was.title !== now.title) parts.push(`title now “${now.title}” (was “${was.title}”)`);
+  if (was.fiscal_year_start_month !== now.fiscal_year_start_month) {
+    parts.push(
+      `fiscal year starts in ${MONTH_NAMES[now.fiscal_year_start_month - 1]} (was ${MONTH_NAMES[was.fiscal_year_start_month - 1]})`,
+    );
+  }
+  if (was.default_zoom !== now.default_zoom) parts.push(`default zoom ${ZOOM_NAME[now.default_zoom]} (was ${ZOOM_NAME[was.default_zoom]})`);
+  const list = <T extends { id: string; name: string; color?: string }>(a: T[], b: T[], noun: string) => {
+    const before = new Map(a.map((x) => [x.id, x]));
+    const after = new Map(b.map((x) => [x.id, x]));
+    for (const x of b) {
+      const old = before.get(x.id);
+      if (!old) parts.push(`added ${noun} ${x.name}`);
+      else {
+        if (old.name !== x.name) parts.push(`renamed ${noun} ${old.name} to ${x.name}`);
+        if (old.color !== x.color) parts.push(`changed the colour of ${noun} ${x.name}`);
+      }
+    }
+    for (const x of a) if (!after.has(x.id)) parts.push(`removed ${noun} ${x.name}`);
+    const kept = a.filter((x) => after.has(x.id)).map((x) => x.id);
+    if (kept.join() !== b.filter((x) => before.has(x.id)).map((x) => x.id).join()) parts.push(`reordered ${noun}s`);
+  };
+  list(was.types, now.types, "type");
+  list(was.statuses, now.statuses, "flag");
+  return parts;
 }
 
 /** Cut at a word boundary, marking the cut with an ellipsis. */

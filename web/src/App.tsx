@@ -19,13 +19,16 @@ import {
   saveToBranch,
 } from "./github/save";
 import { getToken, setToken } from "./github/token";
-import { ThemeToggle } from "./theme";
-import { KeyMenu } from "./components/KeyMenu";
+import { KeyContent } from "./components/KeyMenu";
+import { Modal } from "./components/Modal";
+import { SettingsMenu, ShortcutsContent } from "./components/SettingsMenu";
+import { TeamSettings } from "./components/TeamSettings";
+import { getPrefs, usePrefs, type ViewMode } from "./prefs";
 import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
-import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, useDraft } from "./model/draft";
+import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import { loadRoadmap } from "./model/load";
 import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
@@ -62,7 +65,6 @@ interface RemoteUpdate {
   subject?: string;
 }
 
-type ViewMode = "timeline" | "table" | "people";
 const VIEWS: { id: ViewMode; label: string }[] = [
   { id: "timeline", label: "Timeline" },
   { id: "table", label: "Table" },
@@ -70,12 +72,12 @@ const VIEWS: { id: ViewMode; label: string }[] = [
 ];
 
 /** View state lives in the URL so a link reproduces what you see. */
-function readUrlState(): { view: ViewMode; zoom?: ZoomLevel; collapsed?: Set<string> } {
+function readUrlState(): { view?: ViewMode; zoom?: ZoomLevel; collapsed?: Set<string> } {
   const q = new URLSearchParams(window.location.search);
   const zoom = q.get("zoom") as ZoomLevel | null;
   const collapsed = q.get("collapsed");
   return {
-    view: VIEWS.find((v) => v.id === q.get("view"))?.id ?? "timeline",
+    view: VIEWS.find((v) => v.id === q.get("view"))?.id,
     zoom: zoom && ZOOM_LEVELS.includes(zoom) ? zoom : undefined,
     collapsed: collapsed === null ? undefined : new Set(collapsed.split(",").filter(Boolean)),
   };
@@ -213,8 +215,11 @@ function RoadmapView(props: ViewProps) {
   const { roadmap: base, issues, files, source, preview, lastSave, remote } = props;
   const { onDismissSave, onDismissRemote, onSavingChange, onReload, onSaved } = props;
   const initial = useMemo(readUrlState, []);
-  const [view, setView] = useState<ViewMode>(initial.view);
-  const [zoom, setZoom] = useState<ZoomLevel>(initial.zoom ?? base.settings.default_zoom);
+  const prefs = usePrefs();
+  // A link's view and zoom win; then your preference; then the team default.
+  const [view, setView] = useState<ViewMode>(initial.view ?? getPrefs().openOn);
+  const [zoom, setZoom] = useState<ZoomLevel>(initial.zoom ?? getPrefs().zoom ?? base.settings.default_zoom);
+  const [modal, setModal] = useState<"key" | "shortcuts" | "team" | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(
     () => initial.collapsed ?? new Set(base.departments.filter((d) => d.collapsed).map((d) => d.id)),
   );
@@ -243,15 +248,20 @@ function RoadmapView(props: ViewProps) {
 
   const baseHash = useMemo(() => hashText(JSON.stringify(files)), [files]);
   const draftBase = useMemo(
-    () => ({ boxes: base.boxes, departments: base.departments, people: base.people }),
+    () => ({ boxes: base.boxes, departments: base.departments, people: base.people, settings: base.settings }),
     [base],
   );
   const draft = useDraft(draftBase, `${source.repo}@${source.branch}`, baseHash);
   const draftState: DraftState = useMemo(
-    () => ({ boxes: draft.boxes, departments: draft.departments, people: draft.people }),
-    [draft.boxes, draft.departments, draft.people],
+    () => ({ boxes: draft.boxes, departments: draft.departments, people: draft.people, settings: draft.settings }),
+    [draft.boxes, draft.departments, draft.people, draft.settings],
   );
   const roadmap = useMemo(() => ({ ...base, ...draftState }), [base, draftState]);
+  // What the views draw: finished boxes can be hidden (warnings still count them).
+  const shown = useMemo(
+    () => (prefs.hideFinished ? { ...roadmap, boxes: roadmap.boxes.filter((b) => b.end >= today()) } : roadmap),
+    [roadmap, prefs.hideFinished],
+  );
 
   // `session` makes each opening of the editor its own run of undo steps.
   const [selected, setSelected] = useState<{ id: string; session: number } | null>(null);
@@ -316,8 +326,8 @@ function RoadmapView(props: ViewProps) {
   }, [view, zoom, collapsed]);
 
   useEffect(() => {
-    document.title = preview ? `${base.settings.title} (${source.branch})` : base.settings.title;
-  }, [base.settings.title, preview, source.branch]);
+    document.title = preview ? `${draft.settings.title} (${source.branch})` : draft.settings.title;
+  }, [draft.settings.title, preview, source.branch]);
 
   const selectedPtoRef = useRef(selectedPto);
   selectedPtoRef.current = selectedPto;
@@ -374,12 +384,12 @@ function RoadmapView(props: ViewProps) {
         ...p,
         title: "New box",
         fte: 1,
-        type: base.settings.types[0].id,
+        type: draft.settings.types[0].id,
       });
       draft.checkpoint();
       setSelected({ id, session: Date.now() });
     },
-    [draft, base.settings],
+    [draft, draft.settings],
   );
 
   const editBox = (patch: Partial<Box>, field: string) => {
@@ -389,9 +399,15 @@ function RoadmapView(props: ViewProps) {
   };
 
   const { count } = draft.changes;
+  const discardAll = () => {
+    if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
+      setSelected(null);
+      draft.discard();
+    }
+  };
   const lines = useMemo(
-    () => describeChanges(draftBase, draftState, base.settings),
-    [draftBase, draftState, base.settings],
+    () => describeChanges(draftBase, draftState),
+    [draftBase, draftState],
   );
 
   /** Problems these files have that the loaded roadmap didn't (pre-existing ones don't block saving). */
@@ -416,6 +432,7 @@ function RoadmapView(props: ViewProps) {
       const person = draft.people.find((p) => p.id === id) ?? base.people.find((p) => p.id === id);
       return `Engineer “${person?.name ?? id}”`;
     }
+    if (key === SETTINGS_KEY) return "Team settings";
     return `Department “${draft.departments.find((d) => d.id === id)?.name ?? id}” (lanes)`;
   };
 
@@ -448,8 +465,8 @@ function RoadmapView(props: ViewProps) {
           const headFiles = await loadCommit(gh, source.repo, head);
           const saves = await gh.compare(parseRepo(source.repo), source.commit, head).catch(() => []);
           const { roadmap: latest } = loadRoadmap(headFiles);
-          const latestState = { boxes: latest.boxes, departments: latest.departments, people: latest.people };
-          const theirs = describeChanges(draftBase, latestState, base.settings);
+          const latestState = { boxes: latest.boxes, departments: latest.departments, people: latest.people, settings: latest.settings };
+          const theirs = describeChanges(draftBase, latestState);
           const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
           setToken(token);
           setBusy(false);
@@ -464,7 +481,7 @@ function RoadmapView(props: ViewProps) {
         source,
         baseFiles: files,
         changes,
-        message: commitMessage(describeChanges(draftBase, target, base.settings)),
+        message: commitMessage(describeChanges(draftBase, target)),
         validate: newProblems,
       });
       setToken(token);
@@ -629,11 +646,11 @@ function RoadmapView(props: ViewProps) {
   };
 
   return (
-    <div className="app">
+    <div className={`app density-${prefs.density}`}>
       <header className="toolbar">
         <div className="toolbar-zone start">
           <Logo />
-          <h1>{base.settings.title}</h1>
+          <h1>{draft.settings.title}</h1>
           <div className="segmented" role="group" aria-label="View">
             {VIEWS.map((v) => (
               <button
@@ -695,10 +712,7 @@ function RoadmapView(props: ViewProps) {
                           disabled={busy}
                           onClick={() => {
                             close();
-                            if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
-                              setSelected(null);
-                              draft.discard();
-                            }
+                            discardAll();
                           }}
                         >
                           Discard {count === 1 ? "this change" : `all ${count} changes`}…
@@ -713,8 +727,21 @@ function RoadmapView(props: ViewProps) {
               )}
             </div>
           )}
-          <KeyMenu settings={base.settings} />
-          <ThemeToggle />
+          <SettingsMenu
+            teamZoom={draft.settings.default_zoom}
+            changes={count}
+            onDiscard={discardAll}
+            onZoom={setZoom}
+            historyUrl={`https://github.com/${source.repo}/commits/${source.branch}/roadmap`}
+            readOnly={preview}
+            onOpenKey={() => setModal("key")}
+            onOpenShortcuts={() => setModal("shortcuts")}
+            onOpenTeam={() => {
+              select(null);
+              draft.checkpoint();
+              setModal("team");
+            }}
+          />
         </div>
       </header>
 
@@ -783,7 +810,8 @@ function RoadmapView(props: ViewProps) {
         />
       ) : view === "table" ? (
         <TableView
-          roadmap={roadmap}
+          roadmap={shown}
+          showPto={prefs.showPto}
           readOnly={preview || busy}
           conflictIds={conflictBoxIds}
           updatedIds={updatedIds}
@@ -804,7 +832,7 @@ function RoadmapView(props: ViewProps) {
               end: addWorkdays(start, 9), // two working weeks
               title: "New box",
               fte: 1,
-              type: base.settings.types[0].id,
+              type: draft.settings.types[0].id,
             });
             draft.checkpoint();
             return id;
@@ -829,7 +857,8 @@ function RoadmapView(props: ViewProps) {
         />
       ) : (
         <Timeline
-        roadmap={roadmap}
+        roadmap={shown}
+        display={prefs}
         zoom={zoom}
         collapsed={collapsed}
         allCollapsed={allCollapsed}
@@ -879,7 +908,7 @@ function RoadmapView(props: ViewProps) {
         <BoxEditor
           key={selected.session}
           box={selectedBox}
-          settings={base.settings}
+          settings={draft.settings}
           departments={draft.departments}
           people={draft.people}
           boxes={draft.boxes}
@@ -966,6 +995,28 @@ function RoadmapView(props: ViewProps) {
             void save();
           }}
           onClose={() => setProblem(null)}
+        />
+      )}
+      {modal === "key" && (
+        <Modal title="Key" className="key-modal" onClose={() => setModal(null)}>
+          <KeyContent settings={draft.settings} />
+        </Modal>
+      )}
+      {modal === "shortcuts" && (
+        <Modal title="Keyboard shortcuts" className="shortcuts-modal" onClose={() => setModal(null)}>
+          <ShortcutsContent />
+        </Modal>
+      )}
+      {modal === "team" && !preview && (
+        <TeamSettings
+          settings={draft.settings}
+          saved={base.settings}
+          boxes={draft.boxes}
+          onChange={(patch, key) => draft.updateSettings(patch, `settings:${key}`)}
+          onClose={() => {
+            draft.checkpoint();
+            setModal(null);
+          }}
         />
       )}
     </div>

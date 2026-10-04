@@ -108,6 +108,7 @@ with its prefix, like `DE-K7P`; quotes are curly “ ”):
 | Department renamed, recoloured, deleted | `Renamed department <old> to <new>`, `Changed the colour of <name>`, `Deleted department <name>` |
 | Departments reordered | `Reordered departments` |
 | Lane added, removed, resized, reordered | `Added lane <label> (<fte> FTE) to <Department>`, `Removed lane <label> from <Department>`, `Lane <label> in <Department> is now 0.5 FTE (was 1)`, `Reordered the lanes in <Department>` |
+| Team settings (settings.yaml) | One line for all of it: `Team settings: ` then the parts joined by `; `, e.g. `fiscal year starts in February (was January)`, `default zoom Quarters (was Months)`, `title now “X” (was “Y”)`, `added type <name>`, `renamed type <old> to <new>`, `changed the colour of type <name>`, `removed type <name>`, `reordered types` (the same for `flag`) |
 | Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
 | Lane dates changed | `Lane <label> in <Department> now runs until 2027-03-31 (was always open)`; the dates read `from <day>`, `until <day>` or `<day> – <day>`; cleared: `… is now always open (was …)`. A new dated lane: `Added lane <label> (1 FTE, from <day>) to <Department>` |
 | Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` (a PTO-only change has just its PTO lines) |

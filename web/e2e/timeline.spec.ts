@@ -161,23 +161,29 @@ test("lanes can be renamed in place", async ({ page, github: _ }) => {
   await expect(toolbar(page)).toContainText("No changes");
 });
 
-test("light by default, even on a dark system; dark is a remembered toggle", async ({ page, github: _ }) => {
+test("light by default, even on a dark system; dark and system are remembered choices", async ({ page, github: _ }) => {
   const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const theme = async (name: string) => {
+    await page.getByRole("button", { name: "Settings" }).click();
+    await page.getByRole("group", { name: "Theme" }).getByRole("button", { name }).click();
+    await page.keyboard.press("Escape");
+  };
   await page.emulateMedia({ colorScheme: "dark" });
-  const toggle = page.locator(".theme-toggle");
-  await expect(toggle).toHaveAttribute("aria-label", "Switch to dark mode");
   expect(await bg()).toBe("rgb(246, 247, 249)");
 
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-label", "Switch to light mode");
+  await theme("Dark");
   expect(await bg()).toBe("rgb(15, 18, 24)");
-
   await page.reload();
-  await expect(page.locator(".theme-toggle")).toHaveAttribute("aria-label", "Switch to light mode");
   expect(await bg()).toBe("rgb(15, 18, 24)");
 
-  await page.locator(".theme-toggle").click();
-  expect(await bg()).toBe("rgb(246, 247, 249)");
+  // System follows the OS, live.
+  await theme("System");
+  expect(await bg()).toBe("rgb(15, 18, 24)");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect.poll(bg).toBe("rgb(246, 247, 249)");
+
+  await theme("Light");
+  await page.emulateMedia({ colorScheme: "dark" });
   await page.reload();
   expect(await bg()).toBe("rgb(246, 247, 249)");
 });

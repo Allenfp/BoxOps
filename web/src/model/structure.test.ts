@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DraftState } from "./draft";
+import { DEFAULT_SETTINGS } from "./load";
 import { addDepartment, addLane, moveDepartment, moveLane, newLaneId, removeDepartment, removeLane } from "./structure";
 import type { Box, Department } from "./types";
 
@@ -18,6 +19,7 @@ const state: DraftState = {
   departments: [dept("eng", 1, ["de-1", "de-2"]), dept("ops", 2, ["ops-a"])],
   boxes: [box("b1", "de-1"), box("b2", "de-2"), box("b3", "ops-a")],
   people: [{ id: "sam", name: "Sam", department: "ops" }],
+  settings: DEFAULT_SETTINGS,
 };
 
 describe("lane ids", () => {
