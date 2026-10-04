@@ -403,7 +403,7 @@ export function Timeline(props: Props) {
                 </span>
               ))}
             {showScale && (
-              <ScaleBadge box={b} boxes={boxes} departments={departments} className="box-scale" />
+              <ScaleBadge box={b} departments={departments} className="box-scale" />
             )}
           </span>
         )}

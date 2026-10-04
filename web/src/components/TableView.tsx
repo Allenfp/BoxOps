@@ -415,7 +415,7 @@ export function TableView(props: Props) {
                     </select>
                   </td>
                   <td className="col-scale">
-                    <ScaleBadge box={b} boxes={boxes} departments={departments} />
+                    <ScaleBadge box={b} departments={departments} />
                   </td>
                   <td className="col-engineers">
                     <EngineerPicker
