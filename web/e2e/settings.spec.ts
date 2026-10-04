@@ -31,7 +31,10 @@ test("what boxes show is a personal preference, remembered in this browser", asy
 
   await openMenu(page);
   await menu(page).getByRole("button", { name: "Reset" }).click();
-  await expect(box(page, DAGSTER).locator(".box-code")).toBeVisible();
+  // The app's defaults: flags on; codes, scale and initials off.
+  await expect(box(page, DAGSTER).locator(".box-flag")).toHaveText("At risk");
+  await expect(box(page, DAGSTER).locator(".box-code")).toHaveCount(0);
+  await expect(box(page, DAGSTER).locator(".box-scale")).toHaveCount(0);
 });
 
 test("density, PTO rows, finished boxes, zoom and the opening view", async ({ page, github: _ }) => {

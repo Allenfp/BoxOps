@@ -161,31 +161,32 @@ test("lanes can be renamed in place", async ({ page, github: _ }) => {
   await expect(toolbar(page)).toContainText("No changes");
 });
 
-test("light by default, even on a dark system; dark and system are remembered choices", async ({ page, github: _ }) => {
+test("the theme follows the system by default; light and dark are remembered choices", async ({ page, github: _ }) => {
   const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   const theme = async (name: string) => {
     await page.getByRole("button", { name: "Settings" }).click();
     await page.getByRole("group", { name: "Theme" }).getByRole("button", { name }).click();
     await page.keyboard.press("Escape");
   };
-  await page.emulateMedia({ colorScheme: "dark" });
-  expect(await bg()).toBe("rgb(246, 247, 249)");
-
-  await theme("Dark");
-  expect(await bg()).toBe("rgb(15, 18, 24)");
-  await page.reload();
-  expect(await bg()).toBe("rgb(15, 18, 24)");
-
-  // System follows the OS, live.
-  await theme("System");
-  expect(await bg()).toBe("rgb(15, 18, 24)");
+  const LIGHT = "rgb(246, 247, 249)";
+  const DARK = "rgb(15, 18, 24)";
+  // System, live.
   await page.emulateMedia({ colorScheme: "light" });
-  await expect.poll(bg).toBe("rgb(246, 247, 249)");
-
-  await theme("Light");
+  await expect.poll(bg).toBe(LIGHT);
   await page.emulateMedia({ colorScheme: "dark" });
+  await expect.poll(bg).toBe(DARK);
+
+  // Light sticks, even on a dark system and after a reload.
+  await theme("Light");
+  expect(await bg()).toBe(LIGHT);
   await page.reload();
-  expect(await bg()).toBe("rgb(246, 247, 249)");
+  expect(await bg()).toBe(LIGHT);
+
+  await page.emulateMedia({ colorScheme: "light" });
+  await theme("Dark");
+  expect(await bg()).toBe(DARK);
+  await page.reload();
+  expect(await bg()).toBe(DARK);
 });
 
 test("a title sliding along while scrolling never runs into the initials", async ({ page, github: _ }) => {

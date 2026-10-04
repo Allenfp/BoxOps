@@ -19,6 +19,13 @@ export const test = base.extend<{ github: FakeGitHub; signedIn: boolean }>({
     if (signedIn) {
       await page.addInitScript((token) => sessionStorage.setItem("boxops-github-token", token), TOKEN);
     }
+    // Boxes show codes, scale and initials by default here, since most tests check them
+    // (the app's own default hides them). Only set once, so a reload keeps what a test chose.
+    await page.addInitScript(() => {
+      if (!localStorage.getItem("boxops-prefs")) {
+        localStorage.setItem("boxops-prefs", JSON.stringify({ showCodes: true, showScale: true, showInitials: true }));
+      }
+    });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("./?zoom=months");

@@ -26,11 +26,11 @@ export interface Prefs {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  theme: "light",
+  theme: "system",
   density: "comfortable",
-  showCodes: true,
-  showScale: true,
-  showInitials: true,
+  showCodes: false,
+  showScale: false,
+  showInitials: false,
   showFlags: true,
   openOn: "timeline",
   showPto: true,
