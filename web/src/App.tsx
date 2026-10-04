@@ -33,6 +33,7 @@ import { type Violation, findViolations } from "./model/relations";
 import { commitMessage, describeChanges } from "./model/summary";
 import type { Box, Issue, Roadmap, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types";
 import { ZOOM_LEVELS } from "./model/types";
+import { Icon } from "./components/Icon";
 
 interface Loaded {
   roadmap: Roadmap;
@@ -671,10 +672,10 @@ function RoadmapView(props: ViewProps) {
           {!preview && (
             <div className="draft-status">
               <button className="icon-only" onClick={draft.undo} disabled={!draft.canUndo} title="Undo (⌘Z)" aria-label="Undo">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5.5 3 2.5 6l3 3" /><path d="M2.5 6h7a4 4 0 0 1 0 8H7" /></svg>
+                <Icon name="undo" size={16} />
               </button>
               <button className="icon-only" onClick={draft.redo} disabled={!draft.canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10.5 3 3 3-3 3" /><path d="M13.5 6h-7a4 4 0 0 0 0 8H9" /></svg>
+                <Icon name="redo" size={16} />
               </button>
               {count > 0 ? (
                 <div className="split-button">
@@ -686,7 +687,7 @@ function RoadmapView(props: ViewProps) {
                   >
                     {busy ? "Saving…" : `Save · ${count} change${count === 1 ? "" : "s"}`}
                   </button>
-                  <Popover label="More save options" buttonClass="primary split-more" button="▾" className="save-more">
+                  <Popover label="More save options" buttonClass="primary split-more" button={<Icon name="chevron-down" size={14} />} className="save-more">
                     {(close) => (
                       <>
                         <button
@@ -730,7 +731,7 @@ function RoadmapView(props: ViewProps) {
           </a>
           . The public site picks it up in about a minute.
           <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
-            ×
+            <Icon name="x" size={16} />
           </button>
         </div>
       )}
@@ -756,7 +757,7 @@ function RoadmapView(props: ViewProps) {
             }}
             aria-label="Dismiss"
           >
-            ×
+            <Icon name="x" size={16} />
           </button>
         </div>
       )}
@@ -902,7 +903,7 @@ function RoadmapView(props: ViewProps) {
       )}
       {newlyBroken.length > 0 && (
         <div className="toast" role="status">
-          <strong>⚠ That breaks {newlyBroken.length === 1 ? "a rule" : `${newlyBroken.length} rules`}</strong>
+          <strong><Icon name="alert" size={14} /> That breaks {newlyBroken.length === 1 ? "a rule" : `${newlyBroken.length} rules`}</strong>
           <ul>
             {newlyBroken.map((v, i) => (
               <li key={i}>{v.message}</li>
@@ -910,7 +911,7 @@ function RoadmapView(props: ViewProps) {
           </ul>
           <span className="hint">Nothing is blocked; it's a heads-up.</span>
           <button className="icon-button" onClick={() => setNewlyBroken([])} aria-label="Dismiss">
-            ×
+            <Icon name="x" size={16} />
           </button>
         </div>
       )}

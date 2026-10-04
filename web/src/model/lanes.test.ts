@@ -87,7 +87,7 @@ describe("lane dates", () => {
       d("2027-03-31"),
     );
     expect(describeChanges(base, draft, roadmap.settings).map((l) => l.text)).toEqual([
-      "Lane **Contractor** in Data Engineering now runs until Mar 31, 2027 (was always open)",
+      "Lane **Contractor** in Data Engineering now runs until 2027-03-31 (was always open)",
     ]);
   });
 });

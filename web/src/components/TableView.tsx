@@ -11,6 +11,8 @@ import { capacityOn, hasDates, laneDates } from "../model/lanes";
 import { today } from "../model/dates";
 import { EngineerPicker } from "./EngineerPicker";
 import { TextCell } from "./TextCell";
+import { Icon } from "./Icon";
+import { DateInput } from "./DateInput";
 
 interface Props {
   roadmap: Roadmap;
@@ -238,7 +240,8 @@ export function TableView(props: Props) {
               setFocusId(onAdd());
             }}
           >
-            + Add box
+            <Icon name="plus" size={14} />
+            Add box
           </button>
         )}
       </div>
@@ -290,7 +293,7 @@ export function TableView(props: Props) {
                         aria-expanded={!isCollapsed}
                         disabled={searching}
                       >
-                        <span className={`chevron${isCollapsed ? "" : " open"}`}>▸</span>
+                        <Icon name="chevron-right" size={14} className={`chevron${isCollapsed ? "" : " open"}`} />
                         <span className="dept-name">{dept.name}</span>
                         <span className="dept-meta" title={dated.length ? `FTE today. Dated lanes:\n${datedText}` : undefined}>
                           {searching ? `${group.rows.length} of ${total}` : total} box{total === 1 ? "" : "es"} · {fte} FTE
@@ -304,7 +307,7 @@ export function TableView(props: Props) {
                           aria-label={`Edit ${dept.name}`}
                           onClick={() => props.onEditDepartment!(dept.id)}
                         >
-                          ✎
+                          <Icon name="pencil" size={14} />
                         </button>
                       )}
                       {!readOnly && dept.lanes.length > 0 && (
@@ -318,7 +321,7 @@ export function TableView(props: Props) {
                             setFocusId(onAdd(dept.id));
                           }}
                         >
-                          +
+                          <Icon name="plus" size={16} />
                         </button>
                       )}
                     </div>
@@ -355,7 +358,7 @@ export function TableView(props: Props) {
                         .join("\n") || undefined}
                     >
                       {jiraKey(b.epic) ?? `${lane?.deptCode}-${b.code}`}
-                      {ruleWarnings?.has(b.id) && <span className="box-warn">⚠</span>}
+                      {ruleWarnings?.has(b.id) && <Icon name="alert" size={12} className="box-warn" />}
                     </span>
                     <TextCell
                       value={b.title}
@@ -387,22 +390,20 @@ export function TableView(props: Props) {
                     </select>
                   </td>
                   <td className="col-date">
-                    <input
-                      type="date"
+                    <DateInput
                       value={formatDay(b.start)}
                       disabled={readOnly}
                       aria-label="Start"
-                      onChange={(e) => setStart(b, e.target.value)}
+                      onChange={(v) => setStart(b, v)}
                       onBlur={onCheckpoint}
                     />
                   </td>
                   <td className="col-date">
-                    <input
-                      type="date"
+                    <DateInput
                       value={formatDay(b.end)}
                       disabled={readOnly}
                       aria-label="End"
-                      onChange={(e) => setEnd(b, e.target.value)}
+                      onChange={(v) => setEnd(b, v)}
                       onBlur={onCheckpoint}
                     />
                   </td>
@@ -416,7 +417,7 @@ export function TableView(props: Props) {
                     >
                       {BOX_FTE_OPTIONS.map((f) => (
                         <option key={f} value={f}>
-                          {f}
+                          {f.toFixed(1)}
                         </option>
                       ))}
                     </select>
@@ -430,6 +431,7 @@ export function TableView(props: Props) {
                       people={people}
                       department={lane?.deptId}
                       readOnly={readOnly}
+                      emptyLabel="—"
                       onChange={(engineers) => update(b.id, { engineers })}
                       onAddPerson={(name) => onAddPerson(name, lane?.deptId)}
                     />
@@ -480,7 +482,7 @@ export function TableView(props: Props) {
                       />
                       {b.epic && /^https?:\/\//.test(b.epic) && (
                         <a href={b.epic} target="_blank" rel="noopener noreferrer" title="Open epic" className="open-link">
-                          ↗
+                          <Icon name="external" size={14} />
                         </a>
                       )}
                     </span>
@@ -508,7 +510,7 @@ export function TableView(props: Props) {
                   <td className="col-actions">
                     {!readOnly && (
                       <button className="icon-button row-delete" title="Delete box" aria-label={`Delete ${b.title}`} onClick={() => onDelete(b.id)}>
-                        ×
+                        <Icon name="x" size={14} />
                       </button>
                     )}
                   </td>
@@ -548,22 +550,20 @@ export function TableView(props: Props) {
                           />
                         </td>
                         <td className="col-date">
-                          <input
-                            type="date"
+                          <DateInput
                             value={formatDay(pto.start)}
                             disabled={readOnly}
                             aria-label="PTO start"
-                            onChange={(e) => ptoDates(ref, pto, "start", e.target.value)}
+                            onChange={(v) => ptoDates(ref, pto, "start", v)}
                             onBlur={onCheckpoint}
                           />
                         </td>
                         <td className="col-date">
-                          <input
-                            type="date"
+                          <DateInput
                             value={formatDay(pto.end)}
                             disabled={readOnly}
                             aria-label="PTO end"
-                            onChange={(e) => ptoDates(ref, pto, "end", e.target.value)}
+                            onChange={(v) => ptoDates(ref, pto, "end", v)}
                             onBlur={onCheckpoint}
                           />
                         </td>
@@ -577,7 +577,7 @@ export function TableView(props: Props) {
                               aria-label={`Delete PTO for ${person.name}`}
                               onClick={() => props.onRemovePto?.(ref)}
                             >
-                              ×
+                              <Icon name="x" size={14} />
                             </button>
                           )}
                         </td>
@@ -587,8 +587,9 @@ export function TableView(props: Props) {
                 {!isCollapsed && !readOnly && !searching && members.length > 0 && props.onAddPto && (
                   <tr className="add-pto-row">
                     <td colSpan={COLUMNS.length}>
-                      <button className="link-button" onClick={() => props.onAddPto!(dept.id)}>
-                        + Add PTO
+                      <button className="add-button" onClick={() => props.onAddPto!(dept.id)}>
+                        <Icon name="plus" size={14} />
+                        Add PTO
                       </button>
                     </td>
                   </tr>
@@ -600,8 +601,9 @@ export function TableView(props: Props) {
             <tbody>
               <tr className="add-dept-row">
                 <td colSpan={COLUMNS.length}>
-                  <button className="link-button add-dept" onClick={props.onAddDepartment}>
-                    + Add department
+                  <button className="add-button" onClick={props.onAddDepartment}>
+                    <Icon name="plus" size={14} />
+                    Add department
                   </button>
                 </td>
               </tr>

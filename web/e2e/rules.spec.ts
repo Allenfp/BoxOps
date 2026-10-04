@@ -1,5 +1,11 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { CDC, DAGSTER, box, boxFile, dragDays, expect, focusApp, save, test, toolbar } from "./helpers";
+
+/** A box without rules hides the section until "+ Rule" is clicked. */
+async function showRules(dialog: Locator) {
+  const add = dialog.getByRole("button", { name: "Rule", exact: true });
+  if (await add.count()) await add.click();
+}
 
 // Fixture codes: Dagster D9U (Sep 14 – Oct 23), CDC pipeline C4P (Oct 26 – Feb 26), both Data Engineering (DE).
 const code = (page: Page, id: string) => box(page, id).locator(".box-code");
@@ -24,7 +30,7 @@ test("every box shows its code; new boxes get a unique one; the prefix follows t
 
   // Moving Dagster to Analytics relabels it AN-D9U; the file keeps just D9U.
   const dialog = await editorFor(page, DAGSTER);
-  await dialog.getByRole("combobox").nth(3).selectOption("an-3"); // Type, Status, FTE, Lane
+  await dialog.getByLabel("Lane", { exact: true }).selectOption("an-3");
   await page.keyboard.press("Escape");
   await expect(code(page, DAGSTER)).toHaveText("AN-D9U");
   await save(page);
@@ -56,6 +62,7 @@ test("changing a department's code relabels its boxes", async ({ page, github })
 test("a broken rule warns (popup, marks, list) but blocks nothing", async ({ page, github }) => {
   // Rule: Dagster finishes before CDC starts. Holds today (Oct 23 < Oct 26).
   let dialog = await editorFor(page, DAGSTER);
+  await showRules(dialog);
   await dialog.getByLabel("New rule").selectOption("before");
   await dialog.getByLabel("Add a rule with").selectOption("C4P");
   await expect(dialog.locator(".rule-list li")).toHaveCount(1);
@@ -67,7 +74,7 @@ test("a broken rule warns (popup, marks, list) but blocks nothing", async ({ pag
   await dragDays(page, DAGSTER, 5);
   await expect(page.locator(".toast")).toContainText("That breaks a rule");
   await expect(page.locator(".toast")).toContainText(
-    "DE-D9U Dagster 2.x upgrade should finish before DE-C4P CDC pipeline for orders DB starts, but it ends Oct 30, 2026 and the other starts Oct 26, 2026.",
+    "DE-D9U Dagster 2.x upgrade should finish before DE-C4P CDC pipeline for orders DB starts, but it ends 2026-10-30 and the other starts 2026-10-26.",
   );
   await expect(box(page, DAGSTER)).toHaveClass(/rule-broken/);
   await expect(box(page, CDC)).toHaveClass(/rule-broken/);
@@ -96,6 +103,7 @@ test("a broken rule warns (popup, marks, list) but blocks nothing", async ({ pag
 test("removing a rule from the other box, and deleting a box, clean up rules", async ({ page, github }) => {
   for (const other of ["C4P", "W1M"]) {
     const dialog = await editorFor(page, DAGSTER);
+    await showRules(dialog);
     await dialog.getByLabel("New rule").selectOption("overlaps");
     await dialog.getByLabel("Add a rule with").selectOption(other);
     await page.keyboard.press("Escape");

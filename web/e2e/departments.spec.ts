@@ -5,14 +5,14 @@ const editor = (page: Page) => page.locator("dialog.dept-editor[open]");
 const deptNames = (page: Page) => page.locator(".dept-label .dept-name").allInnerTexts();
 
 test("adds a department with lanes from the timeline and saves it", async ({ page, github }) => {
-  await page.getByRole("button", { name: "+ Add department" }).click();
+  await page.getByRole("button", { name: "Add department" }).click();
   await editor(page).getByLabel("Department name").fill("Platform");
   await editor(page).getByRole("button", { name: "Add department" }).click();
   await expect(editor(page).locator("h2")).toHaveText("Added Platform");
 
   // Two more lanes: rename one, make one half-time.
-  await editor(page).getByRole("button", { name: "+ Add lane" }).click();
-  await editor(page).getByRole("button", { name: "+ Add lane" }).click();
+  await editor(page).getByRole("button", { name: "Add lane" }).click();
+  await editor(page).getByRole("button", { name: "Add lane" }).click();
   await editor(page).getByLabel("Lane 3 name").fill("Contractor");
   await editor(page).getByLabel("Lane 3 FTE").selectOption("0.5");
   await editor(page).getByRole("button", { name: "Done" }).click();
@@ -49,8 +49,8 @@ test("edits a department from the table: rename, recolour, reorder, add a lane",
   await page.getByRole("button", { name: "Edit Analytics" }).click();
   await editor(page).getByLabel("Department name").fill("Analytics & BI");
   await editor(page).getByRole("button", { name: "Colour #e8913a" }).click();
-  await editor(page).getByRole("button", { name: "↑ Move up" }).click();
-  await editor(page).getByRole("button", { name: "+ Add lane" }).click();
+  await editor(page).getByRole("button", { name: "Move up" }).click();
+  await editor(page).getByRole("button", { name: "Add lane" }).click();
   await editor(page).getByRole("button", { name: "Done" }).click();
 
   await expect(page.locator(".group-toggle .dept-name")).toHaveText(["Analytics & BI", "Data Engineering", "ML Platform"]);
@@ -123,17 +123,17 @@ test("a lane can close on a date: hatched out after it, and capacity follows", a
 
   const de = page.locator(".dept-label", { hasText: "Data Engineering" });
   await expect(de.locator(".dept-meta")).toHaveAttribute("title", /^3.5 FTE today/); // still open on Oct 3
-  await expect(page.locator(".lane-label", { hasText: "Contractor" }).locator(".lane-dates")).toHaveText("until Oct 16");
+  await expect(page.locator(".lane-label", { hasText: "Contractor" }).locator(".lane-dates")).toHaveText("until 2026-10-16");
   await expect(page.locator('[data-dept-track="data-eng"] .lane-closed')).toHaveCount(1);
 
   await page.getByRole("button", { name: "Table" }).click();
   await expect(page.locator(".dept-group").first().locator(".dept-meta").first()).toContainText("3.5 FTE today · 1 dated lane");
-  await expect(page.locator('select[aria-label="Lane"] option', { hasText: "Contractor (until Oct 16, 2026)" }).first()).toBeAttached();
+  await expect(page.locator('select[aria-label="Lane"] option', { hasText: "Contractor (until 2026-10-16)" }).first()).toBeAttached();
 
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
   expect(github.file("departments/data-eng.yaml")).toContain("    name: Contractor\n    fte: 0.5\n    end: 2026-10-16\n");
-  expect(github.headCommit().message.split("\n")[0]).toBe("Lane Contractor in Data Engineering now runs until Oct 16, 2026");
+  expect(github.headCommit().message.split("\n")[0]).toBe("Lane Contractor in Data Engineering now runs until 2026-10-16");
 
   // Clearing the date opens it up again.
   await page.getByRole("button", { name: "Edit Data Engineering" }).click();

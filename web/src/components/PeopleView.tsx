@@ -4,6 +4,7 @@ import { EMAIL } from "../model/load";
 import { type PtoRef, ptoRange } from "../model/pto";
 import type { Person, Roadmap } from "../model/types";
 import { TextCell } from "./TextCell";
+import { Icon } from "./Icon";
 
 interface Props {
   roadmap: Roadmap;
@@ -113,7 +114,8 @@ export function PeopleView(props: Props) {
               setFocusId(onAdd());
             }}
           >
-            + Add engineer
+            <Icon name="plus" size={14} />
+            Add engineer
           </button>
         )}
       </div>
@@ -145,7 +147,7 @@ export function PeopleView(props: Props) {
                         aria-expanded={!isCollapsed}
                         disabled={!!q || g.id === NO_DEPT}
                       >
-                        <span className={`chevron${isCollapsed ? "" : " open"}`}>▸</span>
+                        <Icon name="chevron-right" size={14} className={`chevron${isCollapsed ? "" : " open"}`} />
                         <span className="dept-name">{g.name}</span>
                         <span className="dept-meta">
                           {q ? `${rows.length} of ${g.all.length}` : g.all.length} engineer{g.all.length === 1 ? "" : "s"}
@@ -158,7 +160,7 @@ export function PeopleView(props: Props) {
                           aria-label={`Edit ${g.name}`}
                           onClick={() => props.onEditDepartment!(g.id)}
                         >
-                          ✎
+                          <Icon name="pencil" size={14} />
                         </button>
                       )}
                       {!readOnly && g.id !== NO_DEPT && (
@@ -172,7 +174,7 @@ export function PeopleView(props: Props) {
                             setFocusId(onAdd(g.id));
                           }}
                         >
-                          +
+                          <Icon name="plus" size={16} />
                         </button>
                       )}
                     </div>
@@ -264,7 +266,7 @@ export function PeopleView(props: Props) {
                               aria-label={`Remove ${p.name}`}
                               onClick={() => remove(p)}
                             >
-                              ×
+                              <Icon name="x" size={14} />
                             </button>
                           )}
                         </td>
@@ -277,8 +279,9 @@ export function PeopleView(props: Props) {
             <tbody>
               <tr className="add-dept-row">
                 <td colSpan={COLUMNS.length}>
-                  <button className="link-button add-dept" onClick={props.onAddDepartment}>
-                    + Add department
+                  <button className="add-button" onClick={props.onAddDepartment}>
+                    <Icon name="plus" size={14} />
+                    Add department
                   </button>
                 </td>
               </tr>

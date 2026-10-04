@@ -63,14 +63,14 @@ describe("PTO", () => {
   it("describes additions, moves and removals", () => {
     const one = withPto("sam-lee", [{ start: d("2026-12-14"), end: d("2026-12-25"), note: "Holiday" }]);
     expect(describeChanges(base, one, roadmap.settings).map((l) => l.text)).toEqual([
-      "PTO for **Sam Lee**: Dec 14, 2026 – Dec 25, 2026 (Holiday)",
+      "PTO for **Sam Lee**: 2026-12-14 – 2026-12-25 (Holiday)",
     ]);
     const moved = withPto("sam-lee", [{ start: d("2026-12-21"), end: d("2026-12-25"), note: "Holiday" }]);
     expect(describeChanges(one, moved, roadmap.settings).map((l) => l.text)).toEqual([
-      "PTO for **Sam Lee**: Dec 21, 2026 – Dec 25, 2026 (Holiday) (was Dec 14, 2026 – Dec 25, 2026)",
+      "PTO for **Sam Lee**: 2026-12-21 – 2026-12-25 (Holiday) (was 2026-12-14 – 2026-12-25)",
     ]);
     expect(describeChanges(one, base, roadmap.settings).map((l) => l.text)).toEqual([
-      "Removed PTO for **Sam Lee**: Dec 14, 2026 – Dec 25, 2026",
+      "Removed PTO for **Sam Lee**: 2026-12-14 – 2026-12-25",
     ]);
   });
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Source } from "../github/save";
 import type { ChangeLine } from "../model/summary";
+import { Icon } from "./Icon";
 
 /** Why the dialog is open. Saving itself needs no dialog; this appears only when it needs the user. */
 export type SaveProblem =
@@ -74,7 +75,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
       <header className="dialog-head">
         <h2>{title}</h2>
         <button className="icon-button" onClick={onClose} disabled={busy} aria-label="Close">
-          ×
+          <Icon name="x" size={16} />
         </button>
       </header>
 
@@ -107,7 +108,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
             />
             <span className="hint">
               <a href={TOKEN_HELP} target="_blank" rel="noopener noreferrer">
-                Create a fine-grained token ↗
+                Create a fine-grained token <Icon name="external" size={12} />
               </a>{" "}
               with access to only <strong>{source.repo}</strong> and the permission{" "}
               <strong>Contents: Read and write</strong>.

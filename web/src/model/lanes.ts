@@ -2,7 +2,7 @@
 // after an `end` day (a contractor leaving). Outside those days it holds no
 // capacity, and boxes aren't drawn in it.
 
-import { type Day, dayParts, monthName, prettyDay, today } from "./dates";
+import { type Day, prettyDay } from "./dates";
 import type { Department, Lane } from "./types";
 
 /** Before any roadmap date / after any roadmap date. */
@@ -26,7 +26,7 @@ export const capacityOn = (dept: Department, day: Day) =>
 
 export const hasDates = (lane: Lane) => lane.start !== undefined || lane.end !== undefined;
 
-/** "from Jan 4, 2027", "until Mar 31, 2027", "Jan 4, 2027 – Mar 31, 2027", or "" when undated. */
+/** "from 2027-01-04", "until 2027-03-31", "2027-01-04 – 2027-03-31", or "" when undated. */
 export function laneDates(lane: Pick<Lane, "start" | "end">): string {
   if (lane.start !== undefined && lane.end !== undefined) return `${prettyDay(lane.start)} – ${prettyDay(lane.end)}`;
   if (lane.start !== undefined) return `from ${prettyDay(lane.start)}`;
@@ -34,17 +34,3 @@ export function laneDates(lane: Pick<Lane, "start" | "end">): string {
   return "";
 }
 
-/** "Oct 16", or "Oct 16 ’27" outside the current year: for tight spots like lane labels. */
-function shortDay(day: Day): string {
-  const { year, month, day: d } = dayParts(day);
-  const label = `${monthName(month)} ${d}`;
-  return year === dayParts(today()).year ? label : `${label} ’${String(year).slice(2)}`;
-}
-
-/** Like `laneDates`, but short: "until Oct 16", "from Jan 4 ’27", "Jan 4 – Mar 31 ’27". */
-export function laneDatesShort(lane: Pick<Lane, "start" | "end">): string {
-  if (lane.start !== undefined && lane.end !== undefined) return `${shortDay(lane.start)} – ${shortDay(lane.end)}`;
-  if (lane.start !== undefined) return `from ${shortDay(lane.start)}`;
-  if (lane.end !== undefined) return `until ${shortDay(lane.end)}`;
-  return "";
-}

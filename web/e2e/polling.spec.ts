@@ -32,7 +32,7 @@ test("incoming saves merge with unsaved edits and flag clashes", async ({ page, 
   );
   await pollNow(page);
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
   await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
   await expect(page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: "Clashes" }).locator("li")).toHaveCount(1);
@@ -45,7 +45,7 @@ test("incoming saves merge with unsaved edits and flag clashes", async ({ page, 
 
   // The site still serves the older deploy: that must not roll this tab back.
   await pollNow(page);
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
   await expect(toolbar(page)).toContainText("No changes");
 });
 

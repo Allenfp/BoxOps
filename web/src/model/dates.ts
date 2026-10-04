@@ -76,10 +76,9 @@ export function monthName(month: number): string {
   return MONTHS[month - 1];
 }
 
-/** Human date such as "Oct 3, 2026". */
+/** A date for display: always YYYY-MM-DD, the same as the files, everywhere in the app. */
 export function prettyDay(day: Day): string {
-  const { year, month, day: d } = dayParts(day);
-  return `${monthName(month)} ${d}, ${year}`;
+  return formatDay(day);
 }
 
 /**

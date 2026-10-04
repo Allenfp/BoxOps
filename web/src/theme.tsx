@@ -2,6 +2,7 @@
 // browser. The CSS keys off data-theme on <html> (see styles.css).
 
 import { useState } from "react";
+import { Icon } from "./components/Icon";
 
 export type Theme = "light" | "dark";
 
@@ -36,7 +37,7 @@ export function ThemeToggle() {
   };
   return (
     <button className="icon-only theme-toggle" onClick={toggle} title={`Switch to ${next} mode`} aria-label={`Switch to ${next} mode`}>
-      {theme === "light" ? "☾" : "☀"}
+      <Icon name={theme === "light" ? "moon" : "sun"} size={16} />
     </button>
   );
 }

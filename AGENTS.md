@@ -84,9 +84,10 @@ exactly one change, the subject is that change (without any "(was …)" part, at
 most 72 characters); otherwise it's `Roadmap: <n> changes`. The body has one
 bullet per changed item, in this order: engineers, new boxes, edited boxes,
 deleted boxes, departments; within each group, by file name. All of one box's
-changes go on its one bullet. Word them like this (`<range>` is like `Mar 1, 2026 – Mar 19, 2026`,
-with no leading zeros; a lane is `<Department> / <lane label>`; `<code>` is
-always the full code with its prefix, like `DE-K7P`; quotes are curly “ ”):
+changes go on its one bullet. Word them like this (`<range>` is like
+`2026-03-01 – 2026-03-19`: dates are always `YYYY-MM-DD`, as everywhere in the
+app; a lane is `<Department> / <lane label>`; `<code>` is always the full code
+with its prefix, like `DE-K7P`; quotes are curly “ ”):
 
 | Change | Line |
 |---|---|
@@ -108,7 +109,7 @@ always the full code with its prefix, like `DE-K7P`; quotes are curly “ ”):
 | Departments reordered | `Reordered departments` |
 | Lane added, removed, resized, reordered | `Added lane <label> (<fte> FTE) to <Department>`, `Removed lane <label> from <Department>`, `Lane <label> in <Department> is now 0.5 FTE (was 1)`, `Reordered the lanes in <Department>` |
 | Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
-| Lane dates changed | `Lane <label> in <Department> now runs until Mar 31, 2027 (was always open)`; the dates read `from <day>`, `until <day>` or `<day> – <day>`; cleared: `… is now always open (was …)`. A new dated lane: `Added lane <label> (1 FTE, from <day>) to <Department>` |
+| Lane dates changed | `Lane <label> in <Department> now runs until 2027-03-31 (was always open)`; the dates read `from <day>`, `until <day>` or `<day> – <day>`; cleared: `… is now always open (was …)`. A new dated lane: `Added lane <label> (1 FTE, from <day>) to <Department>` |
 | Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` (a PTO-only change has just its PTO lines) |
 | PTO added, changed, removed | `PTO for <name>: <range> (<note>)` (no `(<note>)` without one), `PTO for <name>: <range> (was <old range>)`, `Removed PTO for <name>: <range>`; a single day is just that day |
 
@@ -117,7 +118,7 @@ For example:
 ```
 Roadmap: 2 changes
 
-- Added Data quality checks (DE-K7P) to Data Engineering / FTE 2, Mar 1, 2027 – Mar 19, 2027
+- Added Data quality checks (DE-K7P) to Data Engineering / FTE 2, 2027-03-01 – 2027-03-19
 - Updated engineer Jordan Diaz
 ```
 
@@ -279,7 +280,7 @@ follow the department's pattern (`de-1`, `de-2` → `de-3`), or use
 `<department id>-<n>` for a new department. A new department is a new file
 whose `id` matches its file name; give it an `order` after the others and a
 `color`. (People can do this in the app too, from **+ Add department** or the
-✎ on a department heading.)
+pencil on a department heading.)
 
 **Remove a lane or department.** First move its boxes: set each affected box's
 `lane` to a lane that stays. Then delete the lane entry, or the department

@@ -21,7 +21,7 @@ test.describe("first save", () => {
 
     const head = github.headCommit();
     expect(head.parent).toBe(github.root);
-    expect(head.message.split("\n")[0]).toBe("Dagster 2.x upgrade (DE-D9U): rescheduled to Sep 28, 2026 – Nov 6, 2026");
+    expect(head.message.split("\n")[0]).toBe("Dagster 2.x upgrade (DE-D9U): rescheduled to 2026-09-28 – 2026-11-06");
     expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28\nend: 2026-11-06\n");
 
     // Next save: no dialog at all.
@@ -49,7 +49,7 @@ test("pre-save check: newer saves are shown for review before anything is writte
   await dialog.getByRole("button", { name: "Review changes" }).click();
   await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline (orders + payments)");
   await expect(page.locator(".box.updated")).toHaveCount(2);
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026"); // my edit kept
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06"); // my edit kept
 
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");

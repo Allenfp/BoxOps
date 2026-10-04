@@ -4,6 +4,8 @@ import { deriveDeptCode } from "../model/relations";
 import { DEPARTMENT_COLORS } from "../model/structure";
 import { formatDay, nextWorkday, parseDay, prevWorkday } from "../model/dates";
 import type { Box, Department, Lane, Person } from "../model/types";
+import { Icon } from "./Icon";
+import { DateInput } from "./DateInput";
 
 export type DepartmentEditorTarget = { kind: "new" } | { kind: "edit"; id: string };
 
@@ -110,7 +112,7 @@ export function DepartmentEditor(props: Props) {
       <header className="dialog-head">
         <h2>{title}</h2>
         <button className="icon-button" onClick={onClose} aria-label="Close">
-          ×
+          <Icon name="x" size={16} />
         </button>
       </header>
       {body}
@@ -216,10 +218,10 @@ export function DepartmentEditor(props: Props) {
         <span className="field-label">Position</span>
         <span className="button-row">
           <button onClick={() => props.onMove(dept.id, -1)} disabled={index <= 0}>
-            ↑ Move up
+            <Icon name="arrow-up" size={14} /> Move up
           </button>
           <button onClick={() => props.onMove(dept.id, 1)} disabled={index >= sorted.length - 1}>
-            ↓ Move down
+            <Icon name="arrow-down" size={14} /> Move down
           </button>
           <span className="hint">
             {index + 1} of {sorted.length}
@@ -254,7 +256,7 @@ export function DepartmentEditor(props: Props) {
                     <option value={0.5}>0.5 FTE</option>
                   </select>
                   <button className="icon-button" onClick={() => props.onMoveLane(lane.id, -1)} disabled={i === 0} aria-label={`Move lane ${i + 1} up`}>
-                    ↑
+                    <Icon name="arrow-up" size={14} />
                   </button>
                   <button
                     className="icon-button"
@@ -262,7 +264,7 @@ export function DepartmentEditor(props: Props) {
                     disabled={i === dept.lanes.length - 1}
                     aria-label={`Move lane ${i + 1} down`}
                   >
-                    ↓
+                    <Icon name="arrow-down" size={14} />
                   </button>
                   <button
                     className="icon-button row-remove"
@@ -270,7 +272,7 @@ export function DepartmentEditor(props: Props) {
                     title={count ? `Remove (its ${count} box${count === 1 ? "" : "es"} will need a new lane)` : "Remove"}
                     onClick={() => (count ? setRemoving({ what: lane.id, moveTo: "" }) : props.onRemoveLane(lane.id))}
                   >
-                    ×
+                    <Icon name="x" size={14} />
                   </button>
                 </div>
                 <div className="lane-dates-row">
@@ -282,24 +284,24 @@ export function DepartmentEditor(props: Props) {
                       return (
                         <button
                           key={field}
-                          className="link-button"
+                          className="add-button small"
                           aria-label={`Set when lane ${i + 1} ${what}`}
                           onClick={() => setShownDates((cur) => new Set([...cur, `${lane.id}:${field}`]))}
                         >
-                          + {label}
+                          <Icon name="plus" size={12} />
+                          {label}
                         </button>
                       );
                     }
                     return (
                       <label key={field}>
                         {label}
-                        <input
-                          type="date"
+                        <DateInput
                           autoFocus={lane[field] === undefined}
                           value={lane[field] === undefined ? "" : formatDay(lane[field])}
                           aria-label={`Lane ${i + 1} ${what}`}
-                          onChange={(e) => {
-                            const picked = parseDay(e.target.value);
+                          onChange={(text) => {
+                            const picked = parseDay(text);
                             // Weekends don't exist: opening moves to Monday, closing to Friday.
                             const day = picked === null ? undefined : field === "start" ? nextWorkday(picked) : prevWorkday(picked);
                             const patch: Partial<Lane> = { [field]: day };
@@ -317,7 +319,7 @@ export function DepartmentEditor(props: Props) {
                             props.onUpdateLane(lane.id, { [field]: undefined });
                           }}
                         >
-                          ×
+                          <Icon name="x" size={14} />
                         </button>
                       </label>
                     );
@@ -354,7 +356,10 @@ export function DepartmentEditor(props: Props) {
           })}
         </ul>
         <span>
-          <button onClick={() => props.onAddLane(dept.id)}>+ Add lane</button>
+          <button className="add-button" onClick={() => props.onAddLane(dept.id)}>
+            <Icon name="plus" size={14} />
+            Add lane
+          </button>
         </span>
       </div>
 

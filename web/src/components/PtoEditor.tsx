@@ -6,6 +6,8 @@ import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, wo
 import { ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import type { Department, Person, TimeOff } from "../model/types";
 import { useAnchor } from "./useAnchor";
+import { Icon } from "./Icon";
+import { DateInput } from "./DateInput";
 
 const WIDTH = 360;
 
@@ -95,7 +97,7 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
           ))}
         </select>
         <button className="icon-button" onClick={onClose} aria-label="Close">
-          ×
+          <Icon name="x" size={16} />
         </button>
       </div>
 
@@ -103,11 +105,11 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
         {snapped && <p className="field-note span-2">{snapped}</p>}
         <label>
           Start
-          <input type="date" value={formatDay(pto.start)} onChange={(e) => setStart(e.target.value)} />
+          <DateInput value={formatDay(pto.start)} onChange={setStart} />
         </label>
         <label>
           End
-          <input type="date" value={formatDay(pto.end)} onChange={(e) => setEnd(e.target.value)} />
+          <DateInput value={formatDay(pto.end)} onChange={setEnd} />
         </label>
         <label className="span-2">
           Note

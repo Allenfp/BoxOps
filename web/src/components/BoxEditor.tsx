@@ -7,6 +7,8 @@ import { jiraKey } from "../model/jira";
 import { RELATION_ORDER, RELATION_TYPES, type Violation, fullCode, incoming } from "../model/relations";
 import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type RelationType, type Settings } from "../model/types";
 import { EngineerPicker } from "./EngineerPicker";
+import { Icon } from "./Icon";
+import { DateInput } from "./DateInput";
 
 const WIDTH = 440;
 
@@ -27,6 +29,14 @@ interface Props {
   onDelete(): void;
   onClose(): void;
 }
+
+type Optional = "description" | "tags" | "links" | "rules";
+const OPTIONAL: [Optional, string][] = [
+  ["description", "Description"],
+  ["tags", "Tags"],
+  ["links", "Other links"],
+  ["rules", "Rule"],
+];
 
 const splitList = (text: string, sep: RegExp) =>
   text
@@ -104,6 +114,22 @@ export function BoxEditor(props: Props) {
   const epicValid = !box.epic || /^https?:\/\/\S+$/.test(box.epic);
   const jira = epicValid ? jiraKey(box.epic) : undefined;
   const days = workdays(box.start, box.end);
+
+  // Optional fields stay hidden until they have something in them, or are asked for.
+  const [opened, setOpened] = useState<Set<Optional>>(new Set());
+  const [focusField, setFocusField] = useState<Optional | null>(null);
+  const incomingRules = incoming(boxes, box.code);
+  const show: Record<Optional, boolean> = {
+    description: !!box.description || opened.has("description"),
+    tags: tagsText !== "" || opened.has("tags"),
+    links: linksText !== "" || opened.has("links"),
+    rules: relations.length > 0 || incomingRules.length > 0 || opened.has("rules"),
+  };
+  const hidden = OPTIONAL.filter(([key]) => !show[key]);
+  const open = (key: Optional) => {
+    setOpened((cur) => new Set([...cur, key]));
+    setFocusField(key);
+  };
   const typeColor = settings.types.find((t) => t.id === box.type)?.color;
 
   return (
@@ -127,219 +153,262 @@ export function BoxEditor(props: Props) {
           onChange={(e) => onChange({ title: e.target.value }, "title")}
         />
         <button className="icon-button" onClick={onClose} aria-label="Close">
-          ×
+          <Icon name="x" size={16} />
         </button>
       </div>
-      {!box.title.trim() && <p className="field-error">A title is required.</p>}
+      <div className="editor-body">
+        {!box.title.trim() && <p className="field-error">A title is required.</p>}
 
-      <div className="editor-grid">
-        <label>
-          Type
-          <select value={box.type} onChange={(e) => onChange({ type: e.target.value }, "type")}>
-            {settings.types.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Status
-          <select value={box.status ?? ""} onChange={(e) => onChange({ status: e.target.value || undefined }, "status")}>
-            <option value="">{NO_FLAG}</option>
-            {settings.statuses.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {snapped && <p className="field-note span-2">{snapped}</p>}
-        <label>
-          Start
-          <input type="date" value={formatDay(box.start)} onChange={(e) => setStart(e.target.value)} />
-        </label>
-        <label>
-          End
-          <input type="date" value={formatDay(box.end)} onChange={(e) => setEnd(e.target.value)} />
-        </label>
-        <label>
-          FTE
-          <select value={box.fte} onChange={(e) => onChange({ fte: Number(e.target.value) }, "fte")}>
-            {BOX_FTE_OPTIONS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Lane
-          <select value={box.lane} onChange={(e) => onChange({ lane: e.target.value }, "lane")}>
-            {departments.map((d) => (
-              <optgroup key={d.id} label={d.name}>
-                {d.lanes.map((l, i) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name ?? `FTE ${i + 1}`}
+        <section className="editor-section">
+          <h4>Schedule</h4>
+          <div className="editor-grid">
+            <label>
+              Start
+              <DateInput value={formatDay(box.start)} onChange={setStart} />
+            </label>
+            <label>
+              End
+              <DateInput value={formatDay(box.end)} onChange={setEnd} />
+            </label>
+            {snapped && <p className="field-note span-2">{snapped}</p>}
+            <label>
+              FTE
+              <select aria-label="FTE" value={box.fte} onChange={(e) => onChange({ fte: Number(e.target.value) }, "fte")}>
+                {BOX_FTE_OPTIONS.map((f) => (
+                  <option key={f} value={f}>
+                    {f.toFixed(1)}
                   </option>
                 ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-        <div className="span-2 field">
-          <span className="field-label">Engineers</span>
-          <EngineerPicker
-            value={box.engineers ?? []}
-            people={people}
-            department={department}
-            onChange={(engineers) => onChange({ engineers }, "engineers")}
-            onAddPerson={(name) => onAddPerson(name, department)}
-          />
-        </div>
-        <label className="span-2">
-          Epic link
-          <span className="with-action">
-            <input
-              type="url"
-              placeholder="https://…"
-              value={box.epic ?? ""}
-              onChange={(e) => onChange({ epic: e.target.value.trim() || undefined }, "epic")}
-            />
-            {box.epic && epicValid && (
-              <a className="button-link" href={box.epic} target="_blank" rel="noopener noreferrer">
-                Open ↗
-              </a>
+              </select>
+            </label>
+            <label>
+              Lane
+              <select aria-label="Lane" value={box.lane} onChange={(e) => onChange({ lane: e.target.value }, "lane")}>
+                {departments.map((d) => (
+                  <optgroup key={d.id} label={d.name}>
+                    {d.lanes.map((l, i) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name ?? `FTE ${i + 1}`}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section className="editor-section">
+          <h4>Work</h4>
+          <div className="editor-grid">
+            <label>
+              Type
+              <select aria-label="Type" value={box.type} onChange={(e) => onChange({ type: e.target.value }, "type")}>
+                {settings.types.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Status
+              <select aria-label="Status" value={box.status ?? ""} onChange={(e) => onChange({ status: e.target.value || undefined }, "status")}>
+                <option value="">{NO_FLAG}</option>
+                {settings.statuses.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="span-2 field">
+              <span className="field-label">Engineers</span>
+              <EngineerPicker
+                value={box.engineers ?? []}
+                people={people}
+                department={department}
+                onChange={(engineers) => onChange({ engineers }, "engineers")}
+                onAddPerson={(name) => onAddPerson(name, department)}
+              />
+            </div>
+            {show.description && (
+              <label className="span-2">
+                Description
+                <textarea
+                  rows={2}
+                  autoFocus={focusField === "description"}
+                  value={box.description ?? ""}
+                  onChange={(e) => onChange({ description: e.target.value || undefined }, "description")}
+                />
+              </label>
             )}
-          </span>
-          {!epicValid && <span className="field-error">Use a full http(s) link.</span>}
-          {jira && (
-            <span className="hint">
-              Labelled {jira} on the timeline and table (BoxOps code {fullCode(box, departments)})
-            </span>
-          )}
-        </label>
-        <div className="span-2 field">
-          <span className="field-label">
-            Rules for this box <span className="hint">warnings only; nothing is blocked</span>
-          </span>
-          <ul className="rule-list">
-            {relations.map((r, i) => {
-              const broken = brokenOut(r.type, r.box);
-              return (
-                <li key={`${r.type}:${r.box}:${i}`} className={broken ? "broken" : undefined}>
-                  <span className="rule-row">
-                    <select
-                      value={r.type}
-                      aria-label="Rule"
-                      onChange={(e) =>
-                        setRelations(relations.map((x, j) => (j === i ? { ...x, type: e.target.value as RelationType } : x)))
-                      }
-                    >
-                      {RELATION_ORDER.map((t) => (
-                        <option key={t} value={t}>
-                          {RELATION_TYPES[t].short}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={r.box}
-                      aria-label="Other box"
-                      onChange={(e) => setRelations(relations.map((x, j) => (j === i ? { ...x, box: e.target.value } : x)))}
-                    >
-                      {!byCode.has(r.box) && <option value={r.box}>{r.box} (missing)</option>}
-                      {boxOptions}
-                    </select>
-                    <button
-                      className="icon-button row-remove"
-                      aria-label="Remove rule"
-                      onClick={() => setRelations(relations.filter((_, j) => j !== i))}
-                    >
-                      ×
-                    </button>
-                  </span>
-                  {broken && <span className="rule-warning">⚠ {broken.message}</span>}
-                </li>
-              );
-            })}
-            {incoming(boxes, box.code).map(({ box: from, relation }) => {
-              const broken = brokenIn(from, relation.type);
-              return (
-                <li key={`in:${from.id}:${relation.type}`} className={`incoming${broken ? " broken" : ""}`}>
-                  <span className="rule-row">
-                    <span>
-                      This box {RELATION_TYPES[relation.type].inverse.replace("{other}", label(from))}
-                      <span className="hint"> (set on {fullCode(from, departments)})</span>
-                    </span>
-                    <button
-                      className="icon-button row-remove"
-                      aria-label={`Remove rule set on ${fullCode(from, departments)}`}
-                      onClick={() => props.onRemoveIncoming(from.id, relation.type)}
-                    >
-                      ×
-                    </button>
-                  </span>
-                  {broken && <span className="rule-warning">⚠ {broken.message}</span>}
-                </li>
-              );
-            })}
-          </ul>
-          <span className="rule-row add-rule">
-            <span className="hint">Add:</span>
-            <select value={newRuleType} onChange={(e) => setNewRuleType(e.target.value as RelationType)} aria-label="New rule">
-              {RELATION_ORDER.map((t) => (
-                <option key={t} value={t}>
-                  {RELATION_TYPES[t].short}
-                </option>
-              ))}
-            </select>
-            <select
-              value=""
-              aria-label="Add a rule with"
-              onChange={(e) => {
-                if (!e.target.value) return;
-                const exists = relations.some((r) => r.type === newRuleType && r.box === e.target.value);
-                if (!exists) setRelations([...relations, { type: newRuleType, box: e.target.value }]);
-              }}
-            >
-              <option value="">Add a rule with…</option>
-              {boxOptions}
-            </select>
-          </span>
-        </div>
-        <label className="span-2">
-          Description
-          <textarea
-            rows={2}
-            value={box.description ?? ""}
-            onChange={(e) => onChange({ description: e.target.value || undefined }, "description")}
-          />
-        </label>
-        <label className="span-2">
-          <span>
-            Tags <span className="hint">comma separated</span>
-          </span>
-          <input
-            value={tagsText}
-            onChange={(e) => {
-              setTagsText(e.target.value);
-              onChange({ tags: splitList(e.target.value, /,/) }, "tags");
-            }}
-          />
-        </label>
-        <label className="span-2">
-          <span>
-            Other links <span className="hint">one per line</span>
-          </span>
-          <textarea
-            rows={2}
-            value={linksText}
-            onChange={(e) => {
-              setLinksText(e.target.value);
-              onChange({ links: splitList(e.target.value, /\n/) }, "links");
-            }}
-          />
-        </label>
+            {show.tags && (
+              <label className="span-2">
+                <span>
+                  Tags <span className="hint">comma separated</span>
+                </span>
+                <input
+                  autoFocus={focusField === "tags"}
+                  value={tagsText}
+                  onChange={(e) => {
+                    setTagsText(e.target.value);
+                    onChange({ tags: splitList(e.target.value, /,/) }, "tags");
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        </section>
+
+        <section className="editor-section">
+          <h4>Links</h4>
+          <div className="editor-grid">
+            <label className="span-2">
+              Epic link
+              <span className="with-action">
+                <input
+                  type="url"
+                  placeholder="https://…"
+                  value={box.epic ?? ""}
+                  onChange={(e) => onChange({ epic: e.target.value.trim() || undefined }, "epic")}
+                />
+                {box.epic && epicValid && (
+                  <a className="button-link" href={box.epic} target="_blank" rel="noopener noreferrer">
+                    Open <Icon name="external" size={12} />
+                  </a>
+                )}
+              </span>
+              {!epicValid && <span className="field-error">Use a full http(s) link.</span>}
+              {jira && (
+                <span className="hint">
+                  Labelled {jira} on the timeline and table (BoxOps code {fullCode(box, departments)})
+                </span>
+              )}
+            </label>
+            {show.links && (
+              <label className="span-2">
+                <span>
+                  Other links <span className="hint">one per line</span>
+                </span>
+                <textarea
+                  rows={2}
+                  autoFocus={focusField === "links"}
+                  value={linksText}
+                  onChange={(e) => {
+                    setLinksText(e.target.value);
+                    onChange({ links: splitList(e.target.value, /\n/) }, "links");
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        </section>
+
+        {show.rules && (
+          <section className="editor-section">
+            <h4>
+              Rules <span className="hint">warnings only; nothing is blocked</span>
+            </h4>
+            <div className="field">
+              <ul className="rule-list">
+                {relations.map((r, i) => {
+                  const broken = brokenOut(r.type, r.box);
+                  return (
+                    <li key={`${r.type}:${r.box}:${i}`} className={broken ? "broken" : undefined}>
+                      <span className="rule-row">
+                        <select
+                          value={r.type}
+                          aria-label="Rule"
+                          onChange={(e) =>
+                            setRelations(relations.map((x, j) => (j === i ? { ...x, type: e.target.value as RelationType } : x)))
+                          }
+                        >
+                          {RELATION_ORDER.map((t) => (
+                            <option key={t} value={t}>
+                              {RELATION_TYPES[t].short}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={r.box}
+                          aria-label="Other box"
+                          onChange={(e) => setRelations(relations.map((x, j) => (j === i ? { ...x, box: e.target.value } : x)))}
+                        >
+                          {!byCode.has(r.box) && <option value={r.box}>{r.box} (missing)</option>}
+                          {boxOptions}
+                        </select>
+                        <button
+                          className="icon-button row-remove"
+                          aria-label="Remove rule"
+                          onClick={() => setRelations(relations.filter((_, j) => j !== i))}
+                        >
+                          <Icon name="x" size={14} />
+                        </button>
+                      </span>
+                      {broken && <span className="rule-warning"><Icon name="alert" size={12} /> {broken.message}</span>}
+                    </li>
+                  );
+                })}
+                {incomingRules.map(({ box: from, relation }) => {
+                  const broken = brokenIn(from, relation.type);
+                  return (
+                    <li key={`in:${from.id}:${relation.type}`} className={`incoming${broken ? " broken" : ""}`}>
+                      <span className="rule-row">
+                        <span>
+                          This box {RELATION_TYPES[relation.type].inverse.replace("{other}", label(from))}
+                          <span className="hint"> (set on {fullCode(from, departments)})</span>
+                        </span>
+                        <button
+                          className="icon-button row-remove"
+                          aria-label={`Remove rule set on ${fullCode(from, departments)}`}
+                          onClick={() => props.onRemoveIncoming(from.id, relation.type)}
+                        >
+                          <Icon name="x" size={14} />
+                        </button>
+                      </span>
+                      {broken && <span className="rule-warning"><Icon name="alert" size={12} /> {broken.message}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+              <span className="rule-row add-rule">
+                <span className="hint">Add:</span>
+                <select value={newRuleType} onChange={(e) => setNewRuleType(e.target.value as RelationType)} aria-label="New rule">
+                  {RELATION_ORDER.map((t) => (
+                    <option key={t} value={t}>
+                      {RELATION_TYPES[t].short}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value=""
+                  aria-label="Add a rule with"
+                  autoFocus={focusField === "rules"}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const exists = relations.some((r) => r.type === newRuleType && r.box === e.target.value);
+                    if (!exists) setRelations([...relations, { type: newRuleType, box: e.target.value }]);
+                  }}
+                >
+                  <option value="">Add a rule with…</option>
+                  {boxOptions}
+                </select>
+              </span>
+            </div>
+          </section>
+        )}
+
+        {hidden.length > 0 && (
+          <div className="editor-more">
+            {hidden.map(([key, name]) => (
+              <button key={key} className="add-button small" onClick={() => open(key)}>
+                <Icon name="plus" size={12} />
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="editor-foot">

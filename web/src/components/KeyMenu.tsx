@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import type { Settings } from "../model/types";
 import { Popover } from "./Popover";
 import { type Progress, PROGRESS_NAME } from "../model/status";
+import { Icon } from "./Icon";
 
 const PROGRESS: Progress[] = ["upcoming", "underway", "finished"];
 
@@ -55,7 +56,7 @@ export function KeyMenu({ settings }: { settings: Settings }) {
           <h3>On a box</h3>
           <ul>
             <li>
-              <span className="key-warn">⚠</span>Broken rule, or clash with another save
+              <Icon name="alert" size={12} className="key-warn" />Broken rule, or clash with another save
             </li>
             <li>
               <span className="key-updated" />
@@ -68,6 +69,16 @@ export function KeyMenu({ settings }: { settings: Settings }) {
               <span className="key-pto" />
               PTO (an engineer away)
             </li>
+            <li>
+              <span className="key-overflow" />
+              Over capacity: more FTE than the lanes hold
+            </li>
+          </ul>
+          <h3>Tips</h3>
+          <ul className="key-tips">
+            <li>Double-click empty lane space to add a box</li>
+            <li>Double-click a PTO row to book time off</li>
+            <li>Drag a box to move it; drag its ends to change dates</li>
           </ul>
         </>
       )}

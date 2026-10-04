@@ -12,7 +12,7 @@ import { flagName, PROGRESS_NAME, progress } from "../model/status";
 import { boxScale } from "../model/scale";
 import { jiraKey } from "../model/jira";
 import { ScaleBadge } from "./ScaleBadge";
-import { capacityOn, hasDates, laneDates, laneDatesShort } from "../model/lanes";
+import { capacityOn, hasDates, laneDates } from "../model/lanes";
 import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import { CollapseAll } from "./CollapseAll";
 import {
@@ -33,6 +33,7 @@ import {
 import type { Box, Department, Roadmap, TimeOff, ZoomLevel } from "../model/types";
 import { type DepartmentLayout, laneAtSlot, layoutDepartment } from "../timeline/layout";
 import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
+import { Icon } from "./Icon";
 
 const LABEL_W = 240;
 /** Height of half an FTE; a 1-FTE lane is two of these. */
@@ -330,7 +331,7 @@ export function Timeline(props: Props) {
     width: Math.max(scale.pxPerDay, scale.span(start, end)),
   });
 
-  const boxEl = (b: Box, style: CSSProperties, variant: "full" | "compact" | "dragging" = "full", slots = 2) => {
+  const boxEl = (b: Box, style: CSSProperties, variant: "full" | "compact" | "dragging" = "full", slots = 2, overflowing = false) => {
     const width = typeof style.width === "number" ? style.width : 0;
     const interactive = variant !== "compact" && !readOnly;
     const clash = props.conflictIds?.has(b.id);
@@ -363,6 +364,7 @@ export function Timeline(props: Props) {
       clash && "conflict",
       props.updatedIds?.has(b.id) && "updated",
       warnings.length > 0 && "rule-broken",
+      overflowing && "overflowing",
     ];
     const tooltip = [
       clash && "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n",
@@ -388,8 +390,8 @@ export function Timeline(props: Props) {
           <span className="box-title">
             <span className="status-mark" aria-label={PROGRESS_NAME[stage]} />
             {(warnings.length > 0 || clash) && (
-              <span className="box-warn" aria-label={warnings.length ? "Breaks a rule" : "Clash"}>
-                ⚠
+              <span className="box-warn" role="img" aria-label={warnings.length ? "Breaks a rule" : "Clash"}>
+                <Icon name="alert" size={12} />
               </span>
             )}
             <span className={`box-code${jira ? " jira" : ""}`}>{jira ?? code}</span>
@@ -435,7 +437,7 @@ export function Timeline(props: Props) {
         <div className="tl-head">
           <div className="tl-corner" style={{ width: LABEL_W }}>
             <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />
-            <span>{readOnly ? "Read-only preview" : "Double-click a lane to add a box"}</span>
+            {readOnly && <span>Read-only preview</span>}
           </div>
           <div className="tl-bands" style={{ width: scale.width }}>
             {bands.map((band, i) => (
@@ -500,7 +502,7 @@ export function Timeline(props: Props) {
                             />
                             {hasDates(lane) && (
                               <span className="pill lane-dates" title={`This lane holds capacity ${laneDates(lane)}`}>
-                                {laneDatesShort(lane)}
+                                {laneDates(lane)}
                               </span>
                             )}
                             {lane.fte !== 1 && <span className="pill">{lane.fte} FTE</span>}
@@ -514,13 +516,13 @@ export function Timeline(props: Props) {
                         >
                           {over ? (
                             <span
-                              className="pill warn"
+                              className="overflow-note warn-text"
                               title={`Up to ${layout.peakFte} FTE is planned at once; the lanes hold ${layout.capacity / 2} FTE.`}
                             >
                               Over capacity
                             </span>
                           ) : (
-                            <span className="pill" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
+                            <span className="overflow-note" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
                               Doesn’t fit side by side
                             </span>
                           )}
@@ -578,6 +580,7 @@ export function Timeline(props: Props) {
                           { ...span(b.start, b.end), top: boxTop(p.slot), height: boxHeight(p.slots) },
                           "full",
                           p.slots,
+                          over && p.slot >= layout.capacity,
                         );
                       })}
                       {previewHere && dragged && previewLane && (
@@ -612,7 +615,19 @@ export function Timeline(props: Props) {
                     <div className="row pto-row" style={{ height }}>
                       <div className="label lane-label pto-label" style={{ width: LABEL_W, height }}>
                         <span className="lane-name static">PTO</span>
-                        {entries.length === 0 && !readOnly && <span className="hint">double-click to add</span>}
+                        {!readOnly && props.onCreatePto && (
+                          <button
+                            className="icon-button pto-add"
+                            title="Add PTO (or double-click the row)"
+                            aria-label={`Add PTO in ${dept.name}`}
+                            onClick={() => {
+                              const start = nextWorkday(now);
+                              props.onCreatePto!(dept.id, { start, end: addWorkdays(start, 4) });
+                            }}
+                          >
+                            <Icon name="plus" size={14} />
+                          </button>
+                        )}
                       </div>
                       <div
                         className="track pto-track"
@@ -671,8 +686,9 @@ export function Timeline(props: Props) {
           {!readOnly && props.onAddDepartment && (
             <div className="row add-dept-row">
               <div className="label" style={{ width: LABEL_W }}>
-                <button className="link-button add-dept" onClick={props.onAddDepartment}>
-                  + Add department
+                <button className="add-button" onClick={props.onAddDepartment}>
+                  <Icon name="plus" size={14} />
+                  Add department
                 </button>
               </div>
             </div>
@@ -730,7 +746,7 @@ function LaneName({
       <button className="lane-name" title="Click to rename this lane" onClick={() => setText(named ? label : "")}>
         {label}
         <span className="edit-icon" aria-hidden>
-          ✎
+          <Icon name="pencil" size={12} />
         </span>
       </button>
     );
@@ -787,15 +803,24 @@ function DeptLabel({
         aria-expanded={!collapsed}
         title={over ? `Over capacity: up to ${peakFte} FTE planned at once, ${fte} FTE available.` : undefined}
       >
-        <span className={`chevron${collapsed ? "" : " open"}`}>▸</span>
-        <span className="dept-name">{dept.name}</span>
-        <span className="dept-meta" title={dated ? `${fte} FTE today; some lanes open or close on set dates` : undefined}>
-          {fte} FTE{over && <span className="warn-text"> · {peakFte} planned</span>}
+        <Icon name="chevron-right" size={14} className={`chevron${collapsed ? "" : " open"}`} />
+        <span className="dept-text">
+          <span className="dept-name">{dept.name}</span>
+          <span className="dept-sub">
+            <span className="dept-meta" title={dated ? `${fte} FTE today; some lanes open or close on set dates` : undefined}>
+              {fte} FTE
+            </span>
+            {over && (
+              <span className="dept-over">
+                <Icon name="alert" size={11} /> {peakFte} planned
+              </span>
+            )}
+          </span>
         </span>
       </button>
       {onEdit && (
         <button className="icon-button dept-edit" onClick={onEdit} aria-label={`Edit ${dept.name}`} title="Edit department and lanes">
-          ✎
+          <Icon name="pencil" size={14} />
         </button>
       )}
     </div>

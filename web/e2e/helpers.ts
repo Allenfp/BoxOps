@@ -1,7 +1,7 @@
 import { type Page, test as base, expect } from "@playwright/test";
 import { FakeGitHub, TOKEN } from "./fake-github";
 
-/** Every test runs on Oct 3, 2026 so "today" and the sample boxes line up. */
+/** Every test runs on 2026-10-03 so "today" and the sample boxes line up. */
 export const TODAY = new Date("2026-10-03T09:00:00");
 
 export const DAGSTER = "bx-c93d-dagster-upgrade";
@@ -34,7 +34,7 @@ export const box = (page: Page, id: string) => page.locator(`[data-box-id="${id}
 export const boxTitle = (page: Page, id: string) => box(page, id).locator(".box-name");
 export const toolbar = (page: Page) => page.locator(".draft-status");
 
-/** "Sep 14, 2026 – Oct 23, 2026" from a box's tooltip. */
+/** "2026-09-14 – 2026-10-23" from a box's tooltip. */
 export async function boxDates(page: Page, id: string): Promise<string> {
   const title = (await box(page, id).getAttribute("title")) ?? "";
   return title.split("\n").find((l) => l.includes(" – ")) ?? "";

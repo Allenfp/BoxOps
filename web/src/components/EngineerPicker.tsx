@@ -11,12 +11,14 @@ interface Props {
   /** Add someone to the roster; returns their new id. */
   onAddPerson(name: string): string;
   readOnly?: boolean;
+  /** Shown when nobody is assigned; defaults to "Unassigned". */
+  emptyLabel?: string;
   /** Accessible name for the button. */
   label?: string;
 }
 
 /** A dropdown of the roster with checkboxes, plus a field to add someone new. */
-export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, label = "Engineers" }: Props) {
+export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, label = "Engineers", emptyLabel }: Props) {
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -67,7 +69,7 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
         aria-expanded={open}
         aria-label={label}
       >
-        {value.length ? value.map((id) => names.get(id) ?? id).join(", ") : "Unassigned"}
+        {value.length ? value.map((id) => names.get(id) ?? id).join(", ") : (emptyLabel ?? "Unassigned")}
       </button>
       {open && (
         <div className="picker-menu" role="listbox" aria-multiselectable="true" aria-label={label}>

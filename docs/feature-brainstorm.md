@@ -20,6 +20,7 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 | 13 | Lane start and end dates | Done (2026-10-03) | Optional `start` and `end` on a lane, set in the department editor. Capacity, over-capacity warnings and the timeline follow them. |
 | 14 | Box scale | Done (2026-10-03) | FTE × working days, shown right of the initials on each box, in the editor and tooltip, and as a sortable table column. Not stored. The underlined number shows a short hover card: the sum in Eng Days, weeks/months/quarters (FTE per Month = ~20), and the share of the department it takes while it runs. |
 | 15 | Jira key as the box label | Done (2026-10-03) | A box whose epic link is a Jira issue shows that key (DATA-123) on the timeline and table instead of its BoxOps code. The code stays in the editor and tooltip, and rules still use it. Table search matches either. |
+| 16 | Polish pass | Done (2026-10-04) | Line icons instead of Unicode symbols; a calm grey segmented control; department colour only as the stripe; no on-screen instructions (tips moved to the Key); two-line department labels; over capacity as a warning edge on the boxes; a thin Today line; dates as YYYY-MM-DD text everywhere; right-aligned number columns; one style for add buttons; the box editor in sections, with empty optional fields hidden and the footer pinned. |
 
 ## Planning and capacity
 
@@ -76,3 +77,5 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
     rough measure of how much work it is.
 15. **Jira key as the box label.** When a box's epic link points at a Jira
     issue, the box is labelled with the issue key instead of its BoxOps code.
+16. **Polish pass.** A round of visual clean-up so the app reads as one
+    designed product (details in the table).

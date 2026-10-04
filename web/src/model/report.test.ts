@@ -55,8 +55,8 @@ describe("formatReport", () => {
         ],
       }),
     );
-    expect(text).toContain("Engineer bookings (FTE is their share of the box)\n  Sam (sam), eng\n    Oct 5, 2026 – Oct 16, 2026  0.75 FTE  Pipes (PIP)\n  Ana (ana)\n");
+    expect(text).toContain("Engineer bookings (FTE is their share of the box)\n  Sam (sam), eng\n    2026-10-05 – 2026-10-16  0.75 FTE  Pipes (PIP)\n  Ana (ana)\n");
     expect(text).toContain("Engineers over 1 FTE\n  none");
-    expect(text).toContain("Eng (eng): 1 FTE of lanes, 1 boxes\n    OVER CAPACITY Oct 5, 2026 – Oct 16, 2026: 1.5 FTE planned of 1");
+    expect(text).toContain("Eng (eng): 1 FTE of lanes, 1 boxes\n    OVER CAPACITY 2026-10-05 – 2026-10-16: 1.5 FTE planned of 1");
   });
 });

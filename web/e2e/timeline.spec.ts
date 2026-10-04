@@ -4,14 +4,16 @@ test("shows departments, lanes, boxes and today", async ({ page, github: _ }) =>
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
   await expect(page.locator(".dept-label")).toHaveText([/Data Engineering/, /Analytics/, /ML Platform/]);
   await expect(page.locator(".today-flag")).toBeVisible();
-  // Progress comes from the dates (today is Oct 3, 2026); flags are set by hand.
+  // Progress comes from the dates (today is 2026-10-03); flags are set by hand.
   await expect(box(page, DAGSTER)).toHaveClass(/progress-underway/); // Sep 14 – Oct 23
   await expect(box(page, CDC)).toHaveClass(/progress-upcoming/); // from Oct 26
   await expect(page.locator(".box-flag")).toHaveText(["At risk"]);
   // Fixture has overlaps in FTE 3 and 1-FTE boxes in the 0.5-FTE Contractor lane.
   await expect(page.locator(".overflow-label")).toHaveCount(1);
   // 4 FTE running at once (around Oct 1) against 3.5 FTE of lanes.
-  await expect(page.locator(".dept-label", { hasText: "Data Engineering" })).toContainText("3.5 FTE · 4 planned");
+  await expect(page.locator(".dept-label", { hasText: "Data Engineering" }).locator(".dept-meta")).toHaveText("3.5 FTE");
+  await expect(page.locator(".dept-label", { hasText: "Data Engineering" }).locator(".dept-over")).toHaveText("4 planned");
+  await expect(page.locator(".box.overflowing")).toHaveCount(1);
   await expect(page.locator(".overflow-label")).toContainText("Over capacity");
   await expect(page.locator(".dept-label", { hasText: "Analytics" })).not.toContainText("planned");
 
@@ -26,9 +28,9 @@ test("shows departments, lanes, boxes and today", async ({ page, github: _ }) =>
 });
 
 test("drag moves a box in time and across lanes; edges resize", async ({ page, github: _ }) => {
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 14, 2026 – Oct 23, 2026");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
   await dragDays(page, DAGSTER, 10); // keeps its 30 working days
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
 
   // Into Analytics' empty "Open req" lane: another department, and free at those dates.
   const openReq = (await page.locator('[data-lane="an-3"]').boundingBox())!;
@@ -39,7 +41,7 @@ test("drag moves a box in time and across lanes; edges resize", async ({ page, g
   await expect.poll(async () => (await box(page, DAGSTER).boundingBox())!.y - (await lane.boundingBox())!.y).toBe(3);
 
   await dragDays(page, DAGSTER, 5, 0, "end");
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 13, 2026");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-13");
   await expect(toolbar(page)).toContainText("Save · 1 change");
 });
 
@@ -49,12 +51,12 @@ test("clicking a box opens the editor; edits apply live", async ({ page, github:
   await expect(editor.locator(".editor-title")).toHaveValue("Dagster 2.x upgrade");
   await editor.locator(".editor-title").fill("Dagster upgrade, phase 1");
   await editor.getByPlaceholder("https://…").fill("https://example.atlassian.net/browse/DATA-42");
-  await expect(editor.getByRole("link", { name: "Open ↗" })).toBeVisible();
+  await expect(editor.getByRole("link", { name: "Open" })).toBeVisible();
   await expect(box(page, DAGSTER).locator(".box-flag")).toHaveText("At risk");
-  await editor.locator("select").nth(1).selectOption("blocked");
+  await editor.getByLabel("Status", { exact: true }).selectOption("blocked");
   await expect(boxTitle(page, DAGSTER)).toHaveText("Dagster upgrade, phase 1");
   await expect(box(page, DAGSTER).locator(".box-flag")).toHaveText("Blocked");
-  await editor.locator("select").nth(1).selectOption(""); // On track: no flag
+  await editor.getByLabel("Status", { exact: true }).selectOption(""); // On track: no flag
   await expect(box(page, DAGSTER).locator(".box-flag")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(editor).toBeHidden();
@@ -82,7 +84,7 @@ test("unsaved edits survive a reload", async ({ page, github: _ }) => {
   await expect(toolbar(page)).toContainText("Save · 1 change");
   await page.reload();
   await expect(toolbar(page)).toContainText("Save · 1 change");
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 28, 2026 – Nov 6, 2026");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
 });
 
 test("weekends are never shown or counted", async ({ page, github: _ }) => {
@@ -97,7 +99,7 @@ test("FTE sets a box's height; 2 FTE covers the lane below", async ({ page, gith
   const warehouse = "bx-a1f0-warehouse-migration";
   const oneFte = (await box(page, warehouse).boundingBox())!.height;
   await box(page, warehouse).click({ position: { x: 200, y: 10 } });
-  await page.getByRole("dialog", { name: /Edit/ }).locator("select").nth(2).selectOption("2"); // Type, Status, FTE, Lane
+  await page.getByRole("dialog", { name: /Edit/ }).getByLabel("FTE", { exact: true }).selectOption("2");
   await page.keyboard.press("Escape");
   await expect.poll(async () => (await box(page, warehouse).boundingBox())!.height).toBeGreaterThan(oneFte * 2);
 
@@ -216,5 +218,5 @@ test("discard lives under the save button's ▾ and asks first", async ({ page, 
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Discard this change…" }).click();
   await expect(toolbar(page)).toContainText("No changes");
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("Sep 14, 2026 – Oct 23, 2026");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
 });

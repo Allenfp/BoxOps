@@ -77,7 +77,7 @@ describe("describeChanges", () => {
     const [line] = describeChanges(base, draft, roadmap.settings);
     expect(line.text).toBe(
       "**Dagster 2.x upgrade** (DE-D9U): moved from Data Engineering / FTE 2 to Data Engineering / Contractor; " +
-        "rescheduled to Sep 24, 2026 – Nov 2, 2026 (was Sep 14, 2026 – Oct 23, 2026); status At risk → On track",
+        "rescheduled to 2026-09-24 – 2026-11-02 (was 2026-09-14 – 2026-10-23); status At risk → On track",
     );
   });
 });
@@ -86,9 +86,9 @@ describe("commitMessage", () => {
   it("uses a clean one-line subject", async () => {
     const { commitMessage } = await import("./summary");
     const one = commitMessage([
-      { kind: "changed", text: "**Dagster 2.x upgrade**: rescheduled to Sep 24, 2026 – Nov 2, 2026 (was Sep 14, 2026 – Oct 23, 2026)" },
+      { kind: "changed", text: "**Dagster 2.x upgrade**: rescheduled to 2026-09-24 – 2026-11-02 (was 2026-09-14 – 2026-10-23)" },
     ]);
-    expect(one.split("\n")[0]).toBe("Dagster 2.x upgrade: rescheduled to Sep 24, 2026 – Nov 2, 2026");
+    expect(one.split("\n")[0]).toBe("Dagster 2.x upgrade: rescheduled to 2026-09-24 – 2026-11-02");
     const long = commitMessage([
       { kind: "changed", text: "**A very long box title that goes on**: moved from Data Engineering / FTE 2 to Analytics / Open req (Q1); status At risk → On track" },
     ]);

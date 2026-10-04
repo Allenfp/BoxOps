@@ -13,6 +13,9 @@
   --warn-bg: #fff1e6;
   --accent: #4f7cff;
   --updated: #0d9488;
+  --seg-track: #eceef2;
+  --seg-on: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.1), 0 0 0 0.5px rgba(16, 24, 40, 0.06);
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   font-size: 13px;
   color: var(--text);
@@ -34,6 +37,9 @@
   --warn: #fb923c;
   --warn-bg: #3a2414;
   --updated: #2dd4bf;
+  --seg-track: #0f1218;
+  --seg-on: #262c38;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -122,25 +128,30 @@ button:hover {
     justify-content: center;
   }
 }
+/* Segmented control: a grey track with the chosen option raised on a white pill. */
 .segmented {
   display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--seg-track);
 }
 .segmented button {
-  border-radius: 0;
-  margin-left: -1px;
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 500;
 }
-.segmented button:first-child {
-  border-radius: 6px 0 0 6px;
-  margin-left: 0;
-}
-.segmented button:last-child {
-  border-radius: 0 6px 6px 0;
+.segmented button:hover {
+  background: transparent;
+  color: var(--text);
 }
 .segmented button[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  position: relative;
+  background: var(--seg-on);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
 }
 .swatch {
   width: 10px;
@@ -234,6 +245,16 @@ button.icon-only:disabled {
   width: 10px;
   color: var(--warn);
   font-weight: 600;
+}
+.key-overflow {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+.key-tips li {
+  color: var(--text-muted);
 }
 .key-updated {
   width: 7px;
@@ -347,10 +368,11 @@ button.icon-only:disabled {
   transform: translateX(-50%);
   background: var(--today);
   color: #fff;
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 8px;
+  line-height: 15px;
+  padding: 0 5px;
+  border-radius: 4px;
   pointer-events: none;
 }
 
@@ -383,8 +405,7 @@ button.icon-only:disabled {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
-  margin-left: -1px;
+  width: 1px;
   background: var(--today);
   z-index: 2;
   pointer-events: none;
@@ -415,7 +436,7 @@ button.icon-only:disabled {
 }
 
 .dept-row {
-  background: color-mix(in srgb, var(--dept) 7%, transparent);
+  background: var(--surface);
 }
 .dept-label {
   border: 0;
@@ -424,14 +445,12 @@ button.icon-only:disabled {
   border-radius: 0;
   text-align: left;
   font-weight: 600;
-  background: color-mix(in srgb, var(--dept) 10%, var(--surface));
+  background: var(--surface);
 }
 .dept-label:hover {
-  background: color-mix(in srgb, var(--dept) 16%, var(--surface));
+  background: var(--surface-2);
 }
 .chevron {
-  display: inline-block;
-  width: 12px;
   color: var(--text-muted);
   transition: transform 0.15s;
 }
@@ -448,6 +467,29 @@ button.icon-only:disabled {
   font-weight: 400;
   font-size: 12px;
   color: var(--text-muted);
+}
+.dept-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.dept-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dept-text .dept-meta {
+  font-size: 11px;
+}
+.dept-over {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--warn);
 }
 .warn-text {
   color: var(--warn);
@@ -479,8 +521,8 @@ button.icon-only:disabled {
   border-color: var(--border);
 }
 .edit-icon {
+  display: inline-flex;
   color: var(--text-muted);
-  font-size: 11px;
   opacity: 0;
 }
 .lane-name:hover .edit-icon,
@@ -552,11 +594,12 @@ button.icon-only:disabled {
   color: var(--text-muted);
 }
 .box.compact {
-  height: 8px;
-  top: 13px;
+  height: 4px;
+  top: 15px;
   padding: 0;
+  border-radius: 2px;
   background: var(--c);
-  opacity: 0.45;
+  opacity: 0.3;
   border: 0;
 }
 
@@ -691,13 +734,8 @@ button.collapse-all:hover {
   text-decoration: underline;
 }
 
-/* Matches the today line on the timeline. */
 .today-button {
-  color: var(--today);
-  border-color: var(--today);
-}
-.today-button:hover {
-  background: color-mix(in srgb, var(--today) 8%, var(--surface));
+  color: var(--text);
 }
 
 /* Save · N changes ▾ */
@@ -754,9 +792,44 @@ button.collapse-all:hover {
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(16, 24, 40, 0.22);
-  padding: 0 14px 12px;
+  padding: 0 14px;
   max-height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Head and footer stay put; the fields between them scroll. */
+.editor-body {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
+  margin: 0 -14px;
+  padding: 0 14px 4px;
+}
+.editor-section + .editor-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.editor-section h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.editor-section h4 .hint {
+  margin-left: 4px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.editor-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 12px 0 0 -6px;
 }
 .editor-head {
   display: flex;
@@ -784,12 +857,24 @@ button.collapse-all:hover {
   outline: none;
   background: var(--surface-2);
 }
+.icon {
+  flex: none;
+  display: inline-block;
+  vertical-align: -0.2em;
+}
 .icon-button {
+  display: inline-grid;
+  place-items: center;
   border: 0;
-  font-size: 20px;
+  background: transparent;
   line-height: 1;
-  padding: 2px 8px;
+  padding: 5px;
+  border-radius: 6px;
   color: var(--text-muted);
+}
+.icon-button:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 .editor-grid {
   display: grid;
@@ -852,11 +937,12 @@ button.collapse-all:hover {
   color: var(--today);
 }
 .editor-foot {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 12px;
-  padding-top: 10px;
+  margin: 12px -14px 0;
+  padding: 10px 14px 12px;
   border-top: 1px solid var(--border);
 }
 button.danger {
@@ -1262,14 +1348,34 @@ button.primary:hover:not(:disabled) {
   /* The other columns' widths add up to 1890px; the rest (about 380px) is Description. */
   min-width: 2274px;
 }
+/* Number columns: right-aligned, tabular figures, headers aligned with them. */
 .col-fte {
   width: 64px;
+  text-align: right;
+}
+.box-table td.col-fte select {
+  text-align: right;
+  text-align-last: right;
+  font-variant-numeric: tabular-nums;
 }
 .col-scale {
   width: 64px;
   text-align: right;
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+.box-table td.col-scale {
+  padding-right: 12px;
+}
+.box-table th.col-days .sort-button,
+.box-table th.col-fte .sort-button,
+.box-table th.col-scale .sort-button {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+.box-table th.col-days,
+.box-table th.col-fte,
+.box-table th.col-scale {
+  text-align: right;
 }
 .col-engineers {
   width: 190px;
@@ -1310,7 +1416,7 @@ button.primary:hover:not(:disabled) {
   width: 132px;
 }
 .col-days {
-  width: 78px;
+  width: 96px;
   text-align: right;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -1385,12 +1491,12 @@ button.primary:hover:not(:disabled) {
 .box-table .group-row td {
   padding: 0;
   height: 36px;
-  background: color-mix(in srgb, var(--dept) 10%, var(--surface));
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   border-left: 4px solid var(--dept);
 }
 .box-table tbody tr.group-row:hover td {
-  background: color-mix(in srgb, var(--dept) 15%, var(--surface));
+  background: var(--surface-2);
 }
 .group-head {
   position: sticky;
@@ -1423,8 +1529,6 @@ button.primary:hover:not(:disabled) {
   font-weight: 400;
 }
 .group-add {
-  font-size: 18px;
-  padding: 0 8px;
   opacity: 0.55;
 }
 .group-row:hover .group-add,
@@ -1463,8 +1567,15 @@ button.primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
 }
 .lane-labels .overflow-label {
-  background: color-mix(in srgb, var(--warn) 8%, var(--surface));
-  border-left-color: var(--warn);
+  background: var(--surface);
+}
+.overflow-note {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.overflow-note.warn-text {
+  color: var(--warn);
+  font-weight: 500;
 }
 .dept-track {
   position: relative;
@@ -1482,8 +1593,7 @@ button.primary:hover:not(:disabled) {
   position: absolute;
   left: 0;
   right: 0;
-  background: color-mix(in srgb, var(--warn) 7%, transparent);
-  border-top: 1px dashed color-mix(in srgb, var(--warn) 60%, transparent);
+  border-top: 1px dashed var(--grid-major);
 }
 .grid-line.week {
   background: color-mix(in srgb, var(--grid-major) 60%, var(--grid));
@@ -1657,13 +1767,10 @@ button.primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
 }
 /* Extra area when the FTE fits but free space is too split up to draw a box in one piece. */
-.lane-labels .overflow-label.squeezed {
-  background: var(--surface-2);
-  border-left-color: var(--grid-major);
-}
-.overflow-band.squeezed {
-  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
-  border-top-color: var(--grid-major);
+/* Boxes that don't fit the lanes' FTE: a warning edge on the box itself. */
+.box.overflowing {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+  box-shadow: inset 3px 0 0 var(--warn);
 }
 
 /* People tab */
@@ -1713,14 +1820,9 @@ button.primary:hover:not(:disabled) {
   font-weight: 600;
 }
 .dept-toggle:hover {
-  background: color-mix(in srgb, var(--dept) 8%, transparent);
-}
-.dept-edit,
-.group-edit {
-  font-size: 14px;
+  background: transparent;
 }
 .group-edit {
-  padding: 0 6px;
   opacity: 0.55;
 }
 .group-row:hover .group-edit,
@@ -1729,8 +1831,7 @@ button.primary:hover:not(:disabled) {
 }
 .dept-edit {
   opacity: 0;
-  margin-right: 4px;
-  padding: 2px 6px;
+  margin-right: 6px;
 }
 .dept-label:hover .dept-edit,
 .dept-edit:focus-visible {
@@ -1749,9 +1850,35 @@ button.primary:hover:not(:disabled) {
   border-bottom: 0;
   background: transparent !important;
 }
-.add-dept {
-  font-weight: 600;
-  text-decoration: none;
+/* Every "add" action: a quiet button with a plus. The one solid button per view is its main action. */
+.add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.add-button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.add-button.small {
+  gap: 3px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+.add-dept-row .add-button,
+.add-pto-row .add-button {
+  margin-left: -8px;
+}
+button.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 /* Department editor */
@@ -1965,10 +2092,17 @@ button.primary:hover:not(:disabled) {
   padding-right: 12px;
   color: var(--text-muted);
 }
-.pto-label .hint {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.pto-label .lane-name {
+  flex: 1;
+}
+/* Hover-only add button, in place of written instructions. */
+.pto-add {
+  padding: 2px;
+  opacity: 0;
+}
+.pto-label:hover .pto-add,
+.pto-add:focus-visible {
+  opacity: 1;
 }
 .pto-track {
   position: relative;
@@ -2063,7 +2197,7 @@ button.primary:hover:not(:disabled) {
 .add-pto-row td {
   padding: 2px 8px 6px;
 }
-.add-pto-row .link-button {
+.add-pto-row .add-button {
   font-size: 12px;
 }
 .key-pto {
@@ -2161,4 +2295,64 @@ button.primary:hover:not(:disabled) {
   line-height: 18px;
   color: var(--text);
   pointer-events: none;
+}
+
+/* Date fields: plain YYYY-MM-DD text, with the browser's picker behind a calendar button. */
+.date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.date-input > input[type="text"] {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  padding-right: 26px !important;
+}
+.date-input.invalid > input[type="text"] {
+  border-color: var(--today) !important;
+}
+.date-pick {
+  position: absolute;
+  right: 3px;
+  display: inline-grid;
+  place-items: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+.date-pick:hover {
+  opacity: 1;
+  background: var(--surface-2);
+  color: var(--text);
+}
+/* In the table the picker only shows on hover, so dates read as plain text. */
+.box-table .date-pick {
+  opacity: 0;
+}
+.box-table tr:hover .date-pick,
+.box-table .date-input:focus-within .date-pick {
+  opacity: 0.6;
+}
+.date-native {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.lane-dates-row .date-input input {
+  width: 118px;
+}
+.button-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }

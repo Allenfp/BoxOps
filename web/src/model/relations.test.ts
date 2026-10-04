@@ -46,11 +46,11 @@ describe("rules", () => {
   it("explains broken rules in plain words with dates", () => {
     const v = findViolations([a("before", touching), touching], [dept]);
     expect(v.map((x) => x.message)).toEqual([
-      "DE-AAA Alpha should finish before DE-CCC Touching starts, but it ends Oct 16, 2026 and the other starts Oct 16, 2026.",
+      "DE-AAA Alpha should finish before DE-CCC Touching starts, but it ends 2026-10-16 and the other starts 2026-10-16.",
     ]);
     const during = findViolations([box("AAA", "Alpha", "2026-09-28", "2026-10-21", [{ type: "during", box: "EEE" }]), inside], [dept]);
     expect(during[0].message).toBe(
-      "DE-AAA Alpha should happen during DE-EEE Inside, but it starts 7 working days early and ends 8 working days late (the other runs Oct 7, 2026 – Oct 9, 2026).",
+      "DE-AAA Alpha should happen during DE-EEE Inside, but it starts 7 working days early and ends 8 working days late (the other runs 2026-10-07 – 2026-10-09).",
     );
     expect(findViolations([a("before", later), later], [dept])).toEqual([]);
   });

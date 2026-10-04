@@ -74,7 +74,7 @@ test("edits cells and saves them", async ({ page, github }) => {
 });
 
 test("adds, deletes (undoably), searches and sorts", async ({ page, github: _ }) => {
-  await page.getByRole("button", { name: "+ Add box" }).click();
+  await page.getByRole("button", { name: "Add box" }).click();
   await page.keyboard.type("Hiring plan");
   await page.keyboard.press("Tab");
   await expect(page.locator(":focus")).toHaveAttribute("aria-label", "Lane"); // focus survives the id change

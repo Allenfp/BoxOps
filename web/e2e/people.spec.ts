@@ -92,7 +92,7 @@ test("departments can be added and edited from the People tab", async ({ page, g
   await page.getByRole("button", { name: "People" }).click();
   const dialog = page.locator("dialog.dept-editor[open]");
 
-  await page.getByRole("button", { name: "+ Add department" }).click();
+  await page.getByRole("button", { name: "Add department" }).click();
   await dialog.getByLabel("Department name").fill("Platform");
   await dialog.getByRole("button", { name: "Add department" }).click();
   await dialog.getByRole("button", { name: "Done" }).click();

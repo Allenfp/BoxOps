@@ -3,6 +3,7 @@
 // roadmap files. Hidden when there's nothing to say.
 
 import { Popover } from "./Popover";
+import { Icon } from "./Icon";
 
 export interface WarningItem {
   text: string;
@@ -23,7 +24,7 @@ export function WarningsMenu({ groups }: { groups: WarningGroup[] }) {
       className="warnings-menu"
       label={`${total} warning${total === 1 ? "" : "s"}`}
       buttonClass="warnings-button"
-      button={<>⚠ {total}</>}
+      button={<><Icon name="alert" size={14} /> {total}</>}
     >
       {(close) =>
         shown.map((g) => (

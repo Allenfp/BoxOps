@@ -16,7 +16,7 @@ straight to `main`, and the site updates within a minute.
   turns red where more FTE is planned than its lanes hold. Every box has a code
   like `DE-A1F`, and boxes can be related ("finishes before", "happens
   during"…); a broken rule pops up a warning but blocks nothing. **+ Add
-  department** and the ✎ on a department heading add, rename, recolour, reorder
+  department** and the pencil on a department heading add, rename, recolour, reorder
   and remove departments and their lanes. Each department has a **PTO** row
   where engineers' time off shows as grey blocks: double-click to add, drag to
   move, click to edit.
