@@ -152,3 +152,27 @@ test("a date range and a Hide completed switch filter the table", async ({ page,
   await page.getByRole("button", { name: "Timeline" }).click();
   await expect(page.locator(".box", { hasText: "Legacy ETL sunset" })).toHaveCount(0);
 });
+
+test("the calendar picks a date and closes; a click elsewhere or Esc closes it too", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table" }).click();
+  const calendar = page.getByRole("dialog", { name: "Choose a date" });
+  const from = page.getByRole("group", { name: "Dates" }).getByRole("button", { name: "Pick a date" }).first();
+
+  await from.click();
+  await expect(calendar).toBeVisible();
+  await expect(calendar).toContainText("Oct 2026");
+  await calendar.getByRole("button", { name: "Next month" }).click();
+  await calendar.getByRole("button", { name: "2026-11-02" }).click();
+  await expect(calendar).toHaveCount(0);
+  await expect(page.getByLabel("From date")).toHaveValue("2026-11-02");
+
+  await from.click();
+  await expect(calendar.getByRole("button", { name: "2026-11-02" })).toHaveAttribute("aria-pressed", "true");
+  await page.locator(".table-toolbar .hint").click();
+  await expect(calendar).toHaveCount(0);
+
+  await from.click();
+  await page.keyboard.press("Escape");
+  await expect(calendar).toHaveCount(0);
+});
+

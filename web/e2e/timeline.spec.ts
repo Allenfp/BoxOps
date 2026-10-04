@@ -227,3 +227,17 @@ test("discard lives under the save button's ▾ and asks first", async ({ page, 
   await expect(toolbar(page)).toContainText("No changes");
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
 });
+
+test("in the box editor, Esc closes the calendar but not the editor", async ({ page, github: _ }) => {
+  await page.locator(`[data-box-id="${DAGSTER}"]`).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await editor.getByRole("button", { name: "Pick a date" }).first().click();
+  const calendar = page.getByRole("dialog", { name: "Choose a date" });
+  await calendar.getByRole("button", { name: "2026-09-21" }).click();
+  await expect(calendar).toHaveCount(0);
+  await expect(editor.getByLabel("Start")).toHaveValue("2026-09-21");
+  await editor.getByRole("button", { name: "Pick a date" }).first().click();
+  await page.keyboard.press("Escape");
+  await expect(calendar).toHaveCount(0);
+  await expect(editor).toBeVisible();
+});
