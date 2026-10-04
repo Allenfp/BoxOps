@@ -15,7 +15,9 @@ essentials are below.
 - **Boxes** (`roadmap/boxes/<id>.yaml`) are pieces of planned work. Each sits in
   a lane, runs from `start` to `end` (inclusive weekdays), needs 0.5–2 FTE, and
   can name the **engineers** working on it.
-- **Engineers** are listed in `roadmap/people.yaml`.
+- **Engineers** are listed in `roadmap/people.yaml`, with any **PTO** (time
+  off) they've booked as a `pto:` list of `start`/`end` dates and an optional
+  `note`.
 - **Codes.** People refer to boxes by code, like `DE-A1F`: the department's
   `code` plus the box's own 3-character `code`. To find the file for `DE-A1F`,
   `grep -l "^code: A1F$" roadmap/boxes/*`. The prefix follows the box's
@@ -105,7 +107,8 @@ always the full code with its prefix, like `DE-K7P`; quotes are curly “ ”):
 | Departments reordered | `Reordered departments` |
 | Lane added, removed, resized, reordered | `Added lane <label> (<fte> FTE) to <Department>`, `Removed lane <label> from <Department>`, `Lane <label> in <Department> is now 0.5 FTE (was 1)`, `Reordered the lanes in <Department>` |
 | Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
-| Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` |
+| Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` (a PTO-only change has just its PTO lines) |
+| PTO added, changed, removed | `PTO for <name>: <range> (<note>)` (no `(<note>)` without one), `PTO for <name>: <range> (was <old range>)`, `Removed PTO for <name>: <range>`; a single day is just that day |
 
 For example:
 
@@ -215,10 +218,27 @@ same; only the prefix people see changes (DE-A1F becomes AN-A1F).
 
 **Add an engineer.** Append to `people:` in `roadmap/people.yaml` with a new
 id (a slug of their name, unique), `name`, and ideally `department`. Fields go
-in this order: `id`, `name`, `department`, `role`, `email`, `manager`, `notes`.
+in this order: `id`, `name`, `department`, `role`, `email`, `manager`, `notes`,
+`pto`.
 
 **Edit an engineer.** Change or add fields on their entry in the order above.
 Never change their `id`: boxes refer to it.
+
+**Book PTO.** Add an entry to the engineer's `pto:` list (create it after
+`notes` if missing), with weekday `start` and `end` (inclusive; a Friday–Monday
+trip is `start` Friday, `end` Monday) and an optional short `note`:
+
+```yaml
+    pto:
+      - start: 2026-12-14
+        end: 2026-12-25
+        note: Holiday
+```
+
+PTO shows in the engineer's department on the timeline and table. It doesn't
+reduce capacity, but an engineer on a box during PTO is a warning: tell the
+user about any boxes it overlaps. Delete the `pto:` key when removing the last
+entry.
 
 **Remove an engineer.** Delete their entry *and* remove their id from every
 box's `engineers` list (`grep -rl "<id>" roadmap/boxes`). Delete an emptied

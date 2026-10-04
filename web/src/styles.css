@@ -1661,7 +1661,10 @@ button.primary:hover:not(:disabled) {
 
 /* People tab */
 .people-table {
-  min-width: 1300px;
+  min-width: 1480px;
+}
+.people-table .col-pto {
+  width: 180px;
 }
 .people-table .col-name {
   width: 220px;
@@ -1939,4 +1942,125 @@ button.primary:hover:not(:disabled) {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
   text-transform: uppercase;
   max-width: 140px;
+}
+
+/* PTO: engineers away. Grey and hatched, so it reads as "not work" next to boxes. */
+
+.pto-row .pto-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  color: var(--text-muted);
+}
+.pto-label .hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pto-track {
+  position: relative;
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+}
+.pto-block {
+  position: absolute;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 14px;
+  white-space: nowrap;
+  overflow: clip;
+  z-index: 1;
+  color: var(--text-muted);
+  border: 1px solid var(--grid-major);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-2) 0 4px,
+    color-mix(in srgb, var(--surface-2) 40%, var(--surface)) 4px 8px
+  );
+  cursor: grab;
+  touch-action: none;
+}
+.pto-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+  position: sticky;
+  left: calc(var(--label-w) + 6px);
+}
+.pto-text strong {
+  font-weight: 600;
+  color: var(--text);
+}
+.pto-block:hover .handle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.45;
+}
+.pto-block.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  z-index: 2;
+}
+.pto-block.dragging {
+  z-index: 5;
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.22);
+}
+.pto-chip,
+.cell-code.pto-chip {
+  font-family: inherit;
+  color: var(--text-muted);
+  background: repeating-linear-gradient(-45deg, var(--surface-2) 0 4px, var(--surface) 4px 8px);
+}
+.pto-editor select.editor-title {
+  appearance: auto;
+}
+.pto-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.pto-list .link-button {
+  font-size: 12px;
+  padding: 0;
+}
+.pto-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pto-table-row .cell-code.pto-chip {
+  display: inline-block;
+  flex: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+}
+.add-pto-row td {
+  padding: 2px 8px 6px;
+}
+.add-pto-row .link-button {
+  font-size: 12px;
+}
+.key-pto {
+  display: inline-block;
+  width: 22px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border-radius: 3px;
+  border: 1px solid var(--grid-major);
+  background: repeating-linear-gradient(-45deg, var(--surface-2) 0 3px, var(--surface) 3px 6px);
 }

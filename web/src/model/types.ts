@@ -44,6 +44,13 @@ export interface Department {
 /** FTE a box can take; it sets how many lanes the box covers. */
 export const BOX_FTE_OPTIONS = [0.5, 1, 1.5, 2] as const;
 
+/** A stretch of paid time off (PTO). Inclusive weekday dates, like a box. */
+export interface TimeOff {
+  start: Day;
+  end: Day;
+  note?: string;
+}
+
 /** An engineer who can be assigned to boxes (roadmap/people.yaml). */
 export interface Person {
   id: string;
@@ -56,6 +63,8 @@ export interface Person {
   /** Their manager's name (free text: managers needn't be on the roster). */
   manager?: string;
   notes?: string;
+  /** Time off; shown as blocks on the timeline and rows in the table, and edited there. */
+  pto?: TimeOff[];
 }
 
 /** How one box should sit in time relative to another. */

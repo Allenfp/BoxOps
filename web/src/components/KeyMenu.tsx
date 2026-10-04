@@ -62,6 +62,13 @@ export function KeyMenu({ settings }: { settings: Settings }) {
               Changed by someone else
             </li>
           </ul>
+          <h3>In a department</h3>
+          <ul>
+            <li>
+              <span className="key-pto" />
+              PTO (an engineer away)
+            </li>
+          </ul>
         </>
       )}
     </Popover>

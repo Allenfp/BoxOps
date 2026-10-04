@@ -2,7 +2,8 @@ import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { NO_FLAG } from "../model/status";
 import { CollapseAll } from "./CollapseAll";
 import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
-import { BOX_FTE_OPTIONS, type Box, type Roadmap } from "../model/types";
+import { BOX_FTE_OPTIONS, type Box, type Roadmap, type TimeOff } from "../model/types";
+import { type PtoRef, ptoEntries, ptoKey } from "../model/pto";
 import { EngineerPicker } from "./EngineerPicker";
 import { TextCell } from "./TextCell";
 
@@ -35,6 +36,11 @@ interface Props {
   onAddDepartment?(): void;
   /** Broken rules, by box id. */
   ruleWarnings?: Map<string, string[]>;
+  /** PTO rows: edit, reassign, add (to a department's first engineer) and remove. */
+  onUpdatePto?(ref: PtoRef, patch: Partial<TimeOff>, key?: string): void;
+  onReassignPto?(ref: PtoRef, personId: string): void;
+  onAddPto?(departmentId: string): void;
+  onRemovePto?(ref: PtoRef): void;
 }
 
 type SortKey = "title" | "lane" | "start" | "end" | "days" | "fte" | "engineers" | "type" | "status";
@@ -163,6 +169,30 @@ export function TableView(props: Props) {
   }, [rows, departments, lanes]);
   const searching = query.trim() !== "";
 
+  // PTO rows, by department (their owner's), earliest first; a search matches names and notes.
+  const ptoByDept = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const out = new Map<string, ReturnType<typeof ptoEntries>>();
+    for (const e of ptoEntries(people).sort((a, b) => a.pto.start - b.pto.start)) {
+      if (!e.person.department) continue;
+      if (q && !`pto ${e.person.name} ${e.pto.note ?? ""}`.toLowerCase().includes(q)) continue;
+      out.set(e.person.department, [...(out.get(e.person.department) ?? []), e]);
+    }
+    return out;
+  }, [people, query]);
+  const ptoDates = (ref: PtoRef, pto: TimeOff, field: "start" | "end", text: string) => {
+    const picked = parseDay(text);
+    if (picked === null) return;
+    const key = `table:${ptoKey(ref)}:${field}`;
+    if (field === "start") {
+      const start = nextWorkday(picked);
+      props.onUpdatePto?.(ref, start > pto.end ? { start, end: start } : { start }, key);
+    } else {
+      const end = prevWorkday(picked);
+      props.onUpdatePto?.(ref, end < pto.start ? { end, start: end } : { end }, key);
+    }
+  };
+
   // Weekends don't exist on the roadmap: a weekend start moves to Monday, a weekend end to Friday.
   const setStart = (b: Box, text: string) => {
     const picked = parseDay(text);
@@ -229,7 +259,9 @@ export function TableView(props: Props) {
             const { dept } = group;
             // A search opens every department with matches, so results are never hidden.
             const isCollapsed = collapsed.has(dept.id) && !searching;
-            if (searching && group.rows.length === 0) return null;
+            const ptoRows = ptoByDept.get(dept.id) ?? [];
+            const members = people.filter((p) => p.department === dept.id).sort((a, b) => a.name.localeCompare(b.name));
+            if (searching && group.rows.length === 0 && ptoRows.length === 0) return null;
             const fte = dept.lanes.reduce((sum, l) => sum + l.fte, 0);
             const total = boxes.filter((b) => lanes.get(b.lane)?.deptId === dept.id).length;
             return (
@@ -458,6 +490,84 @@ export function TableView(props: Props) {
                 </tr>
               );
             })}
+                {!isCollapsed &&
+                  ptoRows.map(({ person, index, pto }) => {
+                    const ref = { personId: person.id, index };
+                    return (
+                      <tr key={`pto:${ptoKey(ref)}`} className="pto-table-row">
+                        <td className="col-title">
+                          <span className="pto-cell">
+                            <span className="cell-code pto-chip">PTO</span>
+                            <select
+                              value={person.id}
+                              disabled={readOnly}
+                              aria-label="Engineer"
+                              onChange={(e) => props.onReassignPto?.(ref, e.target.value)}
+                            >
+                              {members.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {m.name}
+                                </option>
+                              ))}
+                            </select>
+                          </span>
+                        </td>
+                        <td className="col-lane">
+                          <TextCell
+                            value={pto.note ?? ""}
+                            readOnly={readOnly}
+                            placeholder="Note"
+                            onCommit={(note) => props.onUpdatePto?.(ref, { note: note.trim() || undefined })}
+                            onBlur={onCheckpoint}
+                            ariaLabel="PTO note"
+                          />
+                        </td>
+                        <td className="col-date">
+                          <input
+                            type="date"
+                            value={formatDay(pto.start)}
+                            disabled={readOnly}
+                            aria-label="PTO start"
+                            onChange={(e) => ptoDates(ref, pto, "start", e.target.value)}
+                            onBlur={onCheckpoint}
+                          />
+                        </td>
+                        <td className="col-date">
+                          <input
+                            type="date"
+                            value={formatDay(pto.end)}
+                            disabled={readOnly}
+                            aria-label="PTO end"
+                            onChange={(e) => ptoDates(ref, pto, "end", e.target.value)}
+                            onBlur={onCheckpoint}
+                          />
+                        </td>
+                        <td className="col-days">{workdays(pto.start, pto.end)}</td>
+                        <td colSpan={COLUMNS.length - 6} />
+                        <td className="col-actions">
+                          {!readOnly && (
+                            <button
+                              className="icon-button row-delete"
+                              title="Delete PTO"
+                              aria-label={`Delete PTO for ${person.name}`}
+                              onClick={() => props.onRemovePto?.(ref)}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                {!isCollapsed && !readOnly && !searching && members.length > 0 && props.onAddPto && (
+                  <tr className="add-pto-row">
+                    <td colSpan={COLUMNS.length}>
+                      <button className="link-button" onClick={() => props.onAddPto!(dept.id)}>
+                        + Add PTO
+                      </button>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             );
           })}

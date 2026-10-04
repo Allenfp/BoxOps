@@ -6,7 +6,7 @@ import { Document, isMap, isSeq, parseDocument, type YAMLMap, type YAMLSeq } fro
 import { formatDay } from "./dates";
 import { diffDraft, type DraftState } from "./draft";
 import { DEFAULT_DEPT_COLOR } from "./load";
-import type { Box, Department, RoadmapFiles } from "./types";
+import type { Box, Department, Person, RoadmapFiles } from "./types";
 
 /** path → new file text, or null to delete the file. */
 export type FileChanges = Record<string, string | null>;
@@ -33,7 +33,7 @@ const BOX_KEYS = [
 ];
 const DEPT_KEYS = ["id", "code", "name", "color", "order", "collapsed", "lanes"];
 const LANE_KEYS = ["id", "name", "fte"];
-const PERSON_KEYS = ["id", "name", "department", "role", "email", "manager", "notes"];
+const PERSON_KEYS = ["id", "name", "department", "role", "email", "manager", "notes", "pto"];
 
 /** A key that is absent from the file means this value. */
 const DEFAULTS: Record<string, unknown> = { fte: 1, collapsed: false, order: 0, color: DEFAULT_DEPT_COLOR };
@@ -42,6 +42,13 @@ const TO_STRING = { lineWidth: 0 } as const;
 
 function boxToPlain(b: Box): Plain {
   return { ...b, start: formatDay(b.start), end: formatDay(b.end) };
+}
+
+function personToPlain(p: Person): Plain {
+  return {
+    ...p,
+    pto: p.pto?.map((t) => ({ start: formatDay(t.start), end: formatDay(t.end), ...(t.note?.trim() && { note: t.note.trim() }) })),
+  };
 }
 
 const isEmpty = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
@@ -144,7 +151,7 @@ export function serializeChanges(baseFiles: RoadmapFiles, base: DraftState, draf
 
   if (changes.people.added.length + changes.people.changed.length + changes.people.removed.length) {
     const path = "people.yaml";
-    out[path] = writeFile(baseFiles[path], { people: draft.people.map((p) => ({ ...p })) }, ["people"], { people: PERSON_KEYS });
+    out[path] = writeFile(baseFiles[path], { people: draft.people.map(personToPlain) }, ["people"], { people: PERSON_KEYS });
   }
 
   // Drop no-op rewrites (e.g. a field changed and changed back).

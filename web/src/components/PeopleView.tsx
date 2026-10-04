@@ -1,6 +1,7 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { CollapseAll } from "./CollapseAll";
 import { EMAIL } from "../model/load";
+import { type PtoRef, ptoRange } from "../model/pto";
 import type { Person, Roadmap } from "../model/types";
 import { TextCell } from "./TextCell";
 
@@ -14,6 +15,8 @@ interface Props {
   onToggleAll(): void;
   onEditDepartment?(id: string): void;
   onAddDepartment?(): void;
+  /** Open a PTO block on the timeline (PTO is edited there, not here). */
+  onShowPto?(ref: PtoRef): void;
   /** Add an engineer; returns their id. */
   onAdd(department?: string): string;
   /** Edit an engineer; returns their id afterwards (an unsaved person's id follows their name). */
@@ -32,6 +35,7 @@ const COLUMNS = [
   { label: "Role", className: "col-role" },
   { label: "Email", className: "col-email" },
   { label: "Manager", className: "col-manager" },
+  { label: "PTO", className: "col-pto" },
   { label: "Notes", className: "col-notes" },
   { label: "", className: "col-actions" },
 ];
@@ -239,6 +243,9 @@ export function PeopleView(props: Props) {
                             ariaLabel="Manager"
                           />
                         </td>
+                        <td className="col-pto">
+                          <PtoList person={p} hasDepartment={!!p.department && deptIds.has(p.department)} onShow={props.onShowPto} />
+                        </td>
                         <td className="col-notes">
                           <TextCell
                             value={p.notes ?? ""}
@@ -281,5 +288,33 @@ export function PeopleView(props: Props) {
         {q && shown === 0 && <p className="empty">No engineers match “{query}”.</p>}
       </div>
     </div>
+  );
+}
+
+/** A person's PTO, read-only: each entry opens its block on the timeline, where it's edited. */
+function PtoList({ person, hasDepartment, onShow }: { person: Person; hasDepartment: boolean; onShow?(ref: PtoRef): void }) {
+  const list = (person.pto ?? []).map((pto, index) => ({ pto, index })).sort((a, b) => a.pto.start - b.pto.start);
+  if (!list.length) return null;
+  return (
+    <ul className="pto-list">
+      {list.map(({ pto, index }) => (
+        <li key={index}>
+          {onShow && hasDepartment ? (
+            <button
+              className="link-button"
+              title={`${pto.note ? `${pto.note}\n` : ""}Edit on the timeline`}
+              onClick={() => onShow({ personId: person.id, index })}
+            >
+              {ptoRange(pto)}
+            </button>
+          ) : (
+            <span title={hasDepartment ? pto.note : `Give ${person.name} a department to see their PTO on the timeline`}>
+              {ptoRange(pto)}
+            </span>
+          )}
+          {pto.note && <span className="hint"> · {pto.note}</span>}
+        </li>
+      ))}
+    </ul>
   );
 }

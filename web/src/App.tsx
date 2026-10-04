@@ -3,6 +3,8 @@ import { BoxEditor } from "./components/BoxEditor";
 import { DepartmentEditor, type DepartmentEditorTarget } from "./components/DepartmentEditor";
 import { type SaveProblem, SaveDialog } from "./components/SaveDialog";
 import { PeopleView } from "./components/PeopleView";
+import { PtoEditor } from "./components/PtoEditor";
+import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
 import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHub, GitHubError } from "./github/api";
@@ -29,7 +31,7 @@ import { loadRoadmap } from "./model/load";
 import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
 import { commitMessage, describeChanges } from "./model/summary";
-import type { Box, Issue, Roadmap, RoadmapFiles, ZoomLevel } from "./model/types";
+import type { Box, Issue, Roadmap, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types";
 import { ZOOM_LEVELS } from "./model/types";
 
 interface Loaded {
@@ -258,9 +260,50 @@ function RoadmapView(props: ViewProps) {
     (id: string | null) => {
       draft.checkpoint();
       setSelected((cur) => (id === null ? null : cur?.id === id ? cur : { id, session: Date.now() }));
+      setSelectedPto(null);
     },
     [draft],
   );
+
+  // PTO lives on the person; a block is picked out by its owner and position.
+  const [selectedPto, setSelectedPto] = useState<(PtoRef & { session: number }) | null>(null);
+  const ptoOf = (ref: PtoRef) => draft.people.find((p) => p.id === ref.personId)?.pto?.[ref.index];
+  const selectPto = (ref: PtoRef | null) => {
+    draft.checkpoint();
+    setSelected(null);
+    setSelectedPto((cur) =>
+      ref === null ? null : cur && ptoKey(cur) === ptoKey(ref) ? cur : { ...ref, session: Date.now() },
+    );
+  };
+  const setPtoList = (personId: string, change: (list: TimeOff[]) => TimeOff[], key?: string) => {
+    const person = draft.people.find((p) => p.id === personId);
+    if (person) draft.updatePerson(personId, { pto: change(person.pto ?? []) }, key);
+  };
+  const updatePto = (ref: PtoRef, patch: Partial<TimeOff>, key?: string) =>
+    setPtoList(ref.personId, (list) => list.map((t, i) => (i === ref.index ? { ...t, ...patch } : t)), key);
+  const removePto = (ref: PtoRef) => {
+    setPtoList(ref.personId, (list) => list.filter((_, i) => i !== ref.index));
+    setSelectedPto((cur) => (cur && ptoKey(cur) === ptoKey(ref) ? null : cur));
+  };
+  /** Add PTO for someone (by default the first engineer in the department); returns where it went. */
+  const addPto = (dates: Pick<TimeOff, "start" | "end">, who: { personId?: string; departmentId?: string }): PtoRef | null => {
+    const person =
+      draft.people.find((p) => p.id === who.personId) ??
+      [...draft.people].filter((p) => p.department === who.departmentId).sort((a, b) => a.name.localeCompare(b.name))[0];
+    if (!person) return null;
+    setPtoList(person.id, (list) => [...list, { ...dates }]);
+    draft.checkpoint();
+    return { personId: person.id, index: person.pto?.length ?? 0 };
+  };
+  /** Give a PTO block to someone else; it keeps its dates and note. */
+  const reassignPto = (ref: PtoRef, toId: string, key?: string) => {
+    const pto = ptoOf(ref);
+    const to = draft.people.find((p) => p.id === toId);
+    if (!pto || !to || toId === ref.personId) return ref;
+    setPtoList(ref.personId, (list) => list.filter((_, i) => i !== ref.index), key);
+    draft.updatePerson(toId, { pto: [...(to.pto ?? []), pto] }, key);
+    return { personId: toId, index: to.pto?.length ?? 0 };
+  };
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -274,6 +317,11 @@ function RoadmapView(props: ViewProps) {
   useEffect(() => {
     document.title = preview ? `${base.settings.title} (${source.branch})` : base.settings.title;
   }, [base.settings.title, preview, source.branch]);
+
+  const selectedPtoRef = useRef(selectedPto);
+  selectedPtoRef.current = selectedPto;
+  const removePtoRef = useRef(removePto);
+  removePtoRef.current = removePto;
 
   // Undo/redo and delete. Text fields keep their own native undo.
   useEffect(() => {
@@ -298,6 +346,9 @@ function RoadmapView(props: ViewProps) {
         e.preventDefault();
         draft.removeBox(selected.id);
         setSelected(null);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedPtoRef.current) {
+        e.preventDefault();
+        removePtoRef.current(selectedPtoRef.current);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -530,6 +581,25 @@ function RoadmapView(props: ViewProps) {
     });
   }, [draft.boxes, draft.departments]);
 
+  // Engineers booked on a box while they're on PTO (from today on).
+  const onPto = useMemo(() => {
+    const now = today();
+    return ptoClashes(draft.boxes, draft.people).filter((c) => c.box.end >= now && c.pto.end >= now);
+  }, [draft.boxes, draft.people]);
+
+  /** Show a PTO block on the timeline and open it. */
+  const goToPto = (ref: PtoRef) => {
+    const dept = draft.people.find((p) => p.id === ref.personId)?.department;
+    setView("timeline");
+    if (dept) setCollapsed((prev) => (prev.has(dept) ? new Set([...prev].filter((x) => x !== dept)) : prev));
+    selectPto(ref);
+    requestAnimationFrame(() =>
+      document
+        .querySelector(`[data-pto-key="${CSS.escape(ptoKey(ref))}"]`)
+        ?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }),
+    );
+  };
+
   const warningGroups: WarningGroup[] = [
     {
       title: "Clashes with someone else’s save",
@@ -540,6 +610,13 @@ function RoadmapView(props: ViewProps) {
     },
     { title: "Broken rules", items: violations.map((v) => ({ text: v.message, onGo: () => goToBox(v.from.id) })) },
     { title: "Over capacity", items: overCapacity.map((o) => ({ text: o.text, onGo: () => goToDepartment(o.id) })) },
+    {
+      title: "Booked during PTO",
+      items: onPto.map((c) => ({
+        text: `${c.person.name} is on PTO ${ptoRange(c.pto)} but on ${c.box.title} (${prettyDay(c.box.start)} – ${prettyDay(c.box.end)})`,
+        onGo: () => goToBox(c.box.id),
+      })),
+    },
     { title: "Problems in the roadmap files", items: issues.map((i) => ({ text: `roadmap/${i.path}: ${i.message}` })) },
   ];
 
@@ -692,6 +769,7 @@ function RoadmapView(props: ViewProps) {
           onToggleDepartment={toggle}
           onEditDepartment={editDepartment}
           onAddDepartment={addDepartment}
+          onShowPto={goToPto}
           onAdd={(department) => {
             const id = draft.addPerson("New engineer", department);
             draft.checkpoint();
@@ -736,6 +814,16 @@ function RoadmapView(props: ViewProps) {
           onEditDepartment={editDepartment}
           onAddDepartment={addDepartment}
           ruleWarnings={ruleWarnings}
+          onUpdatePto={updatePto}
+          onReassignPto={(ref, toId) => {
+            reassignPto(ref, toId);
+            draft.checkpoint();
+          }}
+          onRemovePto={removePto}
+          onAddPto={(departmentId) => {
+            const start = startOfWeek(today());
+            addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
+          }}
         />
       ) : (
         <Timeline
@@ -760,7 +848,30 @@ function RoadmapView(props: ViewProps) {
         ruleWarnings={ruleWarnings}
         onEditDepartment={editDepartment}
         onAddDepartment={addDepartment}
+        selectedPto={selectedPto && ptoOf(selectedPto) ? ptoKey(selectedPto) : null}
+        onSelectPto={selectPto}
+        onPlacePto={(ref, dates) => updatePto(ref, dates)}
+        onCreatePto={(departmentId, dates) => {
+          const ref = addPto(dates, { departmentId });
+          if (ref) selectPto(ref);
+        }}
       />
+      )}
+      {view === "timeline" && !preview && selectedPto && ptoOf(selectedPto) && (
+        <PtoEditor
+          key={selectedPto.session}
+          target={selectedPto}
+          pto={ptoOf(selectedPto)!}
+          people={draft.people}
+          departments={draft.departments}
+          onChange={(patch, field) => updatePto(selectedPto, patch, `pto:${selectedPto.session}:${field}`)}
+          onReassign={(toId) => {
+            const ref = reassignPto(selectedPto, toId, `pto:${selectedPto.session}:person`);
+            setSelectedPto({ ...ref, session: selectedPto.session });
+          }}
+          onDelete={() => removePto(selectedPto)}
+          onClose={() => selectPto(null)}
+        />
       )}
       {view === "timeline" && !preview && selected && selectedBox && (
         <BoxEditor

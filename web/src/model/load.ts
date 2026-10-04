@@ -17,6 +17,7 @@ import type {
   Roadmap,
   RoadmapFiles,
   Settings,
+  TimeOff,
   ZoomLevel,
 } from "./types";
 import { BOX_FTE_OPTIONS, ZOOM_LEVELS } from "./types";
@@ -232,8 +233,38 @@ function loadPeople(text: string | undefined, departmentIds: Set<string>, issues
       email,
       manager: r.optStr(o, "manager", where),
       notes: r.optStr(o, "notes", where),
+      pto: readPto(r, o, where),
     };
   });
+}
+
+/** A person's `pto: [{start, end, note}]`; bad entries are reported and skipped. */
+function readPto(r: Reader, person: Obj, where: string): TimeOff[] | undefined {
+  const list = person.pto;
+  if (list === undefined || list === null) return undefined;
+  if (!Array.isArray(list)) {
+    r.fail(`${where}pto: expected a list`);
+    return undefined;
+  }
+  const out: TimeOff[] = [];
+  list.forEach((item, i) => {
+    const at = `${where}pto[${i}].`;
+    if (!isObj(item)) return r.fail(`${at.slice(0, -1)}: expected a mapping with start and end`);
+    const startText = r.str(item, "start", at);
+    const endText = r.str(item, "end", at);
+    if (!startText || !endText) return;
+    const start = parseDay(startText);
+    const end = parseDay(endText);
+    if (start === null) r.fail(`${at}start: "${startText}" is not a valid YYYY-MM-DD date`);
+    if (end === null) r.fail(`${at}end: "${endText}" is not a valid YYYY-MM-DD date`);
+    if (start === null || end === null) return;
+    if (end < start) return r.fail(`${at}end (${endText}) is before start (${startText})`);
+    for (const [field, day] of [["start", start], ["end", end]] as const) {
+      if (isWeekend(day)) r.fail(`${at}${field}: ${WEEKDAY[dayParts(day).weekday]} — roadmap dates must be weekdays`);
+    }
+    out.push({ start, end, note: r.optStr(item, "note", at) });
+  });
+  return out;
 }
 
 function loadSettings(text: string | undefined, issues: Issue[]): Settings {

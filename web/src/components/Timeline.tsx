@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { flagName, PROGRESS_NAME, progress } from "../model/status";
+import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import { CollapseAll } from "./CollapseAll";
 import {
   type Day,
@@ -25,7 +26,7 @@ import {
   workIndex,
   workdays,
 } from "../model/dates";
-import type { Box, Department, Roadmap, ZoomLevel } from "../model/types";
+import type { Box, Department, Roadmap, TimeOff, ZoomLevel } from "../model/types";
 import { type DepartmentLayout, laneAtSlot, layoutDepartment } from "../timeline/layout";
 import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
 
@@ -67,6 +68,12 @@ interface Props {
   /** Open the department editor (✎ on a department heading). */
   onEditDepartment?(id: string): void;
   onAddDepartment?(): void;
+  /** The PTO block being edited (`ptoKey`), if any. */
+  selectedPto?: string | null;
+  onSelectPto?(ref: PtoRef): void;
+  onPlacePto?(ref: PtoRef, dates: Pick<TimeOff, "start" | "end">): void;
+  /** Double-click a department's PTO row. */
+  onCreatePto?(departmentId: string, dates: Pick<TimeOff, "start" | "end">): void;
 }
 
 type DragMode = "move" | "start" | "end";
@@ -238,6 +245,75 @@ export function Timeline(props: Props) {
     }
     onCreateBox({ lane, start, end });
   };
+
+  // ---- PTO ----------------------------------------------------------------
+  // PTO blocks sit in a row under their owner's department. They drag and
+  // resize like boxes, but only in time.
+
+  const [ptoPreview, setPtoPreview] = useState<{ key: string; start: Day; end: Day } | null>(null);
+
+  const startPtoDrag = (e: ReactPointerEvent<HTMLDivElement>, ref: PtoRef, pto: TimeOff) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
+    const x0 = e.clientX;
+    let moved = false;
+    const startIdx = workIndex(nextWorkday(pto.start));
+    const endIdx = workIndex(pto.end + 1) - 1;
+    let dates = { start: pto.start, end: pto.end };
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - x0;
+      if (!moved && Math.abs(dx) < DRAG_THRESHOLD) return;
+      if (!moved) {
+        moved = true;
+        document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
+      }
+      const { props: p, scale: s } = latest.current;
+      const snap = SNAP_DAYS[p.zoom];
+      const delta = Math.round(dx / s.pxPerDay / snap) * snap;
+      if (mode === "move") dates = { start: dayOfWorkIndex(startIdx + delta), end: dayOfWorkIndex(endIdx + delta) };
+      else if (mode === "start") dates = { ...dates, start: dayOfWorkIndex(Math.min(startIdx + delta, endIdx)) };
+      else dates = { ...dates, end: dayOfWorkIndex(Math.max(endIdx + delta, startIdx)) };
+      setPtoPreview({ key: ptoKey(ref), ...dates });
+    };
+    const finish = (commit: boolean) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("keydown", onKey);
+      document.body.classList.remove("dragging-move", "dragging-resize");
+      setPtoPreview(null);
+      if (!commit) return;
+      const p = latest.current.props;
+      if (!moved) p.onSelectPto?.(ref);
+      else if (dates.start !== pto.start || dates.end !== pto.end) p.onPlacePto?.(ref, dates);
+    };
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") finish(false);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("keydown", onKey);
+  };
+
+  /** Double-click empty space in a PTO row: a week off, starting that day. */
+  const createPtoAt = (e: ReactMouseEvent<HTMLDivElement>, deptId: string) => {
+    if ((e.target as HTMLElement).closest("[data-pto-key]")) return;
+    const start = nextWorkday(scale.dayAt(e.clientX - e.currentTarget.getBoundingClientRect().left));
+    props.onCreatePto?.(deptId, { start, end: addWorkdays(start, 4) });
+  };
+
+  const ptoByDept = useMemo(() => {
+    const out = new Map<string, ReturnType<typeof ptoEntries>>();
+    for (const e of ptoEntries(people)) {
+      if (e.person.department) out.set(e.person.department, [...(out.get(e.person.department) ?? []), e]);
+    }
+    return out;
+  }, [people]);
 
   // ---- Rendering ------------------------------------------------------------
 
@@ -484,6 +560,66 @@ export function Timeline(props: Props) {
                     </div>
                   </div>
                 )}
+                {!isCollapsed && people.some((p) => p.department === dept.id) && (() => {
+                  const entries = ptoByDept.get(dept.id) ?? [];
+                  const { rows, count } = packRows(entries);
+                  const height = Math.max(1, count) * SLOT_H;
+                  return (
+                    <div className="row pto-row" style={{ height }}>
+                      <div className="label lane-label pto-label" style={{ width: LABEL_W, height }}>
+                        <span className="lane-name static">PTO</span>
+                        {entries.length === 0 && !readOnly && <span className="hint">double-click to add</span>}
+                      </div>
+                      <div
+                        className="track pto-track"
+                        data-pto-track={dept.id}
+                        style={{ width: scale.width, height }}
+                        onDoubleClick={readOnly || !props.onCreatePto ? undefined : (e) => createPtoAt(e, dept.id)}
+                      >
+                        {entries.map((entry) => {
+                          const ref = { personId: entry.person.id, index: entry.index };
+                          const key = ptoKey(ref);
+                          const live = ptoPreview?.key === key ? { ...entry.pto, ...ptoPreview } : entry.pto;
+                          const style = { ...span(live.start, live.end), top: rows.get(entry)! * SLOT_H + BOX_PAD, height: SLOT_H - BOX_PAD * 2 };
+                          const days = workdays(live.start, live.end);
+                          return (
+                            <div
+                              key={key}
+                              data-pto-key={key}
+                              className={`pto-block${props.selectedPto === key ? " selected" : ""}${ptoPreview?.key === key ? " dragging" : ""}`}
+                              style={style}
+                              title={[
+                                `PTO · ${entry.person.name}`,
+                                `${ptoRange(live)} · ${days} working day${days === 1 ? "" : "s"}`,
+                                live.note,
+                              ]
+                                .filter(Boolean)
+                                .join("\n")}
+                              onPointerDown={readOnly ? undefined : (e) => startPtoDrag(e, ref, entry.pto)}
+                            >
+                              <span className="pto-text">
+                                {/* Short blocks show initials; the tooltip has the rest. */}
+                                <strong>{style.width < 90 ? initials(entry.person.name) : entry.person.name}</strong>
+                                {live.note && style.width >= 90 && <span className="pto-note"> · {live.note}</span>}
+                              </span>
+                              {!readOnly && style.width >= 24 && (
+                                <>
+                                  <div className="handle start" data-handle="start" />
+                                  <div className="handle end" data-handle="end" />
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {ptoPreview && entries.some((en) => ptoKey({ personId: en.person.id, index: en.index }) === ptoPreview.key) && (
+                          <div className="drag-dates" style={{ left: scale.x(ptoPreview.start), top: -18 }}>
+                            {prettyDay(ptoPreview.start)} – {prettyDay(ptoPreview.end)} · {workdays(ptoPreview.start, ptoPreview.end)} working days
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </section>
             );
           })}

@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAnchor } from "./useAnchor";
 import { NO_FLAG } from "../model/status";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import { RELATION_ORDER, RELATION_TYPES, type Violation, fullCode, incoming } from "../model/relations";
@@ -6,7 +7,6 @@ import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type RelationT
 import { EngineerPicker } from "./EngineerPicker";
 
 const WIDTH = 440;
-const GAP = 8;
 
 interface Props {
   box: Box;
@@ -35,51 +35,11 @@ const splitList = (text: string, sep: RegExp) =>
 export function BoxEditor(props: Props) {
   const { box, settings, departments, people, boxes, violations, onAddPerson, onChange, onDelete, onClose } = props;
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // Sit below the box (or above if there's no room), and follow it while the timeline scrolls.
+  const pos = useAnchor(ref, `[data-box-id="${CSS.escape(box.id)}"]`, WIDTH, [box]);
   // Free-text list fields keep their raw text while typing so commas and newlines aren't eaten.
   const [tagsText, setTagsText] = useState(() => (box.tags ?? []).join(", "));
   const [linksText, setLinksText] = useState(() => (box.links ?? []).join("\n"));
-
-  // Sit below the box (or above if there's no room), and follow it while the timeline scrolls.
-  useLayoutEffect(() => {
-    const place = () => {
-      const pop = ref.current;
-      const anchor = document.querySelector(`[data-box-id="${CSS.escape(box.id)}"]`);
-      if (!pop) return;
-      const h = pop.offsetHeight;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      if (!anchor) {
-        setPos({ top: Math.max(GAP, (vh - h) / 2), left: Math.max(GAP, (vw - WIDTH) / 2) });
-        return;
-      }
-      const r = anchor.getBoundingClientRect();
-      const clampTop = (t: number) => Math.min(Math.max(GAP, t), Math.max(GAP, vh - h - GAP));
-      const clampLeft = (l: number) => Math.min(Math.max(GAP, l), vw - WIDTH - GAP);
-      let top: number;
-      let left: number;
-      if (r.bottom + GAP + h <= vh - GAP) {
-        top = r.bottom + GAP;
-        left = clampLeft(r.left);
-      } else if (r.top - GAP - h >= GAP) {
-        top = r.top - GAP - h;
-        left = clampLeft(r.left);
-      } else {
-        // No room above or below: sit beside the box rather than on top of it.
-        top = clampTop(r.top - 40);
-        const right = Math.min(r.right, vw) + GAP;
-        left = right + WIDTH <= vw - GAP ? right : clampLeft(Math.max(r.left, 0) - WIDTH - GAP);
-      }
-      setPos((p) => (p && p.top === top && p.left === left ? p : { top, left }));
-    };
-    place();
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
-    return () => {
-      window.removeEventListener("scroll", place, true);
-      window.removeEventListener("resize", place);
-    };
-  }, [box]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

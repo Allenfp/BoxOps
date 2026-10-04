@@ -198,7 +198,10 @@ people:
     manager: Dana Whitfield
     notes: |-
       Owns the Dagster migration.
-      Out for two weeks in December.
+    pto:
+      - start: 2026-12-14
+        end: 2026-12-25
+        note: Holiday
 ```
 
 | Field | Required | Meaning |
@@ -210,6 +213,11 @@ people:
 | `email` | no | Must look like an email address. |
 | `manager` | no | Free text; managers needn't be on the roster. |
 | `notes` | no | Free text; may span lines. |
+| `pto` | no | Time off: a list of `start` and `end` (inclusive weekday dates, `end` on or after `start`) and an optional `note`. |
+
+PTO is drawn as blocks in the engineer's department on the timeline and listed
+in the table, where it's edited; the People tab lists it read-only. It doesn't
+change capacity, but an engineer on a box during their PTO is a warning.
 
 Removing someone from the roster also means removing their id from every box's
 `engineers` list; otherwise validation fails.
@@ -229,6 +237,7 @@ Removing someone from the roster also means removing their id from every box's
   pointing at its own box
 - a box `fte` other than 0.5, 1, 1.5 or 2; a lane `fte` outside (0, 1]
 - a person's `department` that doesn't exist, or an invalid `email`
+- PTO with malformed or weekend dates, or `end` before `start`
 - unexpected files in `roadmap/`
 
 Over capacity, overloaded engineers and broken rules are not validation

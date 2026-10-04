@@ -87,7 +87,7 @@ function same<T extends object>(a: T, b: T): boolean {
  * undefined compare equal) and keys sorted (a box built in the app lists its
  * fields in a different order than one read from a file).
  */
-function normalize(v: unknown): unknown {
+export function normalize(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(normalize);
   if (typeof v !== "object" || v === null) return v;
   const out: Record<string, unknown> = {};

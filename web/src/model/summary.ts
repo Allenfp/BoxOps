@@ -1,10 +1,11 @@
 // Human-readable description of a draft, for the Save dialog and the commit message.
 
 import { flagName } from "./status";
+import { ptoChanges, ptoRange } from "./pto";
 import { prettyDay } from "./dates";
-import { diffDraft, type DraftState } from "./draft";
+import { diffDraft, type DraftState, normalize } from "./draft";
 import { RELATION_TYPES, fullCode } from "./relations";
-import type { Box, Department, Settings } from "./types";
+import type { Box, Department, Person, Settings } from "./types";
 
 export interface ChangeLine {
   kind: "added" | "changed" | "deleted";
@@ -31,8 +32,29 @@ export function describeChanges(base: DraftState, draft: DraftState, settings: S
   const who = (ids: string[] | undefined) => (ids?.length ? ids.map((id) => names.get(id) ?? id).join(", ") : "nobody");
   const lines: ChangeLine[] = [];
 
-  for (const p of changes.people.added) lines.push({ kind: "added", text: `Added engineer **${p.name}**` });
-  for (const p of changes.people.changed) lines.push({ kind: "changed", text: `Updated engineer **${p.name}**` });
+  const basePeople = new Map(base.people.map((p) => [p.id, p]));
+  const ptoLines = (name: string, was: Person["pto"], now: Person["pto"]) => {
+    const { added, removed } = ptoChanges(was, now);
+    if (added.length === 1 && removed.length === 1) {
+      const note = added[0].note?.trim();
+      return lines.push({ kind: "changed", text: `PTO for **${name}**: ${ptoRange(added[0])}${note ? ` (${note})` : ""} (was ${ptoRange(removed[0])})` });
+    }
+    for (const t of added) lines.push({ kind: "added", text: `PTO for **${name}**: ${ptoRange(t)}${t.note?.trim() ? ` (${t.note.trim()})` : ""}` });
+    for (const t of removed) lines.push({ kind: "deleted", text: `Removed PTO for **${name}**: ${ptoRange(t)}` });
+  };
+  for (const p of changes.people.added) {
+    lines.push({ kind: "added", text: `Added engineer **${p.name}**` });
+    ptoLines(p.name, [], p.pto);
+  }
+  for (const p of changes.people.changed) {
+    const was = basePeople.get(p.id)!;
+    const { pto: wasPto, ...wasRest } = was;
+    const { pto: nowPto, ...nowRest } = p;
+    if (JSON.stringify(normalize(wasRest)) !== JSON.stringify(normalize(nowRest))) {
+      lines.push({ kind: "changed", text: `Updated engineer **${p.name}**` });
+    }
+    ptoLines(p.name, wasPto, nowPto);
+  }
   for (const p of changes.people.removed) lines.push({ kind: "deleted", text: `Removed engineer **${p.name}**` });
 
   const code = (b: Box) => fullCode(b, draft.departments);
