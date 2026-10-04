@@ -117,6 +117,11 @@ test("engineers are picked from the roster, and new ones can be added", async ({
   await expect(page.getByRole("dialog", { name: /Edit/ })).toBeVisible(); // …not the editor
   await page.keyboard.press("Escape");
   await expect(box(page, DAGSTER).locator(".avatar")).toHaveText(["SL", "RP"]);
+  // Scale (FTE × working days) sits right after the initials: 1 FTE × 30 days.
+  const scale = box(page, DAGSTER).locator(".box-scale");
+  await expect(scale).toHaveText("30");
+  const last = (await box(page, DAGSTER).locator(".avatar").last().boundingBox())!;
+  expect((await scale.boundingBox())!.x).toBeGreaterThan(last.x + last.width);
 
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");

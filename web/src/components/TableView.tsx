@@ -1,5 +1,6 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { NO_FLAG } from "../model/status";
+import { boxScale, SCALE_HELP } from "../model/scale";
 import { CollapseAll } from "./CollapseAll";
 import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
 import { BOX_FTE_OPTIONS, type Box, type Roadmap, type TimeOff } from "../model/types";
@@ -45,7 +46,7 @@ interface Props {
   onRemovePto?(ref: PtoRef): void;
 }
 
-type SortKey = "title" | "lane" | "start" | "end" | "days" | "fte" | "engineers" | "type" | "status";
+type SortKey = "title" | "lane" | "start" | "end" | "days" | "fte" | "scale" | "engineers" | "type" | "status";
 
 const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: "title", label: "Title", className: "col-title" },
@@ -54,6 +55,7 @@ const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: "end", label: "End", className: "col-date" },
   { key: "days", label: "Work days", className: "col-days" },
   { key: "fte", label: "FTE", className: "col-fte" },
+  { key: "scale", label: "Scale", className: "col-scale" },
   { key: "engineers", label: "Engineers", className: "col-engineers" },
   { key: "type", label: "Type", className: "col-type" },
   { key: "status", label: "Status", className: "col-status" },
@@ -147,6 +149,8 @@ export function TableView(props: Props) {
           return workdays(b.start, b.end);
         case "fte":
           return b.fte;
+        case "scale":
+          return boxScale(b);
         case "engineers":
           return engineerNames(b).toLowerCase() || "\uffff"; // unassigned last
         case "type":
@@ -408,6 +412,9 @@ export function TableView(props: Props) {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td className="col-scale" title={SCALE_HELP}>
+                    {boxScale(b)}
                   </td>
                   <td className="col-engineers">
                     <EngineerPicker

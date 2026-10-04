@@ -1259,11 +1259,17 @@ button.primary:hover:not(:disabled) {
 }
 .box-table {
   table-layout: fixed;
-  /* The other columns' widths add up to 1826px; the rest (about 380px) is Description. */
-  min-width: 2210px;
+  /* The other columns' widths add up to 1890px; the rest (about 380px) is Description. */
+  min-width: 2274px;
 }
 .col-fte {
   width: 64px;
+}
+.col-scale {
+  width: 64px;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .col-engineers {
   width: 190px;
@@ -1642,7 +1648,8 @@ button.primary:hover:not(:disabled) {
 .box-table tbody tr:not(.group-row) td {
   vertical-align: top;
 }
-.box-table tbody tr:not(.group-row) td.col-days {
+.box-table tbody tr:not(.group-row) td.col-days,
+.box-table tbody tr:not(.group-row) td.col-scale {
   padding-top: 9px;
 }
 /* The pinned title column must stay opaque on hover, or scrolled cells show through it. */
@@ -2115,4 +2122,17 @@ button.primary:hover:not(:disabled) {
 .lane-dates-row .icon-button {
   font-size: 14px;
   padding: 0 4px;
+}
+
+/* Scale (FTE × working days), right of the engineers' initials. */
+.box-scale {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.box.half .box-scale {
+  line-height: 14px;
 }

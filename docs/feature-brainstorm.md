@@ -18,6 +18,7 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 | 11 | Change digest | Idea | |
 | 12 | Jira sync | Idea | |
 | 13 | Lane start and end dates | Built, not deployed | Optional `start` and `end` on a lane, set in the department editor. Capacity, over-capacity warnings and the timeline follow them. |
+| 14 | Box scale | Built, not deployed | FTE × working days, shown right of the initials on each box, in the editor and tooltip, and as a sortable table column. Not stored. |
 
 ## Planning and capacity
 
@@ -70,3 +71,5 @@ column as items are built: `Idea`, `In progress`, `Done (<date>)` or `Dropped`.
 13. **Lane start and end dates.** A lane (capacity) can exist for a set
     period, for example a contractor until March or a new hire from January.
     Capacity and over-capacity warnings take this into account.
+14. **Box scale.** Each box shows a "scale" figure: FTE × working days, a
+    rough measure of how much work it is.

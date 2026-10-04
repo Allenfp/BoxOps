@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { flagName, PROGRESS_NAME, progress } from "../model/status";
+import { boxScale, SCALE_HELP } from "../model/scale";
 import { capacityOn, hasDates, laneDates, laneDatesShort } from "../model/lanes";
 import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import { CollapseAll } from "./CollapseAll";
@@ -335,9 +336,17 @@ export function Timeline(props: Props) {
     const code = `${deptCode.get(b.lane) ?? "?"}-${b.code}`;
     const engineers = (b.engineers ?? []).map((id) => personName.get(id) ?? id);
     // Initials only where they won't crowd the title.
-    const showPeople = variant !== "compact" && engineers.length > 0 && width >= 160 + 20 * engineers.length;
+    // Scale (FTE × working days) sits at the far right, after the initials.
+    const scale = boxScale(b);
+    const scaleW = 6 + String(scale).length * 7;
+    const showScale = variant !== "compact" && width >= 120;
+    const showPeople =
+      variant !== "compact" && engineers.length > 0 && width >= 160 + 20 * engineers.length + (showScale ? scaleW : 0);
     // Keep their space clear: the sliding (sticky) title stops before them.
-    const peopleW = showPeople ? 8 + engineers.length * (slots === 1 ? 16 : 20) + 6 : 0;
+    const peopleW =
+      showPeople || showScale
+        ? 8 + (showPeople ? engineers.length * (slots === 1 ? 16 : 20) : 0) + (showScale ? scaleW : 0) + 6
+        : 0;
     const stage = progress(b, now);
     const flag = b.status && flagName(settings, b.status);
     const classes = [
@@ -357,7 +366,7 @@ export function Timeline(props: Props) {
       ...warnings.map((w) => `⚠ ${w}\n`),
       `${code}  ${b.title}`,
       `${prettyDay(b.start)} – ${prettyDay(b.end)}`,
-      `${workdays(b.start, b.end)} working days · ${b.fte} FTE · ${PROGRESS_NAME[stage]}${flag ? ` · ${flag}` : ""}`,
+      `${workdays(b.start, b.end)} working days · ${b.fte} FTE · Scale ${scale} · ${PROGRESS_NAME[stage]}${flag ? ` · ${flag}` : ""}`,
       engineers.length ? `Engineers: ${engineers.join(", ")}` : "No engineer assigned",
       b.description && `\n${b.description}`,
     ];
@@ -366,7 +375,7 @@ export function Timeline(props: Props) {
         key={b.id}
         data-box-id={b.id}
         className={classes.filter(Boolean).join(" ")}
-        style={{ ...style, ...(showPeople && { paddingRight: peopleW }), "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
+        style={{ ...style, ...((showPeople || showScale) && { paddingRight: peopleW }), "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
         title={variant === "full" && b.id !== selectedId ? tooltip.filter(Boolean).join("\n") : undefined}
         onPointerDown={interactive ? (e) => startDrag(e, b) : undefined}
         onClick={interactive || readOnly ? undefined : () => onSelect(b.id)}
@@ -384,13 +393,19 @@ export function Timeline(props: Props) {
             <span className="box-name">{b.title || "Untitled"}</span>
           </span>
         )}
-        {showPeople && (
+        {(showPeople || showScale) && (
           <span className="box-people">
-            {engineers.map((n) => (
-              <span key={n} className="avatar" title={n}>
-                {initials(n)}
+            {showPeople &&
+              engineers.map((n) => (
+                <span key={n} className="avatar" title={n}>
+                  {initials(n)}
+                </span>
+              ))}
+            {showScale && (
+              <span className="box-scale" title={SCALE_HELP} aria-label={`Scale ${scale}`}>
+                {scale}
               </span>
-            ))}
+            )}
           </span>
         )}
         {interactive && width >= 24 && (

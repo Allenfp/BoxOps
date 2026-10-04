@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAnchor } from "./useAnchor";
+import { boxScale, SCALE_HELP } from "../model/scale";
 import { NO_FLAG } from "../model/status";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import { RELATION_ORDER, RELATION_TYPES, type Violation, fullCode, incoming } from "../model/relations";
@@ -336,7 +337,8 @@ export function BoxEditor(props: Props) {
 
       <div className="editor-foot">
         <span className="hint">
-          {prettyDay(box.start)} – {prettyDay(box.end)} · {days} working day{days === 1 ? "" : "s"}
+          {prettyDay(box.start)} – {prettyDay(box.end)} · {days} working day{days === 1 ? "" : "s"} ·{" "}
+          <span title={SCALE_HELP}>Scale {boxScale(box)}</span>
         </span>
         <button className="danger" onClick={onDelete}>
           Delete
