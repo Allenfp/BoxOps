@@ -126,8 +126,9 @@ test("engineers are picked from the roster, and new ones can be added", async ({
   await scale.hover();
   const pop = page.getByRole("tooltip");
   await expect(pop).toContainText("Scale 30");
-  await expect(pop).toContainText("= 1 FTE × 30 days");
-  await expect(pop).toContainText("≈ 6 person-weeks · 1.4 months · 0.46 quarters");
+  await expect(pop).toContainText("= 1 FTE × 30 Eng Days");
+  await expect(pop).toContainText("≈ 6 weeks · 1.5 months · 0.5 quarters");
+  await expect(pop).toContainText("Month = ~20 Eng Days");
   await expect(pop).toContainText("29% of Data Engineering while it runs");
   await page.mouse.move(5, 5);
   await expect(pop).toHaveCount(0);

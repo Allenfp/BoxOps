@@ -38,7 +38,7 @@ describe("scaleStats", () => {
     const dagster = roadmap.boxes.find((b) => b.id === "bx-c93d-dagster-upgrade")!; // 1 FTE × 30 days in Data Engineering (3.5 FTE)
     const s = scaleStats(dagster, roadmap.departments);
     expect(s.scale).toBe(30);
-    expect([amount(s.in.week), amount(s.in.month), amount(s.in.quarter)]).toEqual(["6", "1.4", "0.46"]);
+    expect([amount(s.in.week), amount(s.in.month), amount(s.in.quarter)]).toEqual(["6", "1.5", "0.5"]);
     expect(s.dept?.name).toBe("Data Engineering");
     expect(percent(s.dept!.share)).toBe("29%");
     expect(percent(0.031)).toBe("3.1%");

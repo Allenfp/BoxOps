@@ -9,8 +9,8 @@ export const boxScale = (b: Pick<Box, "fte" | "start" | "end">) => Math.round(b.
 
 export const SCALE_HELP = "Scale: FTE × working days";
 
-/** Working days in an average week, month and quarter (260 a year). */
-export const PERIOD_DAYS = { week: 5, month: 260 / 12, quarter: 65 } as const;
+/** Eng Days (one engineer's working day) in a week, month and quarter, rounded for planning. */
+export const PERIOD_DAYS = { week: 5, month: 20, quarter: 60 } as const;
 export type Period = keyof typeof PERIOD_DAYS;
 
 export interface ScaleStats {

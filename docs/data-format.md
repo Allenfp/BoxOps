@@ -180,8 +180,8 @@ rules that point at it.
 A box's **scale** is its `fte` times its working days (a 1.5-FTE box over 10
 working days has scale 15). It isn't stored: the app shows it on the box, right
 of the engineers' initials, and in the table's Scale column. Hovering the
-number shows it in person-weeks, -months and -quarters (5, about 21.7 and 65
-working days) and the share of the department's capacity the box takes while
+number shows it in weeks, months and quarters of one engineer's time (5, 20
+and 60 Eng Days, where an Eng Day is one engineer's working day) and the share of the department's capacity the box takes while
 it runs (its FTE ÷ the department's FTE).
 
 A box is drawn as tall as its FTE and sits in its own lane when there's room:
