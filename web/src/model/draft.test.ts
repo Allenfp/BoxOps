@@ -50,6 +50,17 @@ describe("department changes", () => {
     const cleared = { ...base, departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: undefined }] }] };
     expect(diffDraft(base, cleared).count).toBe(0);
   });
+
+  it("counts a reorder as one change however many departments move", () => {
+    const dept = (id: string, order: number) => ({ id, code: "XX", name: id, color: "#000", order, collapsed: false, lanes: [] });
+    const base = { boxes: [], departments: [dept("a", 1), dept("b", 2), dept("c", 3)], people: [], settings: DEFAULT_SETTINGS };
+    const moved = { ...base, departments: [dept("c", 1), dept("a", 2), dept("b", 3)] };
+    expect(diffDraft(base, moved).departments).toHaveLength(3);
+    expect(diffDraft(base, moved).count).toBe(1);
+    // Renaming one as well: the reorder and the rename.
+    const both = { ...moved, departments: [{ ...dept("c", 1), name: "C" }, dept("a", 2), dept("b", 3)] };
+    expect(diffDraft(base, both).count).toBe(2);
+  });
 });
 
 describe("rebaseDraft", () => {

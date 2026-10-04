@@ -13,6 +13,7 @@ import { EngineerPicker } from "./EngineerPicker";
 import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
+import { useReorder } from "./useReorder";
 
 interface Props {
   roadmap: Roadmap;
@@ -45,6 +46,8 @@ interface Props {
   onReviewed(id: string): void;
   /** Open the department editor. */
   onEditDepartment?(id: string): void;
+  /** Drag a department's heading to a new place in the order (0 = first). */
+  onMoveDepartment?(id: string, index: number): void;
   onAddDepartment?(): void;
   /** Broken rules, by box id. */
   ruleWarnings?: Map<string, string[]>;
@@ -193,6 +196,14 @@ export function TableView(props: Props) {
   }, [rows, departments, lanes]);
   // Searching or a date filter: show only matching rows, with their departments open.
   const searching = query.trim() !== "" || fromDay !== null || toDay !== null;
+  // Departments are dragged into a new order by their headings; not while filtering, when some are hidden.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const canReorder = !readOnly && !searching && !!props.onMoveDepartment;
+  const reorder = useReorder(tableRef, (id, index) => props.onMoveDepartment?.(id, index), {
+    disabled: !canReorder,
+    scroller: scrollRef,
+  });
 
   // PTO rows, by department (their owner's), earliest first; a search matches names and notes.
   const ptoByDept = useMemo(() => {
@@ -292,8 +303,9 @@ export function TableView(props: Props) {
         )}
       </div>
 
-      <div className="table-scroll">
-        <table className="box-table">
+      <div className="table-scroll" ref={scrollRef}>
+        {reorder.line && <div className="reorder-line" style={reorder.line} />}
+        <table className="box-table" ref={tableRef}>
           <thead>
             <tr>
               {COLUMNS.map((c, i) => (
@@ -329,10 +341,22 @@ export function TableView(props: Props) {
               .join("\n");
             const total = boxes.filter((b) => lanes.get(b.lane)?.deptId === dept.id).length;
             return (
-              <tbody key={dept.id} className="dept-group" style={{ "--dept": dept.color } as CSSProperties}>
+              <tbody
+                key={dept.id}
+                className={`dept-group${reorder.draggingId === dept.id ? " reordering-this" : ""}`}
+                data-reorder-id={dept.id}
+                style={{ "--dept": dept.color } as CSSProperties}>
                 <tr className="group-row">
                   <td colSpan={COLUMNS.length}>
-                    <div className="group-head">
+                    <div
+                      className={`group-head${canReorder ? " grabbable" : ""}`}
+                      onPointerDown={canReorder ? (e) => reorder.start(e, dept.id) : undefined}
+                    >
+                      {canReorder && (
+                        <span className="dept-grip" title="Drag to reorder" aria-hidden>
+                          <Icon name="grip" size={14} />
+                        </span>
+                      )}
                       <button
                         className="group-toggle"
                         onClick={() => onToggleDepartment(dept.id)}

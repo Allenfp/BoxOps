@@ -36,6 +36,7 @@ import { type Scale, type Segment, headerBands, makeScale, timelineRange } from 
 import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
 import { UseChart } from "./UseChart";
+import { useReorder } from "./useReorder";
 
 const LABEL_W = 240;
 /** Height of half an FTE; a 1-FTE lane is two of these. */
@@ -74,6 +75,8 @@ interface Props {
   updatedIds?: Set<string>;
   /** Broken rules, by box id: the messages to show on that box. */
   ruleWarnings?: Map<string, string[]>;
+  /** Drag a department heading to a new place in the order (0 = first). */
+  onMoveDepartment?(id: string, index: number): void;
   /** Open the department editor (✎ on a department heading). */
   onEditDepartment?(id: string): void;
   onAddDepartment?(): void;
@@ -136,6 +139,11 @@ export function Timeline(props: Props) {
 
   // Keep the same date centred when zooming; start with today a third of the way in.
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const reorder = useReorder(bodyRef, (id, index) => props.onMoveDepartment?.(id, index), {
+    disabled: readOnly || !props.onMoveDepartment,
+    scroller: scrollRef,
+  });
   const centerDay = useRef<Day | null>(null);
   const trackWidth = () => (scrollRef.current?.clientWidth ?? 0) - LABEL_W;
 
@@ -468,8 +476,9 @@ export function Timeline(props: Props) {
           </div>
         </div>
 
-        <div className="tl-body">
+        <div className="tl-body" ref={bodyRef}>
           <Grid scale={scale} fine={bands[1]} coarse={bands[0]} zoom={zoom} />
+          {reorder.line && <div className="reorder-line" style={reorder.line} />}
 
           {departments.map((dept) => {
             const layout = layouts.get(dept.id)!;
@@ -481,7 +490,12 @@ export function Timeline(props: Props) {
             const previewHere = preview && dragged && laneDept.get(preview.lane) === dept.id ? preview : null;
             const previewLane = previewHere ? layout.lanes.get(previewHere.lane) : undefined;
             return (
-              <section key={dept.id} className="dept" data-dept-id={dept.id} style={{ "--dept": dept.color } as CSSProperties}>
+              <section
+                key={dept.id}
+                className={`dept${reorder.draggingId === dept.id ? " reordering-this" : ""}`}
+                data-dept-id={dept.id}
+                data-reorder-id={dept.id}
+                style={{ "--dept": dept.color } as CSSProperties}>
                 <div
                   className="row dept-row"
                   style={{ height: isCollapsed && display.collapsedView !== "boxes" ? CHART_H : DEPT_H }}
@@ -493,6 +507,7 @@ export function Timeline(props: Props) {
                     peakFte={layout.peakFte}
                     collapsed={isCollapsed}
                     onToggle={() => onToggleDepartment(dept.id)}
+                    onGrab={readOnly || !props.onMoveDepartment ? undefined : (e) => reorder.start(e, dept.id)}
                     onEdit={readOnly || !props.onEditDepartment ? undefined : () => props.onEditDepartment!(dept.id)}
                   />
                   <div className="track" style={{ width: scale.width }}>
@@ -809,6 +824,7 @@ function DeptLabel({
   peakFte,
   collapsed,
   onToggle,
+  onGrab,
   onEdit,
 }: {
   dept: Department;
@@ -817,13 +833,23 @@ function DeptLabel({
   peakFte: number;
   collapsed: boolean;
   onToggle(): void;
+  onGrab?(e: ReactPointerEvent): void;
   onEdit?(): void;
 }) {
   // Capacity today; dated lanes make it change over time.
   const fte = capacityOn(dept, now);
   const dated = dept.lanes.some(hasDates);
   return (
-    <div className="label dept-label" style={{ width: LABEL_W }}>
+    <div
+      className={`label dept-label${onGrab ? " grabbable" : ""}`}
+      style={{ width: LABEL_W }}
+      onPointerDown={onGrab}
+    >
+      {onGrab && (
+        <span className="dept-grip" title="Drag to reorder" aria-hidden>
+          <Icon name="grip" size={14} />
+        </span>
+      )}
       <button
         className="dept-toggle"
         onClick={onToggle}

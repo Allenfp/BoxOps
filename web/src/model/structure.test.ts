@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DraftState } from "./draft";
 import { DEFAULT_SETTINGS } from "./load";
-import { addDepartment, addLane, moveDepartment, moveLane, newLaneId, removeDepartment, removeLane } from "./structure";
+import { addDepartment, addLane, moveDepartment, placeDepartment, moveLane, newLaneId, removeDepartment, removeLane } from "./structure";
 import type { Box, Department } from "./types";
 
 const dept = (id: string, order: number, lanes: string[]): Department => ({
@@ -47,6 +47,19 @@ describe("departments", () => {
       ["eng", 2],
     ]);
     expect(moveDepartment(s, "ops", -1)).toBe(s); // already first
+  });
+
+  it("places a department anywhere in the order, renumbering only those that shift", () => {
+    const three = { ...state, departments: [...state.departments, dept("ml", 3, [])] };
+    const s = placeDepartment(three, "ml", 0);
+    expect(s.departments.map((d) => [d.id, d.order])).toEqual([
+      ["ml", 1],
+      ["eng", 2],
+      ["ops", 3],
+    ]);
+    expect(placeDepartment(s, "eng", 1)).toBe(s); // already there
+    expect(placeDepartment(s, "eng", 5)).toBe(s);
+    expect(placeDepartment(s, "ml", 2).departments.map((d) => d.id)).toEqual(["eng", "ops", "ml"]);
   });
 
   it("removing one moves its boxes and leaves its engineers without a department", () => {

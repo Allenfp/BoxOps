@@ -17,7 +17,8 @@ straight to `main`, and the site updates within a minute.
   like `DE-A1F`, and boxes can be related ("finishes before", "happens
   during"…); a broken rule pops up a warning but blocks nothing. **+ Add
   department** and the pencil on a department heading add, rename, recolour, reorder
-  and remove departments and their lanes. Each department has a **PTO** row
+  and remove departments and their lanes; dragging a department heading moves
+  it up or down. Each department has a **PTO** row
   where engineers' time off shows as grey blocks: double-click to add, drag to
   move, click to edit.
 - **Table.** Every box as an editable row (dates, FTE, engineers, status flag,

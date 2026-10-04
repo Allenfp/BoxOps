@@ -67,11 +67,17 @@ export function updateDepartment(
 
 /** Swap a department with its neighbour above (-1) or below (+1). */
 export function moveDepartment(state: DraftState, id: string, dir: -1 | 1): DraftState {
+  const i = renumber(state.departments).findIndex((d) => d.id === id);
+  return i < 0 ? state : placeDepartment(state, id, i + dir);
+}
+
+/** Put a department at `index` in the order (0 = first); the rest keep their order. */
+export function placeDepartment(state: DraftState, id: string, index: number): DraftState {
   const sorted = renumber(state.departments);
   const i = sorted.findIndex((d) => d.id === id);
-  const j = i + dir;
-  if (i < 0 || j < 0 || j >= sorted.length) return state;
-  [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+  if (i < 0 || index < 0 || index >= sorted.length || index === i) return state;
+  const [dept] = sorted.splice(i, 1);
+  sorted.splice(index, 0, dept!);
   return { ...state, departments: sorted.map((d, k) => (d.order === k + 1 ? d : { ...d, order: k + 1 })) };
 }
 

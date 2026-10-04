@@ -845,6 +845,7 @@ function RoadmapView(props: ViewProps) {
           onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
           onEditDepartment={editDepartment}
           onAddDepartment={addDepartment}
+          onMoveDepartment={draft.placeDepartment}
           ruleWarnings={ruleWarnings}
           onUpdatePto={updatePto}
           onReassignPto={(ref, toId) => {
@@ -882,6 +883,7 @@ function RoadmapView(props: ViewProps) {
         ruleWarnings={ruleWarnings}
         onEditDepartment={editDepartment}
         onAddDepartment={addDepartment}
+        onMoveDepartment={draft.placeDepartment}
         selectedPto={selectedPto && ptoOf(selectedPto) ? ptoKey(selectedPto) : null}
         onSelectPto={selectPto}
         onPlacePto={(ref, dates) => updatePto(ref, dates)}

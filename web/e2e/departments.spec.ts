@@ -140,3 +140,57 @@ test("a lane can close on a date: hatched out after it, and capacity follows", a
   await editor(page).getByRole("button", { name: "Clear lane 4 closing date" }).click();
   await expect(editor(page).getByText("Always open")).toHaveCount(4);
 });
+
+/** Press on a heading and drag it so the pointer ends at `toY`. */
+async function dragHeading(page: Page, heading: ReturnType<Page["locator"]>, toY: number) {
+  const b = (await heading.boundingBox())!;
+  const x = b.x + 120;
+  await page.mouse.move(x, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, (b.y + b.height / 2 + toY) / 2, { steps: 4 });
+  await page.mouse.move(x, toY, { steps: 4 });
+}
+
+test("departments are reordered by dragging their headings, on the timeline and in the table", async ({ page, github }) => {
+  const label = (name: string) => page.locator(".dept-label", { hasText: name });
+  const top = (await label("Data Engineering").boundingBox())!;
+
+  // ML Platform (collapsed) to the top; it stays collapsed — the release isn't a click.
+  await dragHeading(page, label("ML Platform"), top.y + 4);
+  await expect(page.locator(".reorder-line")).toBeVisible();
+  await page.mouse.up();
+  await expect(page.locator(".reorder-line")).toHaveCount(0);
+  await expect.poll(() => deptNames(page)).toEqual(["ML Platform", "Data Engineering", "Analytics"]);
+  await expect(label("ML Platform").locator(".dept-toggle")).toHaveAttribute("aria-expanded", "false");
+  await expect(toolbar(page)).toContainText("1 change");
+
+  // Esc cancels a drag.
+  await dragHeading(page, label("Analytics"), top.y + 4);
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect.poll(() => deptNames(page)).toEqual(["ML Platform", "Data Engineering", "Analytics"]);
+
+  // A plain click still collapses.
+  await label("Analytics").locator(".dept-toggle").click();
+  await expect(label("Analytics").locator(".dept-toggle")).toHaveAttribute("aria-expanded", "false");
+
+  // In the table: Analytics up above Data Engineering.
+  await page.getByRole("button", { name: "Table" }).click();
+  const group = (name: string) => page.locator(".group-head", { hasText: name });
+  const de = (await group("Data Engineering").boundingBox())!;
+  await dragHeading(page, group("Analytics"), de.y + 4);
+  await page.mouse.up();
+  await expect(page.locator(".group-toggle .dept-name")).toHaveText(["ML Platform", "Analytics", "Data Engineering"]);
+
+  await focusApp(page);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(page.locator(".group-toggle .dept-name")).toHaveText(["ML Platform", "Data Engineering", "Analytics"]);
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(page.locator(".group-toggle .dept-name")).toHaveText(["ML Platform", "Analytics", "Data Engineering"]);
+
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file("departments/ml-platform.yaml")).toContain("order: 1\n");
+  expect(github.file("departments/analytics.yaml")).toContain("order: 2\n");
+  expect(github.file("departments/data-eng.yaml")).toContain("order: 3\n");
+});

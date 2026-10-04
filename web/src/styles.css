@@ -2752,3 +2752,39 @@ kbd {
   fill: var(--text);
   opacity: 0.05;
 }
+
+/* ---- Reordering departments by dragging their headings ---- */
+.dept-grip {
+  position: absolute;
+  top: 50%;
+  left: -2px;
+  transform: translateY(-50%);
+  display: flex;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 0.12s;
+  z-index: 1;
+}
+.grabbable:hover > .dept-grip {
+  opacity: 0.7;
+}
+.reorder-line {
+  position: fixed;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--accent);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 0 0 1px var(--surface);
+}
+.reordering-this {
+  opacity: 0.45;
+}
+body.reordering,
+body.reordering * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
+}

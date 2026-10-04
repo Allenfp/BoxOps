@@ -1,0 +1,134 @@
+// Drag to reorder a vertical list of rows (departments on the timeline and in
+// the table). Press on a row's handle and move a few pixels to start; a line
+// shows where it will land; release to drop. A press that doesn't move stays
+// an ordinary click. Rows are found by `data-reorder-id`, in document order,
+// inside the container.
+
+import { type PointerEvent as ReactPointerEvent, type RefObject, useCallback, useEffect, useRef, useState } from "react";
+
+const THRESHOLD = 4;
+/** Distance (px) from the scroller's top or bottom edge that scrolls it. */
+const EDGE = 40;
+
+export interface Reorder {
+  /** The row being dragged, once the drag has started. */
+  draggingId: string | null;
+  /** Where the drop line goes, in viewport coordinates; null when the drop would change nothing. */
+  line: { top: number; left: number; width: number } | null;
+  /** Put on the handle's onPointerDown. */
+  start(e: ReactPointerEvent, id: string): void;
+}
+
+export function useReorder(
+  container: RefObject<HTMLElement | null>,
+  onMove: (id: string, index: number) => void,
+  opts: { disabled?: boolean; scroller?: RefObject<HTMLElement | null> } = {},
+): Reorder {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [line, setLine] = useState<Reorder["line"]>(null);
+  const press = useRef<{ id: string; x: number; y: number; active: boolean; target: number | null } | null>(null);
+  const cleanup = useRef<(() => void) | null>(null);
+  const onMoveRef = useRef(onMove);
+  onMoveRef.current = onMove;
+
+  useEffect(() => () => cleanup.current?.(), []);
+
+  const rows = () => [...(container.current?.querySelectorAll<HTMLElement>("[data-reorder-id]") ?? [])];
+
+  /** Work out the drop position under the pointer and the line to draw there. */
+  const track = (clientY: number) => {
+    const p = press.current;
+    const box = container.current?.getBoundingClientRect();
+    if (!p || !box) return;
+    const all = rows();
+    const from = all.findIndex((r) => r.dataset.reorderId === p.id);
+    const rects = all.map((r) => r.getBoundingClientRect());
+    // The gap before row `gap` (0 … n) is the one nearest the pointer.
+    const gap = rects.filter((r) => r.top + r.height / 2 < clientY).length;
+    const index = gap > from ? gap - 1 : gap;
+    p.target = index === from ? null : index;
+    if (p.target === null) return setLine(null);
+    const top = gap < rects.length ? rects[gap]!.top : rects[rects.length - 1]!.bottom;
+    // Only as wide as the part of the list that's on screen.
+    const view = opts.scroller?.current?.getBoundingClientRect();
+    const left = Math.max(box.left, view?.left ?? box.left);
+    const right = Math.min(box.right, view?.right ?? box.right);
+    setLine({ top, left, width: Math.max(0, right - left) });
+  };
+
+  const start = useCallback(
+    (e: ReactPointerEvent, id: string) => {
+      if (opts.disabled || e.button !== 0) return;
+      press.current = { id, x: e.clientX, y: e.clientY, active: false, target: null };
+      let lastY = e.clientY;
+      let frame = 0;
+
+      // Near the scroller's top or bottom edge, keep scrolling while the pointer rests there.
+      const autoScroll = () => {
+        const el = opts.scroller?.current;
+        frame = 0;
+        if (!el || !press.current?.active) return;
+        const r = el.getBoundingClientRect();
+        const dy = lastY < r.top + EDGE ? -12 : lastY > r.bottom - EDGE ? 12 : 0;
+        if (!dy) return;
+        el.scrollTop += dy;
+        track(lastY);
+        frame = requestAnimationFrame(autoScroll);
+      };
+
+      const move = (ev: PointerEvent) => {
+        const p = press.current;
+        if (!p) return;
+        lastY = ev.clientY;
+        if (!p.active) {
+          if (Math.hypot(ev.clientX - p.x, ev.clientY - p.y) < THRESHOLD) return;
+          p.active = true;
+          setDraggingId(p.id);
+          document.body.classList.add("reordering");
+        }
+        ev.preventDefault();
+        window.getSelection()?.removeAllRanges(); // the press may have started selecting text
+        track(ev.clientY);
+        if (!frame) frame = requestAnimationFrame(autoScroll);
+      };
+      const end = (ev: PointerEvent | KeyboardEvent) => {
+        const p = press.current;
+        const cancelled = ev.type === "keydown";
+        if (ev.type === "keydown" && (ev as KeyboardEvent).key !== "Escape") return;
+        if (cancelled && p?.active) ev.stopPropagation(); // Esc cancels the drag, nothing else
+        stop();
+        if (!p?.active) return;
+        // The release would also click whatever is under it (e.g. collapse the department): swallow that.
+        const swallow = (c: Event) => {
+          c.stopPropagation();
+          c.preventDefault();
+        };
+        window.addEventListener("click", swallow, { capture: true, once: true });
+        setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
+        if (!cancelled && p.target !== null) onMoveRef.current(p.id, p.target);
+      };
+      const stop = () => {
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", end);
+        document.removeEventListener("pointercancel", stop);
+        document.removeEventListener("keydown", end, true);
+        document.body.classList.remove("reordering");
+        if (frame) cancelAnimationFrame(frame);
+        press.current = null;
+        cleanup.current = null;
+        setDraggingId(null);
+        setLine(null);
+      };
+      cleanup.current?.();
+      cleanup.current = stop;
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", end);
+      document.addEventListener("pointercancel", stop);
+      document.addEventListener("keydown", end, true);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [opts.disabled],
+  );
+
+  return { draggingId, line, start };
+}

@@ -74,13 +74,19 @@ export function diffDraft(base: DraftState, current: DraftState): Changes {
   };
   const peopleCount = people.added.length + people.changed.length + people.removed.length;
   const settings = !same(base.settings, current.settings);
+  // Departments whose only change is their place in the order count as one change together ("Reordered departments").
+  const orderOnly = departments.filter((d) => {
+    const was = baseDepts.get(d.id);
+    return was && was.order !== d.order && same({ ...was, order: d.order }, d);
+  }).length;
+  const deptCount = departments.length - orderOnly + (orderOnly ? 1 : 0);
   return {
     ...boxes,
     departments,
     removedDepartments,
     people,
     settings,
-    count: boxes.count + departments.length + removedDepartments.length + peopleCount + (settings ? 1 : 0),
+    count: boxes.count + deptCount + removedDepartments.length + peopleCount + (settings ? 1 : 0),
   };
 }
 
@@ -395,6 +401,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     [apply],
   );
   const moveDepartment = useCallback((id: string, dir: -1 | 1) => apply((d) => structure.moveDepartment(d, id, dir)), [apply]);
+  const placeDepartment = useCallback((id: string, index: number) => apply((d) => structure.placeDepartment(d, id, index)), [apply]);
   const removeDepartment = useCallback(
     (id: string, moveTo?: string) => apply((d) => structure.removeDepartment(d, id, moveTo)),
     [apply],
@@ -519,6 +526,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     addDepartment,
     updateDepartment,
     moveDepartment,
+    placeDepartment,
     removeDepartment,
     addLane,
     moveLane,
