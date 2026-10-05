@@ -15,7 +15,7 @@ import {
 } from "../prefs";
 import { ZOOM_LEVELS, type ZoomLevel } from "../model/types";
 import { Icon } from "./Icon";
-import { shifted, shortcut } from "../a11y/keys";
+import { APPLE, shifted, shortcut } from "../a11y/keys";
 
 const ZOOM_NAME: Record<ZoomLevel, string> = {
   weeks: "Weeks",
@@ -264,6 +264,10 @@ export function SettingsPanel({ close, ...props }: SettingsProps & { close(): vo
   );
 }
 
+/** Option and Shift as each platform writes them, with a key. */
+const ALT = APPLE ? "⌥" : "Alt+";
+const SHIFT = APPLE ? "⇧" : "Shift";
+
 /** What the keys and the mouse do, by where; each platform's own modifier key (⌘ on a Mac, Ctrl elsewhere). */
 const shortcuts = (): { title: string; rows: [string, string][] }[] => [
   {
@@ -273,6 +277,32 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
       [shortcut("Z"), "Undo (in a text field, undo typing)"],
       [`${shortcut("Z", true)}  or  ${shortcut("Y")}`, "Redo"],
       ["Esc", "Close the editor, dialog or menu"],
+    ],
+  },
+  {
+    title: "On the timeline",
+    rows: [
+      ["Tab", "Into the timeline, back where you were; again, out of it"],
+      ["← → ↑ ↓", "Between lanes, boxes and PTO; up and down to what runs at the same time"],
+      [`Home, End  or  ${shortcut("←")} ${shortcut("→")}`, "Start or end of the row"],
+      [`${shortcut("↑")} ${shortcut("↓")}`, "First or last of the timeline"],
+      ["Page Up, Page Down", "Previous or next department"],
+      ["Enter", "Open the box or PTO"],
+      ["Space", "Pick the box or PTO up, to move it"],
+      ["N", "New box in the lane (after the box you're on), or PTO in a PTO row"],
+      ["Delete", "Delete the box or PTO (undo brings it back)"],
+      [`${ALT}↑ ${ALT}↓`, "On a department's name: move it up or down"],
+      ["?", "This list"],
+    ],
+  },
+  {
+    title: "Moving a box or PTO",
+    rows: [
+      ["← →", `A working day earlier or later; with ${SHIFT}, a week`],
+      [`${ALT}← ${ALT}→`, `Its end date only; with ${SHIFT}, a week`],
+      ["↑ ↓", "The lane above or below (a box), into the next department"],
+      ["Enter or Space", "Drop it there"],
+      [`Esc  or  ${shortcut("Z")}`, "Put it back"],
     ],
   },
   {
@@ -301,10 +331,12 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
   {
     title: "With the mouse",
     rows: [
+      ["Click a box or PTO", "Open it"],
       ["Double-click a lane", "Add a box"],
       ["Double-click a PTO row", "Book time off"],
-      ["Drag a box", "Move it"],
+      ["Drag a box", "Move it (near an edge, the timeline scrolls on)"],
       ["Drag a box's ends", "Change its dates"],
+      ["Drag a department's name", "Move it up or down"],
     ],
   },
 ];

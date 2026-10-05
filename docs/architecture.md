@@ -30,13 +30,17 @@ web/
     components/             Timeline, TableView, PeopleView, BoxEditor,
                             DepartmentEditor, EngineerPicker, SaveDialog,
                             TokenForm, TextCell, LoadScreen (load failures),
-                            ErrorBoundary
+                            ErrorBoundary; useGridFocus (the timeline's
+                            keyboard focus), followPointer (drags)
     model/                  data: dates, format (data format version), parse
                             and load (the validator: each file on its own,
                             then across files), draft, structure (departments
                             and lanes), relations (codes and rules), serialize,
                             summary (change descriptions), report
-    timeline/               scale (time ↔ pixels), layout (lanes, capacity)
+    timeline/               scale (time ↔ pixels), layout (lanes, capacity),
+                            drag (moves in working days, where a dragged box
+                            lands), keyboard (where the arrow keys go, names),
+                            consequences (what a keyboard move would do)
     github/                 api (REST and GraphQL client, timeouts, errors),
                             read (newer commits by SHA diff), save (commit,
                             conflicts, retries), messages (errors in words),
@@ -507,7 +511,9 @@ when a focused element is removed.
   when it goes, if focus was in it (or lost), it goes back there, or to
   the nearest thing still on the page: the box or PTO block, the
   department's ✎, the gear (for what its menu opened), the Save button,
-  else the roadmap (`useReturnFocus` in `a11y/focus.ts`). A banner (a part
+  else the roadmap (`useReturnFocus` in `a11y/focus.ts`). On the timeline,
+  focus a re-render took (a box moved to another row, a department moved,
+  undo) goes back to the same cell, else the one beside it. A banner (a part
   that couldn't load, too, after Try again) or the broken-rule popup going
   with focus in it hands focus to the roadmap (focus elsewhere stays put;
   the popup doesn't go by itself while focus is in it). A deleted box or
@@ -537,20 +543,54 @@ when a focused element is removed.
   the editors they do, as the editing happens there. In a text field ⌘Z is
   the field's own, but in a table cell left with Enter or Esc, until
   something's typed, it's the app's (`data-settled`), as it was once focus
-  had left. The Delete and Backspace keys delete nothing yet: the app acts
-  on them only with focus on the page itself, no editor open and the key
-  not held, but a box or PTO is selected only while its editor is open, so
-  they never find one (a stray Backspace in an editor used to delete what
-  it edited). The editors' Delete button deletes. Outside a text field (on
-  a box, say), Backspace is never the browser's Back.
+  had left. Delete and Backspace delete only the box or PTO block that has
+  focus on the timeline, once however long they're held, and nothing from
+  anywhere else (a stray Backspace in an editor used to delete what it
+  edited); the editors' Delete button deletes too. Outside a text field,
+  Backspace is never the browser's Back. N and ? are the only single-letter
+  keys, and only on the timeline (WCAG 2.1.4).
+- **The timeline** is an APG layout grid (`components/useGridFocus.ts`,
+  `timeline/keyboard.ts`): rows are a department's heading, each lane, its
+  extra area and its PTO; a row's cells are its controls (the lane's name,
+  whose row header also says its dates and size, and its **+**) and then
+  its boxes or PTO blocks in time order. The whole grid is one Tab stop,
+  the cell that last had focus (React renders every cell with tabindex −1;
+  the active one's is set on the DOM, so moving focus renders nothing). The
+  arrow keys go between cells, up and down to the cell nearest in time to
+  the day being looked at; Home, End, Page Up and Page Down jump. A box's
+  name says its title, code, dates, FTE, engineers, flag, broken rules and
+  clashes; the focused box's lane, scale and progress are its description,
+  one hidden element written before focus moves. The timeline scrolls a
+  focused cell clear of the sticky header and label column, and of the
+  broken-rule popup (which leaves room to scroll for that), as WCAG 2.4.11
+  asks. Enter, a click or a screen reader's press opens a box or PTO block.
+  Space picks one up: the arrow keys then move what's drawn, as a pointer
+  drag does (nothing laid out again, nothing else moving), and Enter or
+  Space drops it as one change; Escape or ⌘Z puts it back; Tab, a click,
+  ⌘S (which saves it dropped), another view or going read-only drop it.
+  Each step is said, with what it would change (`timeline/consequences.ts`:
+  a department over capacity or back within it, a rule broken or kept, an
+  engineer on PTO then), only the last of a key held down; others' saves
+  wait meanwhile, and Alt+← and Alt+→ are never the browser's Back and
+  Forward. While the timeline is read-only (a preview, or saving), its
+  cells stay, as text or `aria-disabled` buttons, and keys that would
+  change something say why they don't. The dates along the top, grid
+  lines, hatching and drag labels are hidden from screen readers. A box's
+  scale card shows on hover and while the box has keyboard focus; the
+  pointer can move onto it and Escape puts it away (WCAG 1.4.13).
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to
   it, tied to the field with `aria-describedby`.
-- **Not yet.** The timeline's boxes and PTO blocks can't be reached from
-  the keyboard (their editors can, once open); the table edits every field
-  of a box. What a test can't hear needs a person with VoiceOver and Safari,
-  NVDA with Firefox or Chrome, and JAWS with Edge.
+- **Small targets, by design.** A box's resize handles (7 px) and the
+  compact boxes of a collapsed department are smaller than WCAG 2.5.8's
+  24 px: their size is the information (time and FTE), and the editor's
+  date fields, the keyboard move and expanding the department do the same
+  with full-size targets. The **+** buttons are 24 px.
+- **Not yet checked by a person.** What a test can't hear needs a person
+  with VoiceOver and Safari, NVDA with Firefox or Chrome, and JAWS with
+  Edge: how the timeline grid's rows and cells are spoken, a move's
+  announcements, and Alt+← and Alt+→ while moving on Windows.
 
 ## Timeline layout
 
@@ -567,6 +607,18 @@ when a focused element is removed.
   A broken rule outlines both boxes in red and is listed in the toolbar. An
   edit that breaks a rule shows a popup with the dates (only the user's own
   edits, not someone else's save merged in). Nothing is blocked.
+- **Dragging** (`timeline/drag.ts`, `components/followPointer.ts`). Only the
+  pointer that pressed moves a box, PTO block or department heading; once
+  dragging it's captured, and a release the page never hears (no button
+  held, the window left) cancels the drag, as Escape does, which cancels
+  nothing else. The click a release makes after a drag, or after a
+  cancelled one, does nothing. A box's lane is the one under its top, and
+  changes only once it's dragged half a slot up or down: a sideways drag
+  keeps it, whichever part of a tall box was held. The layout stays as it
+  was until the drop (nothing moves under the pointer, no department
+  changes height); the box is drawn where it's going, inside its
+  department. Near the timeline's edges a drag scrolls it, and scrolling
+  mid-drag carries the box along.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes, which says over capacity
@@ -612,7 +664,8 @@ when a focused element is removed.
   light and the dark theme, and checks the page's structure, names and
   what's announced (an init script records every message the live regions
   are given); `e2e/keyboard.spec.ts` checks where focus goes and what keys
-  do. WebKit's Tab skips buttons, as Safari's does by default, so those
+  do, `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's
+  keyboard grid and moves, and `e2e/drag.spec.ts` dragging. WebKit's Tab skips buttons, as Safari's does by default, so those
   tests focus a control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build with a generated 2,000-box roadmap

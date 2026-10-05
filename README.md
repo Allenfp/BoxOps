@@ -11,8 +11,9 @@ straight to `main`, and the site updates within a minute.
 
 - **Timeline.** Departments of lanes, one per FTE of capacity, over weeks,
   months or quarters (working days only; weekends aren't shown). Drag a box to
-  move it, drag its ends to resize it, click it to edit, and double-click empty
-  space to add one. A box is as tall as the FTE it needs (0.5–2). A department
+  move it (near an edge, the timeline scrolls on), drag its ends to resize
+  it, click it to edit, and double-click empty space (or a lane's **+**) to
+  add one. A box is as tall as the FTE it needs (0.5–2). A department
   turns red where more FTE is planned than its lanes hold. Every box has a code
   like `DE-A1F`, and boxes can be related ("finishes before", "happens
   during"…); a broken rule pops up a warning but blocks nothing. **+ Add
@@ -62,15 +63,21 @@ straight to `main`, and the site updates within a minute.
   settings** (title, fiscal year, default zoom, box types and flags) change
   `roadmap/settings.yaml` for everyone and are saved like any other edit.
 - **Keyboard and screen readers.** "Skip to roadmap" is the first stop for
-  Tab. Dialogs and the box and PTO editors keep Tab inside them, Esc closes
-  them, and focus goes back where it was. In the table and People, Enter
-  keeps what's typed and stays in the cell (⌘Z or Ctrl+Z then undoes it),
-  and Esc puts it back. Saves, other people's saves, search results, broken
-  rules and problems with a field are announced to screen readers. Delete a
-  box or PTO with its editor's **Delete** button (⌘Z or Ctrl+Z brings it
-  back): the Delete key doesn't delete anything yet. Boxes on the timeline
-  itself can't yet be reached from the keyboard; the Table view edits all
-  of a box.
+  Tab. The timeline is one Tab stop: the arrow keys go between lanes, boxes
+  and PTO (up and down to what runs at the same time), Home and End (or ⌘
+  or Ctrl with ← →) to the ends of a row, Page Up and Page Down between
+  departments. Enter opens a box or PTO; Space picks it up to move it with
+  the arrow keys (Shift for a week, Option or Alt for its end date only, ↑ ↓
+  for its lane), Enter drops it and Esc puts it back. N adds a box in a
+  lane (or PTO in a PTO row), Delete deletes the box or PTO you're on, and
+  Option or Alt with ↑ ↓ on a department's name moves it, in the table too.
+  ? lists the keys. Dialogs and the box and PTO editors keep Tab inside
+  them, Esc closes them, and focus goes back where it was. In the table and
+  People, Enter keeps what's typed and stays in the cell (⌘Z or Ctrl+Z then
+  undoes it), and Esc puts it back. Saves, other people's saves, search
+  results, broken rules, deletions (with how to undo them), moves and what
+  they'd do (a department over capacity, a rule broken, someone on PTO) and
+  problems with a field are announced to screen readers.
 
 ## Editing without the app
 

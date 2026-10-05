@@ -385,3 +385,14 @@ test("⌘S with focus on a lane's name keeps focus there, though it's only text 
   await expect(cell(page, "lane:de-1")).toBeFocused();
   await expect(cell(page, "lane:de-1")).toHaveJSProperty("tagName", "BUTTON");
 });
+
+test("? on the timeline lists the keys, and closing the list puts focus back", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("?");
+  const list = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(list.getByRole("table", { name: "On the timeline" })).toContainText("Pick the box or PTO up, to move it");
+  await expect(list.getByRole("table", { name: "Moving a box or PTO" })).toContainText("Put it back");
+  await page.keyboard.press("Escape");
+  await expect(list).toHaveCount(0);
+  await expect(box(page, DAGSTER)).toBeFocused();
+});
