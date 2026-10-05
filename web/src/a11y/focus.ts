@@ -34,8 +34,20 @@ export function focusLater(targets: Target[], from?: Element | null): void {
   });
 }
 
-/** The roadmap: where focus goes when there's nowhere better. */
-export const main: Target = () => document.getElementById("main");
+/**
+ * The roadmap (<main>): where focus goes when there's nowhere better, and
+ * where the skip link sends it. It takes focus only while it has it: with a
+ * tabindex for good, a click anywhere in it would focus it (WebKit and
+ * Chromium focus the nearest ancestor that can be), not <body>.
+ */
+export const main = (): HTMLElement | null => {
+  const el = document.getElementById("main");
+  if (el && !el.hasAttribute("tabindex")) {
+    el.tabIndex = -1;
+    el.addEventListener("blur", () => el.removeAttribute("tabindex"), { once: true });
+  }
+  return el;
+};
 
 /**
  * Put focus back when this dialog (or other container) goes: if it had focus,

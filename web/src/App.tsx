@@ -18,6 +18,7 @@ import { Popover } from "./components/Popover";
 import { Banner } from "./components/Banner";
 import { announce, useAnnounce } from "./a11y/announce";
 import { shortcut, undoHint } from "./a11y/keys";
+import { main } from "./a11y/focus";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
 import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
@@ -1286,7 +1287,7 @@ function RoadmapView(props: ViewProps) {
         tabIndex={0}
         onClick={(e) => {
           e.preventDefault(); // focus the roadmap without putting #main in the address
-          document.getElementById("main")?.focus();
+          main()?.focus();
         }}
       >
         Skip to roadmap
@@ -1418,7 +1419,7 @@ function RoadmapView(props: ViewProps) {
         </div>
       </header>
 
-      <main id="main" tabIndex={-1} aria-labelledby="view-heading">
+      <main id="main" aria-labelledby="view-heading">
         <h2 id="view-heading" className="sr-only">
           {VIEWS.find((v) => v.id === view)!.label}
         </h2>

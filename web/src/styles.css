@@ -115,7 +115,7 @@ button:hover {
   display: flex;
   flex-direction: column;
 }
-/* The banners and the view under the toolbar. Focused by the skip link and when focus has nowhere better to go. */
+/* The banners and the view under the toolbar. Focused by the skip link, and when focus has nowhere better to go (a11y/focus.ts). */
 .app > main {
   flex: 1;
   min-height: 0;
