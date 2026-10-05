@@ -30,16 +30,6 @@ export function runningFine(): void {
   }
 }
 
-/** Whether any roadmap has a stored draft. */
-function anyDrafts(): boolean {
-  try {
-    for (let i = 0; i < localStorage.length; i++) if (localStorage.key(i)?.startsWith(DRAFT_PREFIX)) return true;
-  } catch {
-    // Storage blocked: there are no drafts.
-  }
-  return false;
-}
-
 /** The stored draft of the roadmap on screen (key → its JSON, parsed when it parses), or null. */
 function storedDraft(): Record<string, unknown> | null {
   const key = shownDraft;
@@ -106,7 +96,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   render(): ReactNode {
     const { error, again } = this.state;
     if (!error) return this.props.children;
-    const draft = shownDraft !== null && storedDraft() ? draftRepo(shownDraft) : null;
+    const kept = storedDraft() !== null;
+    const draft = kept && shownDraft !== null ? draftRepo(shownDraft) : null;
     return (
       <div className="crash" role="alert">
         <h1>Something went wrong</h1>
@@ -130,7 +121,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
           </>
         ) : (
           <>
-            {anyDrafts() && <p>Your unsaved changes are kept in this browser.</p>}
+            {kept && <p>Your unsaved changes are kept in this browser.</p>}
             <div className="crash-actions">
               <button className="primary" onClick={() => location.reload()}>
                 Reload

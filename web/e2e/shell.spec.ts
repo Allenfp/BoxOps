@@ -42,6 +42,27 @@ test("a stored draft that crashes the app can be downloaded and discarded", asyn
   expect(await page.evaluate(() => localStorage.getItem("boxops-draft:acme/other@main:0000abcd"))).not.toBeNull();
 });
 
+test("a crash says unsaved changes are kept only if this tab has some, whatever other tabs and sites keep", async ({ page, github }) => {
+  // Another tab's draft of this roadmap, and another roadmap's, on the same origin.
+  await page.evaluate(() => {
+    localStorage.setItem("boxops-draft:acme/roadmap@main:0000abcd", JSON.stringify({ v: 2, format: 1, alive: Date.now(), items: {} }));
+    localStorage.setItem("boxops-draft:acme/other@main:0000abcd", JSON.stringify({ v: 2, format: 1, items: {} }));
+  });
+  // A roadmap the app can't render (a bug): the build's parse of a box, spoiled.
+  github.patchBundle = (b) => {
+    for (const f of Object.values(b.parsed!.files)) if (f.kind === "box" && f.box?.id === DAGSTER) Object.assign(f.box, { title: { text: "?" } });
+    return b;
+  };
+  await page.reload();
+  const crash = page.locator(".crash");
+  await expect(crash).toContainText("Something went wrong");
+  await expect(crash).not.toContainText("unsaved changes");
+  await crash.getByRole("button", { name: "Reload" }).click();
+  await expect(crash).toContainText("Something went wrong");
+  await expect(crash).not.toContainText("unsaved changes");
+  await expect(crash.getByRole("button", { name: "Download unsaved changes" })).toHaveCount(0);
+});
+
 test("once the app has run a few seconds, an earlier crash is forgotten: a later one isn't \"again\"", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 10);
   await page.evaluate(() => sessionStorage.setItem("boxops-crashed-at", String(Date.now())));
