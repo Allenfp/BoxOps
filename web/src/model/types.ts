@@ -145,3 +145,9 @@ export interface Issue {
    */
   lossy?: true;
 }
+
+/** Box codes and ids new boxes mustn't take: those of box files the loader couldn't fully read, which a save never writes. */
+export interface Reserved {
+  codes: ReadonlySet<string>;
+  ids: ReadonlySet<string>;
+}

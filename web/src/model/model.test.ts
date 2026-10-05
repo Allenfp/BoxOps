@@ -15,6 +15,7 @@ import {
   workIndex,
   workdays,
 } from "./dates";
+import { reservedBoxes } from "./load";
 import { loadRoadmap } from "./parse";
 
 describe("dates", () => {
@@ -108,5 +109,18 @@ describe("working days", () => {
     expect(formatDay(nextWorkday(d("2026-10-04")))).toBe("2026-10-05");
     expect(formatDay(prevWorkday(d("2026-10-04")))).toBe("2026-10-02");
     expect(formatDay(prevWorkday(d("2026-10-02")))).toBe("2026-10-02");
+  });
+});
+
+describe("reservedBoxes", () => {
+  it("names the ids and codes of box files the loader couldn't fully read, for new boxes to stay clear of", () => {
+    const files = {
+      "boxes/bx-0001-a.yaml": 'id: bx-0001-a\ncode: "K7P" # quoted\ntitle: A\n',
+      "boxes/bx-0002-b.yaml": "id: bx-0002-b\ncode: [\n",
+      "boxes/bx-0003-c.yaml": "id: bx-0003-c\ncode: M8T\n",
+      "departments/d.yaml": "code: XYZ\n",
+    };
+    const lossy = new Map(["boxes/bx-0001-a.yaml", "boxes/bx-0002-b.yaml", "departments/d.yaml"].map((p) => [p, ["…"]]));
+    expect(reservedBoxes(lossy, files)).toEqual({ codes: new Set(["K7P"]), ids: new Set(["bx-0001-a", "bx-0002-b"]) });
   });
 });

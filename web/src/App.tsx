@@ -22,7 +22,7 @@ import { downloadJson } from "./model/draftStore";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
-import { type LoadResult, loadFolder, loadFolderNow, loadParser, rememberParsed } from "./model/load";
+import { type LoadResult, loadFolder, loadFolderNow, loadParser, rememberParsed, reservedBoxes } from "./model/load";
 import type { FileChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
 import { type ChangeLine, commitMessage, describeChanges } from "./model/summary";
@@ -618,6 +618,8 @@ function RoadmapView(props: ViewProps) {
     () => (prefs.hideFinished ? { ...roadmap, boxes: roadmap.boxes.filter((b) => b.end >= today()) } : roadmap),
     [roadmap, prefs.hideFinished],
   );
+  /** Box files the loader couldn't fully read: new boxes never take their codes or ids (saving over one is refused). */
+  const reserved = useMemo(() => reservedBoxes(props.lossy, files), [props.lossy, files]);
 
   // `session` makes each opening of the editor its own run of undo steps.
   const [selected, setSelected] = useState<{ id: string; session: number } | null>(null);
@@ -742,16 +744,19 @@ function RoadmapView(props: ViewProps) {
 
   const createBox = useCallback(
     (p: BoxPlacement) => {
-      const id = draft.addBox({
-        ...p,
-        title: "New box",
-        fte: 1,
-        type: draft.settings.types[0].id,
-      });
+      const id = draft.addBox(
+        {
+          ...p,
+          title: "New box",
+          fte: 1,
+          type: draft.settings.types[0].id,
+        },
+        reserved,
+      );
       draft.checkpoint();
       setSelected({ id, session: Date.now() });
     },
-    [draft],
+    [draft, reserved],
   );
 
   const editBox = (patch: Partial<Box>, field: string) => {
@@ -1379,14 +1384,17 @@ function RoadmapView(props: ViewProps) {
                 draft.departments.find((d) => d.lanes.length);
               const firstLane = dept?.lanes[0];
               const start = startOfWeek(today());
-              const id = draft.addBox({
-                lane: firstLane?.id ?? "",
-                start,
-                end: addWorkdays(start, 9), // two working weeks
-                title: "New box",
-                fte: 1,
-                type: draft.settings.types[0].id,
-              });
+              const id = draft.addBox(
+                {
+                  lane: firstLane?.id ?? "",
+                  start,
+                  end: addWorkdays(start, 9), // two working weeks
+                  title: "New box",
+                  fte: 1,
+                  type: draft.settings.types[0].id,
+                },
+                reserved,
+              );
               draft.checkpoint();
               return id;
             }}

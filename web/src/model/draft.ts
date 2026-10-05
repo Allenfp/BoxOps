@@ -31,7 +31,7 @@ import { FORMAT } from "./format";
 import { newBoxCode } from "./relations";
 import * as structure from "./structure";
 import { describeChanges } from "./summary";
-import type { Box, Department, Lane, Person, Settings } from "./types";
+import type { Box, Department, Lane, Person, Reserved, Settings } from "./types";
 
 export interface DraftState {
   boxes: Box[];
@@ -470,9 +470,14 @@ export function boxId(tag: string, title: string): string {
   return `bx-${tag}-${slugify(title)}`;
 }
 
+/** The random part of a box id. */
+const TAG = /^bx-([0-9a-f]{4})-/;
+
 function tagOf(id: string): string {
-  return /^bx-([0-9a-f]{4})-/.exec(id)?.[1] ?? randomTag();
+  return TAG.exec(id)?.[1] ?? randomTag();
 }
+
+const NOTHING_RESERVED: Reserved = { codes: new Set(), ids: new Set() };
 
 // Storing a draft (draftStore.ts keeps it): only the changed items, each with
 // the version it was changed from, so it can be rebuilt on whatever roadmap
@@ -832,14 +837,22 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     [applyBoxes, baseIds],
   );
 
-  /** Add a box with a fresh unique code; returns its id. */
+  /**
+   * Add a box with a fresh code and id; returns its id. Neither is one a box
+   * has, nor one in `reserved` (box files the loader couldn't fully read: a
+   * save over one is refused).
+   */
   const addBox = useCallback(
-    (box: Omit<Box, "id" | "code">): string => {
-      const id = boxId(randomTag(), box.title);
-      applyBoxes((boxes) => [...boxes, { ...box, id, code: newBoxCode(new Set(boxes.map((b) => b.code))) }]);
+    (box: Omit<Box, "id" | "code">, reserved: Reserved = NOTHING_RESERVED): string => {
+      // A tag no other box has, so the id stays unique however the box is retitled.
+      const tags = new Set([...[...base.boxes, ...present.boxes].map((b) => b.id), ...reserved.ids].map((x) => TAG.exec(x)?.[1]));
+      let tag = randomTag();
+      for (let n = 0; tags.has(tag) && n < 100; n++) tag = randomTag();
+      const id = boxId(tag, box.title);
+      applyBoxes((boxes) => [...boxes, { ...box, id, code: newBoxCode(new Set([...boxes.map((b) => b.code), ...reserved.codes])) }]);
       return id;
     },
-    [applyBoxes],
+    [applyBoxes, base.boxes, present.boxes],
   );
 
   /** Remove a box, and any rules on other boxes that point at it, as one undo step. */

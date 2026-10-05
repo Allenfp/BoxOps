@@ -14,7 +14,7 @@
 
 import { FORMAT, type FormatStatus, formatStatus } from "./format.ts"; // with .ts: vite.config.ts imports this file
 import { BOX_PATH, DEPARTMENT_PATH, isRoadmapPath } from "./paths.ts";
-import type { Box, Department, Issue, Person, Roadmap, RoadmapFiles, Settings } from "./types.ts";
+import type { Box, Department, Issue, Person, Reserved, Roadmap, RoadmapFiles, Settings } from "./types.ts";
 
 /** Department codes: 2–4 capital letters/digits, starting with a letter. */
 export const DEPT_CODE = /^[A-Z][A-Z0-9]{1,3}$/;
@@ -228,6 +228,24 @@ export function assemble(parsed: Record<string, ParsedFile>, ignored: string[] =
     if (issue.lossy) lossy.set(issue.path, [...(lossy.get(issue.path) ?? []), issue.message]);
   }
   return { roadmap: { format, settings, departments, boxes, people }, issues, lossy, sources, formatStatus: formatStatus(format) };
+}
+
+/**
+ * The ids and codes of box files the loader couldn't fully read (`lossy`):
+ * new boxes mustn't take them, as a save over such a file is refused. The id
+ * is the file's name; the code, its `code:` line, read as a person would grep
+ * for it (the file may not parse at all).
+ */
+export function reservedBoxes(lossy: ReadonlyMap<string, unknown>, files: RoadmapFiles): Reserved {
+  const codes = new Set<string>();
+  const ids = new Set<string>();
+  for (const path of lossy.keys()) {
+    if (!BOX_PATH.test(path)) continue;
+    ids.add(path.replace(/^.*\//, "").replace(/\.ya?ml$/, ""));
+    const code = /^code:[ \t]*(["']?)([A-Z0-9]{3})\1[ \t]*(?:#.*)?\r?$/m.exec(files[path] ?? "")?.[2];
+    if (code) codes.add(code);
+  }
+  return { codes, ids };
 }
 
 // ---- In the app --------------------------------------------------------------
