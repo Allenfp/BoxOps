@@ -637,6 +637,16 @@ describe("what a merge leaves pointing at nothing", () => {
     expect(byId.a).toBeUndefined();
   });
 
+  it("a box both sides changed, in a lane they removed, clashes once", () => {
+    const oldBase = st([box("a"), box("b", { lane: "l2" })]);
+    const draft = st([box("a"), box("b", { lane: "l2", title: "B mine" })]);
+    // They removed lane l2, moving its box to l1.
+    const newBase = st([box("a"), box("b", { lane: "l1" })], [{ ...dept, lanes: [dept.lanes[0]] }]);
+    const r = rebaseDraft(oldBase, draft, newBase);
+    expect(r.conflicts).toEqual(["box:b"]);
+    expect(r.draft.boxes.find((b) => b.id === "b")?.lane).toBe("l1");
+  });
+
   it("keep theirs never puts a box back in a lane that's gone", () => {
     const oldBase = st([box("a"), box("b", { lane: "l2" })]);
     const oneLane = { ...dept, lanes: [dept.lanes[0]] };

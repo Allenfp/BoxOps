@@ -199,7 +199,9 @@ export function rebaseDraft(oldBase: DraftState, draft: DraftState, newBase: Dra
     people: mergeById(oldBase.people, draft.people, newBase.people, "person", conflicts),
     settings: oursSettings ? draft.settings : newBase.settings,
   };
-  return { draft: repair(merged, [oldBase, draft, newBase], draft, oldBase, newBase, conflicts), conflicts };
+  const repaired = repair(merged, [oldBase, draft, newBase], draft, oldBase, newBase, conflicts);
+  // An item can clash twice over (both sides changed it, and its lane is gone): list it once.
+  return { draft: repaired, conflicts: [...new Set(conflicts)] };
 }
 
 /**
