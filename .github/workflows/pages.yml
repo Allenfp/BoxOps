@@ -1,8 +1,8 @@
 # Builds the roadmap app (with roadmap/ baked in) and publishes it to GitHub Pages.
-# The browser tests are skipped only when nothing outside roadmap/ has changed
-# since the commit the live site was built from, so saves from the app go live
-# quickly and app code never goes live untested, even when its own run failed
-# or was cancelled.
+# The unit and browser tests are skipped only when nothing outside roadmap/ has
+# changed since the commit the live site was built from, so saves from the app
+# go live quickly and app code never goes live untested, even when its own run
+# failed or was cancelled.
 name: Deploy roadmap to Pages
 
 on:
@@ -67,11 +67,11 @@ jobs:
 
           app=true
           if [ "$GITHUB_EVENT_NAME" != push ]; then
-            why="started by $GITHUB_EVENT_NAME: always run the browser tests"
+            why="started by $GITHUB_EVENT_NAME: always run the tests"
           else
             base=$(live_commit)
             if ! [[ "$base" =~ ^[0-9a-f]{40}$ ]]; then
-              echo "::warning::Couldn't read the commit the live site was built from; running the browser tests."
+              echo "::warning::Couldn't read the commit the live site was built from; running the tests."
               why="live commit unknown"
             elif ! git cat-file -e "$base^{commit}" 2>/dev/null; then
               why="the live commit $base isn't in the history (force-push?)"
@@ -98,7 +98,11 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run validate
-      - run: npm test
+      # Like the browser tests, only when the app changed: no unit test reads
+      # roadmap/, so a save of roadmap data alone can't fail them.
+      - name: Unit tests
+        if: steps.changes.outputs.app == 'true'
+        run: npm test
       - run: npm run build
 
       # No browser cache: the WebKit download is a few seconds of this step,
