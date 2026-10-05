@@ -11,7 +11,7 @@ Browser (static app on GitHub Pages)            GitHub (this repo)
 │  + newer commits via the API     │           │                            │
 │ edits → local draft (undo, kept  │  write    │ one commit per save        │
 │   in localStorage)               │──────────►│ → Actions validates and    │
-│ Save (⌘S) → pre-save check →     │ (API +    │   redeploys (~30 s)        │
+│ Save (⌘S) → pre-save check →     │ (API +    │   redeploys (~1 min)       │
 │   commit to main                 │  token)   │                            │
 └──────────────────────────────────┘           └────────────────────────────┘
 ```
