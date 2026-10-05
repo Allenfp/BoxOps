@@ -53,10 +53,17 @@ export function BoxEditor(props: Props) {
   // Free-text list fields keep their raw text while typing so commas and newlines aren't eaten.
   const [tagsText, setTagsText] = useState(() => (box.tags ?? []).join(", "));
   const [linksText, setLinksText] = useState(() => (box.links ?? []).join("\n"));
-  // …and follow the box when it changes some other way (an undo, someone else's save) to a list the text doesn't say.
-  const same = (text: string, sep: RegExp, list: string[] | undefined) => splitList(text, sep).join("\0") === (list ?? []).join("\0");
-  if (!same(tagsText, /,/, box.tags)) setTagsText((box.tags ?? []).join(", "));
-  if (!same(linksText, /\n/, box.links)) setLinksText((box.links ?? []).join("\n"));
+  // …and follow the box when its list changes some other way (an undo, someone else's save) to one the text doesn't say.
+  // Only when the list changes: one the text can't say exactly (a tag with a comma or a space at
+  // either end, written in the YAML) would otherwise be put back on every render, without end.
+  const key = (list: string[] | undefined) => (list ?? []).join("\0");
+  const same = (text: string, sep: RegExp, list: string[] | undefined) => key(splitList(text, sep)) === key(list);
+  const [seen, setSeen] = useState(() => ({ tags: key(box.tags), links: key(box.links) }));
+  if (key(box.tags) !== seen.tags || key(box.links) !== seen.links) {
+    setSeen({ tags: key(box.tags), links: key(box.links) });
+    if (!same(tagsText, /,/, box.tags)) setTagsText((box.tags ?? []).join(", "));
+    if (!same(linksText, /\n/, box.links)) setLinksText((box.links ?? []).join("\n"));
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

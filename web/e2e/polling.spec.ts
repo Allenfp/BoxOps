@@ -124,6 +124,27 @@ test.describe("private repository, signed out", () => {
   });
 });
 
+test("tags the box editor can't write as typed (a comma, a space at the end) open, and follow others' saves", async ({ page, github }) => {
+  github.deploy(github.otherSave({ [boxFile(DAGSTER)]: (t) => `${t}tags: ["Q3, 2026", "infra "]\n` }, "Sam Lee", "Dagster: tags"));
+  await pollNow(page);
+  await expect(page.locator(".banner")).toContainText("Sam Lee saved “Dagster: tags”");
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /Edit/ });
+  const tags = editor.getByRole("textbox", { name: /Tags/ });
+  await expect(tags).toHaveValue("Q3, 2026, infra ");
+
+  // Another such save while the editor is open: the field follows it, and still takes typing.
+  github.deploy(github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace('"Q3, 2026"', '"Q4, 2026"') }, "Sam Lee", "Dagster: Q4"));
+  await pollNow(page);
+  await expect(tags).toHaveValue("Q4, 2026, infra ");
+  await tags.fill("q4");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await page.keyboard.press("Escape");
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain('tags: ["q4"]\n'); // in the style Sam wrote
+});
+
 test("a deploy that changed nothing in the roadmap moves the tab on without a notice, and keeps undo", async ({ page, github }) => {
   await dragDays(page, DAGSTER, 10);
   const readme = github.outsideSave("README.md", "# Notes\n", "Sam Lee", "Notes");
