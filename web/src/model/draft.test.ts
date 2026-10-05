@@ -93,6 +93,19 @@ describe("rebaseDraft", () => {
     expect(theirs.boxes.find((b) => b.id === "a")!.title).toBe("A theirs");
   });
 
+  it("keep theirs puts an item back where it stands in its list", async () => {
+    const { revertItems } = await import("./draft");
+    const person = (id: string, name = id) => ({ id, name });
+    const base = { boxes: [], departments: [], people: [person("ann"), person("bob"), person("cy")], settings: DEFAULT_SETTINGS };
+    const draft = { ...base, people: [person("ann", "Ann K"), person("bob", "Bob K"), person("cy")] };
+    expect(revertItems(draft, base, ["person:ann"]).people).toEqual([person("ann"), person("bob", "Bob K"), person("cy")]);
+    // One we deleted and they kept goes back between its neighbours, not to the end.
+    const deleted = { ...base, people: [person("ann"), person("cy"), person("dee")] };
+    expect(revertItems(deleted, base, ["person:bob"]).people.map((p) => p.id)).toEqual(["ann", "bob", "cy", "dee"]);
+    const first = { ...base, people: [person("bob"), person("cy")] };
+    expect(revertItems(first, base, ["person:ann"]).people.map((p) => p.id)).toEqual(["ann", "bob", "cy"]);
+  });
+
   it("is a no-op after our own save", async () => {
     const { rebaseDraft } = await import("./draft");
     const oldBase = { boxes: [box("a")], departments: [], people: [], settings: DEFAULT_SETTINGS };

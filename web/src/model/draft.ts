@@ -169,13 +169,26 @@ const entityOf = (state: DraftState, key: string) => {
   return state.departments.find((d) => d.id === id);
 };
 
-/** `draft` with these items put back to how they are in `base` (taking "theirs"). */
+/**
+ * `draft` with these items put back to how they are in `base` (taking
+ * "theirs"), each where it stands in its list: people.yaml is written in list
+ * order, so moving someone would be a change of its own.
+ */
 export function revertItems(draft: DraftState, base: DraftState, keys: string[]): DraftState {
   const revert = <T extends { id: string }>(items: T[], baseItems: T[], kind: string) => {
     const keyed = new Set(keys.filter((k) => k.startsWith(`${kind}:`)).map((k) => k.slice(kind.length + 1)));
     if (!keyed.size) return items;
-    const kept = items.filter((x) => !keyed.has(x.id));
-    return [...kept, ...baseItems.filter((x) => keyed.has(x.id))];
+    const baseById = new Map(baseItems.map((x) => [x.id, x]));
+    const out = items.flatMap((x) => (!keyed.has(x.id) ? [x] : baseById.has(x.id) ? [baseById.get(x.id)!] : []));
+    // One we deleted and they kept comes back after the item before it in theirs.
+    const placed = new Set(out.map((x) => x.id));
+    baseItems.forEach((x, i) => {
+      if (!keyed.has(x.id) || placed.has(x.id)) return;
+      const before = baseItems.slice(0, i).findLast((y) => placed.has(y.id));
+      out.splice(before ? out.findIndex((y) => y.id === before.id) + 1 : 0, 0, x);
+      placed.add(x.id);
+    });
+    return out;
   };
   return {
     boxes: revert(draft.boxes, base.boxes, "box"),
