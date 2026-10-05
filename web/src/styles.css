@@ -2266,6 +2266,16 @@ button.primary {
 .cell-code.jira {
   color: var(--accent);
 }
+/* "Changed by someone else", as the key shows it. */
+.row-updated {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--updated);
+  vertical-align: middle;
+}
 .cell-code .box-warn {
   margin-left: 4px;
 }

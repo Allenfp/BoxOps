@@ -114,3 +114,21 @@ test("a blank type or flag name in team settings says it's required", async ({ p
   await expect(name).toHaveAccessibleDescription("A name is required.");
   await expect.poll(() => heard(page)).toContain("A name is required.");
 });
+
+test("the table marks rows someone else changed, and clashes, with more than colour", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 5);
+  github.deploy(
+    github.otherSave({
+      [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked"),
+      [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline v2"),
+    }),
+  );
+  await pollNow(page);
+  await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const code = (title: string) => page.locator("tbody tr").filter({ has: page.locator(`input[value="${title}"]`) }).locator(".cell-code");
+  await expect(code("Dagster 2.x upgrade")).toContainText("Someone else also changed this box");
+  await expect(code("Dagster 2.x upgrade").locator(".box-warn svg")).toBeVisible();
+  await expect(code("CDC pipeline v2")).toContainText("Changed by someone else");
+  await expect(code("CDC pipeline v2").locator(".row-updated")).toBeVisible();
+});

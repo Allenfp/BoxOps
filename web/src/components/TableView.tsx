@@ -459,7 +459,25 @@ export function TableView(props: Props) {
                         .join("\n") || undefined}
                     >
                       {jiraKey(b.epic) ?? `${lane?.deptCode}-${b.code}`}
-                      {ruleWarnings?.has(b.id) && <Icon name="alert" size={12} className="box-warn" />}
+                      {/* The row's tint says these too; marks and words say them without colour (and to screen readers). */}
+                      {ruleWarnings?.has(b.id) && (
+                        <span className="box-warn">
+                          <Icon name="alert" size={12} />
+                          <span className="sr-only">Breaks a rule: {ruleWarnings.get(b.id)!.join(" ")}</span>
+                        </span>
+                      )}
+                      {conflictIds?.has(b.id) ? (
+                        <span className="box-warn">
+                          <Icon name="alert" size={12} />
+                          <span className="sr-only">Someone else also changed this box; you’ll choose whose version to keep when you save.</span>
+                        </span>
+                      ) : (
+                        updatedIds?.has(b.id) && (
+                          <span className="row-updated">
+                            <span className="sr-only">Changed by someone else since you opened the roadmap.</span>
+                          </span>
+                        )
+                      )}
                     </span>
                     <TextCell
                       value={b.title}
