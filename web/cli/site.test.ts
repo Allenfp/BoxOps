@@ -265,6 +265,9 @@ describe("repoFromRemote", () => {
       "https://octocorp.ghe.com/planning/roadmap.git": "planning/roadmap",
       "/srv/git/roadmap.git": "",
       "file:///srv/git/roadmap.git": "",
+      "file:///acme/roadmap.git": "", // a local path, however short
+      "file://localhost/acme/roadmap": "",
+      "FILE:///acme/roadmap": "",
       "../roadmap/x": "",
       "foo/bar/baz": "", // relative local paths
       "acme/roadmap": "",
