@@ -138,6 +138,10 @@ function readUrlState(): { view?: ViewMode; zoom?: ZoomLevel; collapsed?: Set<st
 
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+/** Where Backspace deletes text: not a checkbox, colour or select, which are fields too. */
+const isTextField = (t: EventTarget | null) =>
+  t instanceof HTMLElement &&
+  (t.isContentEditable || t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !/^(checkbox|radio|color|range|file|button|submit|reset|image)$/.test(t.type)));
 
 /** Why the site's roadmap.json couldn't be had, in words. */
 function siteProblem(e: unknown): Extract<LoadState, { status: "error" }> {
@@ -921,7 +925,7 @@ function RoadmapView(props: ViewProps) {
       return;
     }
     // Outside a text field, Backspace is never the browser's Back (WebKit's own, in some browsers).
-    if (e.key === "Backspace" && !mod && !e.altKey && !isTyping(e.target)) e.preventDefault();
+    if (e.key === "Backspace" && !mod && !e.altKey && !isTextField(e.target)) e.preventDefault();
     // A table cell left with Enter or Esc has nothing typed of its own to undo: ⌘Z there is ours.
     const typing = isTyping(e.target) && !(e.target as HTMLElement).hasAttribute("data-settled");
     if (preview || typing || busy || behind) return;
