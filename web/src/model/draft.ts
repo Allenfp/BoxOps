@@ -36,7 +36,6 @@ export interface DraftState {
   settings: Settings;
 }
 
-
 export interface Changes {
   added: Box[];
   modified: Box[];

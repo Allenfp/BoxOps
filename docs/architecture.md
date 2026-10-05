@@ -157,16 +157,16 @@ functions over the draft. Removing a lane or department that still has boxes
 requires a lane to move them to, so work is never dropped. When a newer version
 arrives, the draft is **rebased** onto it item by item. Items only someone else
 changed take their version, items only you changed keep yours, and items both
-changed keep yours but are flagged as clashes. A clash lasts until the item matches the
-saved version (you took theirs, put it back by hand, discarded, or saved it),
-and the save dialog's Keep mine / Keep theirs settles only the clashes it
-lists: one that came in while it was open is asked about next. Keep theirs is
-an edit like any other (undo brings back yours, and the clash) and leaves the
-item where it was in its list. When one of your own saves comes back, the
-draft is rebased from what that save wrote, so anything edited (or undone)
-while it ran stays an unsaved change of yours, never a clash with your own
-commit. The clash bookkeeping is a pure reducer over the draft and its undo
-history (`reduceHistory` in `model/draft.ts`).
+changed keep yours but are flagged as clashes. A clash lasts until the item
+matches the saved version (you took theirs, put it back by hand, discarded, or
+saved it), and the save dialog's Keep mine / Keep theirs settles only the
+clashes it lists: one that came in while it was open is asked about next. Keep
+theirs is an edit like any other (undo brings back yours, and the clash) and
+leaves the item where it was in its list. When one of your own saves comes
+back, the draft is rebased from what that save wrote, so anything edited (or
+undone) while it ran stays an unsaved change of yours, never a clash with your
+own commit. The clash bookkeeping is a pure reducer over the draft and its
+undo history (`reduceHistory` in `model/draft.ts`).
 
 **Unsaved drafts are kept per tab** in `localStorage` (`model/draftStore.ts`),
 so a reload or a crash doesn't lose work, even if someone saved in between:
@@ -324,8 +324,9 @@ against data the new code wrote.
   Reload instead of a blank page. A second crash in a row (a stored draft can
   make every reload crash) also offers to download the unsaved changes as
   JSON and discard them: only this tab's draft of the roadmap on screen, since
-  project sites on `<owner>.github.io` share one `localStorage`. A crash counts as the same one
-  again within 5 minutes, unless the app ran for a few seconds in between.
+  project sites on `<owner>.github.io` share one `localStorage`. A crash
+  counts as the same one again within 5 minutes, unless the app ran for a few
+  seconds in between.
 
 ## Timeline layout
 
