@@ -371,7 +371,8 @@ against data the new code wrote.
   (or the system's) before the first paint, so dark-mode visitors never see
   a light flash; `<meta name="color-scheme">` says `light dark`.
 - **Content-Security-Policy.** The build adds a CSP meta tag (Pages can't send
-  headers): `default-src 'none'`; scripts and styles only from the site,
+  headers), straight after `<meta charset>` and before anything it governs:
+  `default-src 'none'`; scripts and styles only from the site,
   plus the two inline scripts by their SHA-256 hashes (computed by
   `vite.config.ts` from the built page); `connect-src` the site,
   `api.github.com` and `raw.githubusercontent.com`; images from the site and

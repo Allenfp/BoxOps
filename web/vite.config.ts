@@ -82,6 +82,8 @@ function roadmapData(): Plugin {
  * GitHub API and raw.githubusercontent.com (anonymous reads of a public
  * repository). React's style props go through the CSSOM, which style-src
  * doesn't govern. Not in dev, whose server injects scripts and a websocket.
+ * It goes straight after <meta charset>, which must stay in the first 1024
+ * bytes, and before anything it governs.
  */
 function contentSecurityPolicy(): Plugin {
   return {
@@ -103,7 +105,9 @@ function contentSecurityPolicy(): Plugin {
           "form-action 'none'",
           "object-src 'none'",
         ].join("; ");
-        return [{ tag: "meta", attrs: { "http-equiv": "Content-Security-Policy", content: policy }, injectTo: "head-prepend" }];
+        const charset = /<meta charset="[^"]*"\s*\/?>/i;
+        if (!charset.test(html)) throw new Error("index.html has no <meta charset> to put the Content-Security-Policy after.");
+        return html.replace(charset, (tag) => `${tag}\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`);
       },
     },
   };

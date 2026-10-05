@@ -71,6 +71,9 @@ test("once the app has run a few seconds, an earlier crash is forgotten: a later
 });
 
 test("the built page enforces a strict Content-Security-Policy, and tests catch violations", async ({ page, csp, github: _ }) => {
+  // Straight after <meta charset>, which must come first, and before anything it governs.
+  await expect(page.locator("head > :first-child")).toHaveAttribute("charset", "UTF-8");
+  await expect(page.locator("head > :nth-child(2)")).toHaveAttribute("http-equiv", "Content-Security-Policy");
   const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
   expect(policy).toContain("default-src 'none'");
   expect(policy).toContain("connect-src 'self' https://api.github.com https://raw.githubusercontent.com;");
