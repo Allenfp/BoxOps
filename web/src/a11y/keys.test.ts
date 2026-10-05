@@ -23,6 +23,12 @@ describe("letter", () => {
     expect(letter({ key: "ы", code: "KeyS" })).toBe("s");
     expect(letter({ key: "я", code: "KeyZ" })).toBe("z");
   });
+  it("is null for a character typed with Alt or AltGr (Ctrl+Alt on Windows), as in Polish", () => {
+    expect(letter({ key: "ś", code: "KeyS", altKey: true })).toBeNull();
+    expect(letter({ key: "ż", code: "KeyZ", altKey: true })).toBeNull();
+    expect(letter({ key: "ß", code: "KeyS", altKey: true })).toBeNull(); // Option+S on a Mac
+    expect(letter({ key: "s", code: "KeyS", altKey: true })).toBe("s");
+  });
   it("is null for keys that aren't letters", () => {
     expect(letter({ key: "Enter", code: "Enter" })).toBeNull();
     expect(letter({ key: "1", code: "Digit1" })).toBeNull();

@@ -20,10 +20,12 @@ export const undoHint = () => `Undo with ${shortcut("Z")}.`;
 /**
  * The letter a key press stands for, in lower case: its own when it's a Latin
  * letter, else the letter at that place on a US keyboard, so ⌘S and Ctrl+S
- * work in a Cyrillic or Greek layout too. Null for anything else.
+ * work in a Cyrillic or Greek layout too. Null for anything else, and for a
+ * character typed with Alt: Option on a Mac, or AltGr, which Windows reports
+ * as Ctrl+Alt (Polish ś is AltGr+S).
  */
-export function letter(e: Pick<KeyboardEvent, "key" | "code">): string | null {
+export function letter(e: Pick<KeyboardEvent, "key" | "code"> & { altKey?: boolean }): string | null {
   if (/^[a-z]$/i.test(e.key)) return e.key.toLowerCase();
-  const m = /^Key([A-Z])$/.exec(e.code);
+  const m = !e.altKey && /^Key([A-Z])$/.exec(e.code);
   return m && !/^[\x20-\x7e]$/.test(e.key) ? m[1].toLowerCase() : null;
 }

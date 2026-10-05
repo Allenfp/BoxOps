@@ -455,6 +455,28 @@ test("⌘Z and ⌘S work from a keyboard that doesn't type Latin letters (by the
   expect(taken).toBe(true);
 });
 
+test("AltGr, which Windows reports as Ctrl+Alt, types its letter: Polish ś and ż never save or undo", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 5);
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await page.locator('input[aria-label="Title"][value="CDC pipeline for orders DB"]').click();
+  await page.keyboard.type("Wy");
+  const cell = page.locator('input[aria-label="Title"]:focus');
+  /** A key typed with AltGr in what has focus: whether the app took it. */
+  const altGr = (key: string, code: string) =>
+    page.evaluate(
+      ([key, code]) =>
+        !document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key, code, ctrlKey: true, altKey: true, bubbles: true, cancelable: true })),
+      [key, code],
+    );
+  expect(await altGr("ś", "KeyS")).toBe(false);
+  await page.keyboard.press("Enter"); // left with Enter, where Ctrl+Z is the app's undo
+  expect(await altGr("ż", "KeyZ")).toBe(false);
+  await page.waitForTimeout(300);
+  await expect(cell).toBeFocused();
+  await expect(toolbar(page)).toContainText("Save · 2 changes");
+  expect(github.calls("graphql")).toBe(0);
+});
+
 test("shortcuts are labelled ⌘ on Apple's platforms and Ctrl elsewhere, in tooltips and the list", async ({ page, github: _ }) => {
   // As the app tells: by the platform the browser reports (a Chromium made to look like Windows says Windows).
   const apple = await page.evaluate(() =>

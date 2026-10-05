@@ -526,15 +526,16 @@ when a focused element is removed.
 - **Keys.** ⌘ and Ctrl both work everywhere; labels say ⌘ on Apple's
   platforms and Ctrl elsewhere (`a11y/keys.ts`). A letter is matched by
   `key`, or by its place (`code`) when the layout doesn't type Latin
-  letters. Undo, redo and ⌘S never act behind the save dialog, the key or
-  the shortcuts list, nor with a menu open; in the editors they do, as the
-  editing happens there. In a text field ⌘Z is the field's own, but in a
-  table cell left with Enter or Esc, until something's typed, it's the
-  app's (`data-settled`), as it was once focus had left. Delete and
-  Backspace delete the selected box or PTO only with focus on the page
-  itself, no editor open and the key not held, so a stray Backspace in an
-  editor deletes nothing. Outside a text field (on a box, say), Backspace is
-  never the browser's Back.
+  letters. No shortcut takes Alt: Windows reports AltGr as Ctrl+Alt, and
+  AltGr+S types Polish ś, not a save. Undo, redo and ⌘S never act behind
+  the save dialog, the key or the shortcuts list, nor with a menu open; in
+  the editors they do, as the editing happens there. In a text field ⌘Z is
+  the field's own, but in a table cell left with Enter or Esc, until
+  something's typed, it's the app's (`data-settled`), as it was once focus
+  had left. Delete and Backspace delete the selected box or PTO only with
+  focus on the page itself, no editor open and the key not held, so a stray
+  Backspace in an editor deletes nothing. Outside a text field (on a box,
+  say), Backspace is never the browser's Back.
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to
