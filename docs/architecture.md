@@ -148,14 +148,17 @@ yours but are flagged as clashes.
 
 ## Tests and CI
 
-- **Unit tests** (Vitest, `web/src/**/*.test.ts`) cover dates, loading and
-  validation, the draft and rebasing, YAML writing, change descriptions,
-  layout and capacity, the report, and the save logic against a fake API.
+- **Unit tests** (Vitest, `web/src/**/*.test.ts` and `web/cli/**/*.test.ts`)
+  cover dates, loading and validation, the draft and rebasing, YAML writing,
+  change descriptions, layout and capacity, the report, the save logic against
+  a fake API, and the roadmap readers, git SHAs and `roadmap.json` against
+  real git repositories made in the temp folder.
 - **Browser tests** (Playwright with WebKit, `web/e2e/`) run the production
   build. GitHub is faked by a stateful stand-in (real commits and branch
   state) and the roadmap is a fixed copy in `web/e2e/fixtures/roadmap/`. The
-  clock is pinned to 2026-10-03, so tests never depend on live data, the date
-  or the network.
+  stand-in makes each deploy's `roadmap.json` with the build's own code, so
+  its blob and tree SHAs are real. The clock is pinned to 2026-10-03, so tests
+  never depend on live data, the date or the network.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
   the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
   doesn't support TypeScript 7 yet.) A deliberate exception is a

@@ -13,7 +13,7 @@ export const boxFile = (id: string) => `boxes/${id}.yaml`;
 export const test = base.extend<{ github: FakeGitHub; signedIn: boolean }>({
   signedIn: [true, { option: true }],
   github: async ({ page, signedIn }, use) => {
-    const github = new FakeGitHub();
+    const github = await FakeGitHub.create();
     await page.clock.install({ time: TODAY });
     await github.install(page);
     if (signedIn) {

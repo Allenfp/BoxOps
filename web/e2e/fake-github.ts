@@ -1,11 +1,14 @@
 // A small stateful stand-in for GitHub (REST API + raw files) and for the
 // deployed site's roadmap.json, so browser tests never touch the network,
-// the real repo, or the live roadmap data.
+// the real repo, or the live roadmap data. Each deploy's roadmap.json is made
+// by the build's own code (cli/site.ts), with real git blob and tree SHAs.
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page, Route } from "@playwright/test";
+import { readRoadmapDir } from "../cli/git";
+import { appInfo, assembleBundle, hashFolder } from "../cli/site";
+import { gitBlobSha } from "../src/github/git-objects";
+import type { Bundle } from "../src/model/bundle";
 
 export const REPO = "acme/roadmap";
 export const BRANCH = "main";
@@ -18,24 +21,17 @@ interface Commit {
   files: Files;
   message: string;
   author: string;
+  /** Committer date, ISO 8601. */
+  date: string;
 }
 
 const FIXTURE = fileURLToPath(new URL("./fixtures/roadmap", import.meta.url));
-
-function readDir(dir: string): Files {
-  const out: Files = {};
-  const walk = (d: string) => {
-    for (const name of readdirSync(d)) {
-      const full = join(d, name);
-      if (statSync(full).isDirectory()) walk(full);
-      else out[relative(dir, full).split(sep).join("/")] = readFileSync(full, "utf8");
-    }
-  };
-  walk(dir);
-  return out;
-}
+/** The app under test, as the build saw it (same build id as the JS). */
+const APP = appInfo(fileURLToPath(new URL("..", import.meta.url)));
 
 const sha = (prefix: string, n: number) => `${prefix}${n}`.padEnd(40, "0");
+/** Commits are a minute apart, starting the day before the tests' "today". */
+const date = (n: number) => new Date(Date.UTC(2026, 9, 2, 16, n)).toISOString().replace(".000Z", "Z");
 
 export class FakeGitHub {
   readonly commits: Record<string, Commit> = {};
@@ -47,9 +43,14 @@ export class FakeGitHub {
   private trees: Record<string, Files> = {};
   private n = 0;
 
-  constructor(files: Files = readDir(FIXTURE)) {
+  /** A repo whose only commit holds the fixture roadmap (or `files`), deployed. */
+  static async create(files?: Files): Promise<FakeGitHub> {
+    return new FakeGitHub(files ?? (await readRoadmapDir(FIXTURE)).files);
+  }
+
+  private constructor(files: Files) {
     const root = sha("c0", 0);
-    this.commits[root] = { parent: null, files, message: "Initial roadmap", author: "Setup" };
+    this.commits[root] = { parent: null, files, message: "Initial roadmap", author: "Setup", date: date(0) };
     this.head = root;
     this.deployed = root;
   }
@@ -72,7 +73,7 @@ export class FakeGitHub {
     const files = { ...this.commits[this.head].files };
     for (const [path, edit] of Object.entries(edits)) files[path] = edit(files[path]);
     const id = sha("other", ++this.n);
-    this.commits[id] = { parent: this.head, files, message, author };
+    this.commits[id] = { parent: this.head, files, message, author, date: date(this.n) };
     this.head = id;
     return id;
   }
@@ -82,17 +83,36 @@ export class FakeGitHub {
     this.deployed = commit;
   }
 
+  /** The roadmap.json the site's build would make from `commit`. */
+  async bundle(commit: string): Promise<Bundle> {
+    const c = this.commits[commit];
+    const folder = await hashFolder(c.files);
+    const history: string[] = [];
+    for (let at: string | null = commit; at && history.length < 50; at = this.commits[at].parent) history.push(at);
+    return assembleBundle(
+      APP,
+      {
+        repo: REPO,
+        branch: BRANCH,
+        commit,
+        dir: "roadmap",
+        tree: folder.tree,
+        visibility: "public",
+        private: false,
+        readonly: false,
+        author: c.author,
+        subject: c.message.split("\n")[0],
+        date: c.date,
+        history,
+      },
+      folder,
+    );
+  }
+
   async install(page: Page): Promise<void> {
-    await page.route("**/roadmap.json*", (route) => {
-      const c = this.commits[this.deployed];
-      const [subject] = c.message.split("\n");
-      return route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          files: c.files,
-          source: { repo: REPO, branch: BRANCH, commit: this.deployed, author: c.author, subject },
-        }),
-      });
+    await page.route("**/roadmap.json*", async (route) => {
+      const bundle = await this.bundle(this.deployed);
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify(bundle) });
     });
     await page.route(/^https:\/\/(api\.github\.com|raw\.githubusercontent\.com)\//, (route) => this.handle(route));
   }
@@ -130,11 +150,15 @@ export class FakeGitHub {
       return this.commits[m[1]] ? json(200, { sha: m[1], tree: { sha: `t-${m[1]}` } }) : json(422, { message: "No commit found" });
     }
     if ((m = /^\/git\/trees\/(t-[\w-]+)$/.exec(p))) {
+      // The recursive listing, with roadmap/'s real tree SHA and its files' blob SHAs.
       const files = this.trees[m[1]] ?? this.commits[m[1].slice(2)]?.files ?? {};
-      return json(200, {
-        tree: Object.keys(files).map((f) => ({ path: `roadmap/${f}`, type: "blob", sha: f })),
-        truncated: false,
-      });
+      const blob = (text: string) => gitBlobSha(new TextEncoder().encode(text));
+      return Promise.all([
+        hashFolder(files),
+        ...Object.entries(files).map(async ([f, text]) => ({ path: `roadmap/${f}`, mode: "100644", type: "blob", sha: await blob(text) })),
+      ]).then(([{ tree }, ...entries]) =>
+        json(200, { tree: [{ path: "roadmap", mode: "040000", type: "tree", sha: tree }, ...entries], truncated: false }),
+      );
     }
     if ((m = /^\/compare\/(\w+)\.\.\.(\w+)$/.exec(p))) {
       const commits = [];
@@ -159,7 +183,7 @@ export class FakeGitHub {
     if (p === "/git/commits" && req.method() === "POST") {
       const body = req.postDataJSON() as { message: string; tree: string; parents: string[] };
       const id = sha("mine", ++this.n);
-      this.commits[id] = { parent: body.parents[0], files: this.trees[body.tree], message: body.message, author: "Me" };
+      this.commits[id] = { parent: body.parents[0], files: this.trees[body.tree], message: body.message, author: "Me", date: date(this.n) };
       return json(201, { sha: id });
     }
     if ((m = /^\/git\/refs\/heads\/(.+)$/.exec(p)) && req.method() === "PATCH") {

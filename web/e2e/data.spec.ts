@@ -50,3 +50,21 @@ test("a roadmap in another data format opens read-only", async ({ page, github }
   await expect(page.locator(".banner", { hasText: "Read-only" })).toHaveCount(0);
   await expect(toolbar(page)).toContainText("No changes");
 });
+
+test("a roadmap.json from before bundle schema 1 still opens", async ({ page, github }) => {
+  const c = github.headCommit();
+  await page.route("**/roadmap.json*", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ files: c.files, source: { repo: "acme/roadmap", branch: "main", commit: github.head, author: c.author, subject: c.message } }),
+    }),
+  );
+  await page.reload();
+  await expect(page.locator(".box").first()).toBeVisible();
+  await expect(toolbar(page)).toContainText("No changes");
+});
+
+test("index.html names the build", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.locator('meta[name="boxops-build"]')).toHaveAttribute("content", /^\d+\.\d+\.\d+\+([0-9a-f]{12}|unknown)(\.dirty)?$/);
+});
