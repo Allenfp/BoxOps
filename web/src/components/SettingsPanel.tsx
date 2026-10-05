@@ -318,6 +318,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
       ["Enter", `Keep what's typed in the cell, staying in it (${shortcut("Z")} then undoes it)`],
       ["Esc", "Put the cell back as it was"],
       [shifted("Enter"), "New line in a description or notes"],
+      [`${ALT}↑ ${ALT}↓`, "On a department's name in the table: move it up or down"],
     ],
   },
   {
