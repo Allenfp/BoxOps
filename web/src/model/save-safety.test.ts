@@ -1,5 +1,6 @@
-// What a save writes: untouched lines stay byte for byte as written, and list
-// entries keep their comments and unknown fields.
+// What a save writes, and what it refuses to write: files the loader couldn't
+// fully read, and files other than the one an item came from. Also that
+// untouched lines stay byte for byte as written.
 
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -7,7 +8,7 @@ import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
 import { readRoadmapDir } from "./files";
 import { loadRoadmap } from "./load";
-import { type FileChanges, serializeChanges } from "./serialize";
+import { type FileChanges, serializeChanges, UnsafeWrite } from "./serialize";
 import type { RoadmapFiles } from "./types";
 
 const SETTINGS = 'format: 1\ntypes: [{id: project, name: Project, color: "#4f7cff"}]\n';
@@ -40,6 +41,17 @@ function save(files: RoadmapFiles, edit: (s: DraftState) => DraftState): FileCha
   return serializeChanges(files, base, edit(base));
 }
 
+/** The files (and their problems) a save of `edit` refuses to write. */
+function refused(files: RoadmapFiles, edit: (s: DraftState) => DraftState) {
+  try {
+    save(files, edit);
+  } catch (e) {
+    if (e instanceof UnsafeWrite) return e.files;
+    throw e;
+  }
+  throw new Error("the save went through");
+}
+
 /** Lines of `after` that differ from `before` (same line count expected). */
 function changedLines(before: string, after: string): string[] {
   const a = before.split(/\r?\n/);
@@ -47,6 +59,52 @@ function changedLines(before: string, after: string): string[] {
   expect(b.length).toBe(a.length);
   return b.filter((line, i) => line !== a[i]);
 }
+
+describe("files the loader couldn't fully read", () => {
+  const badRoster = { ...ROADMAP, "people.yaml": "people:\n  - id: sam\n    name: Sam\n  - name: No id\n" };
+
+  it("are never written; edits to other files still save", () => {
+    expect(refused(badRoster, (s) => editPerson(s, "sam", { role: "Lead" }))).toEqual([
+      { path: "people.yaml", problems: ["person 2, id: required text is missing"] },
+    ]);
+    expect(Object.keys(save(badRoster, (s) => editBox(s, "b1", { title: "Renamed" })))).toEqual(["boxes/b1.yaml"]);
+  });
+
+  it("include files with a YAML syntax error: a save refuses instead of crashing", () => {
+    const broken = { ...ROADMAP, "people.yaml": "people:\n  - id: sam\n\tname: Sam\n" };
+    const [file, ...more] = refused(broken, (s) => ({ ...s, people: [{ id: "ana", name: "Ana" }] }));
+    expect([file.path, more]).toEqual(["people.yaml", []]);
+    expect(file.problems).toEqual([expect.stringMatching(/^YAML syntax error: .* at line 3, column 1$/)]);
+  });
+
+  it("include a department whose lane another department already has", () => {
+    const files = { ...ROADMAP, "departments/ops.yaml": "id: ops\ncode: OP\nname: Ops\nlanes:\n  - id: e2\n  - id: o1\n" };
+    const out = refused(files, (s) => ({ ...s, departments: s.departments.map((x) => (x.id === "ops" ? { ...x, name: "Operations" } : x)) }));
+    expect(out).toEqual([{ path: "departments/ops.yaml", problems: ['lane "e2" is already used in department "eng", so it\'s left out here'] }]);
+  });
+});
+
+describe("each item is written to the file it was loaded from", () => {
+  for (const copy of ["boxes/a-copy.yaml", "boxes/z-copy.yaml"]) {
+    it(`a box, with a copy of its file at ${copy}`, () => {
+      const files = { ...ROADMAP, [copy]: box("b1", "C0P").replace("Box C0P", "Copy") };
+      expect(Object.keys(save(files, (s) => editBox(s, "b1", { end: d("2026-01-23") })))).toEqual(["boxes/b1.yaml"]);
+      expect(save(files, (s) => ({ ...s, boxes: s.boxes.filter((b) => b.id !== "b1") }))).toEqual({ "boxes/b1.yaml": null });
+    });
+  }
+  for (const copy of ["departments/a-copy.yaml", "departments/z-copy.yaml"]) {
+    it(`a department, with a copy of its file at ${copy}`, () => {
+      const files = { ...ROADMAP, [copy]: DEPT.replace("name: Eng", "name: Copy") };
+      const out = save(files, (s) => ({ ...s, departments: s.departments.map((x) => ({ ...x, name: "Engineering" })) }));
+      expect(out).toEqual({ "departments/eng.yaml": DEPT.replace("name: Eng", "name: Engineering") });
+    });
+  }
+
+  it("including one whose file is .yml", () => {
+    const { "boxes/b1.yaml": text, ...rest } = ROADMAP;
+    expect(Object.keys(save({ ...rest, "boxes/b1.yml": text }, (s) => editBox(s, "b1", { title: "Renamed" })))).toEqual(["boxes/b1.yml"]);
+  });
+});
 
 describe("untouched lines stay as written", () => {
   const shipped = { ...readRoadmapDir(resolve(__dirname, "../../../roadmap")) };
@@ -144,8 +202,11 @@ describe("PTO and rules are merged entry by entry", () => {
 describe("an empty roster", () => {
   const add = (s: DraftState): DraftState => ({ ...s, people: [...s.people, { id: "ana", name: "Ana" }] });
 
-  it("written `people: []` grows one engineer per entry", () => {
-    expect(save({ ...ROADMAP, "people.yaml": "# Nobody yet.\npeople: []\n" }, add)["people.yaml"]).toBe("# Nobody yet.\npeople:\n  - id: ana\n    name: Ana\n");
+  it("can be written `people:` or `people: []`, and grows one engineer per entry", () => {
+    for (const empty of ["# Nobody yet.\npeople:\n", "# Nobody yet.\npeople: []\n"]) {
+      expect(loadRoadmap({ ...ROADMAP, "people.yaml": empty }).issues).toEqual([]);
+      expect(save({ ...ROADMAP, "people.yaml": empty }, add)["people.yaml"]).toBe("# Nobody yet.\npeople:\n  - id: ana\n    name: Ana\n");
+    }
   });
 
   it("is written `people: []` when the last engineer goes", () => {

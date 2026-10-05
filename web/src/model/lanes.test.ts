@@ -73,7 +73,7 @@ describe("lane dates", () => {
   it("load, save and describe", () => {
     const text = files["departments/data-eng.yaml"].replace("  - id: de-4\n", "  - id: de-4\n    start: 2026-11-07\n    end: 2027-03-31\n");
     const { issues } = loadRoadmap({ ...files, "departments/data-eng.yaml": text });
-    expect(issues.map((i) => i.message)).toEqual(["lanes[3].start: Saturday — roadmap dates must be weekdays"]);
+    expect(issues.map((i) => i.message)).toEqual(['lane "de-4", start: Saturday — roadmap dates must be weekdays']);
 
     const draft: DraftState = {
       ...base,

@@ -3,15 +3,28 @@
 // the original survive and a PR diff shows only the lines that really changed:
 // only fields that differ from what was loaded are touched, list entries are
 // matched up one by one, and a file keeps its BOM and line endings.
+//
+// A file the loader couldn't fully read is never written (UnsafeWrite): that
+// would delete whatever the loader left out.
 
 import { Document, isMap, isScalar, isSeq, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
 import { formatDay } from "./dates";
 import { diffDraft, normalize, type DraftState } from "./draft";
-import { DEFAULT_DEPT_COLOR } from "./load";
+import { DEFAULT_DEPT_COLOR, type LoadResult, loadRoadmap } from "./load";
 import type { Box, Department, Person, RoadmapFiles } from "./types";
 
 /** path → new file text, or null to delete the file. */
 export type FileChanges = Record<string, string | null>;
+
+/** A save would write files the loader couldn't fully read. */
+export class UnsafeWrite extends Error {
+  constructor(readonly files: { path: string; problems: string[] }[]) {
+    super(
+      "Saving would delete parts of these files the app couldn’t read; fix them in the file first. " +
+        files.map((f) => `roadmap/${f.path}: ${f.problems.join("; ")}`).join(" · "),
+    );
+  }
+}
 
 type Plain = Record<string, unknown>;
 
@@ -138,7 +151,8 @@ function mergeMap(doc: Document, map: YAMLMap, value: Plain, base: Plain | undef
 /**
  * Merge a list of mappings entry by entry, so every entry that stays keeps its
  * node: comments, unknown fields and key order. `base` is the list as loaded,
- * which lines up with the file's entries.
+ * which lines up with the file's entries (a file the loader left an entry out
+ * of is never written).
  */
 function mergeList(doc: Document, seq: YAMLSeq, items: Plain[], base: Plain[], spec: ListSpec, defaults: Plain) {
   const nodes = seq.items;
@@ -192,6 +206,7 @@ function orderedList(v: unknown, list: ListSpec | undefined, defaults: Plain): u
 }
 
 function writeFile(
+  path: string,
   original: string | undefined,
   value: Plain,
   base: Plain | undefined,
@@ -201,54 +216,70 @@ function writeFile(
 ): string {
   if (original === undefined) return new Document(ordered(value, keys, defaults, lists)).toString(style(""));
   const doc = parseDocument(original) as Document;
+  // The loader marks such files lossy, so a save never gets here; never write over one regardless.
+  const error = doc.errors[0];
+  if (error) throw new UnsafeWrite([{ path, problems: [`YAML syntax error: ${error.message.split("\n")[0].replace(/:$/, "")}`] }]);
   if (doc.contents === null) doc.contents = doc.createNode({}); // empty, or only comments
-  if (!isMap(doc.contents)) return new Document(ordered(value, keys, defaults, lists)).toString(style(original));
+  if (!isMap(doc.contents)) throw new UnsafeWrite([{ path, problems: ["expected a YAML mapping (key: value lines) at the top level"] }]);
   mergeMap(doc, doc.contents, value, base, keys, lists, defaults);
   let text = doc.toString(style(original));
   if (original.includes("\r\n")) text = text.replace(/\r?\n/g, "\r\n");
   return original.startsWith("﻿") ? `﻿${text}` : text;
 }
 
-/** Existing file for an id in a folder (`boxes/x.yaml` or `.yml`), else the path a new one gets. */
-function pathFor(files: RoadmapFiles, folder: string, id: string): string {
-  return [`${folder}/${id}.yaml`, `${folder}/${id}.yml`].find((p) => p in files) ?? `${folder}/${id}.yaml`;
-}
-
-/** The file changes that turn `base`, loaded from `baseFiles`, into `draft`. */
-export function serializeChanges(baseFiles: RoadmapFiles, base: DraftState, draft: DraftState): FileChanges {
+/**
+ * The file changes that turn `base`, loaded from `baseFiles`, into `draft`.
+ * Each department and box is written to the file it was loaded from. Throws
+ * UnsafeWrite when that would mean writing a file the loader couldn't fully
+ * read.
+ */
+export function serializeChanges(
+  baseFiles: RoadmapFiles,
+  base: DraftState,
+  draft: DraftState,
+  loaded: Pick<LoadResult, "lossy" | "sources"> = loadRoadmap(baseFiles),
+): FileChanges {
   const changes = diffDraft(base, draft);
-  const out: FileChanges = {};
+  const writes = new Map<string, () => string | null>();
+  const boxPath = (id: string) => loaded.sources.boxes.get(id) ?? `boxes/${id}.yaml`;
+  const deptPath = (id: string) => loaded.sources.departments.get(id) ?? `departments/${id}.yaml`;
 
   const baseBoxes = new Map(base.boxes.map((b) => [b.id, b]));
   for (const b of [...changes.added, ...changes.modified]) {
-    const path = pathFor(baseFiles, "boxes", b.id);
+    const path = boxPath(b.id);
     const was = baseBoxes.get(b.id);
-    out[path] = writeFile(baseFiles[path], boxToPlain(b), was && boxToPlain(was), BOX_KEYS, BOX_LISTS);
+    writes.set(path, () => writeFile(path, baseFiles[path], boxToPlain(b), was && boxToPlain(was), BOX_KEYS, BOX_LISTS));
   }
-  for (const b of changes.removed) out[pathFor(baseFiles, "boxes", b.id)] = null;
+  for (const b of changes.removed) writes.set(boxPath(b.id), () => null);
 
   const baseDepts = new Map(base.departments.map((d) => [d.id, d]));
   for (const d of changes.departments) {
-    const path = pathFor(baseFiles, "departments", d.id);
+    const path = deptPath(d.id);
     const was = baseDepts.get(d.id);
-    out[path] = writeFile(baseFiles[path], deptToPlain(d), was && deptToPlain(was), DEPT_KEYS, DEPT_LISTS);
+    writes.set(path, () => writeFile(path, baseFiles[path], deptToPlain(d), was && deptToPlain(was), DEPT_KEYS, DEPT_LISTS));
   }
-  for (const d of changes.removedDepartments) out[pathFor(baseFiles, "departments", d.id)] = null;
+  for (const d of changes.removedDepartments) writes.set(deptPath(d.id), () => null);
 
   if (changes.people.added.length + changes.people.changed.length + changes.people.removed.length) {
     const path = "people.yaml";
     const people = (list: Person[]) => ({ people: list.map(personToPlain) });
-    out[path] = writeFile(baseFiles[path], people(draft.people), people(base.people), ["people"], PEOPLE_LISTS);
+    writes.set(path, () => writeFile(path, baseFiles[path], people(draft.people), people(base.people), ["people"], PEOPLE_LISTS));
   }
 
   // Team settings: no implied defaults (a type's colour is always written out).
   if (changes.settings) {
-    out["settings.yaml"] = writeFile(baseFiles["settings.yaml"], { ...draft.settings }, { ...base.settings }, SETTINGS_KEYS, SETTINGS_LISTS, {});
+    const path = "settings.yaml";
+    writes.set(path, () => writeFile(path, baseFiles[path], { ...draft.settings }, { ...base.settings }, SETTINGS_KEYS, SETTINGS_LISTS, {}));
   }
 
-  // Drop no-op rewrites (e.g. a field changed and changed back).
-  for (const [path, text] of Object.entries(out)) {
-    if (text !== null && text === baseFiles[path]) delete out[path];
+  const unsafe = [...writes.keys()].filter((path) => loaded.lossy.has(path)).sort();
+  if (unsafe.length) throw new UnsafeWrite(unsafe.map((path) => ({ path, problems: loaded.lossy.get(path)! })));
+
+  const out: FileChanges = {};
+  for (const [path, write] of writes) {
+    const text = write();
+    // Drop no-op rewrites (e.g. a field changed and changed back).
+    if (text === null || text !== baseFiles[path]) out[path] = text;
   }
   return out;
 }

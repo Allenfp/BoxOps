@@ -7,6 +7,8 @@ import { Icon } from "./Icon";
 export type SaveProblem =
   | { kind: "token"; rejected?: boolean }
   | { kind: "invalid"; issues: string[] }
+  /** The save would write files the app couldn't fully read; fixing them is a hand edit. */
+  | { kind: "unwritable"; files: { path: string; problems: string[] }[] }
   | { kind: "conflict"; items: string[] }
   | { kind: "error"; message: string }
   | {
@@ -58,6 +60,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
   const title = {
     token: "Connect to GitHub to save",
     invalid: "Can’t save yet",
+    unwritable: "Can’t save yet",
     conflict: "Someone else changed the same items",
     error: "Save failed",
     updated: "The roadmap changed since you opened it",
@@ -136,6 +139,39 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
               ))}
             </ul>
           </div>
+          <footer className="dialog-foot">
+            <button className="primary" onClick={onClose}>
+              Back to editing
+            </button>
+          </footer>
+        </>
+      )}
+
+      {problem.kind === "unwritable" && (
+        <>
+          <p className="lead">
+            Your changes touch {problem.files.length === 1 ? "a file" : "files"} with problems the app can’t work
+            around. Saving would delete the parts it couldn’t read, so fix these in the file first (on GitHub or in the
+            repo), then save again:
+          </p>
+          <div className="callout error">
+            <ul>
+              {problem.files.map((f) => (
+                <li key={f.path}>
+                  <code>roadmap/{f.path}</code>
+                  <ul>
+                    {f.problems.map((p, n) => (
+                      <li key={n}>{p}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="hint">
+            Your changes are still here and still saved in this browser. To save the rest now, undo the changes to these
+            files.
+          </p>
           <footer className="dialog-foot">
             <button className="primary" onClick={onClose}>
               Back to editing

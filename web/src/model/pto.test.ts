@@ -41,9 +41,9 @@ describe("PTO", () => {
       { start: d("2026-12-12"), end: d("2026-12-14"), note: undefined },
     ]);
     expect(issues.map((i) => i.message)).toEqual([
-      "people[0].pto[1].start: Saturday — roadmap dates must be weekdays",
-      "people[0].pto[2].end (2026-11-02) is before start (2026-11-10)",
-      "people[0].pto[3]: expected a mapping with start and end",
+      'person "sam-lee", PTO "2026-12-12", start: Saturday — roadmap dates must be weekdays',
+      'person "sam-lee", PTO "2026-11-10", end (2026-11-02) is before start (2026-11-10)',
+      'person "sam-lee", PTO 4: expected a mapping',
     ]);
   });
 

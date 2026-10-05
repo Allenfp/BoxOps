@@ -30,17 +30,15 @@ import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
-import { loadRoadmap } from "./model/load";
-import { type FileChanges, applyChanges, serializeChanges } from "./model/serialize";
+import { type LoadResult, loadRoadmap } from "./model/load";
+import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
 import { commitMessage, describeChanges } from "./model/summary";
-import type { Box, Issue, Roadmap, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types";
+import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types";
 import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
 
-interface Loaded {
-  roadmap: Roadmap;
-  issues: Issue[];
+interface Loaded extends LoadResult {
   files: RoadmapFiles;
   source: Source;
   /** Showing a branch other than the one this site was built from (`?ref=`). */
@@ -210,6 +208,9 @@ interface ViewProps extends Loaded {
   onReload(files: RoadmapFiles, commit: string): void;
   onSaved(result: SaveResult): void;
 }
+
+/** `roadmap/people.yaml, line 12: …` */
+const issueText = (i: Issue) => `roadmap/${i.path}${i.line ? `, line ${i.line}` : ""}: ${i.message}`;
 
 function RoadmapView(props: ViewProps) {
   const { roadmap: base, issues, files, source, preview, lastSave, remote } = props;
@@ -413,10 +414,10 @@ function RoadmapView(props: ViewProps) {
   /** Problems these files have that the loaded roadmap didn't (pre-existing ones don't block saving). */
   const newProblems = useCallback(
     (next: RoadmapFiles) => {
-      const known = new Set(issues.map((i) => `${i.path}|${i.message}`));
+      const known = new Set(issues.map((i) => i.key));
       return loadRoadmap(next)
-        .issues.filter((i) => !known.has(`${i.path}|${i.message}`))
-        .map((i) => `${i.path}: ${i.message}`);
+        .issues.filter((i) => !known.has(i.key))
+        .map(issueText);
     },
     [issues],
   );
@@ -446,10 +447,17 @@ function RoadmapView(props: ViewProps) {
       draft.takeTheirs(clashes);
     }
 
-    const changes: FileChanges = serializeChanges(files, draftBase, target);
-    if (Object.keys(changes).length === 0) return;
-    const invalid = newProblems(applyChanges(files, changes));
-    if (invalid.length) return setProblem({ kind: "invalid", issues: invalid });
+    let changes: FileChanges;
+    try {
+      changes = serializeChanges(files, draftBase, target, props);
+      if (Object.keys(changes).length === 0) return;
+      const invalid = newProblems(applyChanges(files, changes));
+      if (invalid.length) return setProblem({ kind: "invalid", issues: invalid });
+    } catch (e) {
+      // A file the app couldn't fully read is never written: it would lose what was left out.
+      if (e instanceof UnsafeWrite) return setProblem({ kind: "unwritable", files: e.files });
+      return setProblem({ kind: "error", message: (e as Error).message });
+    }
     const token = opts.token ?? getToken();
     if (!token) return setProblem({ kind: "token" });
     const gh = new GitHub(token);
@@ -637,7 +645,7 @@ function RoadmapView(props: ViewProps) {
         onGo: () => goToBox(c.box.id),
       })),
     },
-    { title: "Problems in the roadmap files", items: issues.map((i) => ({ text: `roadmap/${i.path}: ${i.message}` })) },
+    { title: "Problems in the roadmap files", items: issues.map((i) => ({ text: issueText(i) })) },
   ];
 
   const mainUrl = () => {

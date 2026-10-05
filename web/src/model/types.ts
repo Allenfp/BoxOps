@@ -125,4 +125,18 @@ export type RoadmapFiles = Record<string, string>;
 export interface Issue {
   path: string;
   message: string;
+  /** Line in the file (from 1), when the problem is at a known place. */
+  line?: number;
+  /**
+   * The same problem has the same key after any edit elsewhere (no list
+   * positions or line numbers in it), so a problem that was already there is
+   * never mistaken for a new one.
+   */
+  key: string;
+  /**
+   * The loader left part of the file out of the roadmap (an entry, a value, or
+   * the whole file). Writing the file would delete that part, so the app
+   * refuses to until the file is fixed.
+   */
+  lossy?: true;
 }

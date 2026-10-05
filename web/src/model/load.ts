@@ -1,9 +1,11 @@
 // Turns raw YAML files into a Roadmap plus a list of problems.
 // Loading is lenient: a bad file or field is reported and skipped so one typo
-// never blanks the whole roadmap. CI treats any issue as a failure.
+// never blanks the whole roadmap. CI treats any issue as a failure. A problem
+// that leaves part of a file out of the roadmap marks the file "lossy": the app
+// won't write it, since that would delete what was left out.
 
-import { parse } from "yaml";
-import { dayParts, isWeekend, parseDay } from "./dates";
+import { type Document, isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
+import { type Day, dayParts, formatDay, isWeekend, parseDay } from "./dates";
 import type {
   Box,
   BoxStatus,
@@ -18,7 +20,6 @@ import type {
   RoadmapFiles,
   Settings,
   TimeOff,
-  ZoomLevel,
 } from "./types";
 import { BOX_FTE_OPTIONS, ZOOM_LEVELS } from "./types";
 
@@ -47,261 +48,436 @@ export const DEFAULT_SETTINGS: Settings = {
   ],
 };
 
+const DEPARTMENT_FILE = /^departments\/[^/]+\.ya?ml$/;
+const BOX_FILE = /^boxes\/[^/]+\.ya?ml$/;
+
+/** The file each department and box was read from (by id), so a save writes exactly that file. */
+export interface Sources {
+  departments: Map<string, string>;
+  boxes: Map<string, string>;
+}
+
+export interface LoadResult {
+  roadmap: Roadmap;
+  issues: Issue[];
+  /** Files the loader couldn't fully read, with the reasons: the app must not write them. */
+  lossy: Map<string, string[]>;
+  sources: Sources;
+}
+
 type Obj = Record<string, unknown>;
 
+/** A mapping in a file, and how messages name it: `person "sam-lee", ` (empty at the top level). */
+interface At {
+  obj: Obj;
+  label: string;
+}
+
+/** Not set: left out, empty (`key:`) or an empty string. */
+const unset = (v: unknown) => v === undefined || v === null || v === "";
+
+/** What YAML made of a value that should have been text. */
+function kindOf(v: unknown): string {
+  if (typeof v === "number") return "a number";
+  if (typeof v === "boolean") return "true or false";
+  if (v instanceof Date) return "a date";
+  return Array.isArray(v) ? "a list" : "a mapping";
+}
+
 class Reader {
+  /** The YAML node each parsed mapping and list came from, for line numbers and the source text of values. */
+  private nodes = new WeakMap<object, YAMLMap | YAMLSeq>();
+  private lines = new LineCounter();
+  /** The file's top-level mapping, once parsed. */
+  top: At | null = null;
+
   constructor(
     private path: string,
     private issues: Issue[],
   ) {}
 
-  fail(message: string): void {
-    this.issues.push({ path: this.path, message });
+  /** Report a problem. The file is still fully represented in the roadmap. */
+  fail(message: string, obj?: object, key?: string | number): void {
+    this.report(message, this.lineOf(obj, key), false);
   }
 
-  /** Parse the file to a mapping, or report why it isn't one. */
-  doc(text: string): Obj | null {
+  /** Report a problem that leaves part of the file out of the roadmap, which makes the file unwritable. */
+  drop(message: string, obj?: object, key?: string | number): void {
+    this.report(message, this.lineOf(obj, key), true);
+  }
+
+  private report(message: string, line: number | undefined, lossy: boolean): void {
+    this.issues.push({
+      path: this.path,
+      message,
+      ...(line !== undefined && { line }),
+      key: `${this.path}|${message}`,
+      ...(lossy && { lossy: true as const }),
+    });
+  }
+
+  private node(obj: object | undefined, key?: string | number): unknown {
+    const parent = obj && this.nodes.get(obj);
+    if (!parent || key === undefined) return parent;
+    return isMap(parent) ? parent.get(key, true) : parent.items[key as number];
+  }
+
+  private lineOf(obj?: object, key?: string | number): number | undefined {
+    const node = (this.node(obj, key) ?? this.node(obj)) as { range?: [number, number, number] | null } | undefined;
+    return node?.range ? this.lines.linePos(node.range[0]).line : undefined;
+  }
+
+  /** How a value is written in the file (`2E5`, not 200000). */
+  private source(obj: object, key: string | number): string {
+    const node = this.node(obj, key);
+    return isScalar(node) && node.source ? node.source : String((obj as Obj)[key]);
+  }
+
+  /** Parse the file to a mapping, or report why it isn't one. An empty file is an empty mapping. */
+  doc(text: string): At | null {
+    const doc = parseDocument(text, { lineCounter: this.lines });
+    const error = doc.errors[0];
+    if (error) {
+      // "<what> at line 3, column 5:", then a code excerpt: keep the first line, without the colon.
+      this.report(`YAML syntax error: ${error.message.split("\n")[0].replace(/:$/, "")}`, error.linePos?.[0].line, true);
+      return null;
+    }
     let value: unknown;
     try {
-      value = parse(text);
+      value = doc.toJS() ?? {};
     } catch (e) {
-      this.fail(`YAML syntax error: ${(e as Error).message.split("\n")[0]}`);
+      this.drop(`YAML can't be read: ${(e as Error).message.split("\n")[0]}`);
       return null;
     }
     if (!isObj(value)) {
-      this.fail("expected a YAML mapping at the top level");
+      this.drop("expected a YAML mapping (key: value lines) at the top level");
       return null;
     }
-    return value;
+    indexNodes(doc.contents, value, doc, this.nodes);
+    this.top = { obj: value, label: "" };
+    return this.top;
   }
 
-  str(obj: Obj, key: string, where = ""): string | null {
-    const v = obj[key];
+  private text(at: At, key: string, required: boolean): string | null | undefined {
+    const v = at.obj[key];
     if (typeof v === "string" && v.trim() !== "") return v;
-    if (typeof v === "number") return String(v);
-    this.fail(`${where}${key}: required text is missing`);
-    return null;
+    if (unset(v) || typeof v === "string") {
+      if (required) this.drop(`${at.label}${key}: required text is missing`, at.obj, key);
+      return required ? null : undefined;
+    }
+    if (typeof v === "object" && !(v instanceof Date)) {
+      this.drop(`${at.label}${key}: expected text, not ${kindOf(v)}`, at.obj, key);
+    } else {
+      // e.g. `code: 2E5` or `title: 1.10`, which YAML reads as numbers: never convert them silently.
+      const src = this.source(at.obj, key);
+      this.drop(`${at.label}${key}: YAML reads ${src} as ${kindOf(v)}, not text; put it in quotes: ${key}: "${src}"`, at.obj, key);
+    }
+    return required ? null : undefined;
   }
 
-  optStr(obj: Obj, key: string, where = ""): string | undefined {
-    const v = obj[key];
-    if (v === undefined || v === null) return undefined;
-    if (typeof v === "string" || typeof v === "number") return String(v);
-    this.fail(`${where}${key}: expected text`);
-    return undefined;
+  str(at: At, key: string): string | null {
+    return this.text(at, key, true) ?? null;
   }
 
-  id(obj: Obj, key: string, where = ""): string | null {
-    const v = this.str(obj, key, where);
+  optStr(at: At, key: string): string | undefined {
+    return this.text(at, key, false) ?? undefined;
+  }
+
+  id(at: At, key: string): string | null {
+    const v = this.str(at, key);
     if (v === null) return null;
     if (!ID.test(v)) {
-      this.fail(`${where}${key}: "${v}" must be lowercase letters, digits, dashes or underscores`);
+      this.drop(`${at.label}${key}: "${v}" must be lowercase letters, digits, dashes or underscores`, at.obj, key);
       return null;
     }
     return v;
   }
 
-  strList(obj: Obj, key: string): string[] | undefined {
-    const v = obj[key];
-    if (v === undefined || v === null) return undefined;
-    if (Array.isArray(v) && v.every((x) => typeof x === "string")) return v;
-    this.fail(`${key}: expected a list of text`);
-    return undefined;
+  /** A required (null if missing or bad) or optional (undefined if not set, null if bad) YYYY-MM-DD date. */
+  date(at: At, key: string, required: boolean): Day | null | undefined {
+    const text = this.text(at, key, required);
+    if (text === null || text === undefined) return text;
+    const day = parseDay(text);
+    if (day === null) this.drop(`${at.label}${key}: "${text}" is not a valid YYYY-MM-DD date`, at.obj, key);
+    return day;
+  }
+
+  /** The roadmap has no weekends: the app never writes them, so flag hand edits that do. */
+  weekday(at: At, key: string, day: Day): void {
+    if (isWeekend(day)) this.fail(`${at.label}${key}: ${WEEKDAY[dayParts(day).weekday]} — roadmap dates must be weekdays`, at.obj, key);
+  }
+
+  /** One of a fixed set of values; anything else is reported and replaced by `fallback`. */
+  oneOf<T>(at: At, key: string, options: readonly T[], fallback: T, expected: string): T {
+    const v = at.obj[key];
+    if (unset(v)) return fallback;
+    if (options.includes(v as T)) return v as T;
+    this.drop(`${at.label}${key}: expected ${expected}`, at.obj, key);
+    return fallback;
+  }
+
+  bool(at: At, key: string): boolean {
+    const v = at.obj[key];
+    if (unset(v)) return false;
+    if (typeof v === "boolean") return v;
+    // YAML 1.2: only true and false are booleans (yes, no, on and off are text).
+    this.drop(`${at.label}${key}: expected true or false`, at.obj, key);
+    return false;
+  }
+
+  strList(at: At, key: string): string[] | undefined {
+    const v = at.obj[key];
+    if (unset(v)) return undefined;
+    if (!Array.isArray(v)) {
+      this.drop(`${at.label}${key}: expected a list of text`, at.obj, key);
+      return undefined;
+    }
+    const out: string[] = [];
+    v.forEach((x, i) => {
+      if (typeof x === "string" && x.trim() !== "") out.push(x);
+      else if (unset(x) || typeof x === "string") return;
+      else if (typeof x === "object" && !(x instanceof Date)) this.drop(`${at.label}${key}: expected text, not ${kindOf(x)}`, v, i);
+      else this.drop(`${at.label}${key}: YAML reads ${this.source(v, i)} as ${kindOf(x)}, not text; put it in quotes: "${this.source(v, i)}"`, v, i);
+    });
+    return out;
+  }
+
+  /**
+   * The mappings in a list, each named for messages by `name` (its id), or by
+   * its position when it has none (such an entry is skipped anyway).
+   */
+  *entries(at: At, key: string, noun: string, name: (o: Obj) => unknown = (o) => o.id): Generator<At> {
+    const list = at.obj[key];
+    if (unset(list)) return;
+    if (!Array.isArray(list)) return this.drop(`${at.label}${key}: expected a list`, at.obj, key);
+    for (const [i, item] of list.entries()) {
+      if (!isObj(item)) {
+        this.drop(`${at.label}${noun} ${i + 1}: expected a mapping`, list, i);
+        continue;
+      }
+      const id = name(item);
+      const label = typeof id === "string" || typeof id === "number" ? `"${id}"` : String(i + 1);
+      yield { obj: item, label: `${at.label}${noun} ${label}, ` };
+    }
   }
 }
 
 function isObj(v: unknown): v is Obj {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
+  return typeof v === "object" && v !== null && !Array.isArray(v) && !(v instanceof Date);
+}
+
+/** Record which YAML node each mapping and list of the parsed value came from. */
+function indexNodes(node: unknown, value: unknown, doc: Document, out: WeakMap<object, YAMLMap | YAMLSeq>): void {
+  if (isAlias(node)) node = node.resolve(doc);
+  if (isMap(node) && isObj(value)) {
+    out.set(value, node);
+    for (const pair of node.items) {
+      const key = String(isScalar(pair.key) ? pair.key.value : pair.key);
+      if (key in value) indexNodes(pair.value, value[key], doc, out);
+    }
+  } else if (isSeq(node) && Array.isArray(value)) {
+    out.set(value, node);
+    node.items.forEach((item, i) => indexNodes(item, value[i], doc, out));
+  }
 }
 
 function fileId(path: string): string {
   return path.replace(/^.*\//, "").replace(/\.ya?ml$/, "");
 }
 
-export function loadRoadmap(files: RoadmapFiles): { roadmap: Roadmap; issues: Issue[] } {
+/** A department or box is loaded only from the file named after it, so a save can never write it into another file. */
+function matchesFile(r: Reader, top: At, id: string, path: string): boolean {
+  if (id === fileId(path)) return true;
+  r.drop(`id: "${id}" doesn't match the file name "${fileId(path)}", so this file is skipped`, top.obj, "id");
+  return false;
+}
+
+export function loadRoadmap(files: RoadmapFiles): LoadResult {
   const issues: Issue[] = [];
   const paths = Object.keys(files).sort();
+  const readers = new Map<string, Reader>();
+  const reader = (path: string) => {
+    if (!readers.has(path)) readers.set(path, new Reader(path, issues));
+    return readers.get(path)!;
+  };
+  const sources: Sources = { departments: new Map(), boxes: new Map() };
 
-  const settings = loadSettings(files["settings.yaml"], issues);
+  const settings = loadSettings(files["settings.yaml"], reader("settings.yaml"));
 
   const departments: Department[] = [];
   const laneOwner = new Map<string, string>();
-  for (const path of paths.filter((p) => /^departments\/[^/]+\.ya?ml$/.test(p))) {
-    const dept = loadDepartment(path, files[path], issues);
+  for (const path of paths.filter((p) => DEPARTMENT_FILE.test(p))) {
+    const r = reader(path);
+    const dept = loadDepartment(r, path, files[path]);
     if (!dept) continue;
-    if (departments.some((d) => d.id === dept.id)) {
-      issues.push({ path, message: `duplicate department id "${dept.id}"` });
+    const other = sources.departments.get(dept.id);
+    if (other) {
+      // departments/x.yaml and departments/x.yml
+      r.drop(`id: "${dept.id}" is already used by ${other}, so this file is skipped`, r.top?.obj, "id");
       continue;
     }
-    const sameCode = departments.find((d) => d.code === dept.code);
-    if (sameCode) issues.push({ path, message: `code: "${dept.code}" is already used by department "${sameCode.id}"` });
+    sources.departments.set(dept.id, path);
     dept.lanes = dept.lanes.filter((lane) => {
       const owner = laneOwner.get(lane.id);
-      if (owner) {
-        issues.push({ path, message: `lane id "${lane.id}" is already used in department "${owner}"` });
-        return false;
+      if (!owner) {
+        laneOwner.set(lane.id, dept.id);
+        return true;
       }
-      laneOwner.set(lane.id, dept.id);
-      return true;
+      r.drop(`lane "${lane.id}" is already used in department "${owner}", so it's left out here`, r.top?.obj, "lanes");
+      const ownerReader = reader(sources.departments.get(owner)!);
+      ownerReader.fail(`lane "${lane.id}" is also used in department "${dept.id}"`, ownerReader.top?.obj, "lanes");
+      return false;
     });
     departments.push(dept);
   }
+  // Report a shared code on every department that has it, not just the one that sorts later.
+  for (const dept of departments) {
+    const others = departments.filter((d) => d !== dept && d.code !== "" && d.code === dept.code);
+    const r = reader(sources.departments.get(dept.id)!);
+    if (others.length) r.fail(`code: "${dept.code}" is also used by department "${others[0].id}"`, r.top?.obj, "code");
+  }
   departments.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 
-  const people = loadPeople(files["people.yaml"], new Set(departments.map((d) => d.id)), issues);
+  const people = loadPeople(files["people.yaml"], reader("people.yaml"), new Set(departments.map((d) => d.id)));
   const personIds = new Set(people.map((p) => p.id));
 
   const typeIds = new Set(settings.types.map((t) => t.id));
   const statusIds = new Set(settings.statuses.map((s) => s.id));
   const boxes: Box[] = [];
-  const boxIds = new Set<string>();
-  for (const path of paths.filter((p) => /^boxes\/[^/]+\.ya?ml$/.test(p))) {
-    const box = loadBox(path, files[path], issues);
+  for (const path of paths.filter((p) => BOX_FILE.test(p))) {
+    const r = reader(path);
+    const box = loadBox(r, path, files[path]);
     if (!box) continue;
-    const r = new Reader(path, issues);
-    if (boxIds.has(box.id)) {
-      r.fail(`duplicate box id "${box.id}"`);
+    const top = r.top!.obj;
+    const other = sources.boxes.get(box.id);
+    if (other) {
+      r.drop(`id: "${box.id}" is already used by ${other}, so this file is skipped`, top, "id");
       continue;
     }
     if (!laneOwner.has(box.lane)) {
-      r.fail(`lane: "${box.lane}" does not exist in any department`);
+      r.drop(`lane: "${box.lane}" does not exist in any department, so the box is skipped`, top, "lane");
       continue;
     }
-    if (!typeIds.has(box.type)) r.fail(`type: "${box.type}" is not defined in settings.yaml`);
-    if (box.status !== undefined && !statusIds.has(box.status)) r.fail(`status: "${box.status}" is not defined in settings.yaml`);
-    // The roadmap has no weekends: the app never writes them, so flag hand edits that do.
-    for (const [field, day] of [["start", box.start], ["end", box.end]] as const) {
-      if (isWeekend(day)) r.fail(`${field}: ${WEEKDAY[dayParts(day).weekday]} — roadmap dates must be weekdays`);
-    }
+    if (!typeIds.has(box.type)) r.fail(`type: "${box.type}" is not defined in settings.yaml`, top, "type");
+    if (box.status !== undefined && !statusIds.has(box.status)) r.fail(`status: "${box.status}" is not defined in settings.yaml`, top, "status");
     for (const id of box.engineers ?? []) {
-      if (!personIds.has(id)) r.fail(`engineers: "${id}" is not in people.yaml`);
+      if (!personIds.has(id)) r.fail(`engineers: "${id}" is not in people.yaml`, top, "engineers");
     }
-    boxIds.add(box.id);
+    sources.boxes.set(box.id, path);
     boxes.push(box);
   }
 
-  // Box codes are unique across the roadmap; rules must point at a real, other box.
-  const byCode = new Map<string, Box>();
+  // Box codes are unique across the roadmap (a shared one is reported on every
+  // box that has it); rules must point at a real, other box.
+  const byCode = new Map<string, Box[]>();
+  for (const box of boxes) byCode.set(box.code, [...(byCode.get(box.code) ?? []), box]);
   for (const box of boxes) {
-    const other = byCode.get(box.code);
-    if (other) issues.push({ path: `boxes/${box.id}.yaml`, message: `code: "${box.code}" is already used by ${other.id}` });
-    else byCode.set(box.code, box);
-  }
-  for (const box of boxes) {
+    const r = reader(sources.boxes.get(box.id)!);
+    const others = byCode.get(box.code)!.filter((b) => b !== box);
+    if (others.length) r.fail(`code: "${box.code}" is also used by ${others.map((b) => b.id).join(", ")}`, r.top?.obj, "code");
     for (const rel of box.relations ?? []) {
-      const where = `boxes/${box.id}.yaml`;
-      if (!byCode.has(rel.box)) issues.push({ path: where, message: `relations: no box has code "${rel.box}"` });
-      else if (rel.box === box.code) issues.push({ path: where, message: "relations: a box can't have a rule about itself" });
+      if (!byCode.has(rel.box)) r.fail(`relations: no box has code "${rel.box}"`, r.top?.obj, "relations");
+      else if (rel.box === box.code) r.fail("relations: a box can't have a rule about itself", r.top?.obj, "relations");
     }
   }
 
   for (const path of paths) {
-    if (!["settings.yaml", "people.yaml"].includes(path) && !/^(departments|boxes)\/[^/]+\.ya?ml$/.test(path)) {
-      issues.push({ path, message: "unexpected file; roadmap files live in departments/ or boxes/" });
-    }
+    if (path === "settings.yaml" || path === "people.yaml" || DEPARTMENT_FILE.test(path) || BOX_FILE.test(path)) continue;
+    const misnamed = /^(settings|people)\.yml$/.exec(path);
+    reader(path).fail(misnamed ? `rename this file to ${misnamed[1]}.yaml` : "unexpected file; roadmap files live in departments/ or boxes/");
   }
 
-  return { roadmap: { settings, departments, boxes, people }, issues };
+  const lossy = new Map<string, string[]>();
+  for (const issue of issues) {
+    if (issue.lossy) lossy.set(issue.path, [...(lossy.get(issue.path) ?? []), issue.message]);
+  }
+  return { roadmap: { settings, departments, boxes, people }, issues, lossy, sources };
 }
 
-function loadPeople(text: string | undefined, departmentIds: Set<string>, issues: Issue[]): Person[] {
+function loadPeople(text: string | undefined, r: Reader, departmentIds: Set<string>): Person[] {
   if (text === undefined) return [];
-  const r = new Reader("people.yaml", issues);
-  const doc = r.doc(text);
-  if (!doc) return [];
-  const seen = new Set<string>();
-  return readList(r, doc, "people", (o, where): Person | null => {
-    const id = r.id(o, "id", where);
-    const name = r.str(o, "name", where);
-    if (!id || !name) return null;
-    if (seen.has(id)) {
-      r.fail(`${where}id: "${id}" appears twice`);
-      return null;
+  const top = r.doc(text);
+  if (!top) return [];
+  const people: Person[] = [];
+  // `people:` with nothing after it (or `people: []`) is an empty roster.
+  for (const at of r.entries(top, "people", "person")) {
+    const id = r.id(at, "id");
+    const name = r.str(at, "name");
+    if (!id || !name) continue;
+    if (people.some((p) => p.id === id)) {
+      r.drop(`${at.label}id: "${id}" appears twice, so the second entry is skipped`, at.obj, "id");
+      continue;
     }
-    seen.add(id);
-    const department = r.optStr(o, "department", where);
+    const department = r.optStr(at, "department");
     if (department !== undefined && !departmentIds.has(department)) {
-      r.fail(`${where}department: "${department}" does not exist`);
+      r.fail(`${at.label}department: "${department}" does not exist`, at.obj, "department");
     }
-    const email = r.optStr(o, "email", where);
-    if (email !== undefined && !EMAIL.test(email)) r.fail(`${where}email: "${email}" doesn't look like an email address`);
-    return {
+    const email = r.optStr(at, "email");
+    if (email !== undefined && !EMAIL.test(email)) r.fail(`${at.label}email: "${email}" doesn't look like an email address`, at.obj, "email");
+    people.push({
       id,
       name,
       department,
-      role: r.optStr(o, "role", where),
+      role: r.optStr(at, "role"),
       email,
-      manager: r.optStr(o, "manager", where),
-      notes: r.optStr(o, "notes", where),
-      pto: readPto(r, o, where),
-    };
-  });
+      manager: r.optStr(at, "manager"),
+      notes: r.optStr(at, "notes"),
+      pto: readPto(r, at),
+    });
+  }
+  return people;
 }
 
 /** A person's `pto: [{start, end, note}]`; bad entries are reported and skipped. */
-function readPto(r: Reader, person: Obj, where: string): TimeOff[] | undefined {
-  const list = person.pto;
-  if (list === undefined || list === null) return undefined;
-  if (!Array.isArray(list)) {
-    r.fail(`${where}pto: expected a list`);
-    return undefined;
-  }
+function readPto(r: Reader, person: At): TimeOff[] | undefined {
+  if (person.obj.pto === undefined || person.obj.pto === null) return undefined;
   const out: TimeOff[] = [];
-  list.forEach((item, i) => {
-    const at = `${where}pto[${i}].`;
-    if (!isObj(item)) return r.fail(`${at.slice(0, -1)}: expected a mapping with start and end`);
-    const startText = r.str(item, "start", at);
-    const endText = r.str(item, "end", at);
-    if (!startText || !endText) return;
-    const start = parseDay(startText);
-    const end = parseDay(endText);
-    if (start === null) r.fail(`${at}start: "${startText}" is not a valid YYYY-MM-DD date`);
-    if (end === null) r.fail(`${at}end: "${endText}" is not a valid YYYY-MM-DD date`);
-    if (start === null || end === null) return;
-    if (end < start) return r.fail(`${at}end (${endText}) is before start (${startText})`);
-    for (const [field, day] of [["start", start], ["end", end]] as const) {
-      if (isWeekend(day)) r.fail(`${at}${field}: ${WEEKDAY[dayParts(day).weekday]} — roadmap dates must be weekdays`);
+  for (const at of r.entries(person, "pto", "PTO", (o) => o.start)) {
+    const start = r.date(at, "start", true);
+    const end = r.date(at, "end", true);
+    if (start === null || start === undefined || end === null || end === undefined) continue;
+    if (end < start) {
+      r.drop(`${at.label}end (${formatDay(end)}) is before start (${formatDay(start)})`, at.obj, "end");
+      continue;
     }
-    out.push({ start, end, note: r.optStr(item, "note", at) });
-  });
+    r.weekday(at, "start", start);
+    r.weekday(at, "end", end);
+    out.push({ start, end, note: r.optStr(at, "note") });
+  }
   return out;
 }
 
-function loadSettings(text: string | undefined, issues: Issue[]): Settings {
-  const path = "settings.yaml";
+function loadSettings(text: string | undefined, r: Reader): Settings {
   if (text === undefined) {
-    issues.push({ path, message: "missing; using defaults" });
+    r.fail("missing; using defaults");
     return DEFAULT_SETTINGS;
   }
-  const r = new Reader(path, issues);
-  const doc = r.doc(text);
-  if (!doc) return DEFAULT_SETTINGS;
+  const top = r.doc(text);
+  if (!top) return DEFAULT_SETTINGS;
 
-  const fy = doc.fiscal_year_start_month ?? 1;
-  let fiscalStart = 1;
+  let fiscalStart = DEFAULT_SETTINGS.fiscal_year_start_month;
+  const fy = top.obj.fiscal_year_start_month;
   if (typeof fy === "number" && Number.isInteger(fy) && fy >= 1 && fy <= 12) fiscalStart = fy;
-  else r.fail("fiscal_year_start_month: expected a month number 1-12");
+  else if (!unset(fy)) r.drop("fiscal_year_start_month: expected a month number from 1 to 12", top.obj, "fiscal_year_start_month");
 
-  let zoom: ZoomLevel = DEFAULT_SETTINGS.default_zoom;
-  if (doc.default_zoom !== undefined) {
-    if (ZOOM_LEVELS.includes(doc.default_zoom as ZoomLevel)) zoom = doc.default_zoom as ZoomLevel;
-    else r.fail(`default_zoom: expected one of ${ZOOM_LEVELS.join(", ")}`);
+  const zoom = r.oneOf(top, "default_zoom", ZOOM_LEVELS, DEFAULT_SETTINGS.default_zoom, `one of ${ZOOM_LEVELS.join(", ")}`);
+
+  const types: BoxType[] = [];
+  for (const at of r.entries(top, "types", "type")) {
+    const id = r.id(at, "id");
+    const name = r.str(at, "name");
+    const color = r.str(at, "color");
+    if (id && name && color) types.push({ id, name, color });
+  }
+  const statuses: BoxStatus[] = [];
+  for (const at of r.entries(top, "statuses", "flag")) {
+    const id = r.id(at, "id");
+    const name = r.str(at, "name");
+    if (id && name) statuses.push({ id, name });
   }
 
-  const types = readList(r, doc, "types", (o, where): BoxType | null => {
-    const id = r.id(o, "id", where);
-    const name = r.str(o, "name", where);
-    const color = r.str(o, "color", where);
-    return id && name && color ? { id, name, color } : null;
-  });
-  const statuses = readList(r, doc, "statuses", (o, where): BoxStatus | null => {
-    const id = r.id(o, "id", where);
-    const name = r.str(o, "name", where);
-    return id && name ? { id, name } : null;
-  });
-
   return {
-    title: r.optStr(doc, "title") ?? DEFAULT_SETTINGS.title,
+    title: r.optStr(top, "title") ?? DEFAULT_SETTINGS.title,
     fiscal_year_start_month: fiscalStart,
     default_zoom: zoom,
     types: types.length ? types : DEFAULT_SETTINGS.types,
@@ -309,120 +485,92 @@ function loadSettings(text: string | undefined, issues: Issue[]): Settings {
   };
 }
 
-function readList<T>(r: Reader, doc: Obj, key: string, read: (o: Obj, where: string) => T | null): T[] {
-  const list = doc[key];
-  if (list === undefined) return [];
-  if (!Array.isArray(list)) {
-    r.fail(`${key}: expected a list`);
-    return [];
-  }
-  const out: T[] = [];
-  list.forEach((item, i) => {
-    const where = `${key}[${i}].`;
-    if (!isObj(item)) return r.fail(`${where.slice(0, -1)}: expected a mapping`);
-    const v = read(item, where);
-    if (v) out.push(v);
-  });
-  return out;
-}
+function loadDepartment(r: Reader, path: string, text: string): Department | null {
+  const top = r.doc(text);
+  if (!top) return null;
+  const id = r.id(top, "id");
+  const name = r.str(top, "name");
+  if (!id || !name || !matchesFile(r, top, id, path)) return null;
+  // A department without a code still loads (and is written back without one).
+  const code = r.optStr(top, "code");
+  if (code === undefined && unset(top.obj.code)) r.fail("code: required text is missing", top.obj, "code");
+  else if (code !== undefined && !DEPT_CODE.test(code)) r.fail(`code: "${code}" must be 2–4 capital letters or digits, starting with a letter`, top.obj, "code");
 
-function loadDepartment(path: string, text: string, issues: Issue[]): Department | null {
-  const r = new Reader(path, issues);
-  const doc = r.doc(text);
-  if (!doc) return null;
-  const id = r.id(doc, "id");
-  const name = r.str(doc, "name");
-  const code = r.str(doc, "code");
-  if (!id || !name) return null;
-  if (id !== fileId(path)) r.fail(`id "${id}" should match the file name "${fileId(path)}"`);
-  if (code !== null && !DEPT_CODE.test(code)) r.fail(`code: "${code}" must be 2–4 capital letters or digits, starting with a letter`);
-
-  const lanes = readList(r, doc, "lanes", (o, where): Lane | null => {
-    const laneId = r.id(o, "id", where);
-    if (!laneId) return null;
-    const fte = o.fte ?? 1;
+  const lanes: Lane[] = [];
+  for (const at of r.entries(top, "lanes", "lane")) {
+    const laneId = r.id(at, "id");
+    if (!laneId) continue;
+    if (lanes.some((l) => l.id === laneId)) {
+      r.drop(`${at.label}id: "${laneId}" appears twice in this department, so the second one is skipped`, at.obj, "id");
+      continue;
+    }
+    const fte = unset(at.obj.fte) ? 1 : at.obj.fte;
     if (typeof fte !== "number" || fte <= 0 || fte > 1) {
-      r.fail(`${where}fte: expected a number greater than 0 and at most 1`);
-      return null;
+      r.drop(`${at.label}fte: expected a number greater than 0 and at most 1`, at.obj, "fte");
+      continue;
     }
-    const dates: Pick<Lane, "start" | "end"> = {};
+    const lane: Lane = { id: laneId, name: r.optStr(at, "name"), fte };
     for (const field of ["start", "end"] as const) {
-      const text = r.optStr(o, field, where);
-      if (text === undefined) continue;
-      const day = parseDay(text);
-      if (day === null) r.fail(`${where}${field}: "${text}" is not a valid YYYY-MM-DD date`);
-      else if (isWeekend(day)) r.fail(`${where}${field}: ${WEEKDAY[dayParts(day).weekday]} — roadmap dates must be weekdays`);
-      else dates[field] = day;
+      const day = r.date(at, field, false);
+      if (day === null || day === undefined) continue;
+      r.weekday(at, field, day);
+      lane[field] = day;
     }
-    if (dates.start !== undefined && dates.end !== undefined && dates.end < dates.start) {
-      r.fail(`${where}end is before start`);
-      delete dates.end;
+    if (lane.start !== undefined && lane.end !== undefined && lane.end < lane.start) {
+      r.drop(`${at.label}end is before start, so the end is left out`, at.obj, "end");
+      delete lane.end;
     }
-    return { id: laneId, name: r.optStr(o, "name", where), fte, ...dates };
-  });
-  const seen = new Set<string>();
-  const uniqueLanes = lanes.filter((l) => {
-    if (seen.has(l.id)) {
-      r.fail(`lane id "${l.id}" appears twice`);
-      return false;
-    }
-    seen.add(l.id);
-    return true;
-  });
+    lanes.push(lane);
+  }
 
-  const order = doc.order ?? 0;
-  if (typeof order !== "number") r.fail("order: expected a number");
+  const order = top.obj.order;
+  const goodOrder = typeof order === "number" && Number.isFinite(order);
+  if (!goodOrder && !unset(order)) r.drop("order: expected a number", top.obj, "order");
 
   return {
     id,
     code: code ?? "",
     name,
-    color: r.optStr(doc, "color") ?? DEFAULT_DEPT_COLOR,
-    order: typeof order === "number" ? order : 0,
-    collapsed: doc.collapsed === true,
-    lanes: uniqueLanes,
+    color: r.optStr(top, "color") ?? DEFAULT_DEPT_COLOR,
+    order: goodOrder ? order : 0,
+    collapsed: r.bool(top, "collapsed"),
+    lanes,
   };
 }
 
-function loadBox(path: string, text: string, issues: Issue[]): Box | null {
-  const r = new Reader(path, issues);
-  const doc = r.doc(text);
-  if (!doc) return null;
-  const id = r.id(doc, "id");
-  const code = r.str(doc, "code");
-  const title = r.str(doc, "title");
-  const lane = r.str(doc, "lane");
-  const type = r.str(doc, "type");
-  const status = r.optStr(doc, "status");
-  const startText = r.str(doc, "start");
-  const endText = r.str(doc, "end");
-  if (!id || !code || !title || !lane || !type || !startText || !endText) return null;
+function loadBox(r: Reader, path: string, text: string): Box | null {
+  const top = r.doc(text);
+  if (!top) return null;
+  const id = r.id(top, "id");
+  const code = r.str(top, "code");
+  const title = r.str(top, "title");
+  const lane = r.str(top, "lane");
+  const type = r.str(top, "type");
+  const status = r.optStr(top, "status");
+  const start = r.date(top, "start", true);
+  const end = r.date(top, "end", true);
+  if (!id || !code || !title || !lane || !type || start === null || start === undefined || end === null || end === undefined) {
+    return null;
+  }
   if (!BOX_CODE.test(code)) {
-    r.fail(`code: "${code}" must be exactly 3 capital letters or digits`);
+    r.drop(`code: "${code}" must be exactly 3 capital letters or digits`, top.obj, "code");
     return null;
   }
-  if (id !== fileId(path)) r.fail(`id "${id}" should match the file name "${fileId(path)}"`);
-
-  const start = parseDay(startText);
-  const end = parseDay(endText);
-  if (start === null) r.fail(`start: "${startText}" is not a valid YYYY-MM-DD date`);
-  if (end === null) r.fail(`end: "${endText}" is not a valid YYYY-MM-DD date`);
-  if (start === null || end === null) return null;
+  if (!matchesFile(r, top, id, path)) return null;
   if (end < start) {
-    r.fail(`end (${endText}) is before start (${startText})`);
+    r.drop(`end (${formatDay(end)}) is before start (${formatDay(start)})`, top.obj, "end");
     return null;
   }
+  r.weekday(top, "start", start);
+  r.weekday(top, "end", end);
 
-  const fte = doc.fte ?? 1;
-  if (!BOX_FTE_OPTIONS.includes(fte as (typeof BOX_FTE_OPTIONS)[number])) {
-    r.fail(`fte: expected one of ${BOX_FTE_OPTIONS.join(", ")}`);
-    return null;
-  }
+  const fte = r.oneOf(top, "fte", BOX_FTE_OPTIONS, 1, `one of ${BOX_FTE_OPTIONS.join(", ")}`);
 
-  const relations = readRelations(r, doc);
+  const engineers = r.strList(top, "engineers");
+  const relations = readRelations(r, top);
 
-  const epic = r.optStr(doc, "epic");
-  if (epic !== undefined && !/^https?:\/\//.test(epic)) r.fail(`epic: "${epic}" should be an http(s) link`);
+  const epic = r.optStr(top, "epic");
+  if (epic !== undefined && !/^https?:\/\//.test(epic)) r.fail(`epic: "${epic}" should be an http(s) link`, top.obj, "epic");
 
   return {
     id,
@@ -433,33 +581,34 @@ function loadBox(path: string, text: string, issues: Issue[]): Box | null {
     type,
     status,
     code,
-    fte: fte as number,
-    engineers: r.strList(doc, "engineers"),
+    fte,
+    engineers,
     relations,
     epic,
-    description: r.optStr(doc, "description"),
-    tags: r.strList(doc, "tags"),
-    links: r.strList(doc, "links"),
+    description: r.optStr(top, "description"),
+    tags: r.strList(top, "tags"),
+    links: r.strList(top, "links"),
   };
 }
 
 /** `relations: [{type, box}]`, where box is the other box's code ("A1F" or "DE-A1F"). */
-function readRelations(r: Reader, doc: Obj): Relation[] | undefined {
-  if (doc.relations === undefined || doc.relations === null) return undefined;
-  const list = readList(r, doc, "relations", (o, where): Relation | null => {
-    const type = r.str(o, "type", where);
-    const box = r.str(o, "box", where);
-    if (!type || !box) return null;
+function readRelations(r: Reader, top: At): Relation[] | undefined {
+  if (top.obj.relations === undefined || top.obj.relations === null) return undefined;
+  const out: Relation[] = [];
+  for (const at of r.entries(top, "relations", "rule", (o) => (unset(o.type) || unset(o.box) ? undefined : `${o.type} ${o.box}`))) {
+    const type = r.str(at, "type");
+    const box = r.str(at, "box");
+    if (!type || !box) continue;
     if (!RELATION_TYPES.includes(type as RelationType)) {
-      r.fail(`${where}type: "${type}" must be one of ${RELATION_TYPES.join(", ")}`);
-      return null;
+      r.drop(`${at.label}type: "${type}" must be one of ${RELATION_TYPES.join(", ")}`, at.obj, "type");
+      continue;
     }
     const ref = box.trim().toUpperCase().replace(/^[A-Z0-9]+-(?=[A-Z0-9]{3}$)/, "");
     if (!BOX_CODE.test(ref)) {
-      r.fail(`${where}box: "${box}" isn't a box code`);
-      return null;
+      r.drop(`${at.label}box: "${box}" isn't a box code`, at.obj, "box");
+      continue;
     }
-    return { type: type as RelationType, box: ref };
-  });
-  return list;
+    out.push({ type: type as RelationType, box: ref });
+  }
+  return out;
 }
