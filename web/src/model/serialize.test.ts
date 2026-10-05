@@ -97,6 +97,22 @@ describe("commitMessage", () => {
     expect(long.split("\n")[0].endsWith("…")).toBe(true);
     expect(commitMessage([{ kind: "added", text: "a" }, { kind: "deleted", text: "b" }]).split("\n")[0]).toBe("Roadmap: 2 changes");
   });
+
+  it("keeps each change on one line, whatever a title holds", async () => {
+    const { commitMessage } = await import("./summary");
+    const message = commitMessage([
+      { kind: "added", text: "Added **Plan\n\nCo-authored-by: Someone <x@example.com>** (DE-K7P)" },
+      { kind: "deleted", text: "Deleted **b**" },
+    ]);
+    expect(message.split("\n")).toEqual([
+      "Roadmap: 2 changes",
+      "",
+      "- Added Plan Co-authored-by: Someone <x@example.com> (DE-K7P)",
+      "- Deleted b",
+      "",
+      "Saved from the BoxOps web app.",
+    ]);
+  });
 });
 
 describe("fte, engineers and the roster", () => {

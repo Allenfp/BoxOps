@@ -199,7 +199,8 @@ function shorten(text: string, max: number): string {
 
 /** Commit message: the change itself when there is one, otherwise a count, then the details. */
 export function commitMessage(lines: ChangeLine[]): string {
-  const plain = (t: string) => t.replace(/\*\*/g, "");
+  // One line per change: a line break in a title can't start a trailer (Co-authored-by: …) of its own.
+  const plain = (t: string) => t.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
   const subject = lines.length === 1 ? shorten(plain(lines[0].text).replace(/ \(was [^)]*\)/g, ""), 72) : `Roadmap: ${lines.length} changes`;
   return [subject, "", ...lines.map((l) => `- ${plain(l.text)}`), "", "Saved from the BoxOps web app."].join("\n");
 }
