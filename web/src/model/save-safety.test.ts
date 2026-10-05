@@ -183,6 +183,17 @@ describe("untouched lines stay as written", () => {
     expect(out).toEqual({ "departments/eng.yaml": flush.replace("- id: e1\n", "- id: e1\n  name: Platform\n") });
   });
 
+  it("in a file whose lists are mostly indented, but for one written flush", () => {
+    const roster = "people:\n  - id: sam\n    name: Sam\n    pto:\n    - start: 2026-12-14\n      end: 2026-12-18\n  - id: alex\n    name: Alex\n  - id: jo\n    name: Jo\n";
+    const out = save({ ...ROADMAP, "people.yaml": roster }, (s) => editPerson(s, "jo", { role: "SRE" }))["people.yaml"]!;
+    // yaml writes every list of a file the same way: only the flush one changes.
+    expect(out).toBe(roster.replace("    - start: 2026-12-14\n      end", "      - start: 2026-12-14\n        end").concat("    role: SRE\n"));
+    // And the other way round: mostly flush, one list indented.
+    const flush = "people:\n- id: sam\n  name: Sam\n  pto:\n    - start: 2026-12-14\n      end: 2026-12-18\n- id: alex\n  name: Alex\n- id: jo\n  name: Jo\n";
+    const back = save({ ...ROADMAP, "people.yaml": flush }, (s) => editPerson(s, "jo", { role: "SRE" }))["people.yaml"]!;
+    expect(back).toBe(flush.replace("    - start: 2026-12-14\n      end", "  - start: 2026-12-14\n    end").concat("  role: SRE\n"));
+  });
+
   it("in indented lists, beside a description that only looks like a flush list", () => {
     const files = { ...ROADMAP, "boxes/b1.yaml": box("b1", "B1X", "engineers:\n  - sam\nrelations:\n  - type: before\n    box: B2X\n") };
     const described = { ...files, ...save(files, (s) => editBox(s, "b1", { description: "Acceptance criteria:\n- first\n- second" })) } as RoadmapFiles;

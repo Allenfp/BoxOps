@@ -88,26 +88,29 @@ function style(indentless = false) {
 }
 
 /**
- * Whether a list in the parsed file is written flush with its key
- * ("lanes:\n- id: x"), so the file is written back that way. Read from the
- * nodes' positions, so text that only looks like a list (inside a `|` block)
- * doesn't count.
+ * Whether the file's lists are mostly written flush with their keys
+ * ("lanes:\n- id: x"), so the file is written back that way. yaml writes
+ * every list of a file one way, so it's the way most of the file's lines
+ * already are (a list's lines count for it, nested ones too): a stray list of
+ * the other kind is all that changes. Read from the nodes' positions, so text
+ * that only looks like a list (inside a `|` block) doesn't count.
  */
 function indentless(doc: Document, text: string): boolean {
   const column = (offset: number) => {
     const start = text.lastIndexOf("\n", offset - 1) + 1;
     return offset - start - (start === 0 && text.startsWith("\uFEFF") ? 1 : 0);
   };
-  let flush = false;
+  const lines = (from: number, to: number) => text.slice(from, to).trimEnd().split("\n").length;
+  let flush = 0;
+  let indented = 0;
   visit(doc, {
     Pair(_, { key, value }) {
       if (!isSeq(value) || value.flow || !value.range || !isScalar(key) || !key.range) return;
-      if (column(value.range[0]) > column(key.range[0])) return;
-      flush = true;
-      return visit.BREAK;
+      if (column(value.range[0]) > column(key.range[0])) indented += lines(value.range[0], value.range[1]);
+      else flush += lines(value.range[0], value.range[1]);
     },
   });
-  return flush;
+  return flush > indented;
 }
 
 function boxToPlain(b: Box): Plain {
