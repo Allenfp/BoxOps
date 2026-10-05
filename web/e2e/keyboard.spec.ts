@@ -300,11 +300,11 @@ test("removing a rule or a lane puts focus on the next one's ✕, else the one b
   await expect(dialog.locator(".lane-edit-row")).toHaveCount(3);
   await expect(dialog.getByRole("button", { name: "Remove lane 3" })).toBeFocused();
 
-  await dialog.getByRole("button", { name: "Set when lane 1 opens" }).click();
-  await dialog.getByLabel("Lane 1 opens").fill("2026-11-02");
+  await dialog.getByRole("button", { name: "From (set when lane 1 opens)" }).click();
+  await dialog.getByLabel("From (lane 1 opens)").fill("2026-11-02");
   await dialog.getByRole("button", { name: "Clear lane 1 opening date" }).focus();
   await page.keyboard.press("Enter");
-  await expect(dialog.getByRole("button", { name: "Set when lane 1 opens" })).toBeFocused();
+  await expect(dialog.getByRole("button", { name: "From (set when lane 1 opens)" })).toBeFocused();
 });
 
 test("the broken-rule popup stays while focus is in it, and its Dismiss puts focus on the roadmap", async ({ page, github: _ }) => {

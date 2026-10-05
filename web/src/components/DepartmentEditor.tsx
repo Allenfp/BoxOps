@@ -317,13 +317,15 @@ export function DepartmentEditor(props: Props) {
                   {(["start", "end"] as const).map((field) => {
                     const label = field === "start" ? "From" : "Until";
                     const what = field === "start" ? "opens" : "closes";
+                    // Names that start with what's shown, so "From" can be said to reach them.
+                    const addName = `${label} (set when lane ${i + 1} ${what})`;
                     // Undated: a button, so an empty date field never looks like a real date.
                     if (lane[field] === undefined && !shownDates.has(`${lane.id}:${field}`)) {
                       return (
                         <button
                           key={field}
                           className="add-button small"
-                          aria-label={`Set when lane ${i + 1} ${what}`}
+                          aria-label={addName}
                           onClick={() => setShownDates((cur) => new Set([...cur, `${lane.id}:${field}`]))}
                         >
                           <Icon name="plus" size={12} />
@@ -338,7 +340,7 @@ export function DepartmentEditor(props: Props) {
                         <DateInput
                           autoFocus={lane[field] === undefined}
                           value={lane[field] === undefined ? "" : formatDay(lane[field])}
-                          aria-label={`Lane ${i + 1} ${what}`}
+                          aria-label={`${label} (lane ${i + 1} ${what})`}
                           onChange={(text) => {
                             // A full, valid date (all DateInput gives). Weekends don't exist: opening moves to Monday, closing to Friday.
                             const picked = parseDay(text)!;
@@ -357,7 +359,7 @@ export function DepartmentEditor(props: Props) {
                           onClick={(e) => {
                             // Its + button comes back in its place: focus goes there, not to the page.
                             const row = e.currentTarget.closest(".lane-dates-row");
-                            focusLater([() => row?.querySelector(`[aria-label="Set when lane ${i + 1} ${what}"]`)]);
+                            focusLater([() => row?.querySelector(`[aria-label="${addName}"]`)]);
                             setShownDates((cur) => new Set([...cur].filter((k) => k !== `${lane.id}:${field}`)));
                             props.onUpdateLane(lane.id, { [field]: undefined });
                           }}

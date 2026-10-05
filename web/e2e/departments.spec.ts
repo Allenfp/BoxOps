@@ -152,9 +152,9 @@ test("deleting a department moves its boxes, and undo restores everything", asyn
 test("a lane can close on a date: hatched out after it, and capacity follows", async ({ page, github }) => {
   await page.getByRole("button", { name: "Edit Data Engineering" }).click();
   await expect(editor(page).getByText("Always open")).toHaveCount(4);
-  await editor(page).getByRole("button", { name: "Set when lane 4 closes" }).click();
-  await editor(page).getByLabel("Lane 4 closes").fill("2026-10-18"); // a Sunday: becomes Friday the 16th
-  await expect(editor(page).getByLabel("Lane 4 closes")).toHaveValue("2026-10-16");
+  await editor(page).getByRole("button", { name: "Until (set when lane 4 closes)" }).click();
+  await editor(page).getByLabel("Until (lane 4 closes)").fill("2026-10-18"); // a Sunday: becomes Friday the 16th
+  await expect(editor(page).getByLabel("Until (lane 4 closes)")).toHaveValue("2026-10-16");
   await editor(page).getByRole("button", { name: "Done" }).click();
 
   const de = page.locator(".dept-label", { hasText: "Data Engineering" });
