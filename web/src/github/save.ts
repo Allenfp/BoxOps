@@ -2,6 +2,7 @@
 // If someone else saved in the meantime, our files go on top of theirs; only
 // files that both of us changed count as a conflict, and the user decides.
 
+import { isRoadmapPath } from "../model/paths";
 import { type FileChanges, applyChanges } from "../model/serialize";
 import type { RoadmapFiles } from "../model/types";
 import { GitHub, GitHubError, type RepoRef, type TreeEntry } from "./api";
@@ -149,7 +150,7 @@ export async function loadCommit(
   const repo = parseRepo(repoName);
   const { tree } = await gh.commit(repo, commit).then((c) => gh.tree(repo, c.tree.sha));
   const paths = tree
-    .filter((t) => t.type === "blob" && t.path.startsWith(`${ROADMAP_DIR}/`) && /\.ya?ml$/.test(t.path))
+    .filter((t) => t.type === "blob" && t.path.startsWith(`${ROADMAP_DIR}/`) && isRoadmapPath(t.path.slice(ROADMAP_DIR.length + 1)))
     .map((t) => t.path);
   const files: RoadmapFiles = {};
   await Promise.all(

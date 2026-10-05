@@ -7,6 +7,7 @@
 import { type Document, isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
 import { type Day, dayParts, formatDay, isWeekend, parseDay } from "./dates";
 import { FORMAT, type FormatStatus, formatStatus } from "./format";
+import { BOX_PATH, DEPARTMENT_PATH, isRoadmapPath } from "./paths";
 import type {
   Box,
   BoxStatus,
@@ -54,9 +55,6 @@ export const DEFAULT_SETTINGS: Settings = {
     { id: "blocked", name: "Blocked" },
   ],
 };
-
-const DEPARTMENT_FILE = /^departments\/[^/]+\.ya?ml$/;
-const BOX_FILE = /^boxes\/[^/]+\.ya?ml$/;
 
 /** The file each department and box was read from (by id), so a save writes exactly that file. */
 export interface Sources {
@@ -316,7 +314,12 @@ function matchesFile(r: Reader, top: At, id: string, path: string): boolean {
   return true;
 }
 
-export function loadRoadmap(files: RoadmapFiles): LoadResult {
+/**
+ * `ignored`: other files a reader found in the roadmap folder but didn't read
+ * (it reads only isRoadmapPath() files); like any other file in `files`, each
+ * is reported as unexpected.
+ */
+export function loadRoadmap(files: RoadmapFiles, ignored: string[] = []): LoadResult {
   const issues: Issue[] = [];
   const paths = Object.keys(files).sort();
   const readers = new Map<string, Reader>();
@@ -330,7 +333,7 @@ export function loadRoadmap(files: RoadmapFiles): LoadResult {
 
   const departments: Department[] = [];
   const laneOwner = new Map<string, string>();
-  for (const path of paths.filter((p) => DEPARTMENT_FILE.test(p))) {
+  for (const path of paths.filter((p) => DEPARTMENT_PATH.test(p))) {
     const r = reader(path);
     const dept = loadDepartment(r, path, files[path]);
     if (!dept) continue;
@@ -368,7 +371,7 @@ export function loadRoadmap(files: RoadmapFiles): LoadResult {
   const typeIds = new Set(settings.types.map((t) => t.id));
   const statusIds = new Set(settings.statuses.map((s) => s.id));
   const boxes: Box[] = [];
-  for (const path of paths.filter((p) => BOX_FILE.test(p))) {
+  for (const path of paths.filter((p) => BOX_PATH.test(p))) {
     const r = reader(path);
     const box = loadBox(r, path, files[path]);
     if (!box) continue;
@@ -407,8 +410,8 @@ export function loadRoadmap(files: RoadmapFiles): LoadResult {
     }
   }
 
-  for (const path of paths) {
-    if (path === "settings.yaml" || path === "people.yaml" || DEPARTMENT_FILE.test(path) || BOX_FILE.test(path)) continue;
+  for (const path of [...new Set([...paths, ...ignored])].sort()) {
+    if (isRoadmapPath(path)) continue;
     const misnamed = /^(settings|people)\.yml$/.exec(path);
     reader(path).fail(misnamed ? `rename this file to ${misnamed[1]}.yaml` : "unexpected file; roadmap files live in departments/ or boxes/");
   }
