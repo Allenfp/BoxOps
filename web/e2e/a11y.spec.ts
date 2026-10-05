@@ -194,8 +194,58 @@ test("the box editor's fields are labelled, and a missing title or a moved weeke
   await expect(start).toHaveAccessibleDescription("Moved to 2026-10-12: boxes start on a weekday.");
   await expect.poll(() => heard(page)).toContain("Moved to 2026-10-12: boxes start on a weekday.");
 
+  // The same correction again is said again.
+  const moved = async () => (await said(page)).filter((m) => m.includes("Moved to 2026-10-12: boxes start on a weekday.")).length;
+  await expect.poll(moved).toBe(1);
+  await start.fill("2026-10-11"); // a Sunday
+  await expect.poll(moved).toBe(2);
+
   await editor.getByRole("textbox", { name: "End", exact: true }).fill("2026-10-09");
   await expect.poll(() => heard(page)).toContain("The start moved to 2026-10-09 too.");
+});
+
+test("a problem already there when its field shows isn't announced as news", async ({ page, github: _ }) => {
+  const told = async (text: string) => (await said(page)).filter((m) => m.includes(text)).length;
+  // The box editor, opened again on a box left with no title.
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await editor.getByRole("textbox", { name: "Title", exact: true }).fill("");
+  await expect.poll(() => told("A title is required.")).toBe(1);
+  await page.keyboard.press("Escape");
+  await box(page, DAGSTER).click();
+  await expect(editor).toContainText("A title is required.");
+  await editor.getByRole("textbox", { name: "Start", exact: true }).fill("2026-10-10"); // said later than it would be
+  await expect.poll(() => heard(page)).toContain("Moved to 2026-10-12");
+  expect(await told("A title is required.")).toBe(1);
+  await editor.getByRole("textbox", { name: "Title", exact: true }).fill("Dagster 2.x upgrade");
+  await page.keyboard.press("Escape");
+
+  // The table, shown again with a cell saved with a link that won't do.
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const epic = page.locator("tbody tr").filter({ has: page.locator('input[value="Dagster 2.x upgrade"]') }).getByLabel("Epic link");
+  await epic.fill("not a link");
+  await epic.press("Enter");
+  await expect.poll(() => told("Use a full http(s) link.")).toBe(1);
+  await page.getByRole("button", { name: "Timeline", exact: true }).click();
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await expect(page.locator(".cell-problem")).toHaveText("Use a full http(s) link.");
+  await page.getByRole("searchbox", { name: "Search boxes" }).fill("dagster"); // said 600 ms after typing stops
+  await expect.poll(() => said(page)).toContainEqual("1 of 15 boxes.");
+  expect(await told("Use a full http(s) link.")).toBe(1);
+});
+
+test("a field problem put right before it's read out isn't read out", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const title = page.getByRole("dialog", { name: /^Edit / }).getByRole("textbox", { name: "Title", exact: true });
+  // Messages are written 150 ms after they're asked for: hold the clock between the two edits.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  await title.fill("");
+  await title.fill("Dagster 2.x upgrade");
+  await page.clock.runFor(1000);
+  expect(await heard(page)).not.toContain("A title is required.");
+  await title.fill("");
+  await page.clock.runFor(1000);
+  expect(await heard(page)).toContain("A title is required.");
 });
 
 test("a table cell saved with a value that won't do says why, under it", async ({ page, github: _ }) => {

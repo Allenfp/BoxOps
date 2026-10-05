@@ -60,22 +60,25 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
   }, [onClose]);
 
   // Weekends don't exist on the roadmap: a weekend start moves to Monday, a weekend end to Friday.
-  const [snapped, setSnapped] = useState<string | null>(null);
-  // The other end moves too when one passes it: said in the same note.
+  // The other end moves too when one passes it: said in the same note. `n` counts the notes, so
+  // the same one twice running is said twice.
+  const [snapped, setSnapped] = useState<{ text: string; n: number } | null>(null);
+  const snap = (notes: (string | false)[]) => {
+    const text = notes.filter(Boolean).join(" ");
+    setSnapped((cur) => (text ? { text, n: (cur?.n ?? 0) + 1 } : null));
+  };
   const setStart = (text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const start = nextWorkday(picked);
-    const notes = [isWeekend(picked) && `Moved to ${prettyDay(start)}: PTO starts on a weekday.`, start > pto.end && `The end moved to ${prettyDay(start)} too.`];
-    setSnapped(notes.filter(Boolean).join(" ") || null);
+    snap([isWeekend(picked) && `Moved to ${prettyDay(start)}: PTO starts on a weekday.`, start > pto.end && `The end moved to ${prettyDay(start)} too.`]);
     onChange(start > pto.end ? { start, end: start } : { start }, "start");
   };
   const setEnd = (text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const end = prevWorkday(picked);
-    const notes = [isWeekend(picked) && `Moved to ${prettyDay(end)}: PTO ends on a weekday.`, end < pto.start && `The start moved to ${prettyDay(end)} too.`];
-    setSnapped(notes.filter(Boolean).join(" ") || null);
+    snap([isWeekend(picked) && `Moved to ${prettyDay(end)}: PTO ends on a weekday.`, end < pto.start && `The start moved to ${prettyDay(end)} too.`]);
     onChange(end < pto.start ? { end, start: end } : { end }, "end");
   };
   const ids = { start: useId(), end: useId(), note: useId() };
@@ -126,11 +129,9 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
       </div>
 
       <div className="editor-grid">
-        {snapped && (
-          <FieldError id={ids.note} className="field-note span-2">
-            {snapped}
-          </FieldError>
-        )}
+        <FieldError id={ids.note} className="field-note span-2" news={snapped?.n}>
+          {snapped?.text}
+        </FieldError>
         {/* Not <label>s: one around the calendar would take its clicks, and its buttons' names. */}
         <div className="field">
           <span className="field-label" id={ids.start}>

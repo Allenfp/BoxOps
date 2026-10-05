@@ -179,7 +179,7 @@ export function DepartmentEditor(props: Props) {
             aria-describedby={describedBy(newCodeProblem && codeError)}
             className="code-input"
           />
-          {newCodeProblem && <FieldError id={codeError}>{newCodeProblem}</FieldError>}
+          <FieldError id={codeError}>{newCodeProblem}</FieldError>
         </label>
         <div className="field">
           <span className="field-label">Colour</span>
@@ -221,7 +221,7 @@ export function DepartmentEditor(props: Props) {
           aria-invalid={!dept.name.trim() || undefined}
           aria-describedby={describedBy(!dept.name.trim() && nameError)}
         />
-        {!dept.name.trim() && <FieldError id={nameError}>A name is required to save.</FieldError>}
+        <FieldError id={nameError}>{!dept.name.trim() && "A name is required to save."}</FieldError>
       </label>
       <label>
         <span>
@@ -237,7 +237,7 @@ export function DepartmentEditor(props: Props) {
           aria-describedby={describedBy(!!codeProblem(dept.code, dept.id) && codeError)}
           className="code-input"
         />
-        {codeProblem(dept.code, dept.id) && <FieldError id={codeError}>{`${codeProblem(dept.code, dept.id)} It must be fixed before saving.`}</FieldError>}
+        <FieldError id={codeError}>{codeProblem(dept.code, dept.id) && `${codeProblem(dept.code, dept.id)} It must be fixed before saving.`}</FieldError>
       </label>
       <div className="field">
         <span className="field-label">Colour</span>

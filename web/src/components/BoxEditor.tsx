@@ -98,22 +98,25 @@ export function BoxEditor(props: Props) {
   }, [onClose]);
 
   // Only weekdays exist on the roadmap: a weekend start moves to Monday, a weekend end to Friday.
-  const [snapped, setSnapped] = useState<string | null>(null);
-  // The other end moves too when one passes it: said in the same note.
+  // The other end moves too when one passes it: said in the same note. `n` counts the notes, so
+  // the same one twice running is said twice.
+  const [snapped, setSnapped] = useState<{ text: string; n: number } | null>(null);
+  const snap = (notes: (string | false)[]) => {
+    const text = notes.filter(Boolean).join(" ");
+    setSnapped((cur) => (text ? { text, n: (cur?.n ?? 0) + 1 } : null));
+  };
   const setStart = (text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const start = nextWorkday(picked);
-    const notes = [isWeekend(picked) && `Moved to ${prettyDay(start)}: boxes start on a weekday.`, start > box.end && `The end moved to ${prettyDay(start)} too.`];
-    setSnapped(notes.filter(Boolean).join(" ") || null);
+    snap([isWeekend(picked) && `Moved to ${prettyDay(start)}: boxes start on a weekday.`, start > box.end && `The end moved to ${prettyDay(start)} too.`]);
     onChange(start > box.end ? { start, end: start } : { start }, "start");
   };
   const setEnd = (text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const end = prevWorkday(picked);
-    const notes = [isWeekend(picked) && `Moved to ${prettyDay(end)}: boxes end on a weekday.`, end < box.start && `The start moved to ${prettyDay(end)} too.`];
-    setSnapped(notes.filter(Boolean).join(" ") || null);
+    snap([isWeekend(picked) && `Moved to ${prettyDay(end)}: boxes end on a weekday.`, end < box.start && `The start moved to ${prettyDay(end)} too.`]);
     onChange(end < box.start ? { end, start: end } : { end }, "end");
   };
   const department = departments.find((d) => d.lanes.some((l) => l.id === box.lane))?.id;
@@ -200,7 +203,7 @@ export function BoxEditor(props: Props) {
         </button>
       </div>
       <div className="editor-body">
-        {!box.title.trim() && <FieldError id={ids.titleError}>A title is required.</FieldError>}
+        <FieldError id={ids.titleError}>{!box.title.trim() && "A title is required."}</FieldError>
 
         <section className="editor-section">
           <h3>Schedule</h3>
@@ -218,11 +221,9 @@ export function BoxEditor(props: Props) {
               </span>
               <DateInput value={formatDay(box.end)} onChange={setEnd} aria-labelledby={ids.end} aria-describedby={describedBy(snapped && ids.note)} />
             </div>
-            {snapped && (
-              <FieldError id={ids.note} className="field-note span-2">
-                {snapped}
-              </FieldError>
-            )}
+            <FieldError id={ids.note} className="field-note span-2" news={snapped?.n}>
+              {snapped?.text}
+            </FieldError>
             <label>
               FTE
               <select aria-label="FTE" value={box.fte} onChange={(e) => onChange({ fte: Number(e.target.value) }, "fte")}>
@@ -334,7 +335,7 @@ export function BoxEditor(props: Props) {
                   </a>
                 )}
               </span>
-              {!epicValid && <FieldError id={ids.epicError}>Use a full http(s) link.</FieldError>}
+              <FieldError id={ids.epicError}>{!epicValid && "Use a full http(s) link."}</FieldError>
               {jira && (
                 <span className="hint" id={ids.epicHint}>
                   Labelled {jira} on the timeline and table (BoxOps code {fullCode(box, departments)})
@@ -358,7 +359,7 @@ export function BoxEditor(props: Props) {
                   aria-invalid={!linksValid || undefined}
                   aria-describedby={describedBy(!linksValid && ids.linksError)}
                 />
-                {!linksValid && <FieldError id={ids.linksError}>Use full http(s) links.</FieldError>}
+                <FieldError id={ids.linksError}>{!linksValid && "Use full http(s) links."}</FieldError>
               </label>
             )}
           </div>

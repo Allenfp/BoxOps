@@ -210,11 +210,9 @@ function ListEditor<T extends BoxType | BoxStatus>({
             >
               <Icon name="x" size={14} />
             </button>
-            {!item.name.trim() && (
-              <FieldError id={`${problemId}-${rowKey[i]}`} className="field-error team-problem">
-                A name is required.
-              </FieldError>
-            )}
+            <FieldError id={`${problemId}-${rowKey[i]}`} className="field-error team-problem">
+              {!item.name.trim() && "A name is required."}
+            </FieldError>
           </li>
         );
       })}

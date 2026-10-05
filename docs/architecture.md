@@ -497,7 +497,9 @@ when a focused element is removed.
   is up, search results in the table and People once typing pauses, a rule
   an edit breaks and a rising warning count, deletions (with how to undo
   them), undo and redo, and field problems and date corrections as they
-  appear. Nothing uses `role="status"` on an element added already filled.
+  appear (each correction, the same one twice too; not a problem already
+  there when its field shows, nor one put right before it's read). Nothing
+  uses `role="status"` on an element added already filled.
 - **Focus** is never left on `<body>`. Each dialog and editor notes what
   had focus when it opened; when it goes, if focus was in it (or lost), it
   goes back there, or to the nearest thing still on the page: the box or

@@ -102,11 +102,9 @@ export function TextCell({
   return (
     <>
       {multiline ? <textarea rows={1} {...props} /> : <input {...props} />}
-      {wrong && (
-        <FieldError id={problemId} className="field-error cell-problem">
-          {problem}
-        </FieldError>
-      )}
+      <FieldError id={problemId} className="field-error cell-problem">
+        {wrong && problem}
+      </FieldError>
     </>
   );
 }
