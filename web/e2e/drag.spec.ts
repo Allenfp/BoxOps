@@ -319,3 +319,55 @@ test("a PTO block dragged at quarters zoom moves whole weeks", async ({ page, gi
   await page.mouse.up();
   await expect(block).toHaveAttribute("title", /2026-10-19 – 2026-10-23/);
 });
+
+test.describe("in a short window", () => {
+  test.use({ viewport: { width: 1440, height: 560 } });
+
+  /** Press at x, y and drag sideways by dx at a person's pace: ten moves, 40 ms apart. */
+  async function slowDrag(page: Page, x: number, y: number, dx: number) {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) {
+      await page.mouse.move(x + (dx * i) / 10, y);
+      await page.waitForTimeout(40);
+    }
+  }
+
+  test("a box pressed near an edge scrolls nothing dragged along it or away, only towards it", async ({ page, github: _ }) => {
+    const timeline = page.locator(".timeline");
+    const scroll = () => timeline.evaluate((el) => [el.scrollLeft, el.scrollTop]);
+    // The timeline scrolled down so Dagster is just under the header: dragged sideways, it keeps its lane.
+    const head = (await page.locator(".tl-head").boundingBox())!;
+    const start = (await box(page, DAGSTER).boundingBox())!;
+    await timeline.evaluate((el, dy) => (el.scrollTop += dy), start.y - (head.y + head.height) - 6);
+    const before = await scroll();
+    expect(before[1]).toBeGreaterThan(0);
+    let b = (await box(page, DAGSTER).boundingBox())!;
+    expect(b.y + b.height / 2 - (head.y + head.height)).toBeLessThan(40); // pressed in the top edge's zone
+    await slowDrag(page, Math.max(b.x, 400) + 30, b.y + b.height / 2, MONTH_PX * 5);
+    await page.mouse.up();
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-21 – 2026-10-30");
+    expect(await scroll()).toEqual(before);
+    await expect(page.locator(`[data-row="lane:de-2"] [data-box-id="${DAGSTER}"]`)).toHaveCount(1);
+
+    // Pressed just right of the labels (in the left edge's zone) and dragged right: the days dragged.
+    const view = (await timeline.boundingBox())!;
+    b = (await box(page, DAGSTER).boundingBox())!;
+    await timeline.evaluate((el, dx) => ((el.scrollTop = 0), (el.scrollLeft += dx)), b.x - (view.x + 240) + 200);
+    const across = await scroll();
+    b = (await box(page, DAGSTER).boundingBox())!;
+    expect(b.x).toBeLessThan(view.x + 240); // it runs on under the labels
+    await slowDrag(page, view.x + 240 + 20, b.y + b.height / 2, MONTH_PX * 5);
+    await page.mouse.up();
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+    expect(await scroll()).toEqual(across);
+
+    // Pressed there and dragged on towards the labels, it scrolls.
+    await slowDrag(page, view.x + 240 + 20, b.y + b.height / 2, -30);
+    await expect.poll(async () => (await scroll())[0]).toBeLessThan(across[0] - 100);
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+  });
+});

@@ -422,17 +422,33 @@ export function Timeline(props: Props) {
    * along, as if it were held under the pointer: `follow` runs again with
    * how far the content has scrolled since the press. Call `moved` after
    * each pointer move; `stop` when the drag ends.
+   *
+   * An edge scrolls only once the pointer has been clear of it during the
+   * drag, or has gone on towards it from where it pressed (`press`): a box
+   * pressed near an edge and dragged along it, or away, stays put.
    */
-  const scrollWithDrag = (pointer: { x: number; y: number }, follow: () => void) => {
+  const scrollWithDrag = (press: { x: number; y: number }, pointer: { x: number; y: number }, follow: () => void) => {
     const el = scrollRef.current!;
     const from = { x: el.scrollLeft, y: el.scrollTop };
     let frame = 0;
-    const edge = () => {
-      frame = 0;
+    /** How far into each edge's zone the pointer is (more than 0: in it), and how far it's gone towards that edge since the press. */
+    const edges = () => {
       const r = el.getBoundingClientRect();
       const head = el.querySelector(".tl-head")?.getBoundingClientRect().height ?? 0;
-      const dx = pointer.x < r.left + LABEL_W + EDGE ? -EDGE_STEP : pointer.x > r.left + el.clientWidth - EDGE ? EDGE_STEP : 0;
-      const dy = pointer.y < r.top + head + EDGE ? -EDGE_STEP : pointer.y > r.top + el.clientHeight - EDGE ? EDGE_STEP : 0;
+      return {
+        left: { into: r.left + LABEL_W + EDGE - pointer.x, towards: press.x - pointer.x },
+        right: { into: pointer.x - (r.left + el.clientWidth - EDGE), towards: pointer.x - press.x },
+        top: { into: r.top + head + EDGE - pointer.y, towards: press.y - pointer.y },
+        bottom: { into: pointer.y - (r.top + el.clientHeight - EDGE), towards: pointer.y - press.y },
+      };
+    };
+    const armed = { left: false, right: false, top: false, bottom: false };
+    const edge = () => {
+      frame = 0;
+      const at = edges();
+      const on = (side: keyof typeof armed) => armed[side] && at[side].into > 0;
+      const dx = on("left") ? -EDGE_STEP : on("right") ? EDGE_STEP : 0;
+      const dy = on("top") ? -EDGE_STEP : on("bottom") ? EDGE_STEP : 0;
       const before = [el.scrollLeft, el.scrollTop];
       el.scrollBy(dx, dy);
       // On until the pointer leaves the edge, or there's no further to go.
@@ -442,6 +458,10 @@ export function Timeline(props: Props) {
     return {
       scrolled: () => ({ x: el.scrollLeft - from.x, y: el.scrollTop - from.y }),
       moved: () => {
+        const at = edges();
+        for (const side of ["left", "right", "top", "bottom"] as const) {
+          armed[side] ||= at[side].into <= 0 || at[side].towards >= EDGE / 2;
+        }
         if (!frame) frame = requestAnimationFrame(edge);
       },
       stop: () => {
@@ -483,7 +503,7 @@ export function Timeline(props: Props) {
         pointer.y = ev.clientY;
         if (!scrolling) {
           if (Math.hypot(pointer.x - x0, pointer.y - y0) < DRAG_THRESHOLD) return false;
-          scrolling = scrollWithDrag(pointer, follow);
+          scrolling = scrollWithDrag({ x: x0, y: y0 }, pointer, follow);
           document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
         }
         follow();
@@ -523,7 +543,8 @@ export function Timeline(props: Props) {
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
-    const pointer = { x: x0, y: e.clientY };
+    const y0 = e.clientY;
+    const pointer = { x: x0, y: y0 };
     let scrolling: ReturnType<typeof scrollWithDrag> | null = null;
     let dates = { start: pto.start, end: pto.end };
     const follow = () => {
@@ -538,7 +559,7 @@ export function Timeline(props: Props) {
         pointer.y = ev.clientY;
         if (!scrolling) {
           if (Math.abs(pointer.x - x0) < DRAG_THRESHOLD) return false;
-          scrolling = scrollWithDrag(pointer, follow);
+          scrolling = scrollWithDrag({ x: x0, y: y0 }, pointer, follow);
           document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
         }
         follow();

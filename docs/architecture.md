@@ -632,7 +632,10 @@ when a focused element is removed.
   was until the drop (nothing moves under the pointer, no department
   changes height); the box is drawn where it's going, inside its
   department. Near the timeline's edges a drag scrolls it, and scrolling
-  mid-drag carries the box along.
+  mid-drag carries the box along. An edge scrolls only once the pointer has
+  been clear of it during the drag, or has gone on towards it: a box
+  pressed just under the header or beside the labels and dragged along
+  that edge, or away from it, doesn't scroll (and so keeps its lane).
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes, which says over capacity
