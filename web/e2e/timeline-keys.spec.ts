@@ -42,6 +42,19 @@ test("the timeline is a grid of rows and cells with full names, and one Tab stop
   await expect(cell(page, "lane:de-1")).toBeFocused();
 });
 
+test("a lane's row header says when it's open, and its size, if not always and 1 FTE", async ({ page, github }) => {
+  github.deploy(
+    github.otherSave({ "departments/analytics.yaml": (t) => t.replace("name: Open req (Q1)\n    fte: 1\n", "name: Open req (Q1)\n    fte: 1\n    start: 2027-01-04\n") }),
+  );
+  await pollNow(page);
+  const grid = page.getByRole("grid", { name: "Timeline" });
+  await expect(grid.getByRole("rowheader", { name: /^Open req \(Q1\)\s+from 2027-01-04$/ })).toHaveCount(1);
+  await expect(grid.getByRole("rowheader", { name: /^Contractor\s+0\.5 FTE$/ })).toHaveCount(1);
+  // Its name, focused, is read with them.
+  await cell(page, "lane:an-3").focus();
+  await expect(cell(page, "lane:an-3")).toHaveAccessibleDescription("from 2027-01-04");
+});
+
 test.describe("on a touch screen", () => {
   test.use({ hasTouch: true });
   test("each lane's + and each PTO row's are always shown, with no hover to find them by", async ({ page, github: _ }) => {
