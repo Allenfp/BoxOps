@@ -29,18 +29,50 @@ web/
                             lanes), relations (codes and rules), serialize,
                             summary (change descriptions), report
     timeline/               scale (time ↔ pixels), layout (lanes, capacity)
-    github/                 api (REST client), save (commit, conflicts, loading)
+    github/                 api (REST client), save (commit, conflicts,
+                            loading), git-objects (git blob and tree SHAs)
+  cli/                      Node-only: git.ts (reads a roadmap folder from git
+                            objects or from disk), site.ts (builds roadmap.json)
   scripts/                  validate.ts, report.ts (command-line checks; an
                             optional argument names another roadmap folder)
   e2e/                      browser tests, fake GitHub, fixture roadmap
-  vite.config.ts            bundles roadmap/ into roadmap.json at build time
+  vite.config.ts            build id, and roadmap.json at build time and in dev
 ```
+
+`model/` also holds `paths.ts` (which files are roadmap files) and `bundle.ts`
+(the `roadmap.json` fields).
 
 ## Reading
 
-- **At build time** the Vite plugin reads `roadmap/` into `roadmap.json`,
-  together with the repo, branch, commit, and that commit's author and subject.
-  Viewers need no token and use no API quota.
+- **At build time** the Vite plugin writes `roadmap.json` (`cli/site.ts`;
+  fields in `model/bundle.ts`), so viewers need no token and use no API quota.
+  It reads `roadmap/` from git objects at the commit being built (`GITHUB_SHA`
+  in Actions, else HEAD), never from the checkout, with git hardened and
+  plumbing only (`cli/git.ts`). Only plain files are allowed: a symlink or
+  submodule anywhere under `roadmap/` (outside hidden paths) stops the build,
+  as does text that isn't UTF-8 or more than 20,000 files, 1 MiB in one
+  roadmap file or 64 MiB in all. Each blob is checked against its SHA, and a
+  BOM is kept. The bundle holds:
+  - `files` (the roadmap files, `model/paths.ts`), their git `blobs`, and
+    `ignored` (other files there, which the validator reports as unexpected);
+  - `source`: repo, branch, commit, `dir`, the folder's `tree` SHA, the
+    commit's author, subject and date, `history` (its last 50 first-parent
+    commits), and in Actions the run's link. `visibility` and `private` come
+    from the Actions event; when unknown the site counts as private;
+  - `app`: version, build id and time. The build id is the version plus
+    `web/`'s tree at HEAD, so roadmap-only saves keep it (`.dirty` with
+    uncommitted app changes). It's also compiled into the JS
+    (`__BOXOPS_BUILD__`) and put in `<meta name="boxops-build">`;
+  - `schema` (1), `format` and `notices`.
+
+  A local build whose `roadmap/` has uncommitted changes reads the files on
+  disk instead: `tree` is null and the bundle is marked `local`. The dev server
+  always reads files on disk (`$BOXOPS_ROADMAP`, else `../roadmap`) and marks
+  its bundle `local`, so the app neither compares it with GitHub nor polls (for
+  now; local bundles are to become read-only). `npm run validate` and
+  `report` read files on disk under the same rules: symlinks are errors, never
+  followed. The app still opens a `roadmap.json` from before schema 1, treating
+  what it lacks as unknown.
 - **On load** the app asks GitHub for the head of `main` (one API call). If it's
   newer than the bundled commit (someone saved and the redeploy hasn't
   finished), it reads the newer files from `raw.githubusercontent.com`.

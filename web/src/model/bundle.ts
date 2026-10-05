@@ -2,7 +2,7 @@
 // served next to index.html. The build writes it (cli/site.ts); the app reads
 // it with readBundle(), which also accepts bundles from before schema 1.
 
-import type { RoadmapFiles } from "./types";
+import type { RoadmapFiles } from "./types.ts"; // with .ts: vite.config.ts imports this file
 
 /** The bundle layout written by this BoxOps. Tabs of every version read `schema` and `app.build`, so those never move. */
 export const SCHEMA = 1;

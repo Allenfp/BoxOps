@@ -65,7 +65,7 @@ from 22.12, and 26 or later, work too).
 ```sh
 cd web
 npm ci
-npm run dev        # http://localhost:5173; reads ../roadmap and reloads on change
+npm run dev        # http://localhost:5173; reads ../roadmap (or $BOXOPS_ROADMAP) and reloads on change
 npm run lint       # oxlint, including the React hooks rules; a warning fails it
 npm run typecheck  # TypeScript (npm run build checks types too)
 npm test           # unit tests
