@@ -291,7 +291,11 @@ const entityOf = (state: DraftState, key: string) => {
 /**
  * `draft` with these items put back to how they are in `base` (taking
  * "theirs"), each where it stands in its list: people.yaml is written in list
- * order, so moving someone would be a change of its own.
+ * order, so moving someone would be a change of its own. What that leaves
+ * pointing at nothing is put right as after a merge (see repair): their box
+ * in a lane we removed moves to a lane there is, their department without a
+ * lane we added takes our boxes in it elsewhere. The choice settles it: no
+ * new clash.
  */
 export function revertItems(draft: DraftState, base: DraftState, keys: string[]): DraftState {
   const revert = <T extends { id: string }>(items: T[], baseItems: T[], kind: string) => {
@@ -309,12 +313,13 @@ export function revertItems(draft: DraftState, base: DraftState, keys: string[])
     });
     return out;
   };
-  return {
+  const reverted = {
     boxes: revert(draft.boxes, base.boxes, "box"),
     departments: revert(draft.departments, base.departments, "dept"),
     people: revert(draft.people, base.people, "person"),
     settings: keys.includes(SETTINGS_KEY) ? base.settings : draft.settings,
   };
+  return repair(reverted, [draft, base], draft, base, base, []);
 }
 
 /** One undo step: the draft and its clashes as they were. */

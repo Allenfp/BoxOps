@@ -558,6 +558,42 @@ describe("what a merge leaves pointing at nothing", () => {
     expect(byId.a).toBeUndefined();
   });
 
+  it("keep theirs never puts a box back in a lane that's gone", () => {
+    const oldBase = st([box("a"), box("b", { lane: "l2" })]);
+    const oneLane = { ...dept, lanes: [dept.lanes[0]] };
+    let h = startHistory(oldBase);
+    h = reduceHistory(h, { type: "edit", update: () => st([box("a"), box("b", { lane: "l1" })], [oneLane]) });
+    // They added a box in the lane we removed.
+    h = reduceHistory(h, { type: "rebase", base: st([box("a"), box("b", { lane: "l2" }), box("c", { lane: "l2" })]) });
+    expect(h.conflicts).toEqual(["box:c"]);
+    h = reduceHistory(h, { type: "resolve", keys: h.conflicts, keep: "theirs" });
+    const lanes = h.present.departments.flatMap((d) => d.lanes.map((l) => l.id));
+    expect(lanes).toEqual(["l1"]);
+    expect(h.present.boxes.map((b) => [b.id, b.lane])).toEqual([["a", "l1"], ["b", "l1"], ["c", "l1"]]);
+    expect(h.conflicts).toEqual([]);
+  });
+
+  it("keep theirs puts right what our side still used: a lane, a box, a person", () => {
+    const oldBase = st([box("a"), box("b")]);
+    // We added lane l3 with a box in it, edited box a and Ana, and put a rule about box a and Ana on box b.
+    const draft = st(
+      [box("a", { title: "A mine" }), box("b", { engineers: ["ana"], relations: [{ type: "after", box: "AXX" }] }), box("x", { lane: "l3" })],
+      [{ ...dept, lanes: [...dept.lanes, { id: "l3", fte: 1 }] }],
+      [people[0], { ...people[1], role: "Lead" }],
+    );
+    // They renamed the department, and deleted box a and Ana.
+    const newBase = st([box("b")], [{ ...dept, name: "Engineering" }], [people[0]]);
+    const r = rebaseDraft(oldBase, draft, newBase);
+    expect(r.conflicts).toEqual(["box:a", "dept:eng", "person:ana"]);
+    const theirs = revertItems(r.draft, newBase, r.conflicts);
+    const byId = Object.fromEntries(theirs.boxes.map((b) => [b.id, b]));
+    expect(theirs.departments[0].lanes.map((l) => l.id)).toEqual(["l1", "l2"]);
+    expect(byId.x.lane).toBe("l1");
+    expect(byId.b.engineers).toEqual([]);
+    expect(byId.b.relations).toEqual([]);
+    expect(byId.a).toBeUndefined();
+  });
+
   it("a box we added that has the code of one they added takes a fresh one, and our rules follow it", () => {
     const oldBase = st([box("a")]);
     const draft = st([box("a", { relations: [{ type: "before", box: "K7P" }] }), box("ours", { code: "K7P" })]);

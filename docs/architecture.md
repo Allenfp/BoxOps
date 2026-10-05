@@ -193,8 +193,10 @@ an engineer no longer on the roster comes off their boxes, a rule about a box
 that's gone is dropped, a box whose lane is gone moves to where that lane's
 other boxes went (else its department's first lane) and is flagged as a
 clash, and a box you added with the same code as one someone else added takes
-a fresh code (your rules follow it). The clash bookkeeping is a pure reducer
-over the draft and its undo history (`reduceHistory` in `model/draft.ts`).
+a fresh code (your rules follow it). Keep theirs is put right the same way,
+without a new clash: their box in a lane you removed moves to a lane there is.
+The clash bookkeeping is a pure reducer over the draft and its undo history
+(`reduceHistory` in `model/draft.ts`).
 Adding or removing a department leaves the others' `order` alone; only a
 reorder renumbers them, and only a change in their order is a change.
 
