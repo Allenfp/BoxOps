@@ -1597,6 +1597,7 @@ function RoadmapView(props: ViewProps) {
             onCreateBox={createBox}
             onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
             readOnly={preview || busy}
+            readOnlyLabel={props.preview ? "Read-only preview" : preview ? "Read-only" : undefined}
             conflictIds={conflictBoxIds}
             updatedIds={updatedIds}
             ruleWarnings={ruleWarnings}

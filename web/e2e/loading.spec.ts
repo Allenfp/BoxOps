@@ -108,6 +108,7 @@ test.describe("branch previews (?ref=)", () => {
     await expect(page.locator(".banner")).toContainText("Previewing branch feature (read-only).");
     await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
     await expect(toolbar(page)).toHaveCount(0);
+    await expect(page.locator(".tl-corner > span")).toHaveText("Read-only preview");
     await page.getByRole("link", { name: "Back to the live roadmap" }).click();
     await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
     expect(new URL(page.url()).searchParams.has("ref")).toBe(false);

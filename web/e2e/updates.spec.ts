@@ -41,6 +41,8 @@ test("a new BoxOps makes the tab read-only; Reload loads it from a fresh URL and
   const banner = page.locator(".banner", { hasText: "BoxOps was updated" });
   await expect(banner).toContainText("BoxOps was updated to 0.2.0 — Reload to keep editing. Your unsaved changes are kept in this browser.");
   await expect(toolbar(page)).toHaveCount(0);
+  // Read-only, but not a preview of another branch.
+  await expect(page.locator(".tl-corner > span")).toHaveText("Read-only");
 
   const navigations: string[] = [];
   page.on("request", (r) => r.isNavigationRequest() && navigations.push(r.url()));
@@ -135,6 +137,8 @@ test("a roadmap.json that stalls when saving holds the save up a few seconds at 
   await page.route("**/roadmap.json*", () => {}); // never answered
   await save(page);
   await expect(page.locator(".save-progress")).toHaveText("Checking for newer saves…");
+  // Nothing can be changed while saving, but nor is it a read-only preview.
+  await expect(page.locator(".tl-corner > span")).toHaveCount(0);
   await page.clock.fastForward(5_000);
   await expect(toolbar(page)).toContainText("No changes");
   expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");

@@ -68,8 +68,10 @@ interface Props {
   onCreateBox(placement: BoxPlacement): void;
   /** `undefined` clears the name, falling back to "FTE n". */
   onRenameLane(laneId: string, name: string | undefined): void;
-  /** Previewing another branch: look, don't touch. */
+  /** Previewing another branch, or saving: look, don't touch. */
   readOnly?: boolean;
+  /** What the corner says while read-only ("Read-only preview" for a branch); nothing while only saving. */
+  readOnlyLabel?: string;
   /** Boxes someone else changed while we were editing them too. */
   conflictIds?: Set<string>;
   /** Boxes someone else changed since this tab loaded (for review). */
@@ -464,7 +466,7 @@ export function Timeline(props: Props) {
         <div className="tl-head">
           <div className="tl-corner" style={{ width: LABEL_W }}>
             {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
-            {readOnly && <span>Read-only preview</span>}
+            {readOnly && props.readOnlyLabel && <span>{props.readOnlyLabel}</span>}
           </div>
           <div className="tl-bands" style={{ width: scale.width }}>
             {bands.map((band, i) => (
