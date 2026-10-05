@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { DEPT_CODE } from "../model/load";
 import { deriveDeptCode } from "../model/relations";
 import { DEPARTMENT_COLORS } from "../model/structure";
@@ -65,7 +65,6 @@ function LanePicker({
 
 export function DepartmentEditor(props: Props) {
   const { target, departments, boxes, people, onClose } = props;
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [created, setCreated] = useState<string | null>(null);
   // New department form.
   const used = new Set(departments.map((d) => d.color));
@@ -78,8 +77,9 @@ export function DepartmentEditor(props: Props) {
   // Which lane (or the whole department) is being removed, and where its boxes go.
   const [removing, setRemoving] = useState<{ what: string; moveTo: string } | null>(null);
 
-  useEffect(() => {
-    const d = dialogRef.current;
+  // Every <dialog> this renders opens as it mounts: one comes and goes as the
+  // department it edits does (removed, or undone, while it was open).
+  const open = useCallback((d: HTMLDialogElement | null) => {
     if (d && !d.open) {
       d.showModal();
       // showModal() focuses the first focusable element (the close button); start in the first field instead.
@@ -101,7 +101,7 @@ export function DepartmentEditor(props: Props) {
 
   const shell = (title: string, body: React.ReactNode) => (
     <dialog
-      ref={dialogRef}
+      ref={open}
       className="save-dialog dept-editor"
       aria-label={title}
       onCancel={(e) => {

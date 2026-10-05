@@ -4,6 +4,22 @@ import { DAGSTER, boxFile, expect, focusApp, save, test, toolbar } from "./helpe
 const editor = (page: Page) => page.locator("dialog.dept-editor[open]");
 const deptNames = (page: Page) => page.locator(".dept-label .dept-name").allInnerTexts();
 
+test("an editor whose department is undone away closes, and the next one still opens", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Add department" }).click();
+  await editor(page).getByLabel("Department name").fill("Platform");
+  await editor(page).getByRole("button", { name: "Add department" }).click();
+  await editor(page).getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Edit Platform" }).click();
+  await expect(editor(page).locator("h2")).toHaveText("Edit Platform");
+  // ⌘Z with the focus on a button in it: Platform goes, and its editor with it.
+  await editor(page).getByRole("button", { name: "Done" }).focus();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(editor(page)).toHaveCount(0);
+  await expect.poll(() => deptNames(page)).toEqual(["Data Engineering", "Analytics", "ML Platform"]);
+  await page.getByRole("button", { name: "Add department" }).click();
+  await expect(editor(page).locator("h2")).toHaveText("Add a department");
+});
+
 test("adds a department with lanes from the timeline and saves it", async ({ page, github }) => {
   await page.getByRole("button", { name: "Add department" }).click();
   await editor(page).getByLabel("Department name").fill("Platform");

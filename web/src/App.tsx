@@ -605,6 +605,11 @@ function RoadmapView(props: ViewProps) {
   const draft = useDraft(draftBase, { scope: `${source.repo}@${source.branch}`, commit: source.commit, build: __BOXOPS_BUILD__ });
   // Should anything below crash, the recovery screen offers this tab's draft (and no other's).
   noteDraft(draft.storageKey);
+  // The department being edited is gone (undone, or deleted in someone else's save): its editor closes.
+  const editedGone = deptEditor?.kind === "edit" && !draft.departments.some((d) => d.id === deptEditor.id);
+  useEffect(() => {
+    if (editedGone) setDeptEditor(null);
+  }, [editedGone]);
   // Up and running a few seconds: a crash after this isn't "the same one again" (ErrorBoundary).
   useEffect(() => {
     const t = setTimeout(runningFine, 5000);
@@ -1520,6 +1525,7 @@ function RoadmapView(props: ViewProps) {
       {deptEditor && !preview && (
         <Suspense fallback={null}>
           <DepartmentEditor
+            key={deptEditor.kind === "edit" ? deptEditor.id : "new"}
             target={deptEditor}
             departments={draft.departments}
             boxes={draft.boxes}
