@@ -46,6 +46,10 @@ describe("departments", () => {
     expect(addDepartment(state, "Auxiliary").id).toBe("auxiliary");
   });
 
+  it("never gets the id of a department file the app couldn't read", () => {
+    expect(addDepartment(state, "Data Platform", undefined, undefined, ["data-platform"]).id).toBe("data-platform-2");
+  });
+
   it("moves up and down by swapping neighbours", () => {
     const s = moveDepartment(state, "ops", -1);
     expect(s.departments.map((d) => [d.id, d.order])).toEqual([

@@ -34,13 +34,15 @@ function renumber(departments: Department[]): Department[] {
   return [...departments].sort((a, b) => a.order - b.order).map((d, i) => (d.order === i + 1 ? d : { ...d, order: i + 1 }));
 }
 
+/** A new department; `skipped` are the ids of department files the loader couldn't fully read, which it mustn't take. */
 export function addDepartment(
   state: DraftState,
   name: string,
   color?: string,
   code?: string,
+  skipped: readonly string[] = [],
 ): { state: DraftState; id: string } {
-  const taken = new Set(state.departments.map((d) => d.id));
+  const taken = new Set([...state.departments.map((d) => d.id), ...skipped]);
   // The id names the file, which Windows wouldn't allow for "aux", "con" and the like.
   const slug = slugify(name).replace(/^box$/, "department").replace(WINDOWS_RESERVED, "$&-dept");
   let id = slug;

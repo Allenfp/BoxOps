@@ -388,9 +388,9 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
   // Departments and lanes: each is one undo step. Removing never drops work:
   // boxes in a removed lane or department move to `moveTo`.
   const addDepartment = useCallback(
-    (name: string, color?: string, code?: string): string => {
-      const { id } = structure.addDepartment(present, name, color, code);
-      apply((d) => structure.addDepartment(d, name, color, code).state);
+    (name: string, color?: string, code?: string, skipped?: readonly string[]): string => {
+      const { id } = structure.addDepartment(present, name, color, code, skipped);
+      apply((d) => structure.addDepartment(d, name, color, code, skipped).state);
       return id;
     },
     [apply, present],
