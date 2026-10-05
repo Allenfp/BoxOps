@@ -533,7 +533,8 @@ when a focused element is removed.
   app's (`data-settled`), as it was once focus had left. Delete and
   Backspace delete the selected box or PTO only with focus on the page
   itself, no editor open and the key not held, so a stray Backspace in an
-  editor deletes nothing; Backspace is never the browser's Back.
+  editor deletes nothing. Outside a text field (on a box, say), Backspace is
+  never the browser's Back.
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to

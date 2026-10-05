@@ -358,6 +358,16 @@ test("Backspace and Delete never delete the box or PTO being edited", async ({ p
   await expect(page.locator(".pto-block")).toHaveCount(1);
 });
 
+test("outside a text field, on a box or a button, Backspace is never the browser's Back", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Backspace");
+  await page.getByRole("button", { name: "Settings", exact: true }).focus();
+  await page.keyboard.press("Backspace");
+  await page.waitForTimeout(300); // time for a navigation that shouldn't come
+  expect(page.url()).toContain("zoom=months");
+  await expect(box(page, DAGSTER)).toBeVisible();
+});
+
 test("undo and save don't act behind a dialog or an open menu", async ({ page, github }) => {
   await dragDays(page, DAGSTER, 5);
   await page.getByRole("button", { name: "Settings", exact: true }).click();

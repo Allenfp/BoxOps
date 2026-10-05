@@ -920,6 +920,8 @@ function RoadmapView(props: ViewProps) {
       }
       return;
     }
+    // Outside a text field, Backspace is never the browser's Back (WebKit's own, in some browsers).
+    if (e.key === "Backspace" && !mod && !e.altKey && !isTyping(e.target)) e.preventDefault();
     // A table cell left with Enter or Esc has nothing typed of its own to undo: ⌘Z there is ours.
     const typing = isTyping(e.target) && !(e.target as HTMLElement).hasAttribute("data-settled");
     if (preview || typing || busy || behind) return;
@@ -931,7 +933,6 @@ function RoadmapView(props: ViewProps) {
       e.preventDefault();
       redo();
     } else if ((e.key === "Delete" || e.key === "Backspace") && !mod && !e.altKey && e.target === document.body) {
-      e.preventDefault(); // nor is it the browser's Back (WebKit's own Backspace, in some browsers)
       // Only a deliberate press with nothing else in hand: focus on the page itself (not a button or
       // field, nor anything in an editor), no editor open, and not a held-down key (which would go on
       // to the next box). A stray Backspace, the Mac's delete key, otherwise deleted the box being edited.
