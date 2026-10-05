@@ -948,6 +948,7 @@ export function Timeline(props: Props) {
               const over = layout.overCapacity && stretches.length > 0;
               const ahead = stretches.filter((x) => x.to >= now);
               const extra = layout.height > layout.capacity;
+              const extraName = over && !ahead.length ? "Over capacity in the past" : over ? "Over capacity" : "Doesn’t fit side by side";
               const deptBoxes = boxes.filter((b) => laneDept.get(b.lane) === dept.id);
               // Each box goes in the row of the lane it's drawn in (its own, or wherever the layout found room), in time order.
               // One being dragged stays there while it's only moved in time; dragged to another lane, it's in that lane's row.
@@ -974,6 +975,8 @@ export function Timeline(props: Props) {
                   <div
                     className="row dept-row"
                     role="row"
+                    // Each row has a short name of its own: one made from its cells would be every box's name in it.
+                    aria-label={dept.name}
                     style={{ height: isCollapsed && display.collapsedView !== "boxes" ? CHART_H : DEPT_H }}
                   >
                     <DeptLabel
@@ -1016,6 +1019,7 @@ export function Timeline(props: Props) {
                           <div
                             key={rowId}
                             role="row"
+                            aria-label={`${dept.name} / ${lane ? laneLabel(dept, lane) : extraName}`}
                             data-row={lane ? `lane:${lane.id}` : undefined}
                             className={`lane-row${lane ? "" : " overflow-row"}${moving?.lane === rowId ? " drop-target" : ""}`}
                             style={{ height: l.slots * SLOT_H }}
@@ -1061,15 +1065,15 @@ export function Timeline(props: Props) {
                               <div className="label lane-label overflow-label" role="rowheader" style={{ width: LABEL_W }}>
                                 {over && !ahead.length ? (
                                   <span className="overflow-note" title={`Over capacity before today: ${overloadText(stretches)}`}>
-                                    Over capacity in the past
+                                    {extraName}
                                   </span>
                                 ) : over ? (
                                   <span className="overflow-note warn-text" title={`Over capacity: ${overloadText(ahead)}`}>
-                                    Over capacity
+                                    {extraName}
                                   </span>
                                 ) : (
                                   <span className="overflow-note" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
-                                    Doesn’t fit side by side
+                                    {extraName}
                                   </span>
                                 )}
                               </div>
@@ -1126,7 +1130,7 @@ export function Timeline(props: Props) {
                     const { rows, count } = packRows(entries);
                     const height = Math.max(1, count) * SLOT_H;
                     return (
-                      <div className="row pto-row" role="row" data-row={`pto:${dept.id}`} style={{ height }}>
+                      <div className="row pto-row" role="row" aria-label={`${dept.name} / PTO`} data-row={`pto:${dept.id}`} style={{ height }}>
                         <div className="label lane-label pto-label" style={{ width: LABEL_W, height }}>
                           <span className="lane-name static" role="rowheader">
                             PTO

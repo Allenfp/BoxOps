@@ -551,7 +551,8 @@ when a focused element is removed.
   keys, and only on the timeline (WCAG 2.1.4).
 - **The timeline** is an APG layout grid (`components/useGridFocus.ts`,
   `timeline/keyboard.ts`): rows are a department's heading, each lane, its
-  extra area and its PTO; a row's cells are its controls (the lane's name,
+  extra area and its PTO, each with a short name of its own ("Data
+  Engineering / FTE 2"); a row's cells are its controls (the lane's name,
   whose row header also says its dates and size, and its **+**) and then
   its boxes or PTO blocks in time order. The whole grid is one Tab stop,
   the cell that last had focus (React renders every cell with tabindex −1;

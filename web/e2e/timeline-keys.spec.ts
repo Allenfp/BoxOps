@@ -20,6 +20,10 @@ test("the timeline is a grid of rows and cells with full names, and one Tab stop
   await expect(grid.getByRole("gridcell", { name: /^PTO, / })).toHaveCount(0);
   await expect(grid.getByRole("button", { name: "Add a box to Data Engineering / FTE 2" })).toHaveCount(1);
   await expect(grid.getByRole("row")).toHaveCount(13); // ML Platform starts collapsed
+  // Rows have short names, not one made of every box in them.
+  for (const name of ["Data Engineering", "Data Engineering / FTE 2", "Data Engineering / Over capacity", "Analytics / PTO"]) {
+    await expect(grid.getByRole("row", { name, exact: true })).toHaveCount(1);
+  }
   // Only one of its cells is in the Tab order.
   await expect(grid.locator('[tabindex="0"]')).toHaveCount(1);
 
