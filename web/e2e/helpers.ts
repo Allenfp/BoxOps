@@ -108,13 +108,19 @@ export async function pollNow(page: Page) {
 /**
  * Another tab on the roadmap in the same browser (the same localStorage, its
  * own sessionStorage), with its own clock starting at `at`, the fake GitHub
- * and a token.
+ * and a token. `session` adds to its sessionStorage (a duplicated tab starts
+ * with a copy of the original's).
  */
-export async function openTab(context: BrowserContext, github: FakeGitHub, at = TODAY): Promise<Page> {
+export async function openTab(context: BrowserContext, github: FakeGitHub, at = TODAY, session: Record<string, string> = {}): Promise<Page> {
   const tab = await context.newPage();
   await tab.clock.install({ time: at });
   await github.install(tab);
-  await tab.addInitScript(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, TOKEN]);
+  await tab.addInitScript(
+    (entries) => {
+      for (const [k, v] of Object.entries(entries)) sessionStorage.setItem(k, v);
+    },
+    { [`boxops-github-token:${REPO}`]: TOKEN, ...session },
+  );
   await tab.goto("./?zoom=months");
   await expect(tab.locator(".box").first()).toBeVisible();
   return tab;

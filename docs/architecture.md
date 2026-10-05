@@ -173,11 +173,16 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
 
 - **Where.** Each tab writes, and removes, only its own key,
   `boxops-draft:<owner>/<repo>@<branch>:<tab id>`. The tab id is kept in
-  `sessionStorage`, so a reload of the tab finds its own draft; a duplicated
-  tab (which copies `sessionStorage`) sees the original's draft still alive
-  and takes a new id. Another tab polling, saving or discarding never touches
-  this one's draft. A tab shows "This roadmap has unsaved changes in another
-  tab" while another open tab has some (`storage` events keep it current).
+  `sessionStorage`, so a reload of the tab finds its own draft. A duplicated
+  tab copies `sessionStorage`, id and all. If the original's draft is alive,
+  the copy takes a new id at once. If the original has none yet, they start
+  with one key, so each page (one load of a tab) stamps what it writes with
+  an id of its own: a tab that finds another page's draft under its key
+  (writing, on a heartbeat, or told by a `storage` event) takes a new id and
+  leaves that draft alone. Another tab polling, saving or discarding never
+  touches this one's draft. A tab shows "This roadmap has unsaved changes in
+  another tab" while another open tab has some (`storage` events keep it
+  current).
 - **What.** Only the changed items, each with the version it was changed from
   (`{ old, now }` by item key), and the clashes, stamped with the data
   `format`, the `build`, the `baseCommit` it was made against and `savedAt`.

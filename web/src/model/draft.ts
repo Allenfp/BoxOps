@@ -19,6 +19,7 @@ import {
   newTabKey,
   openTab,
   otherTabs,
+  pageOf,
   readValue,
   removeDraft,
   savedAtOf,
@@ -530,16 +531,22 @@ export interface DraftOptions {
  * `base`, and the others to offer. Its own draft, if it can't be restored,
  * stays as it is to download, and this tab takes a fresh key. Drafts left by
  * gone tabs with nothing left to restore (all of it saved since) are removed.
+ * `adopted` is the page that wrote the draft restored, now this page's to
+ * write.
  */
 export function openDraft(base: DraftState, scope: string, stores: Stores) {
   const now = Date.now();
   const opened = openTab(scope, now, stores, (value) => fromSharedDraft(value, base, new Date(now)));
   let { key } = opened;
   let restored: { draft: DraftState; conflicts: string[] } | undefined;
+  let adopted: string | undefined;
   const offers: DraftOffer[] = [];
   if (opened.own) {
     try {
-      if (opened.own.record) restored = restoreRecord(opened.own.record, base);
+      if (opened.own.record) {
+        restored = restoreRecord(opened.own.record, base);
+        adopted = pageOf(opened.own.value);
+      }
     } catch {
       // Offered to download below.
     }
@@ -553,7 +560,7 @@ export function openDraft(base: DraftState, scope: string, stores: Stores) {
     if (offer.restorable && !offer.count) removeDraft(found.key, stores.local);
     else offers.push(offer);
   }
-  return { key, restored, offers };
+  return { key, adopted, restored, offers };
 }
 
 export function useDraft(base: DraftState, { scope, commit, build }: DraftOptions) {
@@ -572,7 +579,11 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
   // Kept in storage: this tab's draft, as a delta (draftStore.ts).
   /** Whether storage holds the draft as it is (a full or blocked storage refuses writes). */
   const [kept, setKept] = useState(true);
-  const [writer] = useState(() => new DraftWriter(opened.key, stores.local, setKept));
+  /** Where: it changes if another tab turns out to share this one's id (a duplicated tab). */
+  const [storageKey, setStorageKey] = useState(opened.key);
+  const [writer] = useState(
+    () => new DraftWriter(opened.key, scope, stores, { result: setKept, move: setStorageKey }, opened.adopted),
+  );
   // A pause after the last change writes it; nothing left to keep removes it at once.
   useEffect(() => {
     writer.track(() => recordOf({ base, present, conflicts, changes, commit }, build));
@@ -604,7 +615,13 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     };
     const onVisibility = () => (document.hidden ? writer.flush() : beat());
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== null && (!e.key.startsWith(DRAFT_PREFIX) || e.key === writer.key)) return;
+      if (e.key !== null && !e.key.startsWith(DRAFT_PREFIX)) return;
+      // Another page changed this tab's key: one sharing its id (this tab moves
+      // to a new one), or one that restored this tab's draft while it slept.
+      if (e.key === writer.key) {
+        beat();
+        return;
+      }
       count();
       setOffers((cur) => {
         const now = Date.now();
@@ -868,7 +885,7 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     saved,
     checkpoint,
     /** Where this tab keeps its draft (the crash screen offers it). */
-    storageKey: writer.key,
+    storageKey,
     kept,
     /** Write any change still waiting now (before saving). */
     flush: useCallback(() => writer.flush(), [writer]),

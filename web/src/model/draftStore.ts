@@ -6,7 +6,9 @@
 // tab finds its own draft. A draft also says when its tab was last known to
 // be open (a heartbeat; 0 once the tab has closed), which tells drafts in
 // other open tabs (a notice) from drafts left by tabs that are gone (offered
-// to restore, never taken silently).
+// to restore, never taken silently), and which page (one load of a tab) wrote
+// it, which tells apart two tabs that started with one id (a duplicated tab
+// copies sessionStorage).
 //
 // What's stored is a delta: only the changed items, each with the version it
 // was changed from, stamped with the data format and the build that wrote it.
@@ -53,6 +55,8 @@ export interface StoredDraft {
   savedAt: string;
   /** When its tab was last known to be open (ms since 1970); 0 once it closed. */
   alive: number;
+  /** The page (one load of a tab) that last wrote it: DraftWriter stamps it. */
+  page?: string;
   /** The changed items, by key: `box:<id>`, `dept:<id>`, `person:<id>`, `settings:settings`. */
   items: Record<string, DeltaItem>;
   /** Those of them that clash with someone else's save. */
@@ -128,6 +132,8 @@ export function asRecord(value: unknown): StoredDraft | null {
 const aliveAt = (value: unknown) => (isObject(value) && typeof value.alive === "number" ? value.alive : 0);
 /** When a stored draft was last written; "" if unknown. */
 export const savedAtOf = (value: unknown) => (isObject(value) && typeof value.savedAt === "string" ? value.savedAt : "");
+/** The page that last wrote a stored draft; "" if unknown. */
+export const pageOf = (value: unknown) => (isObject(value) && typeof value.page === "string" ? value.page : "");
 
 /** A stored draft's JSON, parsed (its text if it isn't JSON); undefined if there's none. */
 export function readValue(local: Store, key: string): unknown {
@@ -255,15 +261,32 @@ export function isLeft(key: string, now: number, local: Store): boolean {
   return found !== null && aliveAt(found.value) <= now - STALE_MS;
 }
 
+/** What a DraftWriter tells its tab. */
+export interface WriterEvents {
+  /** Whether storage holds the draft as it is: false once a write is refused, true again once one goes through. */
+  result(ok: boolean): void;
+  /** This tab's key changed: another page turned out to share its id. */
+  move?(key: string): void;
+}
+
 /**
  * Keeps one tab's draft in storage. A change is written a moment after
  * editing pauses (WRITE_AFTER_MS), or WRITE_AT_MOST_MS into a long burst,
  * never on every keystroke; `track()` says what to write then (null:
- * nothing to keep, so the key is removed). `onResult` hears whether storage
+ * nothing to keep, so the key is removed). `result` hears whether storage
  * holds the draft, since a full or blocked storage refuses writes; one that
  * was refused is tried again on the next heartbeat or flush.
+ *
+ * Every record is stamped with this page's id. Two tabs can start with one
+ * tab id: a duplicated tab copies sessionStorage, and when the original had
+ * no draft yet, nothing told them apart. So before writing, marking or
+ * removing, the writer checks that what's under its key is this page's (or
+ * the draft it took over on opening, `adopted`); if another page wrote it,
+ * this tab takes a new id and leaves that draft alone.
  */
 export class DraftWriter {
+  /** This page's id, in every record it writes. */
+  readonly page = newTabId();
   private timer: ReturnType<typeof setTimeout> | undefined;
   private first = 0;
   /** The last write was refused: what's stored, if anything, is older than the draft. */
@@ -271,11 +294,18 @@ export class DraftWriter {
   private record: () => StoredDraft | null = () => null;
 
   constructor(
-    readonly key: string,
-    private readonly local: Store,
-    /** Whether storage holds the draft as it is: false once a write is refused, true again once one goes through. */
-    private readonly onResult: (ok: boolean) => void,
+    private current: string,
+    private readonly scope: string,
+    private readonly stores: Stores,
+    private readonly on: WriterEvents,
+    /** The page that wrote the draft this tab took as its own on opening (a reload), if any. */
+    private adopted?: string,
   ) {}
+
+  /** This tab's key. */
+  get key(): string {
+    return this.current;
+  }
 
   /** What to store from now on: the draft as it is now. */
   track(record: () => StoredDraft | null): void {
@@ -298,9 +328,10 @@ export class DraftWriter {
   private store(r: StoredDraft | null): void {
     clearTimeout(this.timer);
     this.timer = undefined;
-    const ok = put(this.local, this.key, r === null ? null : JSON.stringify(r));
+    this.claim();
+    const ok = put(this.stores.local, this.current, r === null ? null : JSON.stringify({ ...r, page: this.page }));
     this.failed = !ok;
-    this.onResult(ok);
+    this.on.result(ok);
   }
 
   /** Write now if a change is waiting, or the last write was refused. */
@@ -317,22 +348,38 @@ export class DraftWriter {
   /**
    * Mark the stored draft as alive now (`at`) or closed (0), leaving the rest
    * as stored. Alive, with none stored (another tab restored it while this
-   * one slept), it's written again: this tab still has it. Only a refusal is
-   * reported: a mark that goes through says nothing about whether what's
-   * stored is the draft as it is.
+   * one slept, or this tab just took a new id), it's written again: this tab
+   * still has it. Only a refusal is reported: a mark that goes through says
+   * nothing about whether what's stored is the draft as it is.
    */
   mark(at: number): void {
-    const found = read(this.local, this.key);
+    this.claim();
+    const found = read(this.stores.local, this.current);
     if (!found) {
       const r = at ? this.record() : null;
       if (r) this.store(r);
       return;
     }
     if (!isObject(found.value)) return;
-    if (!put(this.local, this.key, JSON.stringify({ ...found.value, alive: at }))) {
+    if (!put(this.stores.local, this.current, JSON.stringify({ ...found.value, alive: at, page: this.page }))) {
       this.failed = true;
-      this.onResult(false);
+      this.on.result(false);
     }
+  }
+
+  /**
+   * Make sure what's stored under this tab's key is this page's to change:
+   * nothing, or a draft this page wrote (or took over on opening). One that
+   * another page wrote means they share a tab id: this tab takes a new one.
+   */
+  private claim(): void {
+    const found = read(this.stores.local, this.current);
+    if (!found) return;
+    const page = pageOf(found.value);
+    if (page === this.page || page === this.adopted) return;
+    this.current = newTabKey(this.scope, this.stores);
+    this.adopted = undefined;
+    this.on.move?.(this.current);
   }
 }
 

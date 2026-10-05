@@ -1,5 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DraftWriter, RECORD, STALE_MS, type Store, type StoredDraft, asRecord, draftKey, openTab, otherTabs } from "./draftStore";
+import {
+  DraftWriter,
+  RECORD,
+  STALE_MS,
+  type Store,
+  type StoredDraft,
+  type Stores,
+  asRecord,
+  draftKey,
+  isLeft,
+  openTab,
+  otherTabs,
+} from "./draftStore";
 import { FORMAT } from "./format";
 
 /** Storage in memory, like localStorage; `fail` makes writes throw (blocked), and so does a value longer than `limit` (full). */
@@ -135,7 +147,7 @@ describe("DraftWriter", () => {
   const setup = () => {
     const local = memory();
     const results: boolean[] = [];
-    const w = new DraftWriter(draftKey(SCOPE, "aaaa0001"), local, (ok) => results.push(ok));
+    const w = new DraftWriter(draftKey(SCOPE, "aaaa0001"), SCOPE, { local, session: memory() }, { result: (ok) => results.push(ok) });
     let n = 0;
     w.track(() => record({ savedAt: String(++n) }));
     const writes = () => n;
@@ -223,12 +235,12 @@ describe("DraftWriter", () => {
     expect(results).toEqual([false, true]);
   });
 
-  it("marking alive or closed changes only that, keeping what's stored; it reports only a refusal", () => {
+  it("marking alive or closed changes only that (and whose it is), keeping what's stored; it reports only a refusal", () => {
     const { local, results, w } = setup();
     w.write();
-    local.setItem(w.key, JSON.stringify({ ...record(), extra: 1 }));
+    local.setItem(w.key, JSON.stringify({ ...record(), page: w.page, extra: 1 }));
     w.mark(0);
-    expect(JSON.parse(local.getItem(w.key)!)).toEqual({ ...record(), extra: 1, alive: 0 });
+    expect(JSON.parse(local.getItem(w.key)!)).toEqual({ ...record(), page: w.page, extra: 1, alive: 0 });
     local.fail = true;
     w.mark(NOW);
     local.fail = false;
@@ -247,5 +259,77 @@ describe("DraftWriter", () => {
     local.data.clear();
     w.mark(NOW);
     expect(local.data.size).toBe(0);
+  });
+});
+
+describe("tabs that start with one id (a duplicated tab copies sessionStorage)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** Tab A, opened with no draft, and B, its duplicate: the same sessionStorage, so the same id. */
+  const twins = () => {
+    const local = memory();
+    const a: Stores = { local, session: memory() };
+    const atA = openTab(SCOPE, NOW, a, noShared);
+    const b: Stores = { local, session: memory() };
+    b.session.setItem("boxops-tab", a.session.getItem("boxops-tab")!);
+    const atB = openTab(SCOPE, NOW, b, noShared);
+    expect(atB.key).toBe(atA.key); // nothing to tell them apart yet
+    const moved: string[] = [];
+    const writer = (s: Stores, key: string, onMove?: (k: string) => void) =>
+      new DraftWriter(key, SCOPE, s, { result: () => {}, move: onMove });
+    const wa = writer(a, atA.key);
+    const wb = writer(b, atB.key, (k) => moved.push(k));
+    wa.track(() => record());
+    wb.track(() => null);
+    return { local, a, b, wa, wb, moved, key: atA.key };
+  };
+
+  it("the one with no changes never removes or marks the other's draft: it takes an id of its own", () => {
+    const { local, b, wa, wb, moved, key } = twins();
+    wa.write();
+    wa.mark(0); // A closes
+    wb.mark(NOW + 30_000); // B's heartbeat
+    expect(JSON.parse(local.getItem(key)!).alive).toBe(0);
+    wb.write(); // a poll, save or discard in B: nothing to keep
+    expect(local.data.has(key)).toBe(true);
+    expect(wb.key).not.toBe(key);
+    expect(moved).toEqual([wb.key]);
+    expect(b.session.getItem("boxops-tab")).toBe(wb.key.split(":").at(-1));
+    // So B now offers A's draft, as one left by a tab that's gone.
+    expect(isLeft(key, NOW + 60_000, local)).toBe(true);
+    expect(openTab(SCOPE, NOW + 60_000, b, noShared).orphans.map((o) => o.key)).toEqual([key]);
+  });
+
+  it("when both have changes, whichever writes second moves to a key of its own", () => {
+    const { local, wa, wb, key } = twins();
+    wa.write();
+    wb.track(() => record({ savedAt: "B's" }));
+    wb.write();
+    expect(wb.key).not.toBe(key);
+    expect(JSON.parse(local.getItem(key)!).savedAt).toBe(record().savedAt);
+    expect(JSON.parse(local.getItem(wb.key)!).savedAt).toBe("B's");
+    // A keeps its key from then on.
+    wa.write();
+    wa.mark(NOW);
+    expect(wa.key).toBe(key);
+    expect(otherTabs(SCOPE, wb.key, NOW, local)).toBe(1);
+  });
+
+  it("a tab that took over its own draft on a reload keeps writing it", () => {
+    const s = stores();
+    s.session.setItem("boxops-tab", "aaaa0001");
+    const key = draftKey(SCOPE, "aaaa0001");
+    s.local.setItem(key, JSON.stringify({ ...record({ alive: 0 }), page: "0ld9a9e1" }));
+    const t = openTab(SCOPE, NOW, s, noShared);
+    const w = new DraftWriter(t.key, SCOPE, s, { result: () => {} }, "0ld9a9e1");
+    w.track(() => record());
+    w.mark(NOW);
+    w.write();
+    expect(w.key).toBe(key);
+    expect(JSON.parse(s.local.getItem(key)!).page).toBe(w.page);
   });
 });

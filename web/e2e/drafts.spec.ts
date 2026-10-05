@@ -79,6 +79,26 @@ test("a draft left by a tab that's no longer open is offered to restore, never t
   await expect(offer).toHaveCount(0);
 });
 
+test("a duplicated tab, opened before the original had changes, never touches the original's draft", async ({ page, github }) => {
+  // Duplicating a tab copies its sessionStorage, tab id and all: both start with one key.
+  const id = (tab: Page) => tab.evaluate(() => sessionStorage.getItem("boxops-tab"));
+  const original = await id(page);
+  const duplicate = await openTab(page.context(), github, TODAY, { "boxops-tab": original! });
+  await dragDays(page, DAGSTER, 10);
+  await stored(page);
+  const [key] = Object.keys(await storedDrafts(page));
+  // The duplicate sees the original write that key, and takes one of its own.
+  await expect.poll(() => id(duplicate)).not.toBe(original);
+  await expect(duplicate.locator(".banner", { hasText: "This roadmap has unsaved changes in another tab." })).toBeVisible();
+
+  // The original closes. The duplicate, with nothing of its own to keep, polls in someone's save.
+  await page.close();
+  github.deploy(github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }));
+  await pollNow(duplicate);
+  await expect(boxTitle(duplicate, REVENUE)).toHaveText("Revenue mart v3");
+  expect(Object.keys(await storedDrafts(duplicate))).toEqual([key]);
+});
+
 test("a draft left by a tab that's no longer open can be discarded for good", async ({ page, github }) => {
   const later = await leaveDraft(page, github);
   const offer = later.locator(".banner", { hasText: "Restore unsaved changes from another tab?" });
