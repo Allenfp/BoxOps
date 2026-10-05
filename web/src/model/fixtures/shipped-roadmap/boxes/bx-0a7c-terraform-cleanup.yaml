@@ -1,0 +1,10 @@
+id: bx-0a7c-terraform-cleanup
+code: W5A
+title: Terraform module cleanup
+lane: de-4
+start: 2026-08-19
+end: 2026-10-16
+type: maintenance
+fte: 1
+engineers:
+  - alex-kim

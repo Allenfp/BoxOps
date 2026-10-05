@@ -1,0 +1,10 @@
+id: bx-e5a2-on-call-q4
+code: WJY
+title: On-call rotation Q4
+lane: de-3
+start: 2026-09-29
+end: 2026-12-29
+type: support
+fte: 0.5
+engineers:
+  - sam-lee

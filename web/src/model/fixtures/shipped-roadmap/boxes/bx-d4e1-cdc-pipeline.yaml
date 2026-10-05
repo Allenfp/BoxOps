@@ -1,0 +1,9 @@
+id: bx-d4e1-cdc-pipeline
+code: XB8
+title: CDC pipeline for orders DB
+lane: de-2
+start: 2026-10-26
+end: 2027-02-26
+type: project
+engineers:
+  - alex-kim

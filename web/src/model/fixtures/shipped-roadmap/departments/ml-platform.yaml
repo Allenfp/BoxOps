@@ -1,0 +1,11 @@
+id: ml-platform
+code: ML
+name: ML Platform
+color: "#a35cf0"
+order: 3
+collapsed: true
+lanes:
+  - id: ml-1
+    fte: 1
+  - id: ml-2
+    fte: 1

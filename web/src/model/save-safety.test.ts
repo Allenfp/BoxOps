@@ -23,7 +23,9 @@ const ROADMAP: RoadmapFiles = {
   "boxes/b2.yaml": box("b2", "B2X"),
 };
 
-const shipped = (await readRoadmapDir(fileURLToPath(new URL("../../../roadmap", import.meta.url)))).files;
+// roadmap/ as BoxOps shipped it (its settings.yaml template too), frozen: the
+// live roadmap/ is data, which a save or a hand edit may write any valid way.
+const shipped = (await readRoadmapDir(fileURLToPath(new URL("./fixtures/shipped-roadmap", import.meta.url)))).files;
 const fixture = (await readRoadmapDir(fileURLToPath(new URL("../../e2e/fixtures/roadmap", import.meta.url)))).files;
 
 /** The roadmap loaded from these files, as the app's draft starts out. */
@@ -160,7 +162,7 @@ describe("each item is written to the file it was loaded from", () => {
 
 describe("untouched lines stay as written", () => {
 
-  for (const [name, files] of [["roadmap/", shipped], ["the e2e fixture", fixture]] as const) {
+  for (const [name, files] of [["roadmap/ as shipped", shipped], ["the e2e fixture", fixture]] as const) {
     it(`in every file of ${name} when one field changes`, () => {
       const base = loaded(files);
       for (const b of base.boxes) {
@@ -233,7 +235,7 @@ describe("a file rewritten with what it already says", () => {
     settings: { ...s.settings, title: `${s.settings.title} (old)` },
   });
 
-  for (const [name, files] of [["roadmap/ (and its settings.yaml template)", shipped], ["the e2e fixture", fixture], ["roadmap/ with a BOM and CRLF line endings", bomCrlf(shipped)]] as const) {
+  for (const [name, files] of [["roadmap/ as shipped (and its settings.yaml template)", shipped], ["the e2e fixture", fixture], ["roadmap/ as shipped, with a BOM and CRLF line endings", bomCrlf(shipped)]] as const) {
     it(`comes out byte for byte the same, for every file of ${name}`, () => {
       const draft = loaded(files);
       expect(Object.keys(serializeChanges(files, draft, stale(draft))).sort()).toEqual(Object.keys(files).sort());

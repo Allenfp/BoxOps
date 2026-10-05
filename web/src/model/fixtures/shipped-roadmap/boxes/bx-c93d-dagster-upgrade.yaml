@@ -1,0 +1,11 @@
+id: bx-c93d-dagster-upgrade
+code: WQN
+title: Dagster 2.x upgrade
+lane: de-2
+start: 2026-09-14
+end: 2026-10-23
+type: maintenance
+status: at_risk
+engineers:
+  - jordan-diaz
+description: Blocked on sensor API changes.

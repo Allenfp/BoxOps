@@ -1,0 +1,13 @@
+id: analytics
+code: AN
+name: Analytics
+color: "#21a67a"
+order: 2
+lanes:
+  - id: an-1
+    fte: 1
+  - id: an-2
+    fte: 1
+  - id: an-3
+    name: Open req (Q1)
+    fte: 1

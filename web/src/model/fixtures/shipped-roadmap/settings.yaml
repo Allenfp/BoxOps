@@ -1,0 +1,26 @@
+# Global roadmap settings. Edited by hand or from the app.
+format: 1 # BoxOps data format; don't change it by hand
+title: BoxOps
+fiscal_year_start_month: 1 # 1 = calendar quarters; 2 = FY starts in February, etc.
+default_zoom: months # weeks | months | quarters
+types:
+  - id: project
+    name: Project
+    color: "#4f7cff"
+  - id: maintenance
+    name: Maintenance
+    color: "#8a94a6"
+  - id: research
+    name: Research
+    color: "#a35cf0"
+  - id: support
+    name: Support / On-call
+    color: "#e8913a"
+# Flags for boxes that need attention; most boxes have none.
+statuses:
+  - id: at_risk
+    name: At risk
+  - id: late
+    name: Late
+  - id: blocked
+    name: Blocked

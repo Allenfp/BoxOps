@@ -490,7 +490,10 @@ against data the new code wrote.
   change descriptions, layout and capacity, the report, the GitHub client,
   reader and save logic against the browser tests' fake GitHub, and the
   roadmap readers, git SHAs and `roadmap.json` against real git repositories
-  made in the temp folder.
+  made in the temp folder. Those that read a whole roadmap read fixed copies
+  (the browser tests' fixture, and `roadmap/` as shipped, in
+  `web/src/model/fixtures/shipped-roadmap/`), never the live `roadmap/`,
+  which saves may write any valid way.
 - **Browser tests** (Playwright, `web/e2e/`) run the production build in
   WebKit, Safari's engine, and all of them again in Chromium (Chrome, Edge)
   and Firefox. GitHub is faked by a stateful stand-in
