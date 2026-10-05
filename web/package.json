@@ -13,9 +13,9 @@
     "lint": "oxlint --deny-warnings",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "validate": "tsx scripts/validate.ts ../roadmap",
+    "validate": "tsx scripts/validate.ts",
     "e2e": "vite build && playwright test",
-    "report": "tsx scripts/report.ts ../roadmap"
+    "report": "tsx scripts/report.ts"
   },
   "dependencies": {
     "react": "^19.3.0",
