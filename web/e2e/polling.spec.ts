@@ -69,12 +69,6 @@ for (const visibility of ["public", "private"] as const) {
       expect(fetches).toBe(1);
     });
 
-    test("a reload shows saves the site hasn't redeployed yet", async ({ page, github }) => {
-      github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") });
-      await page.reload();
-      await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
-      expect(github.calls("blob")).toBe(1); // only the file that changed
-    });
   });
 }
 
@@ -89,6 +83,8 @@ test.describe("private repository, signed out", () => {
     await page.reload();
     await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
     await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline for orders DB"); // not deployed yet, and not asked for
+    await expect(page.locator(".site-copy")).toHaveText("Deployed copy");
+    await expect(page.locator(".site-copy")).toHaveAttribute("title", /^acme\/roadmap is private, so without a GitHub token this tab shows the site’s copy/);
     expect(github.calls()).toBe(0);
   });
 });

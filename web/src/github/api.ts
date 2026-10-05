@@ -213,6 +213,8 @@ export interface CreatedCommit {
 
 export interface ClientOptions {
   token: string | null;
+  /** Aborting it stops every call of this client, under way or later, as a timeout: a deadline for a whole read. */
+  signal?: AbortSignal;
   fetch?: typeof fetch;
   /** For tests: waiting between retries. */
   sleep?(ms: number): Promise<void>;
@@ -257,12 +259,14 @@ let busted = 0;
 
 export class GitHubClient {
   private readonly token: string | null;
+  private readonly signal?: AbortSignal;
   private readonly fetchImpl: typeof fetch;
   readonly sleep: (ms: number) => Promise<void>;
   readonly now: () => number;
 
   constructor(o: ClientOptions) {
     this.token = o.token || null;
+    this.signal = o.signal;
     this.fetchImpl = o.fetch ?? ((...args) => fetch(...args));
     this.sleep = o.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.now = o.now ?? (() => Date.now());
@@ -275,6 +279,7 @@ export class GitHubClient {
 
   private async send(c: Call): Promise<Reply> {
     if (typeof navigator !== "undefined" && navigator.onLine === false) throw new GitHubFailure("offline", "You’re offline.");
+    if (this.signal?.aborted) throw new GitHubFailure("timeout", "BoxOps stopped waiting for GitHub.", {}, c.mutation === true);
     const headers: Record<string, string> = {};
     if (c.url.startsWith(`${API}/`)) {
       headers.Accept = c.accept ?? "application/vnd.github+json";
@@ -285,6 +290,8 @@ export class GitHubClient {
     // setTimeout rather than AbortSignal.timeout(), so a fake clock (the browser tests') drives it.
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), c.timeout);
+    const stop = () => ctrl.abort();
+    this.signal?.addEventListener("abort", stop);
     try {
       const res = await this.fetchImpl(c.url, {
         method: c.method ?? "GET",
@@ -305,6 +312,7 @@ export class GitHubClient {
       );
     } finally {
       clearTimeout(timer);
+      this.signal?.removeEventListener("abort", stop);
     }
   }
 

@@ -49,6 +49,10 @@ export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibil
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("./?zoom=months");
     await expect(page.locator(".box").first()).toBeVisible();
+    // The deployed copy is painted first; then the app asks GitHub for newer saves (when it
+    // may: with a token, or a public repository). Let that start, so it can't take a failure
+    // a test sets up for its save.
+    if (signedIn || visibility === "public") await expect.poll(() => github.calls("ref")).toBe(1);
     await use(github);
     expect(errors, "uncaught page errors").toEqual([]);
     expect(github.forbidden, "calls GitHub would refuse, or a correct app never makes").toEqual([]);

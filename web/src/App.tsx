@@ -8,7 +8,8 @@ import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
 import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
-import { type Snapshot, canRead, fromBundle, readSnapshot, remember } from "./github/read";
+import { failureMessage } from "./github/messages";
+import { type Snapshot, type Source, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
 import { NewerSaves, SaveConflict, type SaveResult, type SaveStep, saveRoadmap } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyMenu";
@@ -22,7 +23,7 @@ import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
-import { type Bundle, readBundle } from "./model/bundle";
+import type { Bundle } from "./model/bundle";
 import { FORMAT } from "./model/format";
 import { type LoadResult, loadRoadmap } from "./model/load";
 import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
@@ -31,18 +32,28 @@ import { commitMessage, describeChanges } from "./model/summary";
 import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types";
 import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
+import { LoadProblem, PreviewToken, liveUrl } from "./components/LoadScreen";
+import { SiteError, fetchBundle } from "./site";
 
 interface Loaded extends LoadResult, Snapshot {
   /** Showing a branch other than the one this site was built from (`?ref=`). */
   preview: boolean;
 }
 
-type LoadState = { status: "loading" } | { status: "error"; message: string } | ({ status: "ready" } & Loaded);
+type LoadState =
+  | { status: "loading" }
+  /** The site's roadmap.json, or a `?ref=` branch, couldn't be read. */
+  | { status: "error"; title: string; message: string; detail?: string }
+  /** A `?ref=` preview of a private repository, and no token to read it with. */
+  | { status: "needs-token"; repo: string; branch: string; rejected: boolean }
+  | ({ status: "ready" } & Loaded);
 
 const ZOOM_LABEL: Record<ZoomLevel, string> = { weeks: "Weeks", months: "Months", quarters: "Quarters" };
 
 /** How often open tabs look for other people's saves. */
 const POLL_MS = 2 * 60_000;
+/** How long the load-time check for saves newer than the deployed copy may take; that copy is on screen meanwhile. */
+const FRESHNESS_MS = 4000;
 
 /** A save by someone else that just arrived in this tab. */
 interface RemoteUpdate {
@@ -71,35 +82,40 @@ function readUrlState(): { view?: ViewMode; zoom?: ZoomLevel; collapsed?: Set<st
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
-/** The site's own copy of the roadmap; rewritten by every deploy. `no-cache` revalidates, so an unchanged file costs a 304. */
-async function fetchBundle(): Promise<Bundle> {
-  const res = await fetch("roadmap.json", { cache: "no-cache" });
-  if (!res.ok) throw new Error(`roadmap.json: HTTP ${res.status}`);
-  return readBundle(await res.json());
+/** Why the site's roadmap.json couldn't be had, in words. */
+function siteProblem(e: unknown): Extract<LoadState, { status: "error" }> {
+  const title = "Couldn’t load the roadmap";
+  const detail = (e as Error).message;
+  if (!(e instanceof SiteError) || e.status === 0) {
+    return { status: "error", title, message: "This browser couldn’t reach the site. Check your connection, then try again.", detail };
+  }
+  if (e.status === 404) return { status: "error", title, message: "The site has no roadmap yet: it may be in the middle of a deploy. Try again in a minute.", detail };
+  if (e.status >= 400) return { status: "error", title, message: `The site answered with an error (HTTP ${e.status}). Try again in a minute.`, detail };
+  return { status: "error", title, message: "The site’s roadmap.json couldn’t be read.", detail };
 }
 
-async function load(bundle: Bundle, seen: ReadonlySet<string>): Promise<Loaded> {
-  const base = remember(await fromBundle(bundle));
-  const gh = new GitHubClient({ token: getToken(base.source.repo) });
-  const ref = new URLSearchParams(window.location.search).get("ref");
-  if (ref && ref !== base.source.branch) {
-    if (!isBranchName(ref)) throw new Error(`“${ref}” isn’t a branch name.`);
-    return fromSnapshot(await readSnapshot(gh, base, { branch: ref }), true);
-  }
-
-  // The site is rebuilt a minute or so after each save. If someone saved since
-  // this build, read the newer roadmap from GitHub so nobody edits a stale copy.
-  // (Skipped for a bundle built from files on disk: `npm run dev`, or a local
-  // build with uncommitted roadmap/ edits; and for a private repository when
-  // there's no token, which would make a call that can only fail.)
-  if (!base.source.local && canRead(base.source, gh)) {
-    try {
-      return fromSnapshot(await readSnapshot(gh, base, { seen }));
-    } catch {
-      // Fall back to the bundled copy.
+/** A `?ref=` branch, read-only, read from GitHub (only files that differ from the deployed copy are fetched). */
+async function loadPreview(base: Snapshot, branch: string): Promise<Exclude<LoadState, { status: "loading" }>> {
+  const { repo } = base.source;
+  const title = `Couldn’t show branch “${branch}”`;
+  if (!isBranchName(branch)) return { status: "error", title, message: `“${branch}” isn’t a branch name.` };
+  const gh = new GitHubClient({ token: getToken(repo) });
+  // A private repository: ask for a token rather than make a call that can only fail.
+  if (!canRead(base.source, gh)) return { status: "needs-token", repo, branch, rejected: false };
+  try {
+    return { status: "ready", ...fromSnapshot(await readSnapshot(gh, base, { branch }), true) };
+  } catch (e) {
+    if (e instanceof GitHubFailure && e.kind === "unauthorized") {
+      setToken(repo, null);
+      return base.source.private ? { status: "needs-token", repo, branch, rejected: true } : loadPreview(base, branch);
     }
+    if (!(e instanceof GitHubFailure)) return { status: "error", title, message: (e as Error).message };
+    if (e.kind === "offline") {
+      return { status: "error", title, message: "Couldn’t reach GitHub: you may be offline, or a network filter may be blocking api.github.com." };
+    }
+    if (e.kind === "timeout") return { status: "error", title, message: "GitHub didn’t answer in time. Try again in a moment." };
+    return { status: "error", title, message: failureMessage(e, { repo, branch }), detail: `GitHub said: “${e.message}”` };
   }
-  return fromSnapshot(base);
 }
 
 /** The ignored files (a snapshot lists them) are reported as unexpected. */
@@ -109,6 +125,8 @@ function fromSnapshot(s: Snapshot, preview = false): Loaded {
 
 export function App() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  /** Bumped by Try again (and a token for a preview): load again. */
+  const [attempt, setAttempt] = useState(0);
   const [lastSave, setLastSave] = useState<{ commit: string; url: string } | null>(null);
   const [remote, setRemote] = useState<RemoteUpdate | null>(null);
   /**
@@ -116,18 +134,74 @@ export function App() {
    * lags behind saves, so a bundle we've seen is old news, never an update.
    */
   const [seen] = useState(() => new Set<string>());
+  /** Where what's on screen came from. */
+  const onScreen = useRef<Source | null>(null);
   const saving = useRef(false);
 
+  const show = useCallback(
+    (loaded: Loaded) => {
+      onScreen.current = loaded.source;
+      seen.add(loaded.source.commit);
+      setState({ status: "ready", ...loaded });
+    },
+    [seen],
+  );
+  const retry = useCallback(() => {
+    setState({ status: "loading" });
+    setAttempt((n) => n + 1);
+  }, []);
+
   useEffect(() => {
-    fetchBundle()
-      .then(async (bundle) => {
-        seen.add(bundle.source.commit);
-        const loaded = await load(bundle, seen);
-        seen.add(loaded.source.commit);
-        setState({ status: "ready", ...loaded });
-      })
-      .catch((e: Error) => setState({ status: "error", message: e.message }));
-  }, [seen]);
+    let live = true;
+    const deadline = new AbortController();
+    void (async () => {
+      let bundle: Bundle;
+      try {
+        bundle = await fetchBundle();
+      } catch (e) {
+        if (live) setState(siteProblem(e));
+        return;
+      }
+      const base = remember(await fromBundle(bundle));
+      if (!live) return;
+      seen.add(base.source.commit);
+      const ref = new URLSearchParams(window.location.search).get("ref");
+      if (ref && ref !== base.source.branch) {
+        const loaded = await loadPreview(base, ref);
+        if (live) setState(loaded);
+        return;
+      }
+
+      // Paint the deployed copy at once. The site is redeployed a minute or so
+      // after each save, so then, in the background and for a few seconds at
+      // most, ask GitHub whether anyone saved since this deploy, and bring
+      // their saves in like any other. Never for a copy built from files on
+      // disk (read-only), nor for a private repository without a token (a call
+      // that could only fail: viewers see the deployed copy).
+      show(fromSnapshot(base));
+      if (base.source.local) return;
+      const gh = new GitHubClient({ token: getToken(base.source.repo), signal: deadline.signal });
+      if (!canRead(base.source, gh)) return;
+      const timer = setTimeout(() => deadline.abort(), FRESHNESS_MS);
+      try {
+        const fresh = await readSnapshot(gh, base, { seen });
+        // Not once the tab has moved on (a poll, a save) or while it's saving.
+        if (!live || fresh === base || saving.current || onScreen.current?.commit !== base.source.commit) return;
+        show(fromSnapshot(fresh));
+        // A commit to other files changes nothing on screen: no notice.
+        if (!sameBlobs(fresh.blobs, base.blobs)) setRemote({ author: fresh.source.author, subject: fresh.source.subject });
+      } catch (e) {
+        // The deployed copy stays. A token GitHub rejects is forgotten; the next save asks for one.
+        if (e instanceof GitHubFailure && e.kind === "unauthorized") setToken(base.source.repo, null);
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
+    return () => {
+      live = false;
+      deadline.abort();
+    };
+  }, [attempt, seen, show]);
 
   // Look for other people's saves every couple of minutes while the tab is visible.
   const pollable = state.status === "ready" && !state.preview && !state.source.local;
@@ -141,8 +215,7 @@ export function App() {
         const bundle = await fetchBundle();
         const commit = bundle.source.commit;
         if (seen.has(commit) || saving.current) return;
-        seen.add(commit);
-        setState({ status: "ready", ...fromSnapshot(remember(await fromBundle(bundle))) });
+        show(fromSnapshot(remember(await fromBundle(bundle))));
         setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
         // Offline or mid-deploy: try again next time.
@@ -157,10 +230,21 @@ export function App() {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [pollable, seen]);
+  }, [pollable, seen, show]);
 
   if (state.status === "loading") return <div className="splash">Loading roadmap…</div>;
-  if (state.status === "error") return <div className="splash error">Couldn’t load the roadmap: {state.message}</div>;
+  if (state.status === "error") return <LoadProblem {...state} onRetry={retry} />;
+  if (state.status === "needs-token") {
+    return (
+      <PreviewToken
+        {...state}
+        onSubmit={(token) => {
+          setToken(state.repo, token);
+          retry();
+        }}
+      />
+    );
+  }
   return (
     <RoadmapView
       {...state}
@@ -170,14 +254,10 @@ export function App() {
       onDismissSave={() => setLastSave(null)}
       onDismissRemote={() => setRemote(null)}
       onSavingChange={(busy) => (saving.current = busy)}
-      onReload={(snapshot) => {
-        seen.add(snapshot.source.commit);
-        setState({ status: "ready", ...fromSnapshot(snapshot) });
-      }}
+      onReload={(snapshot) => show(fromSnapshot(snapshot))}
       onSaved={(result: SaveResult) => {
         if (result.status === "saved") seen.add(result.parent);
-        seen.add(result.snapshot.source.commit);
-        setState({ status: "ready", ...fromSnapshot(result.snapshot) });
+        show(fromSnapshot(result.snapshot));
         if (result.status !== "noop") setLastSave({ commit: result.commit, url: result.url });
         setRemote(null);
       }}
@@ -222,13 +302,25 @@ interface ViewProps extends Loaded {
   onSaved(result: SaveResult): void;
 }
 
+const two = (n: number) => String(n).padStart(2, "0");
+/** An ISO time as "2026-10-02 16:05", in this browser's time zone. */
+function stamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
 /** `roadmap/people.yaml, line 12: …` */
 const issueText = (i: Issue) => `roadmap/${i.path}${i.line ? `, line ${i.line}` : ""}: ${i.message}`;
 
 function RoadmapView(props: ViewProps) {
   const { roadmap: base, issues, files, source, lastSave, remote } = props;
-  // A roadmap in another data format is shown read-only, like a branch preview.
-  const preview = props.preview || props.formatStatus !== "current";
+  // Read-only, like a branch preview: a roadmap in another data format, a copy
+  // built from files on disk (`npm run dev`, or a build with uncommitted
+  // roadmap/ changes), and a site built not to save.
+  const preview = props.preview || props.formatStatus !== "current" || !!source.local || source.readonly;
+  // A private repository and no token: no call to GitHub is made, so this is the deployed copy.
+  const deployedCopy = source.private && !preview && !getToken(source.repo);
   const { onDismissSave, onDismissRemote, onSavingChange, onReload, onSaved } = props;
   const initial = useMemo(readUrlState, []);
   const prefs = usePrefs();
@@ -671,12 +763,6 @@ function RoadmapView(props: ViewProps) {
     { title: "Problems in the roadmap files", items: issues.map((i) => ({ text: issueText(i) })) },
   ];
 
-  const mainUrl = () => {
-    const q = new URLSearchParams(window.location.search);
-    q.delete("ref");
-    return `?${q}`;
-  };
-
   return (
     <div className={`app density-${prefs.density}`}>
       <header className="toolbar">
@@ -717,6 +803,19 @@ function RoadmapView(props: ViewProps) {
         </div>
 
         <div className="toolbar-zone end">
+          {deployedCopy && (
+            <span
+              className="hint site-copy"
+              tabIndex={0}
+              title={
+                `${source.repo} is private, so without a GitHub token this tab shows the site’s copy` +
+                `${source.date ? `, deployed from a commit of ${stamp(source.date)}` : ""}. Others’ saves appear a minute or ` +
+                "two after each one, once the site has redeployed. Saving asks for a token and checks for newer saves first."
+              }
+            >
+              Deployed copy
+            </span>
+          )}
           <WarningsMenu groups={warningGroups} />
           {!preview && (
             <div className="draft-status">
@@ -781,9 +880,16 @@ function RoadmapView(props: ViewProps) {
 
       {props.preview && (
         <div className="banner">
-          Previewing branch <code>{source.branch}</code> (read-only). <a href={mainUrl()}>Back to the live roadmap</a>
+          Previewing branch <code>{source.branch}</code> (read-only). <a href={liveUrl()}>Back to the live roadmap</a>
         </div>
       )}
+      {source.local && !props.preview && (
+        <div className="banner">
+          Read-only: this copy was built from the files on disk (<code>npm run dev</code>, or a build with uncommitted
+          changes in <code>roadmap/</code>), so it can’t save. Edit the YAML files, or save from the deployed site.
+        </div>
+      )}
+      {source.readonly && !source.local && !props.preview && <div className="banner">Read-only: this site doesn’t save.</div>}
       {props.formatStatus !== "current" && (
         <div className="banner">
           {props.formatStatus === "older" ? (

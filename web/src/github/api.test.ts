@@ -106,6 +106,17 @@ describe("requests", () => {
     expect(await save).toMatchObject({ kind: "timeout", ambiguous: true });
   });
 
+  it("stop every call, under way or later, once the client's signal aborts (a deadline)", async () => {
+    const ctrl = new AbortController();
+    const f = fake(hang);
+    const gh = new GitHubClient({ token: "t", fetch: f.fetchImpl, signal: ctrl.signal });
+    const read = gh.head("acme/roadmap", "main").catch((e) => e);
+    ctrl.abort();
+    expect(await read).toMatchObject({ kind: "timeout", ambiguous: false });
+    await expect(gh.commit("acme/roadmap", SHA)).rejects.toMatchObject({ kind: "timeout" });
+    expect(f.calls).toHaveLength(1);
+  });
+
   it("report a network failure as offline; after a mutation, as ambiguous", async () => {
     const gh = new GitHubClient({ token: "t", fetch: fake(() => Promise.reject(new TypeError("Load failed"))).fetchImpl });
     await expect(gh.head("acme/roadmap", "main")).rejects.toMatchObject({ kind: "offline", ambiguous: false });

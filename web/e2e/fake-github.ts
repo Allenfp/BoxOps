@@ -134,6 +134,8 @@ export class FakeGitHub {
   signCommits = true;
   /** Truncate recursive tree listings ("recursive"), or every listing below the root ("all"). */
   truncate: "none" | "recursive" | "all" = "none";
+  /** Changes to every roadmap.json the site serves: an app update, notices, a build from files on disk. */
+  patchBundle?: (b: Bundle) => Bundle;
   /** Git modes for paths from the repository root (a symlink, a submodule); 100644 otherwise. */
   modes: Record<string, GitFileMode> = {};
   /** Every call, in order. */
@@ -217,7 +219,7 @@ export class FakeGitHub {
     const folder = await hashFolder(c.files);
     const history: string[] = [];
     for (let at: string | null = commit; at && history.length < 50; at = this.commits[at].parent) history.push(at);
-    return assembleBundle(
+    const bundle = assembleBundle(
       APP,
       {
         repo: REPO,
@@ -235,6 +237,7 @@ export class FakeGitHub {
       },
       folder,
     );
+    return this.patchBundle ? this.patchBundle(bundle) : bundle;
   }
 
   async install(page: Page): Promise<void> {

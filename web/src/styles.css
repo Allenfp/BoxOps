@@ -72,7 +72,7 @@ button:hover {
   color: var(--warn);
 }
 
-/* The error boundary's screen (components/ErrorBoundary.tsx). */
+/* The error boundary's screen (components/ErrorBoundary.tsx), and a roadmap that couldn't load (LoadScreen.tsx). */
 .crash {
   max-width: 640px;
   padding: 48px 24px;
@@ -92,9 +92,18 @@ button:hover {
 }
 .crash-actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 8px 16px;
   flex-wrap: wrap;
   margin-top: 16px;
+}
+.crash-actions a {
+  color: var(--accent);
+  font-weight: 600;
+}
+/* A preview of a private repository asks for a token on the page itself. */
+.save-dialog.load-token {
+  margin: 48px auto;
 }
 
 .app {
@@ -778,6 +787,12 @@ button.collapse-all:hover {
 
 .today-button {
   color: var(--text);
+}
+
+/* A private repository without a token shows the deployed copy (no GitHub calls). */
+.site-copy {
+  white-space: nowrap;
+  cursor: help;
 }
 
 /* What a save is doing, beside the Save button while it runs. */
