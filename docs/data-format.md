@@ -166,7 +166,7 @@ links:
 | `fte` | no | 0.5, 1, 1.5 or 2. Default 1, so it's usually left out for 1-FTE boxes. |
 | `engineers` | no | Ids from `people.yaml`. Usually one engineer per started FTE (one for 0.5–1, two for 1.5–2). |
 | `relations` | no | Rules relating this box to others: a list of `type` (below) and `box` (the other box's 3-character code; the full `DE-M8T` form is also accepted). |
-| `epic` | no | `http(s)://` link to the epic or ticket. If it's a Jira link (`/browse/DATA-42`, `?selectedIssue=DATA-42`), the timeline and table label the box `DATA-42` instead of its code; the editor still shows the code. |
+| `epic` | no | `http(s)://` link to the epic or ticket. If it's a Jira issue link (`/browse/DATA-42`, `?selectedIssue=DATA-42` or `/projects/DATA/issues/DATA-42`) or a Linear one (`linear.app/<team>/issue/ENG-12`), the timeline and table label the box `DATA-42` instead of its code; the editor still shows the code. Other links (a GitHub repo, a wiki page) are never taken for an issue. |
 | `description` | no | Free text; may span lines. |
 | `tags`, `links` | no | Lists of text; each link an `http(s)://` link. |
 

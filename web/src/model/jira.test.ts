@@ -17,6 +17,18 @@ describe("jiraKey", () => {
     expect(jiraKey("https://acme.atlassian.net/jira/software/projects/DATA/boards/4")).toBeUndefined();
   });
 
+  it("labels only Jira's (and Linear's) issue links, not any link that ends in something key-shaped", () => {
+    expect(jiraKey("https://github.com/acme/api-2")).toBeUndefined();
+    expect(jiraKey("https://acme.atlassian.net/wiki/spaces/ENG/pages/123/Q3-2026")).toBeUndefined();
+    expect(jiraKey("https://reports.acme.com/reports/FY-2027")).toBeUndefined();
+    expect(jiraKey("https://www.rfc-editor.org/rfc/RFC-9110")).toBeUndefined();
+    expect(jiraKey("https://gitlab.acme.com/group/repo/-/issues/ABC-1")).toBeUndefined();
+    // An issue path names its project: a key from another one isn't it.
+    expect(jiraKey("https://acme.atlassian.net/jira/software/projects/DATA/issues/OPS-9")).toBeUndefined();
+    expect(jiraKey("https://linear.app/acme/issue/ENG-12/fix-the-thing")).toBe("ENG-12");
+    expect(jiraKey("https://example.com/acme/issue/ENG-12")).toBeUndefined();
+  });
+
   it("never throws on a malformed %-escape, and still finds a key beside one", () => {
     expect(jiraKey("https://x.com/100%")).toBeUndefined();
     expect(jiraKey("https://x.com/%")).toBeUndefined();
