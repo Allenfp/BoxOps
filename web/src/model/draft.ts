@@ -350,6 +350,14 @@ export interface History {
   conflicts: string[];
   /** What a save of ours just wrote: the roadmap that comes back is rebased from this, not from `base`. */
   saved?: DraftState;
+  /**
+   * The draft holds changes this page view didn't make: restored from
+   * storage (this tab's draft from before a reload, or one a gone tab left),
+   * which any page on this origin can write. The first save lists them for
+   * review; only that review ends it, as edits, undo and rebases keep what
+   * was restored.
+   */
+  fromStorage?: boolean;
 }
 
 export type HistoryAction =
@@ -366,7 +374,9 @@ export type HistoryAction =
   /** Our save went through, writing `draft`. */
   | { type: "saved"; draft: DraftState }
   /** Items restored from a draft another tab left (by key; undefined: removed), and its clashes. */
-  | { type: "adopt"; values: ReadonlyMap<string, unknown>; conflicts: string[] };
+  | { type: "adopt"; values: ReadonlyMap<string, unknown>; conflicts: string[] }
+  /** The user saw the changes listed and chose to save them (see `fromStorage`). */
+  | { type: "reviewed" };
 
 const UNDO_STEPS = 200;
 
@@ -375,10 +385,11 @@ export function liveConflicts(keys: string[], base: DraftState, draft: DraftStat
   return [...new Set(keys)].filter((k) => !sameOrBothMissing(entityOf(base, k), entityOf(draft, k)));
 }
 
-/** A draft of `base`: unchanged, or one restored from storage. */
+/** A draft of `base`: unchanged, or one restored from storage (with changes left in it, `fromStorage`). */
 export function startHistory(base: DraftState, restored?: { draft: DraftState; conflicts: string[] }): History {
   const present = restored?.draft ?? base;
-  return { base, past: [], present, future: [], conflicts: liveConflicts(restored?.conflicts ?? [], base, present) };
+  const conflicts = liveConflicts(restored?.conflicts ?? [], base, present);
+  return { base, past: [], present, future: [], conflicts, ...(restored && diffDraft(base, present).count && { fromStorage: true }) };
 }
 
 export function reduceHistory(h: History, a: HistoryAction): History {
@@ -390,7 +401,8 @@ export function reduceHistory(h: History, a: HistoryAction): History {
       // own save, the old version is what it wrote: an edit made while it ran
       // is ours, not a clash with our own commit, and an undo made then stays.
       const r = rebaseDraft(h.saved ?? h.base, h.present, a.base);
-      return { base: a.base, past: [], present: r.draft, future: [], conflicts: liveConflicts([...h.conflicts, ...r.conflicts], a.base, r.draft) };
+      const conflicts = liveConflicts([...h.conflicts, ...r.conflicts], a.base, r.draft);
+      return { base: a.base, past: [], present: r.draft, future: [], conflicts, ...(h.fromStorage && { fromStorage: true }) };
     }
     case "edit": {
       const next = a.update(h.present);
@@ -449,8 +461,11 @@ export function reduceHistory(h: History, a: HistoryAction): History {
         future: [],
         lastKey: undefined,
         conflicts: liveConflicts([...h.conflicts, ...a.conflicts], h.base, next),
+        fromStorage: true,
       };
     }
+    case "reviewed":
+      return h.fromStorage ? { ...h, fromStorage: undefined } : h;
   }
 }
 
@@ -1036,6 +1051,8 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
   const saved = useCallback((draft: DraftState) => dispatch({ type: "saved", draft }), [dispatch]);
   /** Ends typing coalescing, e.g. when the editor closes. */
   const checkpoint = useCallback(() => dispatch({ type: "checkpoint" }), [dispatch]);
+  /** The user saw the changes restored from storage listed, and chose to save them. */
+  const reviewed = useCallback(() => dispatch({ type: "reviewed" }), [dispatch]);
 
   /** Change team settings; `key` groups keystrokes in one field into a single undo step. */
   const updateSettings = useCallback(
@@ -1074,6 +1091,9 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     resolve,
     saved,
     checkpoint,
+    /** Changes restored from storage, not made in this page view, are in the draft: list them before the first save. */
+    fromStorage: !!history.fromStorage,
+    reviewed,
     /** Where this tab keeps its draft (the crash screen offers it). */
     storageKey,
     kept,

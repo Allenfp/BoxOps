@@ -896,8 +896,12 @@ function RoadmapView(props: ViewProps) {
     return `Department “${draft.departments.find((d) => d.id === id)?.name ?? id}” (lanes)`;
   };
 
-  /** `keep`: the user chose whose version of clashing items to keep (so no review first). `token`: just pasted. */
-  const save = async (opts: Resume & { token?: string } = {}): Promise<void> => {
+  /**
+   * `keep`: the user chose whose version of clashing items to keep (so no
+   * review first). `token`: just pasted. `reviewed`: the user saw the changes
+   * restored from storage listed and chose to save them.
+   */
+  const save = async (opts: Resume & { token?: string; reviewed?: boolean } = {}): Promise<void> => {
     // A pasted token is kept straight away, before anything below can stop
     // the save (a clash that came in while the token form was open, say), so
     // retries and the re-save after a choice never ask for it again; only a
@@ -951,6 +955,10 @@ function RoadmapView(props: ViewProps) {
       if (e instanceof s.UnsafeWrite) return setProblem({ kind: "unwritable", files: e.files });
       return setProblem({ kind: "error", message: (e as Error).message });
     }
+    // Changes this page view didn't make, restored from storage that any page
+    // on this origin (every Pages site of the owner) can write: the first save
+    // lists them, so nothing is committed in the user's name unseen. ⌘S too.
+    if (draft.fromStorage && !opts.reviewed) return setProblem({ kind: "review", resume });
     const token = opts.token ?? getToken(source.repo);
     // The choice just made comes back with the token, so it isn't asked again.
     if (!token) return setProblem({ kind: "token", resume });
@@ -1651,6 +1659,11 @@ function RoadmapView(props: ViewProps) {
             onSaveNow={() => {
               setProblem(null);
               void save();
+            }}
+            onReviewed={() => {
+              setProblem(null);
+              draft.reviewed();
+              void save({ ...(problem.kind === "review" ? problem.resume : {}), reviewed: true });
             }}
             onReloadApp={() => reloadApp("")}
             onRetry={() => {

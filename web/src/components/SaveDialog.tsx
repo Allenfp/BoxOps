@@ -14,6 +14,8 @@ export interface Resume {
 /** Why the dialog is open. Saving itself needs no dialog; this appears only when it needs the user. */
 export type SaveProblem =
   | { kind: "token"; rejected?: boolean; resume?: Resume }
+  /** The draft holds changes restored from storage, not made in this page view: listed before they're first saved. */
+  | { kind: "review"; resume?: Resume }
   | { kind: "invalid"; issues: string[] }
   /** The save would write files the app couldn't fully read; fixing them is a hand edit. */
   | { kind: "unwritable"; files: { path: string; problems: string[] }[] }
@@ -46,6 +48,8 @@ interface Props {
   onResolve(keep: "mine" | "theirs", keys: string[]): void;
   /** Save after reviewing others' changes (no clashes). */
   onSaveNow(): void;
+  /** Save the changes restored from storage, now the user has seen them listed. */
+  onReviewed(): void;
   onRetry(): void;
   /** Ask for another token (the one kept doesn't do). */
   onNewToken(): void;
@@ -89,7 +93,7 @@ function Bolded({ text }: { text: string }) {
   );
 }
 
-export function SaveDialog({ problem, source, lines, busy, kept, onSubmitToken, onResolve, onSaveNow, onRetry, onNewToken, onReloadApp, onClose }: Props) {
+export function SaveDialog({ problem, source, lines, busy, kept, onSubmitToken, onResolve, onSaveNow, onReviewed, onRetry, onNewToken, onReloadApp, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = dialogRef.current;
@@ -105,6 +109,7 @@ export function SaveDialog({ problem, source, lines, busy, kept, onSubmitToken, 
       ? githubTitle(problem.failure)
       : {
           token: "Connect to GitHub to save",
+          review: "Check these changes before saving",
           invalid: "Can’t save yet",
           unwritable: "Can’t save yet",
           conflict: "Someone else changed the same items",
@@ -147,6 +152,24 @@ export function SaveDialog({ problem, source, lines, busy, kept, onSubmitToken, 
         >
           <ChangeList lines={lines} />
         </TokenForm>
+      )}
+
+      {problem.kind === "review" && (
+        <>
+          <p className="lead">
+            These unsaved changes weren’t made in this page: they were kept in this browser, from before a reload or
+            from another tab. Saving writes them to <code>{source.branch}</code> of <strong>{source.repo}</strong> as
+            you, so check they’re yours:
+          </p>
+          <Lines lines={lines} />
+          <p className="hint">If any aren’t yours, go back and discard them.</p>
+          <footer className="dialog-foot">
+            <button onClick={onClose}>Back to editing</button>
+            <button className="primary" onClick={onReviewed}>
+              Save {lines.length} change{lines.length === 1 ? "" : "s"}
+            </button>
+          </footer>
+        </>
       )}
 
       {problem.kind === "invalid" && (
@@ -418,22 +441,29 @@ function Updated({
   );
 }
 
+/** Changes, one per line, as the commit message lists them. */
+function Lines({ lines }: { lines: ChangeLine[] }) {
+  return (
+    <ul className="change-list">
+      {lines.map((l, i) => (
+        <li key={i}>
+          <span className={`kind kind-${l.kind}`}>{KIND_LABEL[l.kind]}</span>
+          <span>
+            <Bolded text={l.text} />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ChangeList({ lines }: { lines: ChangeLine[] }) {
   return (
     <details className="files">
       <summary>
         {lines.length} change{lines.length === 1 ? "" : "s"} to save
       </summary>
-      <ul className="change-list">
-        {lines.map((l, i) => (
-          <li key={i}>
-            <span className={`kind kind-${l.kind}`}>{KIND_LABEL[l.kind]}</span>
-            <span>
-              <Bolded text={l.text} />
-            </span>
-          </li>
-        ))}
-      </ul>
+      <Lines lines={lines} />
     </details>
   );
 }

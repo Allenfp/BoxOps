@@ -262,6 +262,13 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
   The single key every tab shared before 0.1.0 moves over once, and is
   offered like one left by a tab that's gone (a tab still running the older
   BoxOps may have it open), with no time: it never said when it was written.
+- **Restored changes are listed before they're saved.** Changes this page
+  view didn't make, restored from storage (this tab's draft after a reload,
+  or a gone tab's through Restore), are listed on the first save, ⌘S
+  included: every project site on `<owner>.github.io` shares one origin, so
+  another site's script could have written them. Back to editing saves
+  nothing; Save (with the count) saves them, and later saves go straight
+  through. Edits, undo and others' saves don't end it; only that choice does.
 - **Other versions.** A draft in another data format, or one that can't be
   read (said so: not JSON, or broken), is never opened: "Download my unsaved
   edits (JSON)" or Discard.
@@ -276,7 +283,8 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    lossy file (one the loader left part of out): writing it would delete what
    was left out, so the user is asked to fix the file first. Deleting a box
    or department is blocked the same way while a skipped copy of its file
-   (`x.yml` beside `x.yaml`) would load in its place.
+   (`x.yml` beside `x.yaml`) would load in its place. Changes restored from
+   storage are then listed for the user to confirm, once (see above).
 2. **Token.** The first save asks for a token. The form links to GitHub's
    new-token page filled in for this repository (`target_name` = its owner,
    Contents: write) and lists what to check there: Resource owner shows the

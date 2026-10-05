@@ -44,13 +44,26 @@ test("each tab keeps its own draft: another tab polling, saving and discarding l
   await expect.poll(() => boxDates(page, CDC)).toBe(cdc);
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
 
-  // Once it's saved, the other tab's notice goes.
+  // Restored, not made in this page: listed once before it's saved. Once it's saved, the other tab's notice goes.
   await save(page);
+  await reviewed(page, ["Dagster 2.x upgrade"]);
   await expect(toolbar(page)).toContainText("No changes");
   expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
   await expect(notice).toHaveCount(0);
   expect(await storedDrafts(page)).toEqual({});
 });
+
+/**
+ * The save dialog lists changes restored from storage (not made in this page)
+ * before saving them: check it lists these, one per line, then save them.
+ */
+async function reviewed(page: Page, lines: string[]) {
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("Check these changes before saving");
+  await expect(dialog.locator(".change-list li")).toHaveCount(lines.length);
+  await expect(dialog.locator(".change-list li")).toContainText(lines);
+  await dialog.getByRole("button", { name: `Save ${lines.length} change${lines.length === 1 ? "" : "s"}` }).click();
+}
 
 /** A tab edits, then closes without a trace of closing; returns another tab opened 10 minutes later. */
 async function leaveDraft(page: Page, github: Parameters<typeof openTab>[1]): Promise<Page> {
@@ -94,6 +107,44 @@ test("a tab that closes leaves its draft to the roadmap's other tabs at once: of
   await offer.getByRole("button", { name: "Restore" }).click();
   await expect(toolbar(other)).toContainText("Save · 1 change");
   await expect.poll(() => boxDates(other, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+  // Changes this page didn't make are listed before they're saved.
+  await save(other);
+  await reviewed(other, ["Dagster 2.x upgrade"]);
+  await expect(toolbar(other)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+});
+
+test("a draft another site on this origin rewrote is listed before it's saved: ⌘S alone never commits it", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  await stored(page);
+  // Every Pages site of the owner shares this origin, so its scripts can rewrite this tab's draft.
+  await page.evaluate((id) => {
+    const key = Object.keys(localStorage).find((k) => k.startsWith("boxops-draft:"))!;
+    const draft = JSON.parse(localStorage.getItem(key)!);
+    draft.items[`box:${id}`].now.title = "Planted title";
+    localStorage.setItem(key, JSON.stringify(draft));
+  }, DAGSTER);
+  await page.reload();
+  await expect(boxTitle(page, DAGSTER)).toHaveText("Planted title");
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("Check these changes before saving");
+  await expect(dialog).toContainText("weren’t made in this page: they were kept in this browser");
+  await expect(dialog.locator(".change-list")).toContainText("Planted title");
+  await dialog.getByRole("button", { name: "Back to editing" }).click();
+  await expect(dialog).toHaveCount(0);
+  // Asked again until the user chooses to save them.
+  await save(page);
+  await expect(dialog.locator("h2")).toHaveText("Check these changes before saving");
+  expect([github.calls("graphql"), github.head]).toEqual([0, github.root]);
+  await dialog.getByRole("button", { name: "Save 1 change" }).click();
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("title: Planted title");
+  // Once seen, later saves go straight through.
+  await dragDays(page, CDC, 5);
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.calls("graphql")).toBe(2);
 });
 
 test("a draft on offer is counted again when others' saves come in: what they saved isn't offered", async ({ page, github }) => {

@@ -244,6 +244,28 @@ describe("clashes", () => {
     const draft = state([box("a", { title: "A mine" }), box("b")]);
     expect(startHistory(base, { draft, conflicts: ["box:a", "box:b", "box:a"] }).conflicts).toEqual(["box:a"]);
   });
+
+  it("changes restored from storage stay marked for review until it's done: edits, undo, saves and rebases keep the mark", () => {
+    const base = state([box("a"), box("b")]);
+    const planted = state([box("a", { title: "Planted" }), box("b")]);
+    expect(startHistory(base).fromStorage).toBeFalsy();
+    expect(startHistory(base, { draft: base, conflicts: [] }).fromStorage).toBeFalsy(); // nothing left in it to save
+    let h = startHistory(base, { draft: planted, conflicts: [] });
+    expect(h.fromStorage).toBe(true);
+    // A fresh edit, or undoing it, leaves what was restored in the draft.
+    h = reduceHistory(edit(h, "b", { title: "B mine" }), { type: "undo" });
+    expect(h.fromStorage).toBe(true);
+    // Nor does someone else's save coming in, or one of ours under way before a restore going through.
+    h = reduceHistory(h, { type: "rebase", base: state([box("a"), box("b", { status: "done" })]) });
+    expect([h.fromStorage, h.present.boxes[0].title]).toEqual([true, "Planted"]);
+    expect(reduceHistory(h, { type: "saved", draft: h.present }).fromStorage).toBe(true);
+    h = reduceHistory(h, { type: "reviewed" });
+    expect(h.fromStorage).toBeFalsy();
+    expect(edit(h, "b", { title: "B mine" }).fromStorage).toBeFalsy();
+    // Restoring a draft a gone tab left marks it again.
+    h = reduceHistory(h, { type: "adopt", values: new Map([["box:b", box("b", { title: "Left behind" })]]), conflicts: [] });
+    expect([h.fromStorage, h.present.boxes[1].title]).toEqual([true, "Left behind"]);
+  });
 });
 
 describe("stored drafts", () => {
