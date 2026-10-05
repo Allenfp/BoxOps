@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { DAGSTER, boxFile, expect, focusApp, save, test, toolbar } from "./helpers";
+import { DAGSTER, boxFile, expect, focusApp, pollNow, save, test, toolbar } from "./helpers";
 
 const editor = (page: Page) => page.locator("dialog.dept-editor[open]");
 const deptNames = (page: Page) => page.locator(".dept-label .dept-name").allInnerTexts();
@@ -70,6 +70,8 @@ test("edits a department from the table: rename, recolour, reorder, add a lane",
   await editor(page).getByRole("button", { name: "Done" }).click();
 
   await expect(page.locator(".group-toggle .dept-name")).toHaveText(["Analytics & BI", "Data Engineering", "ML Platform"]);
+  // Counted as the save lists them, a line each: two departments changed, but four changes.
+  await expect(toolbar(page)).toContainText("Save · 4 changes");
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
   const file = github.file("departments/analytics.yaml")!;
@@ -79,9 +81,27 @@ test("edits a department from the table: rename, recolour, reorder, add a lane",
   expect(file).toContain("  - id: an-4\n");
   expect(github.file("departments/data-eng.yaml")).toContain("order: 2\n");
   const message = github.headCommit().message;
+  expect(message.split("\n")[0]).toBe("Roadmap: 4 changes");
   expect(message).toContain("Renamed department Analytics to Analytics & BI");
+  expect(message).toContain("Changed the colour of Analytics & BI");
   expect(message).toContain("Added lane FTE 4 (1 FTE) to Analytics & BI");
   expect(message).toContain("Reordered departments");
+});
+
+test("a new department doesn't take the name of a department file the app couldn't read", async ({ page, github }) => {
+  // Someone pushes a department file that doesn't parse: saving over it would be refused.
+  const broken = "id: platform\ncode: PL\nname: [Platform\n";
+  github.deploy(github.otherSave({ "departments/platform.yml": () => broken }));
+  await pollNow(page);
+  await page.getByRole("button", { name: "Add department" }).click();
+  await editor(page).getByLabel("Department name").fill("Platform");
+  await editor(page).getByRole("button", { name: "Add department" }).click();
+  await editor(page).getByRole("button", { name: "Done" }).click();
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  const added = github.file("departments/platform-2.yaml")!;
+  expect(added).toMatch(/^id: platform-2\ncode: (?!PL\n)[A-Z][A-Z0-9]{1,3}\nname: Platform\n/);
+  expect([github.file("departments/platform.yaml"), github.file("departments/platform.yml")]).toEqual([undefined, broken]);
 });
 
 test("removing a lane with boxes moves them first", async ({ page, github }) => {

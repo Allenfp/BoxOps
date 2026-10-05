@@ -481,6 +481,17 @@ describe("stored drafts", () => {
       const other = { key: at("cccc0003"), value: {}, restorable: false, unreadable: false, count: 0, savedAt: "" };
       expect(recountOffers([other], two)).toEqual([other]);
     });
+
+    it("counts an offer's changes as a save would list them, a line each: a department renamed and recoloured is two", () => {
+      const base = loaded();
+      const stores = { local: memory(), session: memory() };
+      const draft = { ...base, departments: [dept("de", { name: "Data", color: "#ffffff" }), dept("an", { order: 2 })] };
+      stores.local.setItem(at("bbbb0002"), JSON.stringify(recordOf(base, draft)));
+      expect(diffDraft(base, draft).count).toBe(1);
+      const { offers } = openDraft(base, SCOPE, stores);
+      expect(offers.map((x) => x.count)).toEqual([2]);
+      expect(recountOffers(offers, base).map((x) => x.count)).toEqual([2]);
+    });
   });
 });
 
