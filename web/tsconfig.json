@@ -1,19 +1,8 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "allowImportingTsExtensions": true,
-    "types": ["node", "vite/client"]
-  },
-  "include": ["src", "cli", "scripts", "e2e", "vite.config.ts", "playwright.config.ts"]
+  // Two projects, so browser code can't use Node APIs by accident:
+  // tsconfig.app.json is the app (src/, browser types only) and
+  // tsconfig.node.json is everything that runs in Node (cli/, scripts/, e2e/,
+  // unit tests, configs). `npm run typecheck` (tsc -b) checks both.
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
 }

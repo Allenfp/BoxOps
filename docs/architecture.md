@@ -40,7 +40,10 @@ web/
 ```
 
 `model/` also holds `paths.ts` (which files are roadmap files) and `bundle.ts`
-(the `roadmap.json` fields).
+(the `roadmap.json` fields). Browser code (`src/`) is type-checked without
+Node's types (`tsconfig.app.json`); `cli/`, `scripts/`, `e2e/`, the unit tests
+and the configs have them (`tsconfig.node.json`). `npm run typecheck` checks
+both.
 
 ## Reading
 

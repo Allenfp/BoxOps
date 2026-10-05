@@ -67,7 +67,7 @@ cd web
 npm ci
 npm run dev        # http://localhost:5173; reads ../roadmap (or $BOXOPS_ROADMAP) and reloads on change
 npm run lint       # oxlint, including the React hooks rules; a warning fails it
-npm run typecheck  # TypeScript (npm run build checks types too)
+npm run typecheck  # TypeScript, browser and Node code apart (npm run build checks types too)
 npm test           # unit tests
 npm run e2e        # browser tests (Playwright, WebKit)
 npm run validate   # check the roadmap files
