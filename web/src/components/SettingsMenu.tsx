@@ -35,6 +35,8 @@ interface Props {
   /** Use a zoom level now (as well as remembering it). */
   onZoom(zoom: ZoomLevel): void;
   historyUrl: string;
+  /** "owner/repo": whose token "Forget token" forgets. */
+  repo: string;
   /** Read-only preview: no saving or team settings. */
   readOnly?: boolean;
   onOpenKey(): void;
@@ -96,7 +98,7 @@ export function SettingsMenu(props: Props) {
       button={<Icon name="settings" size={16} />}
     >
       {(close) => {
-        const token = getToken();
+        const token = getToken(props.repo);
         const item = (
           label: string,
           onClick: () => void,
@@ -207,7 +209,7 @@ export function SettingsMenu(props: Props) {
                     <button
                       className="add-button small"
                       onClick={() => {
-                        setToken(null);
+                        setToken(props.repo, null);
                         close();
                       }}
                     >

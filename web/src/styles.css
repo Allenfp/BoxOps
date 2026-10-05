@@ -1175,6 +1175,25 @@ button.primary:hover:not(:disabled) {
 .save-dialog .hint a {
   color: var(--accent);
 }
+.token-help {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.token-help a {
+  color: var(--accent);
+  font-weight: 600;
+}
+.token-help ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.token-help .hint {
+  margin: 4px 0 0;
+}
+.broad-token {
+  color: var(--warn);
+  font-weight: 400;
+}
 .dialog-foot {
   display: flex;
   justify-content: flex-end;

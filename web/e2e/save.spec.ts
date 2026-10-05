@@ -1,5 +1,5 @@
-import { TOKEN } from "./fake-github";
-import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, save, test, toolbar } from "./helpers";
+import { CLASSIC_TOKEN, REPO, TOKEN } from "./fake-github";
+import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
 // Saving works the same on a public and on a private repository; on a private
 // one, everything goes through the API with the token.
@@ -40,6 +40,56 @@ for (const visibility of ["public", "private"] as const) {
         await expect(toolbar(page)).toContainText("No changes");
         await expect(page.locator(".save-dialog[open]")).toHaveCount(0);
         expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-10-05\n");
+      });
+
+      test("Keep mine, then the token: the choice carries through and the save goes on top of theirs", async ({ page, github }) => {
+        await dragDays(page, DAGSTER, 10);
+        const theirs = github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked") });
+        github.deploy();
+        await pollNow(page);
+        await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
+
+        await page.getByRole("button", { name: /^Save · \d+ changes?$/ }).click();
+        const dialog = page.locator(".save-dialog[open]");
+        await expect(dialog.locator("h2")).toHaveText("Someone else changed the same items");
+        await dialog.getByRole("button", { name: "Keep mine" }).click();
+        await expect(dialog.locator("h2")).toHaveText("Connect to GitHub to save");
+        await dialog.locator('input[type="password"]').fill(TOKEN);
+        await dialog.getByRole("button", { name: "Save" }).click();
+        await expect(page.locator(".banner.success")).toContainText("Saved to main");
+        await expect(toolbar(page)).toContainText("No changes");
+        expect(github.headCommit().parent).toBe(theirs);
+        expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+        expect(github.file(boxFile(DAGSTER))).toContain("status: at_risk");
+        expect(github.calls("graphql")).toBe(1);
+      });
+
+      test("a classic token works, with a note that a fine-grained one is safer", async ({ page, github }) => {
+        await dragDays(page, DAGSTER, 10);
+        await page.getByRole("button", { name: /^Save · \d+ changes?$/ }).click();
+        const dialog = page.locator(".save-dialog[open]");
+        await expect(dialog.getByRole("link", { name: `Create a fine-grained token for ${REPO}` })).toHaveAttribute(
+          "href",
+          "https://github.com/settings/personal-access-tokens/new?name=BoxOps+acme%2Froadmap&description=Saves+from+BoxOps+to+acme%2Froadmap&target_name=acme&contents=write",
+        );
+        await expect(dialog.locator(".token-help")).toContainText("Resource owner shows acme");
+        await dialog.locator('input[type="password"]').fill(CLASSIC_TOKEN);
+        await expect(dialog.locator(".broad-token")).toContainText("classic token");
+        await dialog.getByRole("button", { name: "Save" }).click();
+        await expect(toolbar(page)).toContainText("No changes");
+        expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+      });
+
+      test("a token kept under the old tab-wide key still works, and moves to this repository's key", async ({ page, github }) => {
+        await page.addInitScript((token) => {
+          if (!sessionStorage.getItem("boxops-github-token:acme/roadmap")) sessionStorage.setItem("boxops-github-token", token);
+        }, TOKEN);
+        await page.reload();
+        await dragDays(page, DAGSTER, 10);
+        await save(page);
+        await expect(toolbar(page)).toContainText("No changes");
+        expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+        expect(await page.evaluate(() => [sessionStorage.getItem("boxops-github-token"), sessionStorage.getItem("boxops-github-token:acme/roadmap")])).toEqual([null, TOKEN]);
       });
     });
 

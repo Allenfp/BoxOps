@@ -34,7 +34,9 @@ export const TOKEN = "github_pat_TEST";
 export const READ_TOKEN = "github_pat_READONLY";
 /** Made with the wrong resource owner: sees nothing private of acme's. */
 export const OTHER_OWNER_TOKEN = "github_pat_OTHEROWNER";
-const TOKENS = new Set([TOKEN, READ_TOKEN, OTHER_OWNER_TOKEN]);
+/** A classic token with the repo scope: writes like TOKEN. */
+export const CLASSIC_TOKEN = "ghp_TEST";
+const TOKENS = new Set([TOKEN, READ_TOKEN, OTHER_OWNER_TOKEN, CLASSIC_TOKEN]);
 
 type Files = Record<string, string>;
 
@@ -368,7 +370,7 @@ export class FakeGitHub {
       return reply(410, { message: "Gone" });
     }
     const prefix = `/repos/${REPO}`;
-    const sees = this.visibility === "public" || token === TOKEN || token === READ_TOKEN;
+    const sees = this.visibility === "public" || token === TOKEN || token === READ_TOKEN || token === CLASSIC_TOKEN;
     if (!sees && !token) this.forbidden.push(`${what}: unauthenticated call to a private repository`);
     if (!url.pathname.startsWith(prefix) || !sees) return reply(404, { message: "Not Found", status: "404" });
     const injected = endpoint !== "other" ? this.injected(endpoint) : undefined;

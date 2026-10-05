@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { Source } from "../github/read";
 import type { ChangeLine } from "../model/summary";
 import { Icon } from "./Icon";
+import { TokenForm } from "./TokenForm";
+
+/** A choice the user already made for this save, carried through a dialog that interrupts it (so it isn't asked again). */
+export interface Resume {
+  keep?: "mine" | "theirs";
+}
 
 /** Why the dialog is open. Saving itself needs no dialog; this appears only when it needs the user. */
 export type SaveProblem =
-  | { kind: "token"; rejected?: boolean }
+  | { kind: "token"; rejected?: boolean; resume?: Resume }
   | { kind: "invalid"; issues: string[] }
   /** The save would write files the app couldn't fully read; fixing them is a hand edit. */
   | { kind: "unwritable"; files: { path: string; problems: string[] }[] }
@@ -33,7 +39,6 @@ interface Props {
   onClose(): void;
 }
 
-const TOKEN_HELP = "https://github.com/settings/personal-access-tokens/new";
 const KIND_LABEL: Record<ChangeLine["kind"], string> = { added: "Added", changed: "Changed", deleted: "Deleted" };
 
 /** Render the summary's **bold** markers without using innerHTML. */
@@ -46,7 +51,6 @@ function Bolded({ text }: { text: string }) {
 }
 
 export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onResolve, onSaveNow, onRetry, onClose }: Props) {
-  const [token, setToken] = useState("");
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = dialogRef.current;
@@ -83,50 +87,23 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
       </header>
 
       {problem.kind === "token" && (
-        <form
-          className="form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (token.trim()) onSubmitToken(token.trim());
-          }}
+        <TokenForm
+          repo={source.repo}
+          rejected={problem.rejected}
+          busy={busy}
+          submitLabel="Save"
+          lead={
+            <>
+              Saving writes your changes straight to <code>{source.branch}</code> of <strong>{source.repo}</strong>. Paste a
+              GitHub token once: it’s kept for this tab’s session (Forget token in the gear menu removes it) and sent only
+              to GitHub.
+            </>
+          }
+          onSubmit={onSubmitToken}
+          onCancel={onClose}
         >
-          {problem.rejected && (
-            <div className="callout error">GitHub rejected that token. Check it was copied fully and hasn’t expired.</div>
-          )}
-          <p className="lead">
-            Saving writes your changes straight to <code>{source.branch}</code> of <strong>{source.repo}</strong>. Paste a
-            GitHub token once; it’s kept in this tab only and sent only to GitHub.
-          </p>
-          <label>
-            GitHub token
-            <input
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="github_pat_…"
-              autoComplete="off"
-              spellCheck={false}
-              autoFocus
-              disabled={busy}
-            />
-            <span className="hint">
-              <a href={TOKEN_HELP} target="_blank" rel="noopener noreferrer">
-                Create a fine-grained token <Icon name="external" size={12} />
-              </a>{" "}
-              with access to only <strong>{source.repo}</strong> and the permission{" "}
-              <strong>Contents: Read and write</strong>.
-            </span>
-          </label>
           <ChangeList lines={lines} />
-          <footer className="dialog-foot">
-            <button type="button" onClick={onClose} disabled={busy}>
-              Cancel
-            </button>
-            <button type="submit" className="primary" disabled={busy || !token.trim()}>
-              {busy ? "Saving…" : "Save"}
-            </button>
-          </footer>
-        </form>
+        </TokenForm>
       )}
 
       {problem.kind === "invalid" && (

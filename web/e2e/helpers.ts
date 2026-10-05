@@ -1,5 +1,5 @@
 import { type Page, test as base, expect } from "@playwright/test";
-import { FakeGitHub, TOKEN } from "./fake-github";
+import { FakeGitHub, REPO, TOKEN } from "./fake-github";
 
 /** Every test runs on 2026-10-03 so "today" and the sample boxes line up. */
 export const TODAY = new Date("2026-10-03T09:00:00");
@@ -36,7 +36,7 @@ export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibil
     await page.clock.install({ time: TODAY });
     await github.install(page);
     if (signedIn) {
-      await page.addInitScript((token) => sessionStorage.setItem("boxops-github-token", token), TOKEN);
+      await page.addInitScript(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, TOKEN]);
     }
     // Boxes show codes, scale and initials by default here, since most tests check them
     // (the app's own default hides them). Only set once, so a reload keeps what a test chose.

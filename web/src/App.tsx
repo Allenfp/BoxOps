@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoxEditor } from "./components/BoxEditor";
 import { DepartmentEditor, type DepartmentEditorTarget } from "./components/DepartmentEditor";
-import { type SaveProblem, SaveDialog } from "./components/SaveDialog";
+import { type Resume, type SaveProblem, SaveDialog } from "./components/SaveDialog";
 import { PeopleView } from "./components/PeopleView";
 import { PtoEditor } from "./components/PtoEditor";
 import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
@@ -81,7 +81,7 @@ async function fetchBundle(): Promise<Bundle> {
 
 async function load(bundle: Bundle, seen: ReadonlySet<string>): Promise<Loaded> {
   const base = remember(await fromBundle(bundle));
-  const gh = new GitHubClient({ token: getToken() });
+  const gh = new GitHubClient({ token: getToken(base.source.repo) });
   const ref = new URLSearchParams(window.location.search).get("ref");
   if (ref && ref !== base.source.branch) {
     if (!isBranchName(ref)) throw new Error(`“${ref}” isn’t a branch name.`);
@@ -426,19 +426,22 @@ function RoadmapView(props: ViewProps) {
     return `Department “${draft.departments.find((d) => d.id === id)?.name ?? id}” (lanes)`;
   };
 
-  const save = async (opts: { token?: string; keep?: "mine" | "theirs" } = {}) => {
+  /** `keep`: whose version of clashing items to keep, once chosen. `token`: just pasted. */
+  const save = async (opts: Resume & { token?: string } = {}) => {
     // Items someone else changed while we were editing them: the user picks first.
     const clashes = draft.conflicts;
     if (clashes.length && !opts.keep) return setProblem({ kind: "conflict", items: clashes.map(describeItem) });
+    const resume: Resume = opts.keep ? { keep: opts.keep } : {};
+    const theirs = opts.keep === "theirs" && clashes.length > 0;
     let target = draftState;
     let changes: FileChanges;
     try {
-      if (opts.keep === "theirs" && clashes.length) {
-        target = revertItems(draftState, draftBase, clashes);
-        draft.takeTheirs(clashes);
-      }
+      if (theirs) target = revertItems(draftState, draftBase, clashes);
       changes = serializeChanges(files, draftBase, target, props);
-      if (Object.keys(changes).length === 0) return;
+      if (Object.keys(changes).length === 0) {
+        if (theirs) draft.takeTheirs(clashes);
+        return;
+      }
       const invalid = newProblems(applyChanges(files, changes));
       if (invalid.length) return setProblem({ kind: "invalid", issues: invalid });
     } catch (e) {
@@ -446,8 +449,13 @@ function RoadmapView(props: ViewProps) {
       if (e instanceof UnsafeWrite) return setProblem({ kind: "unwritable", files: e.files });
       return setProblem({ kind: "error", message: (e as Error).message });
     }
-    const token = opts.token ?? getToken();
-    if (!token) return setProblem({ kind: "token" });
+    // A pasted token is kept straight away, so retries and the automatic
+    // re-save after a clash never ask for it again; only a 401 forgets it.
+    if (opts.token) setToken(source.repo, opts.token);
+    const token = opts.token ?? getToken(source.repo);
+    // The choice just made comes back with the token, so it isn't asked again.
+    if (!token) return setProblem({ kind: "token", resume });
+    if (theirs) draft.takeTheirs(clashes);
     const gh = new GitHubClient({ token });
 
     select(null);
@@ -464,7 +472,6 @@ function RoadmapView(props: ViewProps) {
         review: !opts.keep,
         validate: newProblems,
       });
-      setToken(token);
       setBusy(false);
       ownSave.current = true;
       setUpdatedIds(new Set());
@@ -477,7 +484,6 @@ function RoadmapView(props: ViewProps) {
         const latestState = { boxes: latest.boxes, departments: latest.departments, people: latest.people, settings: latest.settings };
         const theirs = describeChanges(draftBase, latestState);
         const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
-        setToken(token);
         setBusy(false);
         onReload(head);
         setProblem({ kind: "updated", saves, changes: theirs, clashes: clashes.map(describeItem) });
@@ -489,8 +495,8 @@ function RoadmapView(props: ViewProps) {
         askAfterRebase.current = true;
         onReload(e.head);
       } else if (e instanceof GitHubFailure && e.kind === "unauthorized") {
-        setToken(null);
-        setProblem({ kind: "token", rejected: true });
+        setToken(source.repo, null);
+        setProblem({ kind: "token", rejected: true, resume });
       } else if (e instanceof GitHubFailure) {
         setProblem({ kind: "error", message: failureMessage(e, source) });
       } else {
@@ -729,6 +735,7 @@ function RoadmapView(props: ViewProps) {
             onDiscard={discardAll}
             onZoom={setZoom}
             historyUrl={`https://github.com/${source.repo}/commits/${source.branch}/roadmap`}
+            repo={source.repo}
             readOnly={preview}
             onOpenKey={() => setModal("key")}
             onOpenShortcuts={() => setModal("shortcuts")}
@@ -1003,7 +1010,7 @@ function RoadmapView(props: ViewProps) {
           busy={busy}
           onSubmitToken={(token) => {
             setProblem(null);
-            void save({ token });
+            void save({ ...(problem.kind === "token" ? problem.resume : {}), token });
           }}
           onResolve={(keep) => {
             setProblem(null);
