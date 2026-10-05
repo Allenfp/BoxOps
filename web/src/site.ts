@@ -48,19 +48,26 @@ export class SiteError extends Error {
  * revalidates, so an unchanged file costs a 304. Same-origin: on private
  * Pages, once the sign-in cookie has expired, the request is redirected to
  * github.com, which fetch can't follow, so that fails like being offline.
+ * `timeoutMs` gives up (status 0) on an answer that stalls, body included.
  */
-export async function fetchBundle(): Promise<Bundle> {
-  let res: Response;
+export async function fetchBundle(timeoutMs?: number): Promise<Bundle> {
+  const abort = new AbortController();
+  const timer = timeoutMs === undefined ? undefined : setTimeout(() => abort.abort(), timeoutMs);
   try {
-    res = await fetch("roadmap.json", { cache: "no-cache" });
-  } catch (e) {
-    throw new SiteError(`roadmap.json: ${(e as Error).message}`, 0);
-  }
-  if (!res.ok) throw new SiteError(`roadmap.json: HTTP ${res.status}`, res.status);
-  try {
-    return readBundle(await res.json());
-  } catch (e) {
-    throw new SiteError(`roadmap.json: ${(e as Error).message}`, res.status);
+    let res: Response;
+    try {
+      res = await fetch("roadmap.json", { cache: "no-cache", signal: abort.signal });
+    } catch (e) {
+      throw new SiteError(`roadmap.json: ${(e as Error).message}`, 0);
+    }
+    if (!res.ok) throw new SiteError(`roadmap.json: HTTP ${res.status}`, res.status);
+    try {
+      return readBundle(await res.json());
+    } catch (e) {
+      throw new SiteError(`roadmap.json: ${(e as Error).message}`, abort.signal.aborted ? 0 : res.status);
+    }
+  } finally {
+    clearTimeout(timer);
   }
 }
 

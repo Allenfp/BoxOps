@@ -58,6 +58,8 @@ const LOST_AFTER = 2;
 const MAX_BACKOFF_MS = 15 * 60_000;
 /** How long the load-time check for saves newer than the deployed copy may take; that copy is on screen meanwhile. */
 const FRESHNESS_MS = 4000;
+/** How long saving waits for the site's roadmap.json (a check for a newer BoxOps) before going on without it. */
+const SITE_CHECK_MS = 5000;
 
 /** A save by someone else that just arrived in this tab. */
 interface RemoteUpdate {
@@ -672,8 +674,9 @@ function RoadmapView(props: ViewProps) {
     setBusy(true);
     try {
       // A new BoxOps deployed that the poll hasn't seen yet: this tab's code
-      // mustn't write. A roadmap.json that can't be fetched says nothing.
-      const site = await fetchBundle().catch(() => null);
+      // mustn't write. A roadmap.json that can't be fetched (or stalls: a
+      // captive portal, a flaky network) says nothing.
+      const site = await fetchBundle(SITE_CHECK_MS).catch(() => null);
       if (site && props.onSite(site)) {
         setBusy(false);
         return;

@@ -44,6 +44,16 @@ test("saving first checks for a new BoxOps the poll hasn't seen, and then writes
   expect(github.head).toBe(github.root);
 });
 
+test("a roadmap.json that stalls when saving holds the save up a few seconds at most", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  await page.route("**/roadmap.json*", () => {}); // never answered
+  await save(page);
+  await expect(page.locator(".save-progress")).toHaveText("Checking for newer saves…");
+  await page.clock.fastForward(5_000);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+});
+
 test("an older BoxOps behind roadmap.json (a CDN catching up) doesn't stop this tab", async ({ page, github }) => {
   github.patchBundle = (b) => ({ ...b, app: { version: "0.0.9", build: "0.0.9+fedcba987654", time: "2020-01-01T00:00:00Z" } });
   await pollNow(page);

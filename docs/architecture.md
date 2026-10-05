@@ -180,7 +180,8 @@ yours but are flagged as clashes.
    only to GitHub.
 3. **Pre-save check.** First the app re-fetches `roadmap.json`: if a newer
    BoxOps was deployed that the poll hasn't seen, the tab goes read-only
-   instead of saving (see [Tabs left open](#tabs-left-open)). Then it reads
+   instead of saving (see [Tabs left open](#tabs-left-open)). It waits 5 s
+   at most; one that can't be had says nothing. Then it reads
    the head of `main` as on load. If its `settings.yaml` states a newer data
    format than this BoxOps writes (an upgrade was merged and is deploying),
    nothing is written: "BoxOps is being upgraded; reload in a minute". If someone
