@@ -445,13 +445,12 @@ function RoadmapView(props: ViewProps) {
     const clashes = draft.conflicts;
     if (clashes.length && !opts.keep) return setProblem({ kind: "conflict", items: clashes.map(describeItem) });
     let target = draftState;
-    if (opts.keep === "theirs" && clashes.length) {
-      target = revertItems(draftState, draftBase, clashes);
-      draft.takeTheirs(clashes);
-    }
-
     let changes: FileChanges;
     try {
+      if (opts.keep === "theirs" && clashes.length) {
+        target = revertItems(draftState, draftBase, clashes);
+        draft.takeTheirs(clashes);
+      }
       changes = serializeChanges(files, draftBase, target, props);
       if (Object.keys(changes).length === 0) return;
       const invalid = newProblems(applyChanges(files, changes));
