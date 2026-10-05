@@ -111,7 +111,9 @@ type Plumbing = "rev-parse" | "cat-file" | "ls-tree";
 function gitEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) if (!key.startsWith("GIT_")) env[key] = value;
-  // GIT_NO_LAZY_FETCH: a partial clone never fetches a missing object from its remote (a network call, and its config) to answer.
+  // GIT_NO_LAZY_FETCH (git 2.44 and later): a partial clone never fetches a missing object from its remote (a
+  // network call, with the repository's remote and credential config) to answer. Older git ignores it without a
+  // word; protocol.allow=never (gitPlumbing) stops the fetch there.
   return {
     ...env,
     GIT_CONFIG_NOSYSTEM: "1",
@@ -160,7 +162,8 @@ export function gitPlumbing(
   args: string[],
   o: { input?: string; maxBuffer?: number } & GitOptions = {},
 ): Buffer {
-  const argv = ["--git-dir", gitDir(repo, o.checkout), "-c", "core.hooksPath=/dev/null", command, ...args];
+  // No transport at all: plumbing never needs one, and a lazy fetch (see gitEnv) inherits this.
+  const argv = ["--git-dir", gitDir(repo, o.checkout), "-c", "core.hooksPath=/dev/null", "-c", "protocol.allow=never", command, ...args];
   try {
     return execFileSync("git", argv, { cwd: repo, env: gitEnv(), input: o.input, maxBuffer: o.maxBuffer ?? 1024 * 1024, stdio: "pipe" });
   } catch (e) {
@@ -297,6 +300,10 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
             ? "submodule"
             : "other";
     if (triage.take(path, entry, Number(size), ` (git mode ${mode})`)) {
+      // ls-tree can't size a blob the clone lacks (git 2.44 and later say so; older git fails to fetch it).
+      if (!/^\d+$/.test(size)) {
+        throw new Error(`${dir}/${path} isn't in this clone (a partial clone?), and BoxOps never fetches what a clone lacks: clone without --filter`);
+      }
       wanted.push({ path, sha, size: Number(size) });
       if (mode === "100755") warnings.push({ path, message: EXECUTABLE });
     }

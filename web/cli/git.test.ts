@@ -126,6 +126,41 @@ describe("readRoadmapGit", () => {
     }
   });
 
+  it("never fetches what a partial clone lacks, even with a git older than 2.44 (which ignores GIT_NO_LAZY_FETCH)", async () => {
+    const r = repoWith(ROADMAP);
+    r.repo.git(["config", "uploadpack.allowFilter", "true"]);
+    const clone = mkdtempSync(join(tmpdir(), "boxops-test-"));
+    temps.push(clone);
+    r.repo.git(["clone", "-q", "--no-checkout", "--filter=blob:none", `file://${r.repo.dir}`, clone]);
+    const blob = r.repo.git(["rev-parse", `${r.commit}:roadmap/settings.yaml`]);
+    const missing = () => {
+      try {
+        r.repo.git(["-C", clone, "cat-file", "-e", blob], { env: { GIT_NO_LAZY_FETCH: "1" } });
+        return false;
+      } catch {
+        return true;
+      }
+    };
+    expect(missing()).toBe(true);
+    await expect(readRoadmapGit(clone, r.commit)).rejects.toThrow("roadmap/boxes/b1.yaml isn't in this clone (a partial clone?)");
+    // An older git: one that drops GIT_NO_LAZY_FETCH, first on the PATH.
+    const bin = mkdtempSync(join(tmpdir(), "boxops-test-"));
+    temps.push(bin);
+    const git = execFileSync("sh", ["-c", "command -v git"]).toString().trim();
+    writeFileSync(join(bin, "git"), `#!/bin/sh\nunset GIT_NO_LAZY_FETCH\nexec "${git}" "$@"\n`, { mode: 0o755 });
+    const path = process.env.PATH;
+    process.env.PATH = `${bin}:${path}`;
+    try {
+      await expect(readRoadmapGit(clone, r.commit)).rejects.toThrow("not allowed");
+    } finally {
+      process.env.PATH = path;
+    }
+    expect(missing()).toBe(true);
+    // Whereas git left to itself would have fetched it.
+    r.repo.git(["-C", clone, "cat-file", "-e", blob]);
+    expect(missing()).toBe(false);
+  });
+
   it("refuses text that isn't UTF-8, and file names that aren't", async () => {
     expect(await problems(read(repoWith({ ...ROADMAP, "boxes/b2.yaml": NOT_UTF8 })))).toEqual(["boxes/b2.yaml: isn't UTF-8 text"]);
     const repo = new TestRepo();
