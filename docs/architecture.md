@@ -363,7 +363,9 @@ against data the new code wrote.
   stand-in saw no call a correct app never makes. It makes each deploy's
   `roadmap.json` with the build's own code, so its blob and tree SHAs are
   real. The clock is pinned to 2026-10-03, so tests
-  never depend on live data, the date or the network. Any
+  never depend on live data, the date or the network. Tests of unsaved
+  drafts open a second tab in the same browser context (so the same
+  `localStorage`), with a clock of its own. Any
   Content-Security-Policy violation fails a test.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
   the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
