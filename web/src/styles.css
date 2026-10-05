@@ -2305,7 +2305,8 @@ button.primary {
 .pto-label .lane-name {
   flex: 1;
 }
-/* Hover-only add buttons (and while focused), in place of written instructions; 24 px across, a target easy to hit. */
+/* Hover-only add buttons (and while focused), in place of written instructions; 24 px across, a target easy to hit.
+   On a touch screen, with no hover (nor double-click) to find them by, they're always there. */
 .pto-add,
 .lane-add {
   padding: 5px;
@@ -2316,6 +2317,12 @@ button.primary {
 .lane-label:hover .lane-add,
 .lane-add:focus-visible {
   opacity: 1;
+}
+@media (hover: none) {
+  .pto-add,
+  .lane-add {
+    opacity: 1;
+  }
 }
 .pto-track {
   position: relative;

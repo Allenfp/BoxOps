@@ -42,6 +42,17 @@ test("the timeline is a grid of rows and cells with full names, and one Tab stop
   await expect(cell(page, "lane:de-1")).toBeFocused();
 });
 
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true });
+  test("each lane's + and each PTO row's are always shown, with no hover to find them by", async ({ page, github: _ }) => {
+    await expect(page.getByRole("button", { name: "Add a box to Data Engineering / FTE 2" })).toHaveCSS("opacity", "1");
+    await expect(page.getByRole("button", { name: "Add PTO in Data Engineering" })).toHaveCSS("opacity", "1");
+    await page.getByRole("button", { name: "Add a box to Data Engineering / Contractor" }).tap();
+    await expect(page.getByRole("dialog", { name: /^Edit / })).toBeVisible();
+    await expect.poll(() => heard(page)).toContain("Added a box to Data Engineering / Contractor, 2026-10-05 to 2026-10-16.");
+  });
+});
+
 test("arrows go along a row and to the nearest box in time above and below; Home, End, Page Up and Down jump", async ({ page, github: _ }) => {
   // From a lane's labels into its boxes: the one nearest what's on screen, not the earliest.
   await cell(page, "lane:de-3").focus();

@@ -594,7 +594,8 @@ when a focused element is removed.
   compact boxes of a collapsed department are smaller than WCAG 2.5.8's
   24 px: their size is the information (time and FTE), and the editor's
   date fields, the keyboard move and expanding the department do the same
-  with full-size targets. The **+** buttons are 24 px.
+  with full-size targets. The **+** buttons are 24 px; they show on hover
+  and focus, and always on a touch screen, which has no hover to find them.
 - **Not yet checked by a person.** What a test can't hear needs a person
   with VoiceOver and Safari, NVDA with Firefox or Chrome, and JAWS with
   Edge: how the timeline grid's rows and cells are spoken (a box is
