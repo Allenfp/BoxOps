@@ -537,10 +537,12 @@ when a focused element is removed.
   the editors they do, as the editing happens there. In a text field ⌘Z is
   the field's own, but in a table cell left with Enter or Esc, until
   something's typed, it's the app's (`data-settled`), as it was once focus
-  had left. Delete and Backspace delete the selected box or PTO only with
-  focus on the page itself, no editor open and the key not held, so a stray
-  Backspace in an editor deletes nothing. Outside a text field (on a box,
-  say), Backspace is never the browser's Back.
+  had left. The Delete and Backspace keys delete nothing yet: the app acts
+  on them only with focus on the page itself, no editor open and the key
+  not held, but a box or PTO is selected only while its editor is open, so
+  they never find one (a stray Backspace in an editor used to delete what
+  it edited). The editors' Delete button deletes. Outside a text field (on
+  a box, say), Backspace is never the browser's Back.
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to
