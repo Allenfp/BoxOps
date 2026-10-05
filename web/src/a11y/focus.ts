@@ -78,18 +78,28 @@ export function useReturnFocus(ref: RefObject<HTMLElement | null>, where: (opene
 }
 
 /**
- * Where focus goes once the table row `from` is in has been deleted: the same
- * control (`selector`) in the row that takes its place, else in the row
- * before, else the department's heading, else the roadmap.
+ * Where focus goes once the `item` (a table row, a list item) that `from` is
+ * in has been removed: the same control (`selector`) in the item that takes
+ * its place, else in the one before, else the first of `fallbacks` (given the
+ * list), else the roadmap.
  */
-export function focusAfterRow(from: Element, selector: string): void {
-  const row = from.closest("tr");
-  const body = row?.parentElement;
-  if (!row || !body) return;
-  const i = [...body.children].indexOf(row);
-  const inRow = (j: number) => () => body.children[j]?.querySelector(selector);
-  focusLater([inRow(i), inRow(i - 1), () => body.querySelector(".dept-heading button"), main]);
+export function focusAfterRemoving(
+  from: Element,
+  item: string,
+  selector: string,
+  ...fallbacks: ((list: Element) => Element | null | undefined)[]
+): void {
+  const row = from.closest(item);
+  const list = row?.parentElement;
+  if (!row || !list) return;
+  const i = [...list.children].indexOf(row);
+  const inRow = (j: number) => () => list.children[j]?.querySelector(selector);
+  focusLater([inRow(i), inRow(i - 1), ...fallbacks.map((f) => () => f(list)), main]);
 }
+
+/** Where focus goes once the table row `from` is in has been deleted: as above, then the department's heading. */
+export const focusAfterRow = (from: Element, selector: string): void =>
+  focusAfterRemoving(from, "tr", selector, (body) => body.querySelector(".dept-heading button"));
 
 /** An element that's still on the page, or null. */
 export const onPage = <T extends Element>(el: T | null | undefined): T | null => (el?.isConnected ? el : null);

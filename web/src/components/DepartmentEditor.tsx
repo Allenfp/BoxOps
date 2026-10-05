@@ -1,7 +1,7 @@
 import { useCallback, useId, useRef, useState } from "react";
 import { LiveRegion, announce } from "../a11y/announce";
 import { FieldError, describedBy } from "./FieldError";
-import { main, onPage, useReturnFocus } from "../a11y/focus";
+import { focusAfterRemoving, focusLater, main, onPage, useReturnFocus } from "../a11y/focus";
 import { DEPT_CODE } from "../model/load";
 import { deriveDeptCode } from "../model/relations";
 import { COLOR_NAMES, DEPARTMENT_COLORS } from "../model/structure";
@@ -207,6 +207,11 @@ export function DepartmentEditor(props: Props) {
   const deptBoxes = boxes.filter((b) => laneIds.includes(b.lane)).length;
   const deptPeople = people.filter((p) => p.department === dept.id).length;
   const fte = dept.lanes.reduce((n, l) => n + l.fte, 0);
+  /** A lane removed from one of its buttons: focus goes to the next lane's ✕, else the one before's, else Add lane. */
+  const removeLane = (button: HTMLElement, laneId: string, moveTo?: string) => {
+    focusAfterRemoving(button, "li", ".row-remove", (list) => list.nextElementSibling?.querySelector("button"));
+    props.onRemoveLane(laneId, moveTo);
+  };
 
   return shell(
     created ? `Added ${dept.name}` : `Edit ${dept.name}`,
@@ -303,7 +308,7 @@ export function DepartmentEditor(props: Props) {
                     className="icon-button row-remove"
                     aria-label={`Remove lane ${i + 1}`}
                     title={count ? `Remove (its ${count} box${count === 1 ? "" : "es"} will need a new lane)` : "Remove"}
-                    onClick={() => (count ? setRemoving({ what: lane.id, moveTo: "" }) : props.onRemoveLane(lane.id))}
+                    onClick={(e) => (count ? setRemoving({ what: lane.id, moveTo: "" }) : removeLane(e.currentTarget, lane.id))}
                   >
                     <Icon name="x" size={14} />
                   </button>
@@ -348,7 +353,10 @@ export function DepartmentEditor(props: Props) {
                         <button
                           className="icon-button"
                           aria-label={`Clear lane ${i + 1} ${field === "start" ? "opening" : "closing"} date`}
-                          onClick={() => {
+                          onClick={(e) => {
+                            // Its + button comes back in its place: focus goes there, not to the page.
+                            const row = e.currentTarget.closest(".lane-dates-row");
+                            focusLater([() => row?.querySelector(`[aria-label="Set when lane ${i + 1} ${what}"]`)]);
                             setShownDates((cur) => new Set([...cur].filter((k) => k !== `${lane.id}:${field}`)));
                             props.onUpdateLane(lane.id, { [field]: undefined });
                           }}
@@ -374,8 +382,8 @@ export function DepartmentEditor(props: Props) {
                       <button
                         className="danger"
                         disabled={!removing.moveTo}
-                        onClick={() => {
-                          props.onRemoveLane(lane.id, removing.moveTo);
+                        onClick={(e) => {
+                          removeLane(e.currentTarget, lane.id, removing.moveTo);
                           setRemoving(null);
                         }}
                       >

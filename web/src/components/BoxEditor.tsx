@@ -12,7 +12,7 @@ import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { LiveRegion } from "../a11y/announce";
 import { FieldError, describedBy } from "./FieldError";
-import { loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
+import { focusAfterRemoving, loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
 
 const WIDTH = 440;
 
@@ -165,6 +165,11 @@ export function BoxEditor(props: Props) {
     setFocusField(key);
   };
   const typeColor = settings.types.find((t) => t.id === box.type)?.color;
+  /** A rule's ✕ pressed: the section stays, so focus has the next rule's ✕ to go to, else the one before, else Add. */
+  const removingRule = (button: HTMLElement) => {
+    setOpened((cur) => new Set([...cur, "rules"]));
+    focusAfterRemoving(button, "li", ".row-remove", (list) => list.parentElement?.querySelector('select[aria-label="Add a rule with"]'));
+  };
 
   return (
     <div
@@ -402,7 +407,10 @@ export function BoxEditor(props: Props) {
                         <button
                           className="icon-button row-remove"
                           aria-label="Remove rule"
-                          onClick={() => setRelations(relations.filter((_, j) => j !== i))}
+                          onClick={(e) => {
+                            removingRule(e.currentTarget);
+                            setRelations(relations.filter((_, j) => j !== i));
+                          }}
                         >
                           <Icon name="x" size={14} />
                         </button>
@@ -423,7 +431,10 @@ export function BoxEditor(props: Props) {
                         <button
                           className="icon-button row-remove"
                           aria-label={`Remove rule set on ${fullCode(from, departments)}`}
-                          onClick={() => props.onRemoveIncoming(from.id, relation.type)}
+                          onClick={(e) => {
+                            removingRule(e.currentTarget);
+                            props.onRemoveIncoming(from.id, relation.type);
+                          }}
                         >
                           <Icon name="x" size={14} />
                         </button>

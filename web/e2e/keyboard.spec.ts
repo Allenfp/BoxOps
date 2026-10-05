@@ -237,6 +237,43 @@ test("renaming a lane leaves focus on its name, after Enter and after Esc", asyn
   await expect(page.locator(".lane-label .lane-name").nth(1)).toContainText("Platform team");
 });
 
+test("removing a rule or a lane puts focus on the next one's ✕, else the one before's, else Add; a lane's date, on its +", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await editor.getByRole("button", { name: "Rule", exact: true }).click();
+  for (const other of ["C4P", "W1M"]) await editor.getByLabel("Add a rule with").selectOption(other);
+  const remove = editor.getByRole("button", { name: "Remove rule" });
+  await expect(remove).toHaveCount(2);
+  await remove.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(remove).toHaveCount(1);
+  await expect(remove).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(remove).toHaveCount(0);
+  await expect(editor.getByLabel("Add a rule with")).toBeFocused(); // the section stays
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Edit Data Engineering" }).click();
+  const dialog = page.locator("dialog.dept-editor[open]");
+  await dialog.getByRole("button", { name: "Remove lane 2" }).click();
+  await dialog.getByLabel("Move boxes to").selectOption("an-3");
+  await dialog.getByRole("button", { name: "Move and remove lane" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog.locator(".lane-edit-row")).toHaveCount(3);
+  await expect(dialog.getByRole("button", { name: "Remove lane 2" })).toBeFocused(); // the lane that was after it
+  await dialog.getByRole("button", { name: "Add lane" }).click();
+  await dialog.getByRole("button", { name: "Remove lane 4" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog.locator(".lane-edit-row")).toHaveCount(3);
+  await expect(dialog.getByRole("button", { name: "Remove lane 3" })).toBeFocused();
+
+  await dialog.getByRole("button", { name: "Set when lane 1 opens" }).click();
+  await dialog.getByLabel("Lane 1 opens").fill("2026-11-02");
+  await dialog.getByRole("button", { name: "Clear lane 1 opening date" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog.getByRole("button", { name: "Set when lane 1 opens" })).toBeFocused();
+});
+
 test("a department picked from the warnings gets focus", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
   await page.getByRole("dialog", { name: /warning/ }).getByRole("button", { name: /^Data Engineering: / }).click();
