@@ -304,7 +304,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    saved in between, GitHub refuses (`STALE_DATA`): the app re-reads only what
    changed, checks clashes and validates again, then retries on top of their
    commit, at most twice. A same-file clash at that point shows the keep-mine
-   / keep-theirs choice. After a failure that leaves unclear whether the
+   / keep-theirs choice; a re-read that fails (too many changes, the folder's
+   problems, a rate limit) stops the save with its own reason. After a
+   failure that leaves unclear whether the
    commit was made (a timeout, a dropped connection, a 5xx, an error in a
    field of the commit GitHub sends back), the app reads the head again: if
    every changed file there is ours, the save landed and is reported as

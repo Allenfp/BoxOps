@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FakeGitHub, OTHER_OWNER_TOKEN, READ_TOKEN, TOKEN } from "../../e2e/fake-github";
 import { GitHubClient, GitHubFailure, TIMEOUTS } from "./api";
 import { failureMessage } from "./messages";
-import { LaggingHead, forgetBlobs, fromBundle } from "./read";
+import { FolderProblems, LaggingHead, forgetBlobs, fromBundle } from "./read";
 import { NewerFormat, NewerSaves, SaveConflict, type SaveRequest, commitParts, saveRoadmap } from "./save";
 
 const FILES = {
@@ -156,6 +156,39 @@ describe("saveRoadmap", () => {
     expect(e).toBeInstanceOf(LaggingHead);
     expect(e.message).toBe("GitHub’s answer is behind; try again in a few seconds.");
     expect(g.calls("graphql")).toBe(0);
+  });
+
+  it("after STALE_DATA, says what stopped the re-read: a rate limit, the folder's problems", async () => {
+    {
+      const { g, save } = await setup();
+      g.beforeRefUpdate = () => {
+        g.otherSave({ "boxes/c.yaml": () => "id: c\n" });
+        g.inject("ref", "rate-limit"); // resets in 10 minutes: more than a read waits
+      };
+      await expect(save()).rejects.toMatchObject({ kind: "rate-limited", detail: { secondary: false } });
+      expect(g.calls("graphql")).toBe(1);
+    }
+    {
+      const { g, save } = await setup();
+      g.beforeRefUpdate = () => {
+        g.otherSave({ "boxes/link.yaml": () => "../../.git/config" });
+        g.modes = { "roadmap/boxes/link.yaml": "120000" };
+      };
+      const e = await save().catch((x) => x);
+      expect(e).toBeInstanceOf(FolderProblems);
+      expect(e.message).toBe("roadmap/boxes/link.yaml: is a symlink; a roadmap folder holds plain files only");
+    }
+  });
+
+  it("after an unclear failure, a re-read that fails leaves it unclear", async () => {
+    const { g, save } = await setup({
+      wrap: (g) => async (input, init) => {
+        if (String(input).endsWith("/graphql")) g.inject("ref", "rate-limit");
+        return g.fetch(input, init);
+      },
+    });
+    g.inject("graphql", "lost-response");
+    await expect(save()).rejects.toMatchObject({ kind: "offline", ambiguous: true });
   });
 
   it("stops on a racing save to the same file", async () => {

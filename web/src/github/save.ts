@@ -187,8 +187,11 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
       progress("verifying");
       try {
         fresh = await readSnapshot(gh, head, { seen: req.seen }); // fetches only blobs changed since `head`
-      } catch {
-        throw e; // still unclear: say so
+      } catch (x) {
+        // Still unclear whether it was made: say so. Otherwise nothing was written, and what
+        // stopped the re-read (too many changes, the folder's problems, a rate limit, a
+        // token that can't see the repository, a lagging answer) is what stops the save.
+        throw e.ambiguous ? e : x;
       }
       if (fresh !== head && landed(fresh)) {
         if (!unclear) return { status: "noop", snapshot: fresh }; // someone else made the same changes
