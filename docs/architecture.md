@@ -145,15 +145,17 @@ both.
   while the tab is visible, the app re-fetches the site's own `roadmap.json`.
   That's a cheap 304 when nothing changed, and it doesn't touch the GitHub
   API, whose anonymous limit (60 requests an hour per IP) counts 304s too.
-  It only ever moves forward (`movesForward` in `site.ts`): a bundle is
-  taken only if its `history` holds the commit on screen; otherwise it's
-  ignored if the tab has seen it, if the history on screen holds it (two
-  commits can share a second), or if it's older by commit time. So a deploy
-  that finishes late (deploys aren't cancelled, and the tab may have read a
-  newer head from GitHub) never rolls the tab back. A newer commit is merged
-  into the screen in place, and a notice says who saved what (none when
-  nothing in the roadmap folder changed, as for an app commit: then only the
-  commit on screen moves on, and undo history is kept). A failed check
+  It only ever moves forward (`movesForward` in `site.ts`): a bundle whose
+  `history` holds the commit on screen is taken; otherwise it's ignored if
+  the tab has seen it, if the history on screen holds it (two commits can
+  share a second), or if it's older by commit time, and taken in any other
+  case (a newer commit beyond the 50-commit history, or a bundle from before
+  schema 1 with no usable date). So a deploy that finishes late (deploys
+  aren't cancelled, and the tab may have read a newer head from GitHub)
+  never rolls the tab back. A newer commit is merged into the screen in
+  place, and a notice says who saved what (none when nothing in the
+  roadmap folder changed, as for an app commit: then only the commit on
+  screen moves on, and undo history is kept). A failed check
   (offline, mid-deploy, a private site whose sign-in expired: the
   same-origin request is then redirected to github.com and fails, or no
   answer within 20 s) waits longer each time, 4, 8, then 15 minutes; two in
