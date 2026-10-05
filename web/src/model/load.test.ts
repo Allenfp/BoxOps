@@ -51,6 +51,7 @@ const ROWS: Row[] = [
   ["format missing", { "settings.yaml": settings({ format: null }) }, [["settings.yaml", 'format: missing; add "format: 1" at the top of this file']]],
   ["format newer than this BoxOps reads", { "settings.yaml": settings({ format: "2" }) }, [["settings.yaml", "format: 2 needs a newer BoxOps (this one reads format 1)"]]],
   ["format not a whole number", { "settings.yaml": settings({ format: '"1"' }) }, [["settings.yaml", 'format: expected a whole number, like "format: 1"']]],
+  ["format 0 or below", { "settings.yaml": settings({ format: "0" }) }, [["settings.yaml", "format: 0 isn't supported; this BoxOps reads format 1"]]],
   ["fiscal_year_start_month outside 1-12", { "settings.yaml": settings({ fiscal_year_start_month: "13" }) }, [["settings.yaml", "fiscal_year_start_month: expected a month number from 1 to 12", "lossy"]]],
   ["default_zoom not weeks, months or quarters", { "settings.yaml": settings({ default_zoom: "days" }) }, [["settings.yaml", "default_zoom: expected one of weeks, months, quarters", "lossy"]]],
   ["a type without a colour", { "settings.yaml": settings({ types: "[{id: project, name: Project}]" }) }, [["settings.yaml", 'type "project", color: required text is missing', "lossy"]]],
@@ -179,6 +180,8 @@ describe("data format", () => {
     expect(status({ "settings.yaml": null })).toEqual([0, "older"]);
     expect(status({ "settings.yaml": settings({ format: "2" }) })).toEqual([2, "newer"]);
     expect(status({ "settings.yaml": settings({ format: "one" }) })).toEqual([null, "unknown"]);
+    expect(status({ "settings.yaml": settings({ format: "0" }) })).toEqual([null, "unknown"]);
+    expect(status({ "settings.yaml": settings({ format: "-1" }) })).toEqual([null, "unknown"]);
     expect(status({ "settings.yaml": "format: [1\n" })).toEqual([null, "unknown"]);
   });
 });
@@ -215,5 +218,13 @@ describe("issue keys", () => {
     expect(keys(`[${bad}]`)).toEqual(before);
     expect(keys(`[{id: ana, name: Ana}, {id: sam, name: Sam}, ${bad}]`)).toEqual(before);
     expect(keys(`[{id: sam, name: Sam}, {id: kim, name: Kim, email: "kim@"}]`)).not.toEqual(before);
+  });
+
+  it("of a code three boxes share stay the same when one of them is deleted", () => {
+    const shared = { "boxes/b2.yaml": box({ id: "b2" }), "boxes/b3.yaml": box({ id: "b3" }) };
+    const keys = (files: Record<string, string | null>) => load(files).issues.map((i) => i.key);
+    const all = keys(shared);
+    expect(all).toHaveLength(3);
+    expect(all).toEqual(expect.arrayContaining(keys({ ...shared, "boxes/b1.yaml": null })));
   });
 });

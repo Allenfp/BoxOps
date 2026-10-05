@@ -105,9 +105,13 @@ class Reader {
     private issues: Issue[],
   ) {}
 
-  /** Report a problem. The file is still fully represented in the roadmap. */
-  fail(message: string, obj?: object, key?: string | number): void {
-    this.report(message, this.lineOf(obj, key), false);
+  /**
+   * Report a problem. The file is still fully represented in the roadmap.
+   * `same` stands in for the message in the issue's key when the message names
+   * other files, which an unrelated edit can change (see Issue.key).
+   */
+  fail(message: string, obj?: object, key?: string | number, same = message): void {
+    this.report(message, this.lineOf(obj, key), false, same);
   }
 
   /** Report a problem that leaves part of the file out of the roadmap, which makes the file unwritable. */
@@ -115,12 +119,12 @@ class Reader {
     this.report(message, this.lineOf(obj, key), true);
   }
 
-  private report(message: string, line: number | undefined, lossy: boolean): void {
+  private report(message: string, line: number | undefined, lossy: boolean, same = message): void {
     this.issues.push({
       path: this.path,
       message,
       ...(line !== undefined && { line }),
-      key: `${this.path}|${message}`,
+      key: `${this.path}|${same}`,
       ...(lossy && { lossy: true as const }),
     });
   }
@@ -350,11 +354,11 @@ export function loadRoadmap(files: RoadmapFiles): LoadResult {
     });
     departments.push(dept);
   }
-  // Report a shared code on every department that has it, not just the one that sorts later.
+  // Report a shared code on every department that has it, not just the one that sorts later (keyed on the code, as for boxes).
   for (const dept of departments) {
     const others = departments.filter((d) => d !== dept && d.code !== "" && d.code === dept.code);
     const r = reader(sources.departments.get(dept.id)!);
-    if (others.length) r.fail(`code: "${dept.code}" is also used by department "${others[0].id}"`, r.top?.obj, "code");
+    if (others.length) r.fail(`code: "${dept.code}" is also used by department "${others[0].id}"`, r.top?.obj, "code", `code: "${dept.code}" shared`);
   }
   departments.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 
@@ -388,13 +392,15 @@ export function loadRoadmap(files: RoadmapFiles): LoadResult {
   }
 
   // Box codes are unique across the roadmap (a shared one is reported on every
-  // box that has it); rules must point at a real, other box.
+  // box that has it, keyed on the code, so deleting one of three boxes that
+  // share it doesn't make the other two's problems new); rules must point at a
+  // real, other box.
   const byCode = new Map<string, Box[]>();
   for (const box of boxes) byCode.set(box.code, [...(byCode.get(box.code) ?? []), box]);
   for (const box of boxes) {
     const r = reader(sources.boxes.get(box.id)!);
     const others = byCode.get(box.code)!.filter((b) => b !== box);
-    if (others.length) r.fail(`code: "${box.code}" is also used by ${others.map((b) => b.id).join(", ")}`, r.top?.obj, "code");
+    if (others.length) r.fail(`code: "${box.code}" is also used by ${others.map((b) => b.id).join(", ")}`, r.top?.obj, "code", `code: "${box.code}" shared`);
     for (const rel of box.relations ?? []) {
       if (!byCode.has(rel.box)) r.fail(`relations: no box has code "${rel.box}"`, r.top?.obj, "relations");
       else if (rel.box === box.code) r.fail("relations: a box can't have a rule about itself", r.top?.obj, "relations");
@@ -520,15 +526,19 @@ function loadSettings(text: string | undefined, r: Reader): { settings: Settings
   };
 }
 
-/** `format:` in settings.yaml: 0 when missing, null when it isn't a whole number. */
+/** `format:` in settings.yaml: 0 when missing, null when it isn't a whole number from 1 up. */
 function readFormat(r: Reader, top: At): number | null {
   const v = top.obj.format;
   if (unset(v)) {
     r.fail(`format: missing; add "format: ${FORMAT}" at the top of this file`, top.obj);
     return 0;
   }
-  if (typeof v !== "number" || !Number.isInteger(v) || v < 1) {
+  if (typeof v !== "number" || !Number.isInteger(v)) {
     r.fail(`format: expected a whole number, like "format: ${FORMAT}"`, top.obj, "format");
+    return null;
+  }
+  if (v < 1) {
+    r.fail(`format: ${v} isn't supported; this BoxOps reads format ${FORMAT}`, top.obj, "format");
     return null;
   }
   if (v > FORMAT) r.fail(`format: ${v} needs a newer BoxOps (this one reads format ${FORMAT})`, top.obj, "format");

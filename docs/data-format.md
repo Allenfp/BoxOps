@@ -272,8 +272,8 @@ Any file:
 `settings.yaml`:
 
 - a missing `settings.yaml`
-- a missing `format`, one that isn't a whole number, or one newer than this
-  BoxOps reads (see [Format versions](#format-versions))
+- a missing `format`, one that isn't a whole number from 1 up, or one newer
+  than this BoxOps reads (see [Format versions](#format-versions))
 - a `fiscal_year_start_month` that isn't 1–12, or a `default_zoom` that isn't
   `weeks`, `months` or `quarters`\*
 - a type or flag whose `id` isn't valid or is used twice\*, or a type whose
