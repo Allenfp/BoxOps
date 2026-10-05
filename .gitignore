@@ -1,10 +1,19 @@
 # Dependencies and build output
 node_modules
 web/dist/
+*.tsbuildinfo
 
 # Playwright test output
 web/test-results/
 web/playwright-report/
 
+# Test coverage
+coverage/
+
+# Local environment (tokens and the like)
+.env*
+
 # OS and editor files
 .DS_Store
+.vscode/
+.idea/

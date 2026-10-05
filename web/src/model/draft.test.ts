@@ -12,6 +12,7 @@ import {
   reduceHistory,
   restoreDelta,
   restoreRecord,
+  revertItems,
   slugify,
   startHistory,
 } from "./draft";
@@ -81,8 +82,7 @@ describe("department changes", () => {
 });
 
 describe("rebaseDraft", () => {
-  it("takes their changes, keeps ours, and flags items both changed", async () => {
-    const { rebaseDraft, revertItems } = await import("./draft");
+  it("takes their changes, keeps ours, and flags items both changed", () => {
     const oldBase = { boxes: [box("a"), box("b"), box("c"), box("d")], departments: [], people: [], settings: DEFAULT_SETTINGS };
     const draft = {
       boxes: [box("a", { title: "A mine" }), box("b"), box("c", { end: 200 }), box("d"), box("new")],
@@ -109,8 +109,7 @@ describe("rebaseDraft", () => {
     expect(theirs.boxes.find((b) => b.id === "a")!.title).toBe("A theirs");
   });
 
-  it("keep theirs puts an item back where it stands in its list", async () => {
-    const { revertItems } = await import("./draft");
+  it("keep theirs puts an item back where it stands in its list", () => {
     const person = (id: string, name = id) => ({ id, name });
     const base = { boxes: [], departments: [], people: [person("ann"), person("bob"), person("cy")], settings: DEFAULT_SETTINGS };
     const draft = { ...base, people: [person("ann", "Ann K"), person("bob", "Bob K"), person("cy")] };
@@ -122,8 +121,7 @@ describe("rebaseDraft", () => {
     expect(revertItems(first, base, ["person:ann"]).people.map((p) => p.id)).toEqual(["ann", "bob", "cy"]);
   });
 
-  it("is a no-op after our own save", async () => {
-    const { rebaseDraft } = await import("./draft");
+  it("is a no-op after our own save", () => {
     const oldBase = { boxes: [box("a")], departments: [], people: [], settings: DEFAULT_SETTINGS };
     const draft = { boxes: [box("a", { end: 300 })], departments: [], people: [], settings: DEFAULT_SETTINGS };
     const saved = { boxes: [box("a", { end: 300 })], departments: [], people: [], settings: DEFAULT_SETTINGS };

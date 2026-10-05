@@ -114,5 +114,9 @@ export default defineConfig({
   base: "./",
   define: { __BOXOPS_BUILD__: JSON.stringify(APP.build) },
   plugins: [react(), roadmapData(), contentSecurityPolicy()],
-  test: { environment: "node", include: ["src/**/*.test.ts", "cli/**/*.test.ts"] },
+  test: {
+    environment: "node",
+    // .tsx too, so a component's test is never skipped without a word.
+    include: ["src/**/*.test.{ts,tsx}", "cli/**/*.test.ts"],
+  },
 });

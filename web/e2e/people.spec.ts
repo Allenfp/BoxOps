@@ -89,7 +89,6 @@ test("removing an engineer unassigns them, and undo brings it all back", async (
 });
 
 test("departments can be added and edited from the People tab", async ({ page, github }) => {
-  await page.getByRole("button", { name: "People" }).click();
   const dialog = page.locator("dialog.dept-editor[open]");
 
   await page.getByRole("button", { name: "Add department" }).click();

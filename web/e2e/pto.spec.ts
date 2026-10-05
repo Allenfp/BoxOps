@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { DAGSTER, expect, save, test, toolbar } from "./helpers";
+import { DAGSTER, MONTH_PX, expect, save, test, toolbar } from "./helpers";
 
 const ptoRow = (page: Page, dept: string) => page.locator(`[data-pto-track="${dept}"]`);
 const group = (page: Page, name: string) =>
@@ -47,7 +47,7 @@ test("PTO blocks drag like boxes, and Delete removes the selected one", async ({
   const b = (await block.boundingBox())!;
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
   await page.mouse.down();
-  await page.mouse.move(b.x + b.width / 2 + 14.7 * 5, b.y + b.height / 2, { steps: 6 });
+  await page.mouse.move(b.x + b.width / 2 + MONTH_PX * 5, b.y + b.height / 2, { steps: 6 }); // 5 working days
   await page.mouse.up();
   await expect(block).toHaveAttribute("title", /2026-10-05 – 2026-10-09/);
   await expect(editor(page)).toHaveCount(0); // a drag isn't a click

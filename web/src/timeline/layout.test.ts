@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseDay } from "../model/dates";
 import type { Box, Department } from "../model/types";
 import { laneAtSlot, layoutDepartment } from "./layout";
 
@@ -118,8 +119,7 @@ describe("layoutDepartment", () => {
 });
 
 describe("fully booked departments", () => {
-  it("finds an arrangement when placing one box at a time can't", async () => {
-    const { parseDay } = await import("../model/dates");
+  it("finds an arrangement when placing one box at a time can't", () => {
     // Data Engineering as it was on 2026-10-03: 3.5 FTE of lanes, fully booked
     // at times. Placing one box at a time stranded On-call rotation Q4.
     const de: Department = {

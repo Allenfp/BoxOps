@@ -1,4 +1,5 @@
 import { type BrowserContext, type Page, test as base, expect } from "@playwright/test";
+import { PX_PER_DAY } from "../src/timeline/scale";
 import { FakeGitHub, REPO, TOKEN } from "./fake-github";
 
 /** Every test runs on 2026-10-03 so "today" and the sample boxes line up. */
@@ -72,7 +73,7 @@ export async function boxDates(page: Page, id: string): Promise<string> {
 }
 
 /** Pixels per working day at months zoom, where tests run. */
-export const MONTH_PX = 14.7;
+export const MONTH_PX = PX_PER_DAY.months;
 
 /** Drag a box (or one of its edge handles) by dx/dy pixels. */
 export async function drag(page: Page, id: string, dx: number, dy = 0, grip: "middle" | "start" | "end" = "middle") {

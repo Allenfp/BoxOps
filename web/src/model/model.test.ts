@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { headerBands, makeScale } from "../timeline/scale";
-import { formatDay, makeDay, parseDay, quarterLabel, startOfQuarter, startOfWeek, today } from "./dates";
+import {
+  addWorkdays,
+  dayOfWorkIndex,
+  formatDay,
+  makeDay,
+  nextWorkday,
+  parseDay,
+  prevWorkday,
+  quarterLabel,
+  startOfQuarter,
+  startOfWeek,
+  today,
+  workIndex,
+  workdays,
+} from "./dates";
 import { loadRoadmap } from "./parse";
 
 describe("dates", () => {
@@ -73,8 +87,7 @@ describe("loadRoadmap", () => {
   });
 });
 
-describe("working days", async () => {
-  const { workIndex, dayOfWorkIndex, workdays, addWorkdays, nextWorkday, prevWorkday } = await import("./dates");
+describe("working days", () => {
   const d = (s: string) => parseDay(s)!;
 
   it("numbers weekdays consecutively and skips weekends", () => {

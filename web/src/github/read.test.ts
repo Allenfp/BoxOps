@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { FakeGitHub, TOKEN } from "../../e2e/fake-github";
 import { readBundle } from "../model/bundle";
 import { GitHubClient } from "./api";
-import { textBlobSha } from "./git-objects";
+import { gitBlobSha, textBlobSha } from "./git-objects";
 import { FolderProblems, MAX_BLOB_FETCHES, NeedsToken, type Snapshot, TooManyChanges, forgetBlobs, fromBundle, readSnapshot } from "./read";
 
 const FILES = {
@@ -117,7 +117,6 @@ describe("readSnapshot", () => {
     g.otherSave({ "boxes/a.yaml": () => "id: a2\n" });
     // The fake keeps text; swap the blob's bytes on the way out (its SHA check would fail too, so use bytes with the right SHA).
     const latin1 = Uint8Array.from([0x69, 0x64, 0x3a, 0x20, 0xe9, 0x0a]);
-    const { gitBlobSha } = await import("./git-objects");
     const sha = await gitBlobSha(latin1);
     const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

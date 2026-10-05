@@ -127,7 +127,6 @@ test("departments collapse, shared with the timeline", async ({ page, github: _ 
 });
 
 test("a date range and a Hide completed switch filter the table", async ({ page, github: _ }) => {
-  await page.getByRole("button", { name: "Table" }).click();
   const titles = page.locator("tbody tr:not(.group-row) .col-title input[aria-label='Title']");
   const count = page.locator(".table-toolbar .hint");
   await expect(count).toHaveText("15 boxes");
@@ -154,7 +153,6 @@ test("a date range and a Hide completed switch filter the table", async ({ page,
 });
 
 test("the calendar picks a date and closes; a click elsewhere or Esc closes it too", async ({ page, github: _ }) => {
-  await page.getByRole("button", { name: "Table" }).click();
   const calendar = page.getByRole("dialog", { name: "Choose a date" });
   const from = page.getByRole("group", { name: "Dates" }).getByRole("button", { name: "Pick a date" }).first();
 

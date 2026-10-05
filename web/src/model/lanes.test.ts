@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { layoutDepartment } from "../timeline/layout";
@@ -12,7 +12,7 @@ import { describeChanges } from "./summary";
 import type { Box, Department } from "./types";
 
 const d = (s: string) => parseDay(s)!;
-const files = (await readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"))).files;
+const files = (await readRoadmapDir(fileURLToPath(new URL("../../e2e/fixtures/roadmap", import.meta.url)))).files;
 const { roadmap } = loadRoadmap(files);
 const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people, settings: roadmap.settings };
 

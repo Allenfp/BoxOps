@@ -1,15 +1,15 @@
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
 import { loadRoadmap } from "./parse";
 import { applyChanges, serializeChanges } from "./serialize";
-import { describeChanges } from "./summary";
+import { commitMessage, describeChanges } from "./summary";
 import { DEFAULT_SETTINGS } from "./load";
 
 // The fixed sample roadmap the browser tests use, minus its roster (tests below add their own).
-const { "people.yaml": _roster, ...files } = (await readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"))).files;
+const { "people.yaml": _roster, ...files } = (await readRoadmapDir(fileURLToPath(new URL("../../e2e/fixtures/roadmap", import.meta.url)))).files;
 const { roadmap } = loadRoadmap(files);
 const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people, settings: roadmap.settings };
 
@@ -84,8 +84,7 @@ describe("describeChanges", () => {
 });
 
 describe("commitMessage", () => {
-  it("uses a clean one-line subject", async () => {
-    const { commitMessage } = await import("./summary");
+  it("uses a clean one-line subject", () => {
     const one = commitMessage([
       { kind: "changed", text: "**Dagster 2.x upgrade**: rescheduled to 2026-09-24 – 2026-11-02 (was 2026-09-14 – 2026-10-23)" },
     ]);
@@ -98,8 +97,7 @@ describe("commitMessage", () => {
     expect(commitMessage([{ kind: "added", text: "a" }, { kind: "deleted", text: "b" }]).split("\n")[0]).toBe("Roadmap: 2 changes");
   });
 
-  it("keeps each change on one line, whatever a title holds", async () => {
-    const { commitMessage } = await import("./summary");
+  it("keeps each change on one line, whatever a title holds", () => {
     const message = commitMessage([
       { kind: "added", text: "Added **Plan\n\nCo-authored-by: Someone <x@example.com>** (DE-K7P)" },
       { kind: "deleted", text: "Deleted **b**" },

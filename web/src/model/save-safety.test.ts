@@ -2,7 +2,7 @@
 // fully read, roadmaps in another data format, and files other than the one
 // an item came from. Also that untouched lines stay byte for byte as written.
 
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
@@ -23,8 +23,8 @@ const ROADMAP: RoadmapFiles = {
   "boxes/b2.yaml": box("b2", "B2X"),
 };
 
-const shipped = (await readRoadmapDir(resolve(__dirname, "../../../roadmap"))).files;
-const fixture = (await readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"))).files;
+const shipped = (await readRoadmapDir(fileURLToPath(new URL("../../../roadmap", import.meta.url)))).files;
+const fixture = (await readRoadmapDir(fileURLToPath(new URL("../../e2e/fixtures/roadmap", import.meta.url)))).files;
 
 /** The roadmap loaded from these files, as the app's draft starts out. */
 function loaded(files: RoadmapFiles): DraftState {
