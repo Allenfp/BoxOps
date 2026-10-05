@@ -123,6 +123,7 @@ for (const visibility of ["public", "private"] as const) {
           "https://github.com/settings/personal-access-tokens/new?name=BoxOps+acme%2Froadmap&description=Saves+from+BoxOps+to+acme%2Froadmap&target_name=acme&contents=write",
         );
         await expect(dialog.locator(".token-help")).toContainText("Resource owner shows acme");
+        await expect(dialog.locator(".token-help")).toContainText("If acme limits how long tokens may last, choose an expiration within that limit.");
         await dialog.locator('input[type="password"]').fill(CLASSIC_TOKEN);
         await expect(dialog.locator(".broad-token")).toContainText("classic token");
         await dialog.getByRole("button", { name: "Save" }).click();

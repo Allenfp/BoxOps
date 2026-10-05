@@ -42,9 +42,10 @@ export function TokenHelp({ repo, access = "write" }: { repo: string; access?: T
         </li>
       </ul>
       <p className="hint">
-        If {owner} approves tokens, yours works once an owner has approved it. An outside collaborator, or anyone whose
-        organization allows only classic tokens, needs a classic token with the <code>repo</code> scope instead
-        (authorized for single sign-on if {owner} uses it).
+        If {owner} approves tokens, yours works once an owner has approved it. If {owner} limits how long tokens may
+        last, choose an expiration within that limit. An outside collaborator, or anyone whose organization allows only
+        classic tokens, needs a classic token with the <code>repo</code> scope instead (authorized for single sign-on if{" "}
+        {owner} uses it).
       </p>
     </div>
   );

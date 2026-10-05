@@ -35,7 +35,8 @@ straight to `main`, and the site updates within a minute.
   owner (the organization, not your own account), that *Repository access* is
   *Only select repositories* with this repo, and that *Contents* is *Read and
   write*. If the organization approves tokens, it works once an owner has
-  approved it. A classic token with the `repo` scope works too (an outside
+  approved it; if it caps token lifetimes, pick an expiration within the
+  cap. A classic token with the `repo` scope works too (an outside
   collaborator needs one) but can write to all your repos, so fine-grained is
   recommended. The token is kept for the tab's session and sent only to
   GitHub; if a save fails, the dialog says why and what to change. If someone

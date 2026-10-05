@@ -169,8 +169,9 @@ yours but are flagged as clashes.
 2. **Token.** The first save asks for a token. The form links to GitHub's
    new-token page filled in for this repository (`target_name` = its owner,
    Contents: write) and lists what to check there: Resource owner shows the
-   owner, Only select repositories → this one, Contents: Read and write, and
-   the org's approval if it requires one. A classic token (or one from the
+   owner, Only select repositories → this one, Contents: Read and write, the
+   org's approval if it requires one, and an expiration within the org's
+   maximum token lifetime if it sets one. A classic token (or one from the
    GitHub CLI) is accepted, with a note that a fine-grained one is safer;
    outside collaborators need one. The token is kept as soon as it's
    submitted, in `sessionStorage` under `boxops-github-token:<owner>/<repo>`
