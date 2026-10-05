@@ -23,9 +23,67 @@
         document.documentElement.style.colorScheme = theme;
       })();
     </script>
+    <script>
+      // Boot watchdog. Pages caches index.html for 10 minutes, so after a deploy a cached copy
+      // can name app files that are gone. If the app's JavaScript fails to load, or the app
+      // hasn't started within 8 s, reload once from a URL no cache can answer
+      // (?boxops-reload=…, which the app removes); if it fails again, say so instead of
+      // leaving a blank page. main.tsx calls __boxopsBoot() when the app starts.
+      (function () {
+        var KEY = "boxops-boot-retry";
+        var settled = false;
+        var timer = setTimeout(fail, 8000);
+        window.__boxopsBoot = function () {
+          settled = true;
+          clearTimeout(timer);
+          try {
+            sessionStorage.removeItem(KEY);
+          } catch (e) {}
+        };
+        addEventListener(
+          "error",
+          function (e) {
+            if (e.target && e.target.tagName === "SCRIPT") fail();
+          },
+          true,
+        );
+        // Module scripts run before DOMContentLoaded: if the app hasn't started by then, it won't.
+        addEventListener("DOMContentLoaded", function () {
+          if (!settled) fail();
+        });
+        function fail() {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          var tried = "1";
+          try {
+            tried = sessionStorage.getItem(KEY);
+            if (!tried) sessionStorage.setItem(KEY, "1");
+          } catch (e) {}
+          if (!tried) {
+            var q = new URLSearchParams(location.search);
+            q.set("boxops-reload", Date.now().toString(36));
+            location.replace("./?" + q + location.hash);
+            return;
+          }
+          try {
+            sessionStorage.removeItem(KEY);
+          } catch (e) {}
+          var root = document.getElementById("root");
+          var p = document.createElement("p");
+          p.className = "splash error";
+          p.textContent = "BoxOps couldn’t start: part of the app didn’t load. The site may be updating. ";
+          var a = document.createElement("a");
+          a.href = location.href;
+          a.textContent = "Try again";
+          p.append(a);
+          if (root) root.replaceChildren(p);
+        }
+      })();
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><p class="splash">Loading…</p></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -34,3 +34,35 @@ test("a stored draft that crashes the app can be downloaded and discarded", asyn
   await expect(page.locator(".box").first()).toBeVisible();
   await expect(toolbar(page)).toContainText("No changes");
 });
+
+test("the theme is applied before the app's JavaScript runs", async ({ page, github: _ }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.route("**/assets/*.js", () => {}); // never answered
+  await page.reload({ waitUntil: "commit" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("#root")).toHaveText("Loading…");
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(15, 18, 24)");
+});
+
+test("an app file that fails to load (a stale cached page) reloads once from a fresh URL", async ({ page, github: _ }) => {
+  let failed = 0;
+  await page.route("**/assets/*.js", (route) => {
+    if (failed++) return route.fallback();
+    return route.fulfill({ status: 404, contentType: "text/html", body: "<h1>404</h1>" });
+  });
+  const navigations: string[] = [];
+  page.on("request", (r) => r.isNavigationRequest() && navigations.push(r.url()));
+  await page.reload();
+  await expect(page.locator(".box").first()).toBeVisible();
+  expect(navigations).toHaveLength(2);
+  expect(new URL(navigations[1]).searchParams.get("boxops-reload")).toBeTruthy();
+  expect(new URL(navigations[1]).searchParams.get("zoom")).toBe("months"); // other parameters kept
+  expect(new URL(page.url()).searchParams.has("boxops-reload")).toBe(false); // removed again
+});
+
+test("if the app still can't load after that reload, the page says so", async ({ page, github: _ }) => {
+  await page.route("**/assets/*.js", (route) => route.fulfill({ status: 404, contentType: "text/html", body: "<h1>404</h1>" }));
+  await page.reload();
+  await expect(page.locator("#root")).toContainText("BoxOps couldn’t start: part of the app didn’t load.");
+  await expect(page.locator("#root").getByRole("link", { name: "Try again" })).toBeVisible();
+});
