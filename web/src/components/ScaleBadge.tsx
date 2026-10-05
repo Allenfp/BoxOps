@@ -32,7 +32,6 @@ export function ScaleBadge({ box, departments, className }: Props) {
         className={`scale-number${className ? ` ${className}` : ""}`}
         // An empty title keeps the box's own tooltip from covering the popup.
         title=""
-        aria-label={`Scale ${scale}`}
         onMouseEnter={(e) => setAt(e.currentTarget.getBoundingClientRect())}
         onMouseLeave={() => setAt(null)}
       >

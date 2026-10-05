@@ -420,7 +420,8 @@ export function Timeline(props: Props) {
       >
         {variant !== "compact" && (
           <span className="box-title">
-            <span className="status-mark" aria-label={PROGRESS_NAME[stage]} />
+            {/* An image, named for what it shows: a name on a plain <span> is ignored. */}
+            <span className="status-mark" role="img" aria-label={PROGRESS_NAME[stage]} />
             {(warnings.length > 0 || clash) && (
               <span className="box-warn" role="img" aria-label={warnings.length ? "Breaks a rule" : "Clash"}>
                 <Icon name="alert" size={12} />

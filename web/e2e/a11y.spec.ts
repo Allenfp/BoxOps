@@ -1,6 +1,97 @@
+import AxeBuilder from "@axe-core/playwright";
+import type { Page } from "@playwright/test";
 import { CDC, DAGSTER, box, boxFile, dragDays, expect, heard, pollNow, said, save, test, toolbar } from "./helpers";
 
-// What a screen reader finds on the page: landmarks, headings and names.
+// What a screen reader finds on the page: landmarks, headings and names; and
+// axe-core's automated checks against WCAG 2.2 A and AA, in both themes.
+// Keyboard behaviour has tests of its own (keyboard.spec.ts).
+
+/** WCAG 2.2 A and AA, as axe-core tags its rules (2.2 adds to 2.1, which adds to 2.0). */
+const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
+
+/** Everything axe finds wrong with the page as it is, one line per rule with where. */
+async function axeProblems(page: Page): Promise<string[]> {
+  const { violations } = await new AxeBuilder({ page }).withTags(WCAG).analyze();
+  return violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(" ")).join(", ")})`);
+}
+
+/** Each part of the app, opened from the roadmap as it first shows. */
+const PARTS: [string, (page: Page) => Promise<void>][] = [
+  ["the timeline", async () => {}],
+  [
+    "the Table view",
+    async (page) => {
+      await page.getByRole("button", { name: "Table", exact: true }).click();
+      await expect(page.locator(".box-table")).toBeVisible();
+    },
+  ],
+  [
+    "the People view",
+    async (page) => {
+      await page.getByRole("button", { name: "People", exact: true }).click();
+      await expect(page.locator(".people-table")).toBeVisible();
+    },
+  ],
+  [
+    "the box editor and its Engineers list",
+    async (page) => {
+      await box(page, DAGSTER).click();
+      await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ }).click();
+      await expect(page.getByRole("dialog", { name: "Engineers" })).toBeVisible();
+    },
+  ],
+  [
+    "the PTO editor",
+    async (page) => {
+      await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+      await expect(page.getByRole("dialog", { name: /^Edit PTO/ })).toBeVisible();
+    },
+  ],
+  [
+    "the department editor",
+    async (page) => {
+      await page.getByRole("button", { name: "Edit Analytics" }).click();
+      await expect(page.getByRole("dialog", { name: "Edit Analytics" })).toBeVisible();
+    },
+  ],
+  [
+    "the settings menu",
+    async (page) => {
+      await page.getByRole("button", { name: "Settings", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "Settings" })).toContainText("Team settings");
+    },
+  ],
+  [
+    "team settings",
+    async (page) => {
+      await page.getByRole("button", { name: "Settings", exact: true }).click();
+      await page.getByRole("button", { name: "Team settings…" }).click();
+      await expect(page.getByRole("dialog", { name: "Team settings" })).toBeVisible();
+    },
+  ],
+];
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test.describe(`axe, ${colorScheme} theme`, () => {
+    test.use({ colorScheme });
+    for (const [name, open] of PARTS) {
+      test(`${name} has no problems axe finds`, async ({ page, github: _ }) => {
+        await open(page);
+        expect(await axeProblems(page)).toEqual([]);
+      });
+    }
+  });
+
+  test.describe(`axe, ${colorScheme} theme, signed out`, () => {
+    test.use({ colorScheme, signedIn: false });
+    test("the save dialog has no problems axe finds", async ({ page, github: _ }) => {
+      await dragDays(page, DAGSTER, 5);
+      await page.getByRole("button", { name: "Save · 1 change" }).click();
+      await expect(page.getByRole("dialog", { name: "Connect to GitHub to save" })).toBeVisible();
+      expect(await axeProblems(page)).toEqual([]);
+    });
+  });
+}
 
 test("the page has a banner, a main region named for the view, and a heading for each department", async ({ page, github: _ }) => {
   await expect(page.getByRole("banner").getByRole("heading", { level: 1 })).toHaveText("BoxOps Roadmap");

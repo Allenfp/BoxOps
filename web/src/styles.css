@@ -1,17 +1,22 @@
 :root {
+  /* Text colours meet WCAG AA contrast (4.5:1) on the surfaces and box fills they're used on. */
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-2: #f0f2f5;
   --text: #1c2330;
-  --text-muted: #667085;
+  --text-muted: #5e687b;
   --border: #e3e6eb;
   --grid: #eef0f3;
   --grid-major: #d5d9e0;
   --weekend: rgba(16, 24, 40, 0.035);
-  --today: #e5484d;
+  --today: #d7363c;
+  /* Text on the Today flag. */
+  --on-today: #ffffff;
   --warn: #c2410c;
   --warn-bg: #fff1e6;
-  --accent: #4f7cff;
+  --accent: #3560e6;
+  /* Behind white text: primary buttons, the picked day. */
+  --accent-fill: var(--accent);
   --updated: #0d9488;
   --seg-track: #eceef2;
   --seg-on: #ffffff;
@@ -28,14 +33,17 @@
   --surface: #161a22;
   --surface-2: #1d222c;
   --text: #e6e9ef;
-  --text-muted: #8b93a3;
+  --text-muted: #949cab;
   --border: #262c38;
   --grid: #1d222b;
   --grid-major: #2e3542;
   --weekend: rgba(255, 255, 255, 0.025);
   --today: #ff6369;
+  --on-today: #0f1218;
   --warn: #fb923c;
   --warn-bg: #3a2414;
+  --accent: #4f7cff;
+  --accent-fill: #3560e6;
   --updated: #2dd4bf;
   --seg-track: #0f1218;
   --seg-on: #262c38;
@@ -467,7 +475,7 @@ button.icon-only:disabled {
   bottom: 2px;
   transform: translateX(-50%);
   background: var(--today);
-  color: #fff;
+  color: var(--on-today);
   font-size: 10.5px;
   font-weight: 600;
   line-height: 15px;
@@ -1083,13 +1091,13 @@ button.danger:hover {
 /* Save flow */
 
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
   color: #fff;
   font-weight: 600;
 }
 button.primary:hover:not(:disabled, [aria-disabled="true"]) {
-  background: color-mix(in srgb, var(--accent) 88%, #000);
+  background: color-mix(in srgb, var(--accent-fill) 88%, #000);
 }
 .link-button {
   border: 0;
@@ -2900,7 +2908,7 @@ kbd {
   box-shadow: inset 0 0 0 1px var(--today);
 }
 .calendar-day.selected {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff;
   opacity: 1;
 }
