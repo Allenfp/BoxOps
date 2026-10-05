@@ -103,6 +103,13 @@ async function loadPreview(base: Snapshot, branch: string): Promise<Exclude<Load
   const { repo } = base.source;
   const title = `Couldn’t show branch “${branch}”`;
   if (!isBranchName(branch)) return { status: "error", title, message: `“${branch}” isn’t a branch name.` };
+  if (base.source.local) {
+    return {
+      status: "error",
+      title,
+      message: "A copy built from the files on disk never reads from GitHub, so it can’t preview a branch. Check the branch out, or preview it on the deployed site.",
+    };
+  }
   const gh = new GitHubClient({ token: getToken(repo) });
   // A private repository: ask for a token rather than make a call that can only fail.
   if (!canRead(base.source, gh)) return { status: "needs-token", repo, branch, rejected: false };

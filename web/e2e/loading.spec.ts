@@ -119,5 +119,9 @@ test("a copy built from files on disk is read-only and asks GitHub nothing", asy
   await pollNow(page);
   await page.reload();
   await expect(page.locator(".box").first()).toBeVisible();
+  // A branch preview would read from GitHub: it says so instead.
+  featureBranch(github);
+  await page.goto("./?ref=feature");
+  await expect(page.locator(".load-problem")).toContainText("can’t preview a branch");
   expect(github.calls()).toBe(calls);
 });
