@@ -700,6 +700,10 @@ button.icon-only[aria-disabled="true"] {
   border: 0;
   cursor: pointer;
 }
+/* Focused, it and its ring are drawn in full. */
+.box.compact:focus-visible {
+  opacity: 1;
+}
 
 /* Progress, from the dates: ○ not started, ◐ under way, ● finished. */
 .status-mark {
@@ -1711,6 +1715,14 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 }
 .lane-row:last-child > .lane-label {
   border-bottom: 0;
+}
+/* What has focus in a label is drawn whole, its ring too, over the rows beside it: a half-FTE
+   lane's row is shorter than its name and + (22 px, 18 compact, against 24). */
+.label:focus-within {
+  z-index: 4;
+}
+.lane-row > .lane-label:focus-within {
+  overflow: visible;
 }
 .lane-row > .lane-label {
   padding-right: 6px;
