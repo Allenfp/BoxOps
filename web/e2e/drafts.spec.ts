@@ -151,6 +151,39 @@ test("a duplicated tab, opened before the original had changes, never touches th
   await expect.poll(async () => Object.keys(await storedDrafts(duplicate))).toEqual([expect.not.stringMatching(key)]);
 });
 
+test("a duplicated tab, opened once the original has changes, starts without them and leaves the original's draft be", async ({ page, github }) => {
+  const cdc = github.file(boxFile(CDC));
+  await dragDays(page, DAGSTER, 10);
+  await stored(page);
+  const before = await storedDrafts(page);
+  const [key] = Object.keys(before);
+  // Its page isn't a reload (Chrome and Firefox say back_forward), so the original's live draft isn't its own.
+  const original = await page.evaluate(() => sessionStorage.getItem("boxops-tab"));
+  const duplicate = await openTab(page.context(), github, TODAY, { "boxops-tab": original! });
+  await expect(duplicate.locator(".banner", { hasText: "This roadmap has unsaved changes in another tab." })).toBeVisible();
+  await expect(toolbar(duplicate)).toContainText("No changes");
+  expect(await duplicate.evaluate(() => sessionStorage.getItem("boxops-tab"))).not.toBe(original);
+
+  // It edits, discards, edits again and closes: the original's draft is as it was, and still the original's.
+  await dragDays(duplicate, CDC, 5);
+  await stored(page, 2);
+  duplicate.once("dialog", (d) => d.accept());
+  await duplicate.getByRole("button", { name: "More save options" }).click();
+  await duplicate.getByRole("button", { name: "Discard this change…" }).click();
+  await stored(page, 1);
+  await dragDays(duplicate, CDC, 5);
+  await stored(page, 2);
+  await duplicate.close({ runBeforeUnload: true });
+  const after = await storedDrafts(page);
+  expect({ ...after[key], alive: 0 }).toEqual({ ...before[key], alive: 0 }); // marked alive since, perhaps
+  expect(after[key].alive).toBeGreaterThan(0);
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+  expect(github.file(boxFile(CDC))).toBe(cdc);
+});
+
 test("a reload the page didn't see coming (after a crash) restores the tab's own draft", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 10);
   await stored(page);
