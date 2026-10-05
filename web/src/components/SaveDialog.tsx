@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { FailureKind, GitHubFailure } from "../github/api";
-import { failureMessage } from "../github/messages";
+import { TOKEN_KINDS, failureMessage } from "../github/messages";
 import type { Source } from "../github/read";
 import type { ChangeLine } from "../model/summary";
 import { Icon } from "./Icon";
@@ -65,8 +65,6 @@ const GITHUB_TITLE: Record<FailureKind, string> = {
   server: "GitHub had a problem",
   unknown: "Save failed",
 };
-/** Failures a different token fixes: the dialog offers one, and how to make it. */
-const TOKEN_KINDS: FailureKind[] = ["no-access", "read-only", "token-policy", "sso"];
 
 const KIND_LABEL: Record<ChangeLine["kind"], string> = { added: "Added", changed: "Changed", deleted: "Deleted" };
 

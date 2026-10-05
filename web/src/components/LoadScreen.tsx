@@ -1,6 +1,7 @@
 // What shows instead of the roadmap when it can't be shown yet: the site's
-// roadmap.json or a ?ref= branch couldn't be read (with Try again, and a way
-// back from a preview), or a preview of a private repository needs a token.
+// roadmap.json or a ?ref= branch couldn't be read (with Try again, a way back
+// from a preview, and another token when the one kept can't read it), or a
+// preview of a private repository needs a token.
 
 import { useEffect } from "react";
 import { TokenForm } from "./TokenForm";
@@ -14,7 +15,20 @@ export function liveUrl(): string {
 
 const previewing = () => new URLSearchParams(window.location.search).has("ref");
 
-export function LoadProblem({ title, message, detail, onRetry }: { title: string; message: string; detail?: string; onRetry(): void }) {
+export function LoadProblem({
+  title,
+  message,
+  detail,
+  onRetry,
+  onNewToken,
+}: {
+  title: string;
+  message: string;
+  detail?: string;
+  onRetry(): void;
+  /** The token kept can't read the branch: forget it and ask for another. */
+  onNewToken?: () => void;
+}) {
   // Back online: try again without being asked.
   useEffect(() => {
     window.addEventListener("online", onRetry);
@@ -31,6 +45,7 @@ export function LoadProblem({ title, message, detail, onRetry }: { title: string
         </details>
       )}
       <div className="crash-actions">
+        {onNewToken && <button onClick={onNewToken}>Use a different token</button>}
         <button className="primary" onClick={onRetry}>
           Try again
         </button>
@@ -59,6 +74,7 @@ export function PreviewToken({
       </header>
       <TokenForm
         repo={repo}
+        access="read"
         rejected={rejected}
         submitLabel="Preview"
         lead={

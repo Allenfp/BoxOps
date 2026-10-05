@@ -1,7 +1,10 @@
 // What to tell the user about a GitHubFailure, in plain English, one kind at a
 // time. Every place that shows a GitHub problem uses these words.
 
-import type { GitHubFailure } from "./api";
+import type { FailureKind, GitHubFailure } from "./api";
+
+/** Failures a different token fixes: where one is shown, a different token is offered, with how to make it. */
+export const TOKEN_KINDS: readonly FailureKind[] = ["no-access", "read-only", "token-policy", "sso"];
 
 /** Where the failed call was going. */
 export interface FailurePlace {

@@ -135,9 +135,11 @@ both.
 - **Previews.** `?ref=<branch>` shows another branch read-only, read the same
   way (only files that differ from `main`'s are fetched). The name is checked
   against git's rules before any call. A private repository without a token
-  shows a token form instead (read access is enough). A branch that isn't
-  there, or any other failure, gets a plain message with Try again and a link
-  back to the live roadmap.
+  shows a token form instead (read access is enough, and its new-token link
+  asks for Contents: read). A branch that isn't there, or any other failure,
+  gets a plain message with Try again and a link back to the live roadmap;
+  when the token kept can't see the repository (its resource owner, single
+  sign-on, the organization's token policy), also Use a different token.
 - **Data format.** `format` in `settings.yaml` must be the one this build reads
   (`model/format.ts`); a roadmap in any other format opens read-only, with a
   banner saying why.

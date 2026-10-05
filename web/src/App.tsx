@@ -8,7 +8,7 @@ import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
 import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
-import { failureMessage } from "./github/messages";
+import { TOKEN_KINDS, failureMessage } from "./github/messages";
 import { type Snapshot, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
 import { NewerFormat, NewerSaves, SaveConflict, type SaveResult, type SaveStep, saveRoadmap } from "./github/save";
 import { getToken, setToken } from "./github/token";
@@ -42,8 +42,8 @@ interface Loaded extends LoadResult, Snapshot {
 
 type LoadState =
   | { status: "loading" }
-  /** The site's roadmap.json, or a `?ref=` branch, couldn't be read. */
-  | { status: "error"; title: string; message: string; detail?: string }
+  /** The site's roadmap.json, or a `?ref=` branch, couldn't be read. `newToken`: a different token could read the branch. */
+  | { status: "error"; title: string; message: string; detail?: string; newToken?: { repo: string; branch: string } }
   /** A `?ref=` preview of a private repository, and no token to read it with. */
   | { status: "needs-token"; repo: string; branch: string; rejected: boolean }
   | ({ status: "ready" } & Loaded);
@@ -137,7 +137,9 @@ async function loadPreview(base: Snapshot, branch: string): Promise<Exclude<Load
       return { status: "error", title, message: "Couldn’t reach GitHub: you may be offline, or a network filter may be blocking api.github.com." };
     }
     if (e.kind === "timeout") return { status: "error", title, message: "GitHub didn’t answer in time. Try again in a moment." };
-    return { status: "error", title, message: failureMessage(e, { repo, branch }), detail: `GitHub said: “${e.message}”` };
+    // The token kept for this repository can't read it: Try again alone would only reuse it.
+    const newToken = base.source.private && gh.authenticated && TOKEN_KINDS.includes(e.kind) ? { repo, branch } : undefined;
+    return { status: "error", title, message: failureMessage(e, { repo, branch }), detail: `GitHub said: “${e.message}”`, newToken };
   }
 }
 
@@ -316,7 +318,22 @@ export function App() {
   }, [pollable, seen, show, noteSite]);
 
   if (state.status === "loading") return <div className="splash">Loading roadmap…</div>;
-  if (state.status === "error") return <LoadProblem {...state} onRetry={retry} />;
+  if (state.status === "error") {
+    const { newToken } = state;
+    return (
+      <LoadProblem
+        {...state}
+        onRetry={retry}
+        onNewToken={
+          newToken &&
+          (() => {
+            setToken(newToken.repo, null);
+            setState({ status: "needs-token", ...newToken, rejected: false });
+          })
+        }
+      />
+    );
+  }
   if (state.status === "needs-token") {
     return (
       <PreviewToken

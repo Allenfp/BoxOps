@@ -1,5 +1,5 @@
 import { type Route } from "@playwright/test";
-import { type FakeGitHub, TOKEN } from "./fake-github";
+import { type FakeGitHub, OTHER_OWNER_TOKEN, REPO, TOKEN } from "./fake-github";
 import { DAGSTER, REVENUE, box, boxTitle, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
 // Opening the site: the deployed copy at once, then any newer saves from
@@ -90,6 +90,26 @@ test.describe("private repository, signed out", () => {
     await expect(form.locator("h2")).toHaveText("Connect to GitHub to preview");
     await expect(form).toContainText("feature is a branch of acme/roadmap, a private repository");
     expect(github.calls()).toBe(0);
+    await form.locator('input[type="password"]').fill(TOKEN);
+    await form.getByRole("button", { name: "Preview" }).click();
+    await expect(page.locator(".banner")).toContainText("Previewing branch feature (read-only).");
+    await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  });
+
+  test("a branch preview whose kept token can't see the repository offers a different token", async ({ page, github }) => {
+    featureBranch(github);
+    await page.evaluate(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, OTHER_OWNER_TOKEN]);
+    await page.goto("./?ref=feature&zoom=months");
+    const problem = page.locator(".load-problem");
+    await expect(problem.locator("h1")).toHaveText("Couldn’t show branch “feature”");
+    await expect(problem).toContainText("This token can’t see acme/roadmap.");
+    await problem.getByRole("button", { name: "Use a different token" }).click();
+
+    const form = page.locator(".load-token");
+    await expect(form.locator("h2")).toHaveText("Connect to GitHub to preview");
+    // Read access is all a preview needs, and the link asks for no more.
+    await expect(form.getByRole("link", { name: `Create a fine-grained token for ${REPO}` })).toHaveAttribute("href", /&contents=read$/);
+    await expect(form.locator(".token-help")).toContainText("Contents → Read-only");
     await form.locator('input[type="password"]').fill(TOKEN);
     await form.getByRole("button", { name: "Preview" }).click();
     await expect(page.locator(".banner")).toContainText("Previewing branch feature (read-only).");

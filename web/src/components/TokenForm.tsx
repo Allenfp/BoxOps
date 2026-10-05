@@ -2,28 +2,31 @@ import { type ReactNode, useState } from "react";
 import { isBroadToken } from "../github/token";
 import { Icon } from "./Icon";
 
+/** What a token is for: saving needs Contents: Read and write; previewing a branch, Read-only. */
+export type TokenAccess = "read" | "write";
+
 /**
  * GitHub's page for a new fine-grained token, filled in for this repository:
- * its owner as Resource owner and Contents: Read and write. (The repository
+ * its owner as Resource owner and the Contents permission. (The repository
  * itself can't be pre-selected, and the owner may only look selected, so the
  * form asks the user to check both.)
  */
-export function tokenUrl(repo: string): string {
+export function tokenUrl(repo: string, access: TokenAccess = "write"): string {
   const q = new URLSearchParams({
     name: `BoxOps ${repo}`.slice(0, 40),
-    description: `Saves from BoxOps to ${repo}`,
+    description: access === "write" ? `Saves from BoxOps to ${repo}` : `Branch previews of ${repo} in BoxOps`,
     target_name: repo.split("/")[0],
-    contents: "write",
+    contents: access,
   });
   return `https://github.com/settings/personal-access-tokens/new?${q}`;
 }
 
 /** How to make a token that works for this repository: the settings that matter, and the usual reasons one doesn't. */
-export function TokenHelp({ repo }: { repo: string }) {
+export function TokenHelp({ repo, access = "write" }: { repo: string; access?: TokenAccess }) {
   const owner = repo.split("/")[0];
   return (
     <div className="token-help">
-      <a href={tokenUrl(repo)} target="_blank" rel="noopener noreferrer">
+      <a href={tokenUrl(repo, access)} target="_blank" rel="noopener noreferrer">
         Create a fine-grained token for {repo} <Icon name="external" size={12} />
       </a>
       , and check on GitHub’s page that:
@@ -35,7 +38,7 @@ export function TokenHelp({ repo }: { repo: string }) {
           <strong>Repository access</strong> is Only select repositories → <strong>{repo}</strong>
         </li>
         <li>
-          <strong>Permissions</strong>: Contents → <strong>Read and write</strong>
+          <strong>Permissions</strong>: Contents → <strong>{access === "write" ? "Read and write" : "Read-only"}</strong>
         </li>
       </ul>
       <p className="hint">
@@ -50,6 +53,7 @@ export function TokenHelp({ repo }: { repo: string }) {
 /** Paste a token: for a save, or to preview a branch of a private repository. */
 export function TokenForm({
   repo,
+  access,
   lead,
   submitLabel,
   rejected,
@@ -59,6 +63,7 @@ export function TokenForm({
   children,
 }: {
   repo: string;
+  access?: TokenAccess;
   lead: ReactNode;
   submitLabel: string;
   /** GitHub rejected the last token (401). */
@@ -99,7 +104,7 @@ export function TokenForm({
           </span>
         )}
       </label>
-      <TokenHelp repo={repo} />
+      <TokenHelp repo={repo} access={access} />
       {children}
       <footer className="dialog-foot">
         <button type="button" onClick={onCancel} disabled={busy}>
