@@ -39,7 +39,8 @@ web/
   cli/                      Node-only: git.ts (reads a roadmap folder from git
                             objects or from disk), site.ts (builds roadmap.json)
   scripts/                  validate.ts, report.ts (command-line checks; an
-                            optional argument names another roadmap folder)
+                            optional argument names another roadmap folder),
+                            gen-roadmap.ts (synthetic roadmaps of any size)
   e2e/                      browser tests, fake GitHub, fixture roadmap
   index.html                early theme, boot watchdog (inline scripts)
   vite.config.ts            build id, CSP, and roadmap.json at build time

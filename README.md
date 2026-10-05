@@ -84,6 +84,7 @@ npm test           # unit tests
 npm run e2e        # browser tests (Playwright, WebKit)
 npm run validate   # check the roadmap files
 npm run report     # capacity and staffing summary
+npm run gen-roadmap -- 2000 2026-10-03 <folder>  # a synthetic roadmap (boxes, "today") for scale tests
 ```
 
 Every pull request, and every push to a branch other than `main` (docs-only

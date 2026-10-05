@@ -15,7 +15,8 @@
     "test": "vitest run",
     "validate": "tsx scripts/validate.ts",
     "e2e": "vite build && playwright test",
-    "report": "tsx scripts/report.ts"
+    "report": "tsx scripts/report.ts",
+    "gen-roadmap": "tsx scripts/gen-roadmap.ts"
   },
   "dependencies": {
     "react": "^19.3.0",
