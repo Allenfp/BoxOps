@@ -1,4 +1,4 @@
-import { CDC, DAGSTER, box, boxFile, dragDays, expect, focusApp, said, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, boxFile, dragDays, expect, focusApp, heard, said, save, test, toolbar } from "./helpers";
 
 // Working by keyboard: where focus goes, and what keys do. WebKit's Tab, like
 // Safari's by default, skips buttons and links unless they have a tabindex,
@@ -358,6 +358,34 @@ test("a save that didn't go through doesn't leave its cell to send focus to afte
   await page.locator("[data-save-button]").dispatchEvent("click");
   await expect(toolbar(page)).toContainText("No changes");
   await expect(page.locator(".banner.success [data-saved]")).toBeFocused();
+});
+
+test("Undo and Redo keep focus once there's nothing left to undo or redo; discarding puts it on Undo", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 5);
+  const undo = toolbar(page).getByRole("button", { name: "Undo" });
+  const redo = toolbar(page).getByRole("button", { name: "Redo" });
+  await undo.focus();
+  await page.keyboard.press("Enter");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(undo).toBeDisabled(); // aria-disabled: still focusable
+  await expect(undo).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => heard(page)).toContain("Nothing to undo.");
+  await expect(undo).toBeFocused();
+  await redo.focus();
+  await page.keyboard.press("Enter");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect(redo).toBeDisabled();
+  await expect(redo).toBeFocused();
+
+  // The Save button and its ▾ turn into "No changes".
+  await page.getByRole("button", { name: "More save options" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Discard this change…" })).toBeFocused();
+  page.once("dialog", (d) => d.accept());
+  await page.keyboard.press("Enter");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(undo).toBeFocused();
 });
 
 test("a department picked from the warnings gets focus", async ({ page, github: _ }) => {

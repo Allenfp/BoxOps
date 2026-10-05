@@ -1045,10 +1045,13 @@ function RoadmapView(props: ViewProps) {
     guardReload(() => confirm(`Reload and lose ${unsaved}? This browser isn’t keeping ${them}.`));
     return () => guardReload(null);
   }, [count, draft.kept, unsaved, them]);
+  /** Undo, where focus goes after discarding: the Save button it was by turns into "No changes". */
+  const undoButton = useRef<HTMLButtonElement>(null);
   const discardAll = () => {
     if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
       setSelected(null);
       draft.discard();
+      focusLater([() => undoButton.current, main]);
     }
   };
 
@@ -1461,10 +1464,12 @@ function RoadmapView(props: ViewProps) {
           <WarningsMenu groups={warningGroups} />
           {!preview && (
             <div className="draft-status">
+              {/* Not disabled with nothing to undo or redo: a disabled button loses focus, to the page. */}
               <button
+                ref={undoButton}
                 className="icon-only"
                 onClick={undo}
-                disabled={!draft.canUndo}
+                aria-disabled={!draft.canUndo || undefined}
                 title={`Undo (${shortcut("Z")})`}
                 aria-label="Undo"
                 aria-keyshortcuts="Meta+Z Control+Z"
@@ -1474,7 +1479,7 @@ function RoadmapView(props: ViewProps) {
               <button
                 className="icon-only"
                 onClick={redo}
-                disabled={!draft.canRedo}
+                aria-disabled={!draft.canRedo || undefined}
                 title={`Redo (${shortcut("Z", true)})`}
                 aria-label="Redo"
                 aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z Meta+Y Control+Y"

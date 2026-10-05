@@ -512,8 +512,9 @@ when a focused element is removed.
   the next one's ✕ (else the one before's, else Add), a cleared lane date
   to its +; a save gives it back where it was, or to the saved banner;
   Enter and Esc in a table cell, a date picked from the calendar and a lane
-  renamed in place keep it there. Save stays focusable while saving
-  (`aria-disabled`).
+  renamed in place keep it there. Save stays focusable while saving, and
+  Undo and Redo with nothing left to undo or redo (`aria-disabled`, not
+  `disabled`); discarding all changes puts focus on Undo.
 - **Dialogs** are named by their titles (the save dialog is also described
   by what went wrong) and start on what's safe to press next, their first
   field, or themselves, never the Close button. The native ones

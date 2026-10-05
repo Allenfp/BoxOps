@@ -258,7 +258,8 @@ button.icon-only {
   line-height: 1;
   color: var(--text-muted);
 }
-button.icon-only:disabled {
+button.icon-only:disabled,
+button.icon-only[aria-disabled="true"] {
   opacity: 0.45;
   cursor: default;
 }
