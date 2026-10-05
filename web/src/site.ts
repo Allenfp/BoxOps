@@ -1,7 +1,7 @@
 // The deployed site around the app: its roadmap.json, the app build behind
 // it, and reloading onto a newer one.
 
-import { type Bundle, readBundle } from "./model/bundle";
+import { type Bundle, type BundleSource, readBundle } from "./model/bundle";
 
 /**
  * Set by a reload that must not be answered from the browser's cache (Pages
@@ -62,4 +62,19 @@ export async function fetchBundle(): Promise<Bundle> {
   } catch (e) {
     throw new SiteError(`roadmap.json: ${(e as Error).message}`, res.status);
   }
+}
+
+/**
+ * Whether a polled roadmap.json moves the tab forward from the commit on
+ * screen: its history (the deploy's last 50 first-parent commits) holds that
+ * commit. Deploys finish out of order and the tab may have read a newer head
+ * from GitHub, so anything else is ignored if the tab has seen it or it's
+ * older; a bundle without a usable date or history (one from before schema 1)
+ * counts as newer unless seen.
+ */
+export function movesForward(next: BundleSource, current: { commit: string; date: string }, seen: ReadonlySet<string>): boolean {
+  if (next.commit === current.commit) return false;
+  if (next.history.includes(current.commit)) return true;
+  if (seen.has(next.commit)) return false;
+  return !(Date.parse(next.date) < Date.parse(current.date));
 }

@@ -1,3 +1,4 @@
+import type { Route } from "@playwright/test";
 import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
 for (const visibility of ["public", "private"] as const) {
@@ -53,6 +54,37 @@ for (const visibility of ["public", "private"] as const) {
       await expect(toolbar(page)).toContainText("No changes");
     });
 
+    test("a deploy older than what's on screen never rolls the tab back", async ({ page, github }) => {
+      const sam = github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }, "Sam Lee", "Revenue mart: v3");
+      const priya = github.otherSave(
+        { [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline (orders + payments)") },
+        "Priya Shah",
+        "CDC pipeline: renamed",
+      );
+      // The deployed copy, then both saves straight from GitHub.
+      await page.reload();
+      await expect(page.locator(".banner")).toContainText("Priya Shah saved “CDC pipeline: renamed”");
+      await page.locator(".banner").getByRole("button", { name: "Dismiss" }).click();
+
+      // Sam's deploy finishes after the tab read Priya's save: it's behind, so it's ignored.
+      github.deploy(sam);
+      const polled = page.waitForResponse((r) => r.url().includes("roadmap.json"));
+      await pollNow(page);
+      await polled;
+      await page.waitForTimeout(300); // time to (wrongly) apply it
+      await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline (orders + payments)");
+      await expect(page.locator(".banner")).toHaveCount(0);
+
+      // Priya's deploy is what's on screen already; the next save after it comes in.
+      github.deploy(priya);
+      await pollNow(page);
+      github.deploy(github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked") }, "Sam Lee", "Dagster: blocked"));
+      await pollNow(page);
+      await expect(page.locator(".banner")).toContainText("Sam Lee saved “Dagster: blocked”");
+      await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline (orders + payments)");
+      await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+    });
+
     test("hidden tabs don't poll, and check as soon as they're visible", async ({ page, github }) => {
       let fetches = 0;
       page.on("request", (r) => r.url().includes("roadmap.json") && fetches++);
@@ -87,4 +119,35 @@ test.describe("private repository, signed out", () => {
     await expect(page.locator(".site-copy")).toHaveAttribute("title", /^acme\/roadmap is private, so without a GitHub token this tab shows the site’s copy/);
     expect(github.calls()).toBe(0);
   });
+});
+
+test("checks that keep failing say the site is lost, back off, and recover; saving still works", async ({ page, github }) => {
+  let fetches = 0;
+  const down = (route: Route) => {
+    fetches++;
+    return route.abort("connectionrefused");
+  };
+  await page.route("**/roadmap.json*", down);
+  await pollNow(page);
+  await expect.poll(() => fetches).toBe(1);
+  await expect(page.locator(".banner")).toHaveCount(0); // one failure says nothing
+
+  // The next check waits twice as long.
+  await pollNow(page);
+  expect(fetches).toBe(1);
+  await page.clock.fastForward(2 * 60_000);
+  await expect.poll(() => fetches).toBe(2);
+  const lost = page.locator(".banner", { hasText: "Lost the connection to the site" });
+  await expect(lost).toBeVisible();
+  await expect(lost.getByRole("button", { name: "Reload" })).toBeVisible();
+
+  // A failed check never stops a save.
+  await dragDays(page, DAGSTER, 10);
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+
+  await page.unroute("**/roadmap.json*", down);
+  await page.clock.fastForward(8 * 60_000 + 1000);
+  await expect(lost).toHaveCount(0);
 });

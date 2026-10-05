@@ -33,7 +33,7 @@ import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types
 import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
 import { LoadProblem, PreviewToken, liveUrl } from "./components/LoadScreen";
-import { SiteError, fetchBundle } from "./site";
+import { SiteError, fetchBundle, movesForward, reloadApp } from "./site";
 
 interface Loaded extends LoadResult, Snapshot {
   /** Showing a branch other than the one this site was built from (`?ref=`). */
@@ -52,6 +52,10 @@ const ZOOM_LABEL: Record<ZoomLevel, string> = { weeks: "Weeks", months: "Months"
 
 /** How often open tabs look for other people's saves. */
 const POLL_MS = 2 * 60_000;
+/** Failed polls in a row before the tab says it has lost the site. */
+const LOST_AFTER = 2;
+/** The longest wait between polls while they fail. */
+const MAX_BACKOFF_MS = 15 * 60_000;
 /** How long the load-time check for saves newer than the deployed copy may take; that copy is on screen meanwhile. */
 const FRESHNESS_MS = 4000;
 
@@ -203,32 +207,62 @@ export function App() {
     };
   }, [attempt, seen, show]);
 
-  // Look for other people's saves every couple of minutes while the tab is visible.
+  // Look for other people's saves every couple of minutes while the tab is
+  // visible, in the site's own roadmap.json: a 304 when nothing changed, and
+  // no GitHub API calls. Only ever forward (movesForward). Failed checks back
+  // off (2, 4, 8, then every 15 minutes); a few in a row (offline, or signed
+  // out of a private site) say so, but never stop the tab from saving.
   const pollable = state.status === "ready" && !state.preview && !state.source.local;
+  const [lost, setLost] = useState(false);
   useEffect(() => {
     if (!pollable) return;
+    let stopped = false;
+    let checking = false;
+    let failures = 0;
     let lastCheck = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const wait = () => (failures ? Math.min(POLL_MS * 2 ** failures, MAX_BACKOFF_MS) : POLL_MS);
+    /** The next check, counted from when the last one started (or from now). */
+    const schedule = (from = Date.now()) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void check(), Math.max(0, from + wait() - Date.now()));
+    };
     const check = async () => {
-      if (document.hidden || saving.current) return;
+      if (stopped || checking) return;
+      if (document.hidden || saving.current) return schedule();
+      checking = true;
       lastCheck = Date.now();
       try {
         const bundle = await fetchBundle();
-        const commit = bundle.source.commit;
-        if (seen.has(commit) || saving.current) return;
+        failures = 0;
+        if (stopped) return;
+        setLost(false);
+        const current = onScreen.current;
+        if (!current || !movesForward(bundle.source, current, seen) || saving.current) return;
         show(fromSnapshot(remember(await fromBundle(bundle))));
         setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
-        // Offline or mid-deploy: try again next time.
+        failures++;
+        if (!stopped && failures >= LOST_AFTER) setLost(true);
+      } finally {
+        checking = false;
+        if (!stopped) schedule(lastCheck);
       }
     };
-    const timer = setInterval(check, POLL_MS);
+    schedule();
     const onVisible = () => {
-      if (!document.hidden && Date.now() - lastCheck >= POLL_MS) void check();
+      if (!document.hidden && Date.now() - lastCheck >= wait()) void check();
+    };
+    const onOnline = () => {
+      if (failures) void check();
     };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
     return () => {
-      clearInterval(timer);
+      stopped = true;
+      clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
     };
   }, [pollable, seen, show]);
 
@@ -249,6 +283,7 @@ export function App() {
     <RoadmapView
       {...state}
       seen={seen}
+      connectionLost={lost}
       lastSave={lastSave}
       remote={remote}
       onDismissSave={() => setLastSave(null)}
@@ -292,6 +327,8 @@ function SaveProgress({ step }: { step: SaveStep }) {
 interface ViewProps extends Loaded {
   /** Commits the tab has already shown or moved past (see App). */
   seen: ReadonlySet<string>;
+  /** Checks for others' saves keep failing. */
+  connectionLost: boolean;
   lastSave: { commit: string; url: string } | null;
   remote: RemoteUpdate | null;
   onDismissSave(): void;
@@ -920,6 +957,15 @@ function RoadmapView(props: ViewProps) {
           <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
             <Icon name="x" size={16} />
           </button>
+        </div>
+      )}
+      {props.connectionLost && (
+        <div className="banner" role="status">
+          <span>
+            Lost the connection to the site, so others’ saves aren’t coming in. Reload to reconnect
+            {count > 0 ? "; your unsaved changes are kept in this browser" : ""}.
+          </span>
+          <button onClick={() => reloadApp("")}>Reload</button>
         </div>
       )}
       {remote && (
