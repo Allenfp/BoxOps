@@ -111,11 +111,12 @@ async function load(bundle: Bundle): Promise<Loaded> {
       }
     }
   }
-  return { ...loadRoadmap(bundle.files), files: bundle.files, source: bundle.source, preview: false };
+  return { ...loadRoadmap(bundle.files, bundle.ignored), files: bundle.files, source: bundle.source, preview: false };
 }
 
-function fromFiles(files: RoadmapFiles, source: Source): Loaded {
-  return { ...loadRoadmap(files), files, source, preview: false };
+/** `ignored`: other files in the roadmap folder (a bundle lists them), reported as unexpected. */
+function fromFiles(files: RoadmapFiles, source: Source, ignored: string[] = []): Loaded {
+  return { ...loadRoadmap(files, ignored), files, source, preview: false };
 }
 
 export function App() {
@@ -153,7 +154,7 @@ export function App() {
         const commit = bundle.source.commit;
         if (seen.current.has(commit) || saving.current) return;
         seen.current.add(commit);
-        setState({ status: "ready", ...fromFiles(bundle.files, bundle.source) });
+        setState({ status: "ready", ...fromFiles(bundle.files, bundle.source, bundle.ignored) });
         setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
         // Offline or mid-deploy: try again next time.

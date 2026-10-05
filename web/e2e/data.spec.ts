@@ -64,6 +64,23 @@ test("a roadmap.json from before bundle schema 1 still opens", async ({ page, gi
   await expect(toolbar(page)).toContainText("No changes");
 });
 
+test("other files in the roadmap folder are reported, from a deploy and on load", async ({ page, github }) => {
+  github.deploy(github.otherSave({ "README.md": () => "# Notes\n" }, "Sam Lee", "Add a README"));
+  const reported = async () => {
+    await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+    await expect(page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: "Problems in the roadmap files" })).toContainText(
+      "roadmap/README.md: unexpected file",
+    );
+    await page.keyboard.press("Escape");
+  };
+  await pollNow(page);
+  await expect(page.locator(".banner", { hasText: "Sam Lee saved" })).toContainText("“Add a README”");
+  await reported();
+  await page.reload();
+  await expect(page.locator(".box").first()).toBeVisible();
+  await reported();
+});
+
 test("index.html names the build", async ({ page }) => {
   await page.goto("./");
   await expect(page.locator('meta[name="boxops-build"]')).toHaveAttribute("content", /^\d+\.\d+\.\d+\+([0-9a-f]{12}|unknown)(\.dirty)?$/);
