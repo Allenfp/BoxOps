@@ -30,7 +30,7 @@ export default defineConfig({
     // repository differs only in how GitHub is called, so it runs in UTC alone.
     ...["America/Los_Angeles", "Pacific/Kiritimati"].map((timezoneId) => ({
       name: `webkit ${timezoneId}`,
-      testMatch: /\/(timeline|table|pto|save)\.spec\.ts$/,
+      testMatch: /\/(timeline|table|pto|save|calendar)\.spec\.ts$/,
       grepInvert: /private repository/,
       use: { ...webkit, timezoneId },
     })),
