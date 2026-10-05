@@ -81,7 +81,7 @@ let savingLoad: Promise<Saving> | undefined;
 /**
  * Fetch saving's code and the parser, which bring the yaml library: started
  * as soon as someone begins editing, so a save never waits for it. A failure
- * (the app's files replaced by a deploy, say) is tried again next time.
+ * isn't kept, as for loadParser().
  */
 function loadSaving(): Promise<Saving> {
   savingLoad ??= Promise.all([import("./saving"), loadParser()]).then(

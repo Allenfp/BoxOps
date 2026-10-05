@@ -242,8 +242,9 @@ let parser: Promise<void> | undefined;
 /**
  * Load the parser, and with it the yaml library: fetched on first use (a
  * file no one has parsed yet, or a save). Anything about to need it can
- * start it early. A failure (the app's files replaced by a deploy, say) is
- * tried again next time.
+ * start it early. A failure (the app's files replaced by a deploy, say)
+ * isn't kept, so a later call tries again, though a browser may give the
+ * same failure until the page is reloaded.
  */
 export function loadParser(): Promise<void> {
   parser ??= import("./parse.ts").then(
