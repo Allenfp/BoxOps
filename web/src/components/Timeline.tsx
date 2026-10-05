@@ -42,6 +42,7 @@ import { focusLater } from "../a11y/focus";
 import { followPointer } from "./followPointer";
 import { cellOf, useGridFocus } from "./useGridFocus";
 import { announce } from "../a11y/announce";
+import { letter } from "../a11y/keys";
 import { boxName, laneName, ptoName, spokenRange } from "../timeline/keyboard";
 
 const LABEL_W = 240;
@@ -118,6 +119,11 @@ interface Props {
   onCreatePto?(departmentId: string, dates: Pick<TimeOff, "start" | "end">): void;
   /** Why nothing can be changed while `readOnly`, said when a key or button would have changed something. */
   readOnlyReason?: string;
+  /** The Delete key on a focused box or PTO block. */
+  onDeleteBox?(id: string): void;
+  onDeletePto?(ref: PtoRef): void;
+  /** ? in the timeline: the list of keys. */
+  onShowShortcuts?(): void;
 }
 
 /** Working days a box added from the keyboard (or its lane's +) runs, by zoom: a week, two, or about a month. */
@@ -277,7 +283,44 @@ export function Timeline(props: Props) {
       if (readOnly) return say(readOnlyWhy);
       if (kind === "box") onSelect(id);
       else props.onSelectPto?.(ptoRefOf(id));
+    } else if ((e.key === "Delete" || e.key === "Backspace") && plain && (kind === "box" || kind === "pto")) {
+      // Only the focused box or block, once a press: a key held down would go on to delete its neighbours.
+      e.preventDefault();
+      if (e.repeat || e.nativeEvent.isComposing) return;
+      if (readOnly) return say(readOnlyWhy);
+      remove(cell, kind, id);
+    } else if (letter(e.nativeEvent) === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (e.repeat) return;
+      const [rowKind, rowId] = splitKey(cell.closest<HTMLElement>("[data-row]")?.dataset.row ?? ":");
+      const after = cell.dataset.end === undefined ? undefined : Number(cell.dataset.end);
+      if (rowKind === "lane") createBoxIn(rowId, after);
+      else if (rowKind === "pto") createPto(rowId, after);
+      // The extra area: in the focused box's own lane.
+      else if (kind === "box") createBoxIn(boxes.find((b) => b.id === id)!.lane, after);
+      else say("N adds a box in a lane, or PTO in a PTO row.");
+    } else if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      props.onShowShortcuts?.();
     }
+  };
+
+  /** Delete the focused box or PTO block; focus goes to the cell beside it. */
+  const remove = (cell: HTMLElement, kind: string, id: string) => {
+    let next = grid.neighbour(cell);
+    if (kind === "box") {
+      if (next) grid.setActive(next);
+      return props.onDeleteBox?.(id);
+    }
+    // The owner's later entries move up one place in their list, and so their keys.
+    const ref = ptoRefOf(id);
+    const [nextKind, nextId] = next ? splitKey(next) : ["", ""];
+    if (nextKind === "pto") {
+      const n = ptoRefOf(nextId);
+      if (n.personId === ref.personId && n.index > ref.index) next = `pto:${ptoKey({ ...n, index: n.index - 1 })}`;
+    }
+    if (next) grid.setActive(next);
+    props.onDeletePto?.(ref);
   };
 
   const scrollToDay = (day: Day, fraction: number, smooth = false) => {
@@ -728,6 +771,7 @@ export function Timeline(props: Props) {
                           <div
                             key={rowId}
                             role="row"
+                            data-row={lane ? `lane:${lane.id}` : undefined}
                             className={`lane-row${lane ? "" : " overflow-row"}${moving?.lane === rowId ? " drop-target" : ""}`}
                             style={{ height: l.slots * SLOT_H }}
                           >
@@ -836,7 +880,7 @@ export function Timeline(props: Props) {
                     const { rows, count } = packRows(entries);
                     const height = Math.max(1, count) * SLOT_H;
                     return (
-                      <div className="row pto-row" role="row" style={{ height }}>
+                      <div className="row pto-row" role="row" data-row={`pto:${dept.id}`} style={{ height }}>
                         <div className="label lane-label pto-label" style={{ width: LABEL_W, height }}>
                           <span className="lane-name static" role="rowheader">
                             PTO

@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { CDC, DAGSTER, box, expect, test } from "./helpers";
+import { CDC, DAGSTER, box, boxFile, expect, heard, pollNow, said, test, toolbar } from "./helpers";
 
 // The timeline from the keyboard: a grid with one Tab stop, the arrow keys
 // between its cells, Enter to open a box and focus back on it after. Start
@@ -205,4 +205,103 @@ test("lane rows are exactly as tall as their lanes: a box's slot is where the ma
     .evaluateAll((rows) => rows.map((r) => r.getBoundingClientRect().top - r.parentElement!.getBoundingClientRect().top));
   // 1, 1, 1 and 0.5 FTE: 44, 44, 44 and 22 px, then the extra area.
   expect(tops).toEqual([0, 44, 88, 132, 154]);
+});
+
+test("N or a lane's + adds a box there, after the focused box or near today; focus comes back to it", async ({ page, github: _ }) => {
+  // On a lane's name: near today (2026-10-03 is a Saturday), two working weeks at months zoom.
+  await cell(page, "lane:de-4").focus();
+  await page.keyboard.press("n");
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await expect(editor.getByRole("textbox", { name: "Title" })).toBeFocused();
+  await expect.poll(() => heard(page)).toContain("Added a box to Data Engineering / Contractor, 2026-10-05 to 2026-10-16.");
+  await page.keyboard.type("Kafka spike");
+  await page.keyboard.press("Escape");
+  // Its id changed with its title: focus is on it all the same.
+  const added = page.locator('[data-box-id$="-kafka-spike"]');
+  await expect(added).toBeFocused();
+  await expect(added).toHaveAccessibleName(/^Kafka spike, DE-\w{3}, 2026-10-05 to 2026-10-16, 1 FTE/);
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+
+  // On a box: in its lane, from the working day after it ends (Dagster ends Friday 2026-10-23).
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("n");
+  await expect.poll(() => heard(page)).toContain("Added a box to Data Engineering / FTE 2, 2026-10-26 to 2026-11-06.");
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-box-id$="-new-box"]')).toBeFocused();
+
+  // The + with Enter, at weeks zoom: a working week.
+  await page.getByRole("button", { name: "Weeks" }).click();
+  await page.getByRole("button", { name: "Add a box to Analytics / Open req (Q1)" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(editor).toBeVisible();
+  await expect.poll(() => heard(page)).toContain("Added a box to Analytics / Open req (Q1), 2026-10-05 to 2026-10-09.");
+  await page.keyboard.press("Escape");
+
+  // N in a PTO row: a week off.
+  await page.getByRole("button", { name: "Add PTO in Analytics" }).focus();
+  await page.keyboard.press("n");
+  await expect(page.getByRole("dialog", { name: /^Edit PTO for / })).toBeVisible();
+  await expect.poll(() => heard(page)).toContain("Added PTO in Analytics, 2026-10-05 to 2026-10-09.");
+});
+
+test("Delete deletes the focused box or PTO block, once however long it's held, and says how to undo it", async ({ page, github }) => {
+  // Data Engineering / FTE 2 holds Dagster then CDC: deleting Dagster puts focus on CDC.
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Delete");
+  await expect(box(page, DAGSTER)).toHaveCount(0);
+  await expect(box(page, CDC)).toBeFocused();
+  await expect.poll(() => said(page)).toContainEqual(expect.stringMatching(/^Deleted “Dagster 2\.x upgrade”\. Undo with (⌘|Ctrl\+)Z\./));
+  // Held down (the Mac's delete key is Backspace): the second press repeats, and deletes nothing
+  // more, though focus has gone on to the cell beside it.
+  await page.keyboard.down("Backspace");
+  await page.keyboard.down("Backspace");
+  await page.keyboard.up("Backspace");
+  await expect(box(page, CDC)).toHaveCount(0);
+  await expect(page.locator('[role="grid"] [data-cell]:focus')).toHaveCount(1);
+  await expect(page.locator(".box")).toHaveCount(10);
+  expect(page.url()).toContain("zoom=months"); // not the browser's Back
+
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(box(page, CDC)).toHaveCount(1);
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+
+  // PTO: Morgan's two blocks; deleting the first puts focus on the second, whose place in the list moved up.
+  github.deploy(
+    github.otherSave({
+      "people.yaml": (t) =>
+        t.replace(
+          "  - id: morgan-chen\n    name: Morgan Chen\n    department: analytics\n",
+          "  - id: morgan-chen\n    name: Morgan Chen\n    department: analytics\n    pto:\n      - start: 2026-10-05\n        end: 2026-10-09\n      - start: 2026-10-19\n        end: 2026-10-23\n",
+        ),
+    }),
+  );
+  await pollNow(page);
+  await cell(page, "pto:morgan-chen#0").focus();
+  await page.keyboard.press("Backspace");
+  await expect(cell(page, "pto:morgan-chen#0")).toBeFocused();
+  await expect(cell(page, "pto:morgan-chen#0")).toHaveAccessibleName("PTO, Morgan Chen, 2026-10-19 to 2026-10-23, 5 working days");
+  await expect.poll(() => heard(page)).toMatch(/Deleted PTO for Morgan Chen, 2026-10-05 – 2026-10-09\. Undo with/);
+});
+
+test.describe("a branch preview", () => {
+  test("can be looked around, and what would change something says it can't", async ({ page, github }) => {
+    const main = github.head;
+    github.branches.feature = github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline v2") });
+    github.head = main;
+    await page.goto("./?ref=feature&zoom=months");
+    await expect(page.getByRole("grid", { name: "Timeline" })).toHaveAttribute("aria-readonly", "true");
+    await box(page, DAGSTER).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(box(page, CDC)).toBeFocused();
+    for (const key of ["Enter", "Delete", "n", " "]) await page.keyboard.press(key);
+    await expect(box(page, CDC)).toBeFocused();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect.poll(() => said(page)).toContainEqual(expect.stringContaining("Read-only preview: changes can’t be made here."));
+    await page.keyboard.press("Home");
+    await expect(cell(page, "lane:de-2")).toBeFocused(); // the lane's name is still a cell, as text
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("button", { name: "Add a box to Data Engineering / FTE 2" })).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".box")).toHaveCount(12);
+  });
 });

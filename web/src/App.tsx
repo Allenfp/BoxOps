@@ -897,7 +897,7 @@ function RoadmapView(props: ViewProps) {
   /** The update banner's Reload: where ⌘S goes in a tab gone read-only for a newer BoxOps. */
   const updateReload = useRef<HTMLButtonElement>(null);
 
-  // ⌘S (Ctrl+S), undo/redo and delete. Text fields keep their own native
+  // ⌘S (Ctrl+S), undo and redo. Text fields keep their own native
   // undo. None of them acts on what's behind a dialog (saving, the key) or an
   // open menu; the editors (box, PTO, department, team settings) aren't that,
   // being where the editing is. Letters are matched by the key's place too,
@@ -937,21 +937,8 @@ function RoadmapView(props: ViewProps) {
     } else if (mod && key === "y") {
       e.preventDefault();
       redo();
-    } else if ((e.key === "Delete" || e.key === "Backspace") && !mod && !e.altKey && e.target === document.body) {
-      // Only a deliberate press with nothing else in hand: focus on the page itself (not a button or
-      // field, nor anything in an editor), no editor open, and not a held-down key (which would go on
-      // to the next box). A stray Backspace, the Mac's delete key, otherwise deleted the box being edited.
-      if (e.shiftKey || e.repeat || e.isComposing || document.querySelector(".editor")) return;
-      if (selected) {
-        e.preventDefault();
-        focusAfterBox(selected.id);
-        removeBox(selected.id);
-      } else if (selectedPto) {
-        e.preventDefault();
-        focusAfterPto(selectedPto);
-        removePto(selectedPto);
-      }
     }
+    // Delete and Backspace delete the box or PTO block focused on the timeline (Timeline.tsx), and nothing from here.
   };
   const onKeyRef = useRef(onKey);
   onKeyRef.current = onKey;
@@ -1838,6 +1825,9 @@ function RoadmapView(props: ViewProps) {
               selectedPto={selectedPto && ptoOf(selectedPto) ? ptoKey(selectedPto) : null}
               onSelectPto={selectPto}
               onPlacePto={(ref, dates) => updatePto(ref, dates)}
+              onDeleteBox={removeBox}
+              onDeletePto={removePto}
+              onShowShortcuts={() => setModal("shortcuts")}
               onCreatePto={(departmentId, dates) => {
                 const ref = addPto(dates, { departmentId });
                 if (ref) selectPto(ref);
