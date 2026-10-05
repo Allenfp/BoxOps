@@ -144,15 +144,19 @@ export function App() {
 
   /** A newer BoxOps built the site: this tab is read-only until it reloads. */
   const [update, setUpdate] = useState<AppInfo | null>(null);
+  const outdated = useRef(false);
   /** The site's notices for everyone (security releases and the like), from the latest roadmap.json. */
   const [notices, setNotices] = useState<Notice[]>([]);
   /** Read what a fetched roadmap.json says beyond the roadmap: its notices, and whether a newer BoxOps built it (true). */
   const noteSite = useCallback((bundle: Bundle): boolean => {
     setNotices((cur) => (JSON.stringify(cur) === JSON.stringify(bundle.notices) ? cur : bundle.notices));
     if (!isNewerApp(bundle.app)) return false;
-    // Going read-only: commit a field being typed in first, so the draft has it.
-    if (document.activeElement instanceof HTMLElement && isTyping(document.activeElement)) document.activeElement.blur();
-    setUpdate((cur) => cur ?? bundle.app);
+    if (!outdated.current) {
+      outdated.current = true;
+      // Going read-only: commit a field being typed in first, so the draft has it.
+      if (document.activeElement instanceof HTMLElement && isTyping(document.activeElement)) document.activeElement.blur();
+      setUpdate(bundle.app);
+    }
     return true;
   }, []);
 
@@ -321,7 +325,7 @@ export function App() {
 
 const STEP_TEXT: Record<SaveStep, string> = {
   checking: "Checking for newer saves…",
-  writing: "Saving…",
+  writing: "Writing the commit…",
   verifying: "Checking whether it went through…",
   retrying: "Trying again…",
 };

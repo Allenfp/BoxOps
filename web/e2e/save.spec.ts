@@ -213,7 +213,7 @@ for (const visibility of ["public", "private"] as const) {
       github.inject("graphql", "hang");
       await save(page);
       await expect.poll(() => github.calls("graphql")).toBe(1);
-      await expect(page.locator(".save-progress")).toHaveText("Saving…");
+      await expect(page.locator(".save-progress")).toHaveText("Writing the commit…");
       await page.clock.fastForward(31_000);
       await expect(page.locator(".banner.success")).toContainText("Saved to main");
       expect(github.headCommit().parent).toBe(github.root);
