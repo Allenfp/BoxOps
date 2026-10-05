@@ -207,6 +207,8 @@ test("a table cell saved with a value that won't do says why, under it", async (
   await epic.press("Enter");
   await expect(epic).toHaveAccessibleDescription("Use a full http(s) link.");
   await expect(page.locator(".cell-problem")).toHaveText("Use a full http(s) link.");
+  const field = (await epic.boundingBox())!;
+  expect((await page.locator(".cell-problem").boundingBox())!.y).toBeGreaterThanOrEqual(field.y + field.height - 1);
   await expect.poll(() => heard(page)).toContain("Use a full http(s) link.");
 });
 

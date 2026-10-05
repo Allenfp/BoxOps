@@ -1623,8 +1623,12 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   padding: 0 7px 3px;
   white-space: normal;
 }
+/* Only the problem wraps: the field shrinks so the ↗ stays on its line. */
 .epic-cell {
   flex-wrap: wrap;
+}
+.epic-cell .cell-input {
+  flex: 1 1 0;
 }
 .type-cell .swatch {
   flex: none;

@@ -97,6 +97,17 @@ test("adds, deletes (undoably), searches and sorts", async ({ page, github: _ })
   expect(starts).toEqual([...starts].sort());
 });
 
+test("an epic link's ↗ sits beside its field, on the same line", async ({ page, github: _ }) => {
+  const cell = row(page, "Warehouse migration to Iceberg").locator(".epic-cell");
+  const field = (await cell.getByLabel("Epic link").boundingBox())!;
+  const link = (await cell.locator(".open-link").boundingBox())!;
+  expect(link.x).toBeGreaterThanOrEqual(field.x + field.width);
+  expect(link.y + link.height / 2).toBeGreaterThan(field.y);
+  expect(link.y + link.height / 2).toBeLessThan(field.y + field.height);
+  // One line: the cell is no taller than its field, so the row is as tall as the others.
+  expect((await cell.boundingBox())!.height).toBeLessThanOrEqual(field.height + 1);
+});
+
 test("departments collapse, shared with the timeline", async ({ page, github: _ }) => {
   const group = (name: string) => page.locator(".group-toggle", { hasText: name });
   await expect(group("ML Platform")).toHaveAttribute("aria-expanded", "false");
