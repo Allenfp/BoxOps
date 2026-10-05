@@ -2,7 +2,8 @@
 // served next to index.html. The build writes it (cli/site.ts); the app reads
 // it with readBundle(), which also accepts bundles from before schema 1.
 
-import type { RoadmapFiles } from "./types.ts"; // with .ts: vite.config.ts imports this file
+import type { ParsedFile } from "./load.ts"; // with .ts: vite.config.ts imports this file
+import type { RoadmapFiles } from "./types.ts";
 
 /** The bundle layout written by this BoxOps. Tabs of every version read `schema` and `app.build`, so those never move. */
 export const SCHEMA = 1;
@@ -59,6 +60,17 @@ export interface Notice {
   text: string;
 }
 
+/**
+ * The roadmap files as the build parsed them (model/parse.ts), so the app
+ * needn't parse them, nor load the yaml library, to show the roadmap.
+ */
+export interface ParsedFiles {
+  /** The build id of the app whose parser made them: an app uses them only if that's its own. */
+  parser: string;
+  /** Blob SHA → what the file with that blob (at the path it names) parses to. */
+  files: Record<string, ParsedFile>;
+}
+
 export interface Bundle {
   /** SCHEMA; 0 for a bundle from before schema 1. */
   schema: number;
@@ -73,6 +85,8 @@ export interface Bundle {
   /** Other files in the roadmap folder, not read: the loader reports them as unexpected. */
   ignored: string[];
   notices: Notice[];
+  /** Left out by the dev server, by builds that can't name their app, and by bundles from before it was added. */
+  parsed?: ParsedFiles;
 }
 
 /** A roadmap folder as read from git or from disk. */
@@ -91,6 +105,15 @@ const count = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v
 function textRecord(v: unknown): Record<string, string> | null {
   return isRecord(v) && Object.values(v).every((x) => typeof x === "string") ? (v as Record<string, string>) : null;
 }
+/** `parsed` if it's what a build writes, as far as a look at each file's outline tells. */
+function readParsed(v: unknown): ParsedFiles | undefined {
+  if (!isRecord(v) || typeof v.parser !== "string" || !v.parser || !isRecord(v.files)) return undefined;
+  const files = v.files;
+  const ok = Object.entries(files).every(
+    ([sha, f]) => isSha(sha) && isRecord(f) && typeof f.path === "string" && typeof f.kind === "string" && Array.isArray(f.issues),
+  );
+  return ok ? { parser: v.parser, files: files as Record<string, ParsedFile> } : undefined;
+}
 const VISIBILITIES: unknown[] = ["public", "private", "internal"] satisfies Visibility[];
 const LEVELS: unknown[] = ["security", "warning", "info"] satisfies Notice["level"][];
 
@@ -106,6 +129,7 @@ export function readBundle(raw: unknown): Bundle {
   const app = isRecord(b.app) ? b.app : {};
   const s = isRecord(b.source) ? b.source : {};
   const commit = text(s.commit);
+  const parsed = readParsed(b.parsed);
   return {
     schema: count(b.schema),
     format: count(b.format),
@@ -133,5 +157,6 @@ export function readBundle(raw: unknown): Bundle {
     notices: Array.isArray(b.notices)
       ? b.notices.filter((n): n is Notice => isRecord(n) && LEVELS.includes(n.level) && typeof n.text === "string")
       : [],
+    ...(parsed && { parsed }),
   };
 }

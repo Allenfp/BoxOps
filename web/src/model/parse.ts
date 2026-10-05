@@ -88,11 +88,11 @@ class Reader {
     this.issues.push(fileIssue(this.path, message, line, lossy, same));
   }
 
-  /** The lines of these top-level keys (of the mapping when a key isn't there), for problems found across files. */
+  /** The lines of these top-level keys, those the file has, for problems found across files (only ever about a key that's there). */
   linesOf(keys: (keyof Lines)[]): Lines {
     const out: Lines = {};
     for (const key of keys) {
-      const line = this.top ? this.lineOf(this.top.obj, key) : undefined;
+      const line = this.top && key in this.top.obj ? this.lineOf(this.top.obj, key) : undefined;
       if (line !== undefined) out[key] = line;
     }
     return out;

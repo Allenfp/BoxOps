@@ -11,8 +11,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { type GitTreeEntry, gitBlobSha, gitTreeSha } from "../src/github/git-objects.ts";
-import { type AppInfo, type Bundle, type BundleSource, type RoadmapFolder, SCHEMA, type Visibility } from "../src/model/bundle.ts";
+import { type AppInfo, type Bundle, type BundleSource, type ParsedFiles, type RoadmapFolder, SCHEMA, type Visibility } from "../src/model/bundle.ts";
 import { FORMAT } from "../src/model/format.ts";
+import { parseFile } from "../src/model/parse.ts";
 import { isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
 import type { RoadmapFiles } from "../src/model/types.ts";
 import { firstParents, gitPlumbing, readCommit, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git.ts";
@@ -145,8 +146,17 @@ export async function hashFolder(all: RoadmapFiles): Promise<RoadmapFolder> {
   return folder;
 }
 
-/** The bundle for these files from this source: what buildBundle writes. */
-export function assembleBundle(app: AppInfo, source: BundleSource, folder: RoadmapFolder): Bundle {
+/**
+ * The bundle for these files from this source: what buildBundle writes. With
+ * `parsed` (unless it's false, or the app has no build id to stamp it with),
+ * each file as this build's parser makes of it, by blob SHA.
+ */
+export function assembleBundle(app: AppInfo, source: BundleSource, folder: RoadmapFolder, o: { parsed?: boolean } = {}): Bundle {
+  let parsed: ParsedFiles | undefined;
+  if (o.parsed !== false && app.build) {
+    parsed = { parser: app.build, files: {} };
+    for (const [path, sha] of Object.entries(folder.blobs)) parsed.files[sha] = parseFile(path, folder.files[path]);
+  }
   return {
     schema: SCHEMA,
     format: FORMAT,
@@ -156,6 +166,7 @@ export function assembleBundle(app: AppInfo, source: BundleSource, folder: Roadm
     blobs: folder.blobs,
     ignored: folder.ignored,
     notices: [],
+    ...(parsed && { parsed }),
   };
 }
 
@@ -171,6 +182,11 @@ export interface BuildOptions {
   env?: Env;
   /** Told about a local build from uncommitted files, or a remote that names no repository. */
   warn?(message: string): void;
+  /**
+   * Put the files in parsed (the default). The dev server doesn't: its app
+   * changes under the same build id as you edit it.
+   */
+  parsed?: boolean;
 }
 
 /** roadmap.json for the site, as described at the top of this file. */
@@ -244,5 +260,5 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
       ? { run: `${env.GITHUB_SERVER_URL ?? "https://github.com"}/${repo}/actions/runs/${env.GITHUB_RUN_ID}` }
       : {}),
   };
-  return assembleBundle(o.app, source, folder);
+  return assembleBundle(o.app, source, folder, { parsed: o.parsed });
 }

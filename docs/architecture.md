@@ -79,7 +79,14 @@ both.
     defined for the app as `__BOXOPS_BUILD__` and `__BOXOPS_BUILD_TIME__`,
     which the app compares with every `roadmap.json` it fetches (see [Tabs
     left open](#tabs-left-open));
-  - `schema` (1), `format` and `notices`.
+  - `schema` (1), `format` and `notices`;
+  - `parsed` (optional): each roadmap file as the build's parser makes of it
+    (`model/parse.ts`), by blob SHA, stamped with the build id. The app takes
+    them only from its own build, so showing a deploy needs no YAML parsing;
+    files from GitHub, and bundles from another build or from the dev server
+    (which leaves them out, as its app changes under one build id), are
+    parsed in the browser. They about double the file: at 2,000 boxes, 180 KB
+    gzipped becomes 361 KB.
 
   A local build whose `roadmap/` has uncommitted changes reads the files on
   disk instead: `tree` is null and the bundle is marked `local`. The dev server

@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
+import type { Bundle } from "../src/model/bundle";
 import type { FakeGitHub } from "./fake-github";
-import { DAGSTER, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
+import { DAGSTER, REVENUE, boxFile, boxTitle, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
 let edits = 0;
 
@@ -62,6 +63,25 @@ test("a roadmap.json from before bundle schema 1 still opens", async ({ page, gi
   await page.reload();
   await expect(page.locator(".box").first()).toBeVisible();
   await expect(toolbar(page)).toContainText("No changes");
+});
+
+test("the files as the build parsed them are used by that build only; another parses them itself", async ({ page, github }) => {
+  // The parsed files say something the files don't, so the title shows which the app read.
+  const stamped = (parser: (b: Bundle) => string) => (b: Bundle): Bundle => ({
+    ...b,
+    parsed: b.parsed && {
+      parser: parser(b),
+      files: Object.fromEntries(
+        Object.entries(b.parsed.files).map(([sha, f]) => [sha, f.kind === "box" && f.box?.id === REVENUE ? { ...f, box: { ...f.box, title: "As parsed" } } : f]),
+      ),
+    },
+  });
+  github.patchBundle = stamped((b) => b.app.build);
+  await page.reload();
+  await expect(boxTitle(page, REVENUE)).toHaveText("As parsed");
+  github.patchBundle = stamped(() => "0.0.1+0123456789ab");
+  await page.reload();
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
 });
 
 test("other files in the roadmap folder are reported, from a deploy and on load", async ({ page, github }) => {

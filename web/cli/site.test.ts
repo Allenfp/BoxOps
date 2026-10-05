@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readBundle } from "../src/model/bundle";
+import { parseFile } from "../src/model/parse";
 import { RoadmapReadError } from "./git";
 import { appInfo, buildBundle, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
 import { TestRepo } from "./test-repo";
@@ -51,6 +52,7 @@ describe("buildBundle in GitHub Actions", () => {
     r.write({ "roadmap/boxes/b1.yaml": "id: b1\ntitle: not committed\n" }); // never read in Actions
     const env = actions(second, { repository: { full_name: "acme/roadmap", private: false, visibility: "public" } });
     const bundle = await buildBundle({ repoDir: r.dir, app: APP, env });
+    const blob = (path: string) => r.git(["rev-parse", `${second}:roadmap/${path}`]);
     expect(bundle).toEqual({
       schema: 1,
       format: 1,
@@ -71,13 +73,18 @@ describe("buildBundle in GitHub Actions", () => {
         run: "https://github.com/acme/roadmap/actions/runs/123",
       },
       files: { "boxes/b1.yaml": "id: b1\ntitle: B1\n", "people.yaml": "people: []\n", "settings.yaml": "format: 1\n" },
-      blobs: {
-        "boxes/b1.yaml": r.git(["rev-parse", `${second}:roadmap/boxes/b1.yaml`]),
-        "people.yaml": r.git(["rev-parse", `${second}:roadmap/people.yaml`]),
-        "settings.yaml": r.git(["rev-parse", `${second}:roadmap/settings.yaml`]),
-      },
+      blobs: { "boxes/b1.yaml": blob("boxes/b1.yaml"), "people.yaml": blob("people.yaml"), "settings.yaml": blob("settings.yaml") },
       ignored: [],
       notices: [],
+      // Each file as this build parses it, by blob SHA, stamped with the build id.
+      parsed: {
+        parser: APP.build,
+        files: {
+          [blob("boxes/b1.yaml")]: parseFile("boxes/b1.yaml", "id: b1\ntitle: B1\n"),
+          [blob("people.yaml")]: parseFile("people.yaml", "people: []\n"),
+          [blob("settings.yaml")]: parseFile("settings.yaml", "format: 1\n"),
+        },
+      },
     });
     expect(readBundle(JSON.parse(JSON.stringify(bundle)))).toEqual(bundle); // the app reads it as written
     // GITHUB_SHA wins over whatever is checked out.
@@ -158,10 +165,18 @@ describe("buildBundle locally", () => {
     expect(source).toMatchObject({ repo: "", branch: "", commit: "", tree: null, local: true, history: [] });
   });
 
-  it("the dev server's bundle (a folder on disk) is always local", async () => {
+  it("the dev server's bundle (a folder on disk) is always local, and unparsed if it says so", async () => {
     const { repo: r, second } = repo();
-    const { source } = await buildBundle({ repoDir: r.dir, worktree: join(r.dir, "roadmap"), app: APP, env: {}, warn: () => {} });
-    expect(source).toMatchObject({ commit: second, tree: null, local: true, repo: "planning/roadmap" });
+    const dev = await buildBundle({ repoDir: r.dir, worktree: join(r.dir, "roadmap"), app: APP, env: {}, warn: () => {}, parsed: false });
+    expect(dev.source).toMatchObject({ commit: second, tree: null, local: true, repo: "planning/roadmap" });
+    expect(dev.parsed).toBeUndefined();
+  });
+
+  it("parses the files unless the app has no build id to stamp them with", async () => {
+    const { repo: r } = repo();
+    const parsed = (app: typeof APP) => buildBundle({ repoDir: r.dir, app, env: {}, warn: () => {} }).then((b) => b.parsed);
+    expect(Object.values((await parsed(APP))!.files).map((f) => f.path)).toEqual(["boxes/b1.yaml", "people.yaml", "settings.yaml"]);
+    expect(await parsed({ ...APP, build: "" })).toBeUndefined();
   });
 
   it("warns when origin names no repository, without the credentials its URL holds", async () => {

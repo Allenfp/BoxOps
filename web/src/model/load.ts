@@ -258,9 +258,13 @@ export function loadParser(): Promise<void> {
   return parser;
 }
 
-/** Keep what these files (blob SHA → parsed file) parse to, so loading them needs no parsing: a bundle's `parsed`. */
+/**
+ * Keep what these files (blob SHA → parsed file) parse to, so loading them
+ * needs no parsing: a bundle's `parsed`. Blobs already known keep what they
+ * had, so an unchanged box stays the same object from one load to the next.
+ */
 export function rememberParsed(files: Record<string, ParsedFile>): void {
-  for (const [sha, file] of Object.entries(files)) parsedBlobs.set(sha, file);
+  for (const [sha, file] of Object.entries(files)) if (!parsedBlobs.has(sha)) parsedBlobs.set(sha, file);
 }
 
 /** For tests: forget every parsed file. */

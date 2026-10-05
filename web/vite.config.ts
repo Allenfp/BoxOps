@@ -37,6 +37,7 @@ function roadmapData(): Plugin {
           worktree: DEV_ROADMAP,
           app: APP,
           warn: (message) => server.config.logger.warn(message),
+          parsed: false,
         });
       server.watcher.add(DEV_ROADMAP);
       server.watcher.on("all", (_event, path) => {

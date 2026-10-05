@@ -26,7 +26,7 @@ import { downloadJson } from "./model/draftStore";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
-import { type LoadResult, loadFolder, loadFolderNow, loadParser } from "./model/load";
+import { type LoadResult, loadFolder, loadFolderNow, loadParser, rememberParsed } from "./model/load";
 import { loadRoadmap } from "./model/parse";
 import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
@@ -165,6 +165,16 @@ async function fromSnapshot(s: Snapshot, preview = false): Promise<Loaded> {
   return { ...(await loadFolder(s)), ...s, preview };
 }
 
+/**
+ * A fetched roadmap.json as a snapshot, its files kept for later reads. What
+ * the build parsed them to is kept too, if this build's parser did it: then
+ * showing them needs no parsing.
+ */
+async function snapshotOf(bundle: Bundle): Promise<Snapshot> {
+  if (bundle.parsed?.parser === __BOXOPS_BUILD__) rememberParsed(bundle.parsed.files);
+  return remember(await fromBundle(bundle));
+}
+
 /** fromSnapshot() at once, for a snapshot a save brings: saving has loaded the parser. */
 function fromSaveSnapshot(s: Snapshot): Loaded {
   const loaded = loadFolderNow(s);
@@ -231,7 +241,7 @@ export function App() {
       }
       let base: Snapshot;
       try {
-        base = remember(await fromBundle(bundle));
+        base = await snapshotOf(bundle);
         if (!live) return;
         noteSite(bundle);
         seen.add(base.source.commit);
@@ -316,7 +326,7 @@ export function App() {
         noteSite(bundle);
         const current = onScreen.current;
         if (!current || !movesForward(bundle.source, current.source, seen) || saving.current) return;
-        const next = remember(await fromBundle(bundle));
+        const next = await snapshotOf(bundle);
         const loaded = await fromSnapshot(next);
         // Not if a save showed its commit meanwhile.
         if (stopped || saving.current || onScreen.current !== current) return;

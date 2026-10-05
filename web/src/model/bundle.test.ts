@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type Bundle, readBundle } from "./bundle";
+import { DEFAULT_SETTINGS } from "./load";
 
 const commit = "a".repeat(40);
 const files = { "settings.yaml": "format: 1\n", "boxes/b1.yaml": "id: b1\n" };
@@ -29,8 +30,22 @@ describe("readBundle", () => {
       blobs: { "settings.yaml": "d".repeat(40), "boxes/b1.yaml": "e".repeat(40) },
       ignored: ["README.md"],
       notices: [{ level: "info", text: "BoxOps v0.1.1 is out." }],
+      parsed: {
+        parser: "0.1.0+0123456789ab",
+        files: { ["d".repeat(40)]: { path: "settings.yaml", kind: "settings", issues: [], settings: DEFAULT_SETTINGS, format: 1 } },
+      },
     };
     expect(readBundle(JSON.parse(JSON.stringify(bundle)))).toEqual(bundle);
+  });
+
+  it("leaves out parsed files that don't look like a build's", () => {
+    const parsed = (p: unknown) => readBundle({ files, parsed: p }).parsed;
+    const file = { path: "settings.yaml", kind: "settings", issues: [] };
+    expect(parsed({ parser: "0.1.0+0123456789ab", files: { ["d".repeat(40)]: file } })).toBeDefined();
+    expect(parsed({ parser: "", files: { ["d".repeat(40)]: file } })).toBeUndefined();
+    expect(parsed({ parser: "0.1.0+0123456789ab", files: { "settings.yaml": file } })).toBeUndefined();
+    expect(parsed({ parser: "0.1.0+0123456789ab", files: { ["d".repeat(40)]: { ...file, issues: null } } })).toBeUndefined();
+    expect(parsed("yes")).toBeUndefined();
   });
 
   it("reads a bundle from before schema 1, with everything it lacks unknown", () => {
