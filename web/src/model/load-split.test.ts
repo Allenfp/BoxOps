@@ -1,10 +1,9 @@
-// Loading in two phases (parseFile per file, then assemble across files)
-// gives exactly what the loader gave before the split (load-before-split.ts):
-// the same roadmap, problems in the same order with the same lines and keys,
-// lossy files and sources, for the repo's roadmap, the browser tests' fixture,
-// a generated 2,000-box roadmap and one full of problems that span files.
-// So does the app's way (loadFolder), which parses each blob once and takes
-// parsed files as JSON from the build.
+// Loading the app's way (loadFolder: parseFile per blob, kept, or taken as
+// JSON from the build; then assemble across files) gives exactly what
+// loadRoadmap does: the same roadmap, problems in the same order with the
+// same lines and keys, lossy files and sources, for the browser tests'
+// fixture, a generated 2,000-box roadmap and one full of problems that span
+// files.
 
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -12,7 +11,6 @@ import { readRoadmapDir } from "../../cli/git";
 import { hashFolder } from "../../cli/site";
 import { generateRoadmap } from "../../scripts/gen-roadmap";
 import { type ParsedFile, forgetParsed, loadFolder, loadFolderNow, rememberParsed } from "./load";
-import { loadRoadmap as loadBeforeSplit } from "./load-before-split";
 import { loadRoadmap, parseFile } from "./parse";
 import type { RoadmapFiles } from "./types";
 
@@ -47,26 +45,10 @@ function messy(files: RoadmapFiles): RoadmapFiles {
   return out;
 }
 
-const repo = await folder("../../../roadmap");
 const fixture = await folder("../../e2e/fixtures/roadmap");
 
-describe("loading in two phases", () => {
-  const cases: [string, RoadmapFiles, string[]][] = [
-    ["the repo's roadmap", repo.files, repo.ignored],
-    ["the browser tests' fixture", fixture.files, fixture.ignored],
-    ["a generated 2,000-box roadmap", generateRoadmap(2000, "2026-10-03"), []],
-    ["a roadmap with problems across files", messy(fixture.files), ["README.md", "notes.md"]],
-    ["a roadmap without settings.yaml or people.yaml", Object.fromEntries(Object.entries(fixture.files).filter(([p]) => p !== "settings.yaml" && p !== "people.yaml")), []],
-  ];
-
-  it.each(cases)("loads %s exactly as before the split", (_, files, ignored) => {
-    const before = loadBeforeSplit(files, ignored);
-    const after = loadRoadmap(files, ignored);
-    expect(after).toStrictEqual(before);
-    expect(json(after)).toBe(json(before));
-  });
-
-  it("covers the problems it means to", () => {
+describe("the roadmap with problems across files", () => {
+  it("has the problems it means to", () => {
     const { issues } = loadRoadmap(messy(fixture.files), ["README.md"]);
     const messages = issues.map((i) => i.message).join("\n");
     for (const part of ["already used by", "is already used in department", "is also used in department", 'is also used by department "data-eng"', 'department: "nowhere"', "doesn't match the file name", 'code: "D9U" is also used by', "does not exist in any department", "is not defined in settings.yaml", 'engineers: "ghost"', 'no box has code "ZZZ"', "can't have a rule about itself", "YAML syntax error", "unexpected file", "rename this file"]) {
