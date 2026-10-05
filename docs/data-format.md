@@ -267,7 +267,8 @@ Any file:
 
 - YAML that doesn't parse, or a file that isn't a mapping at the top level\*
 - a text field that YAML reads as something else: a number (`2E5`, `1.10`),
-  `true`/`false`, a date (under a `%YAML 1.1` header), a list or a mapping\*
+  `true`/`false`, a date (under a `%YAML 1.1` header), a list or a mapping\*;
+  or a required one it reads as empty (`title: Null`, `name: ~`)\*
 - a missing required field of a type, flag, department, lane, box, person or
   PTO entry\* (a department without a `code` still loads)
 - a list (`types`, `statuses`, `lanes`, `people`, `pto`, `relations`,

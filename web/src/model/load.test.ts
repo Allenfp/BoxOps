@@ -168,6 +168,16 @@ describe("what the loader makes of it", () => {
     expect([b1.code, b1.title, b1.engineers]).toEqual(["234", "1.10", ["1042"]]);
   });
 
+  it("says when YAML read a word as null, and how to quote it", () => {
+    const { issues } = load({ "boxes/b1.yaml": box({ title: "Null" }), "people.yaml": people("[{id: sam, name: ~}]") });
+    expect(issues.map((i) => i.message)).toEqual([
+      'person "sam", name: YAML reads ~ as empty (null), not text; put it in quotes: name: "~"',
+      'title: YAML reads Null as empty (null), not text; put it in quotes: title: "Null"',
+    ]);
+    // Nothing after the key is still just missing.
+    expect(load({ "boxes/b1.yaml": box({ title: "" }) }).issues.map((i) => i.message)).toEqual(["title: required text is missing"]);
+  });
+
   it("gives problems a line number", () => {
     const { issues } = load({ "people.yaml": "people:\n  - id: sam\n    name: Sam\n    email: nope\n" });
     expect(issues.map((i) => [i.message, i.line])).toEqual([['person "sam", email: "nope" doesn\'t look like an email address', 4]]);

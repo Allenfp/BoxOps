@@ -115,6 +115,12 @@ class Reader {
     return isScalar(node) && node.source ? node.source : String((obj as Obj)[key]);
   }
 
+  /** What's written for a value in the file: "" when there's nothing after the key. */
+  private written(obj: object, key: string | number): string {
+    const node = this.node(obj, key);
+    return isScalar(node) ? (node.source ?? "") : "";
+  }
+
   /** Parse the file to a mapping, or report why it isn't one. An empty file is an empty mapping. */
   doc(text: string): At | null {
     const doc = parseDocument(text, { lineCounter: this.lines });
@@ -143,6 +149,12 @@ class Reader {
   private text(at: At, key: string, required: boolean): string | null | undefined {
     const v = at.obj[key];
     if (typeof v === "string" && v.trim() !== "") return v;
+    // `title: Null` (or null, NULL, ~): YAML reads that as nothing, not as the word.
+    const src = v === null ? this.written(at.obj, key) : "";
+    if (required && src) {
+      this.drop(`${at.label}${key}: YAML reads ${src} as empty (null), not text; put it in quotes: ${key}: "${src}"`, at.obj, key);
+      return null;
+    }
     if (unset(v) || typeof v === "string") {
       if (required) this.drop(`${at.label}${key}: required text is missing`, at.obj, key);
       return required ? null : undefined;
