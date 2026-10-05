@@ -72,6 +72,31 @@ button:hover {
   color: var(--warn);
 }
 
+/* The error boundary's screen (components/ErrorBoundary.tsx). */
+.crash {
+  max-width: 640px;
+  padding: 48px 24px;
+  margin: 0 auto;
+  color: var(--text);
+}
+.crash h1 {
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+.crash-message {
+  white-space: pre-wrap;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.crash-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
 .app {
   height: 100vh;
   display: flex;
