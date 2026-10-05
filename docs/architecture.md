@@ -57,7 +57,8 @@ both.
   roadmap file or 64 MiB in all. Each blob is checked against its SHA, and a
   BOM is kept. The bundle holds:
   - `files` (the roadmap files, `model/paths.ts`), their git `blobs`, and
-    `ignored` (other files there, which the validator reports as unexpected);
+    `ignored` (other files there, which the validator and the app report as
+    unexpected);
   - `source`: repo, branch, commit, `dir`, the folder's `tree` SHA, the
     commit's author, subject and date, `history` (its last 50 first-parent
     commits), and in Actions the run's link. `visibility` and `private` come
