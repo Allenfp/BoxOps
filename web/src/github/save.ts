@@ -14,8 +14,8 @@ export interface Source {
   branch: string;
   /** Commit the files were read from. */
   commit: string;
-  /** Local dev only: roadmap/ has edits that aren't in `commit`. */
-  dirty?: boolean;
+  /** Read from files on disk (`npm run dev`, a local build with edits): they needn't be `commit`'s. */
+  local?: boolean;
   /** Author and first line of `commit`'s message. */
   author?: string;
   subject?: string;

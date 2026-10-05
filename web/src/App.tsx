@@ -30,6 +30,7 @@ import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
+import { type Bundle, readBundle } from "./model/bundle";
 import { FORMAT } from "./model/format";
 import { type LoadResult, loadRoadmap } from "./model/load";
 import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
@@ -52,11 +53,6 @@ const ZOOM_LABEL: Record<ZoomLevel, string> = { weeks: "Weeks", months: "Months"
 
 /** How often open tabs look for other people's saves. */
 const POLL_MS = 2 * 60_000;
-
-interface Bundle {
-  files: RoadmapFiles;
-  source: Source;
-}
 
 /** A save by someone else that just arrived in this tab. */
 interface RemoteUpdate {
@@ -89,7 +85,7 @@ const isTyping = (t: EventTarget | null) =>
 async function fetchBundle(): Promise<Bundle> {
   const res = await fetch("roadmap.json", { cache: "no-cache" });
   if (!res.ok) throw new Error(`roadmap.json: HTTP ${res.status}`);
-  return (await res.json()) as Bundle;
+  return readBundle(await res.json());
 }
 
 async function load(bundle: Bundle): Promise<Loaded> {
@@ -102,8 +98,9 @@ async function load(bundle: Bundle): Promise<Loaded> {
 
   // The site is rebuilt a minute or so after each save. If someone saved since
   // this build, read the newer roadmap from GitHub so nobody edits a stale copy.
-  // (Skipped when running locally with uncommitted roadmap/ edits.)
-  if (!bundle.source.dirty) {
+  // (Skipped for a bundle built from files on disk: `npm run dev`, or a local
+  // build with uncommitted roadmap/ edits.)
+  if (!bundle.source.local) {
     const head = await latestCommit(gh, bundle.source);
     if (head && head !== bundle.source.commit) {
       try {
@@ -144,7 +141,7 @@ export function App() {
   }, []);
 
   // Look for other people's saves every couple of minutes while the tab is visible.
-  const pollable = state.status === "ready" && !state.preview && !state.source.dirty;
+  const pollable = state.status === "ready" && !state.preview && !state.source.local;
   useEffect(() => {
     if (!pollable) return;
     let lastCheck = Date.now();
