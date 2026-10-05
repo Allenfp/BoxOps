@@ -274,6 +274,43 @@ test("removing a rule or a lane puts focus on the next one's ✕, else the one b
   await expect(dialog.getByRole("button", { name: "Set when lane 1 opens" })).toBeFocused();
 });
 
+test("the broken-rule popup stays while focus is in it, and its Dismiss puts focus on the roadmap", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await editor.getByRole("button", { name: "Rule", exact: true }).click();
+  await editor.getByLabel("New rule").selectOption("before");
+  await editor.getByLabel("Add a rule with").selectOption("C4P");
+  await page.keyboard.press("Escape");
+  const toast = page.locator(".toast");
+  // Left alone, it goes after 10 s.
+  await dragDays(page, DAGSTER, 5);
+  await expect(toast).toBeVisible();
+  await page.clock.fastForward(11_000);
+  await expect(toast).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await dragDays(page, DAGSTER, 5);
+  await toast.getByRole("button", { name: "Dismiss" }).focus();
+  await page.clock.fastForward(11_000);
+  await expect(toast).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(toast).toHaveCount(0);
+  await expect(page.getByRole("main")).toBeFocused();
+});
+
+test("a banner that goes while focus is elsewhere leaves focus alone", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 5);
+  await save(page);
+  const banner = page.locator(".banner.success");
+  await expect(banner.locator("[data-saved]")).toBeFocused();
+  await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+  // A click, as WebKit makes one: the button doesn't take focus.
+  await banner.getByRole("button", { name: "Dismiss" }).dispatchEvent("click");
+  await expect(banner).toHaveCount(0);
+  await page.waitForTimeout(100); // past the frame focus would have been moved in
+  await expect(page.getByRole("main")).not.toBeFocused();
+});
+
 test("a department picked from the warnings gets focus", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
   await page.getByRole("dialog", { name: /warning/ }).getByRole("button", { name: /^Data Engineering: / }).click();

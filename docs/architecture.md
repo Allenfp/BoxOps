@@ -505,12 +505,15 @@ when a focused element is removed.
   goes back there, or to the nearest thing still on the page: the box or
   PTO block, the department's ✎, the gear (for what its menu opened), the
   Save button, else the roadmap (`useReturnFocus` in `a11y/focus.ts`). A
-  deleted box or PTO block hands focus to its neighbour, a deleted table row
-  to the next row's Delete, a removed rule or lane to the next one's ✕
-  (else the one before's, else Add), a cleared lane date to its +; a save
-  gives it back where it was, or to the saved banner; Enter and Esc in a
-  table cell, a date picked from the calendar and a lane renamed in place
-  keep it there. Save stays focusable while saving (`aria-disabled`).
+  banner or the broken-rule popup going with focus in it hands focus to the
+  roadmap (focus elsewhere stays put; the popup doesn't go by itself while
+  focus is in it). A deleted box or PTO block hands focus to its neighbour,
+  a deleted table row to the next row's Delete, a removed rule or lane to
+  the next one's ✕ (else the one before's, else Add), a cleared lane date
+  to its +; a save gives it back where it was, or to the saved banner;
+  Enter and Esc in a table cell, a date picked from the calendar and a lane
+  renamed in place keep it there. Save stays focusable while saving
+  (`aria-disabled`).
 - **Dialogs** are named by their titles (the save dialog is also described
   by what went wrong) and start on what's safe to press next, their first
   field, or themselves, never the Close button. The native ones

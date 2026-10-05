@@ -11,7 +11,8 @@ import { main, useReturnFocus } from "../a11y/focus";
  * is up (`ready`; what's there from the start is just the page), and again
  * whenever it changes, or only when `news` does (a new value, for a message
  * that also follows something else, like the unsaved changes). Focus inside
- * it when it goes (its Dismiss button, say) moves to the roadmap.
+ * it when it goes (its Dismiss button, say) moves to the roadmap; focus
+ * anywhere else stays put.
  */
 export function Banner({
   className,
@@ -37,7 +38,7 @@ export function Banner({
     said.current = { key };
     if (live && (!first || (ready?.current ?? true))) announce(text, { assertive: live === "assertive" });
   });
-  useReturnFocus(ref, main);
+  useReturnFocus(ref, main, { ifLost: false });
   return (
     <div ref={ref} className={`banner${className ? ` ${className}` : ""}`}>
       {children}

@@ -53,9 +53,15 @@ export const main = (): HTMLElement | null => {
  * Put focus back when this dialog (or other container) goes: if it had focus,
  * or focus had been lost, it goes to `where(opener)`, where `opener` is what
  * had focus before it opened (null if that was nothing). A native <dialog> is
- * closed first, so the rest of the page is no longer inert.
+ * closed first, so the rest of the page is no longer inert. `ifLost: false`:
+ * only if it had focus (a banner, which focus may never have been near: a
+ * click in WebKit leaves it on <body>).
  */
-export function useReturnFocus(ref: RefObject<HTMLElement | null>, where: (opener: HTMLElement | null) => Element | null | undefined): void {
+export function useReturnFocus(
+  ref: RefObject<HTMLElement | null>,
+  where: (opener: HTMLElement | null) => Element | null | undefined,
+  { ifLost = true }: { ifLost?: boolean } = {},
+): void {
   // What had focus when this first rendered, before anything in it took it.
   const [opener] = useState(() => (focusLost() ? null : (document.activeElement as HTMLElement)));
   const latest = useRef(where);
@@ -66,7 +72,7 @@ export function useReturnFocus(ref: RefObject<HTMLElement | null>, where: (opene
     const el = ref.current;
     return () => {
       // Still on the page here: React removes it after this runs.
-      if (!el || !(focusLost() || el.contains(document.activeElement))) return;
+      if (!el || !((ifLost && focusLost()) || el.contains(document.activeElement))) return;
       let from: Element | null = null;
       if (el instanceof HTMLDialogElement && el.open) {
         el.close();
@@ -74,7 +80,7 @@ export function useReturnFocus(ref: RefObject<HTMLElement | null>, where: (opene
       }
       focusLater([() => latest.current(opener)], from);
     };
-  }, [ref, opener]);
+  }, [ref, opener, ifLost]);
 }
 
 /**

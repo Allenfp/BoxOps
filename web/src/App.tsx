@@ -18,7 +18,7 @@ import { Popover } from "./components/Popover";
 import { Banner } from "./components/Banner";
 import { announce, useAnnounce } from "./a11y/announce";
 import { letter, shortcut, undoHint } from "./a11y/keys";
-import { focusLater, focusLost, main, onPage } from "./a11y/focus";
+import { focusLater, focusLost, main, onPage, useReturnFocus } from "./a11y/focus";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
 import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
@@ -525,6 +525,43 @@ function SaveProgress({ step }: { step: SaveStep }) {
       <span>{STEP_TEXT[step]}</span>
       {seconds >= 5 ? ` ${seconds} s` : ""}
     </span>
+  );
+}
+
+/**
+ * A heads-up that the user's edit broke rules (announced as it appears, by
+ * whoever sets `broken`: a live region added already filled often isn't
+ * read). It goes by itself after 10 s, but not while focus is in it (being
+ * read, or on its way to Dismiss); focus in it when it goes moves to the
+ * roadmap.
+ */
+function RuleToast({ broken, onDismiss }: { broken: Violation[]; onDismiss(): void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [held, setHeld] = useState(false);
+  useEffect(() => {
+    if (held) return;
+    const t = setTimeout(onDismiss, 10_000);
+    return () => clearTimeout(t);
+  }, [broken, held, onDismiss]);
+  useReturnFocus(ref, main, { ifLost: false });
+  return (
+    <div
+      ref={ref}
+      className="toast"
+      onFocus={() => setHeld(true)}
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setHeld(false)}
+    >
+      <strong><Icon name="alert" size={14} /> That breaks {broken.length === 1 ? "a rule" : `${broken.length} rules`}</strong>
+      <ul>
+        {broken.map((v, i) => (
+          <li key={i}>{v.message}</li>
+        ))}
+      </ul>
+      <span className="hint">Nothing is blocked; it's a heads-up.</span>
+      <button className="icon-button" onClick={onDismiss} aria-label="Dismiss">
+        <Icon name="x" size={16} />
+      </button>
+    </div>
   );
 }
 
@@ -1264,11 +1301,7 @@ function RoadmapView(props: ViewProps) {
     }
     knownBroken.current = now;
   }, [violations, draftBase]);
-  useEffect(() => {
-    if (!newlyBroken.length) return;
-    const t = setTimeout(() => setNewlyBroken([]), 10_000);
-    return () => clearTimeout(t);
-  }, [newlyBroken]);
+  const dismissBroken = useCallback(() => setNewlyBroken([]), []);
 
   const conflictBoxIds = useMemo(
     () => new Set(draft.conflicts.filter((k) => k.startsWith("box:")).map((k) => k.slice(4))),
@@ -1785,21 +1818,7 @@ function RoadmapView(props: ViewProps) {
             />
           )}
         </Suspense>
-        {newlyBroken.length > 0 && (
-          // Announced as it appears (the effect that sets newlyBroken): a live region added already filled often isn't read.
-          <div className="toast">
-            <strong><Icon name="alert" size={14} /> That breaks {newlyBroken.length === 1 ? "a rule" : `${newlyBroken.length} rules`}</strong>
-            <ul>
-              {newlyBroken.map((v, i) => (
-                <li key={i}>{v.message}</li>
-              ))}
-            </ul>
-            <span className="hint">Nothing is blocked; it's a heads-up.</span>
-            <button className="icon-button" onClick={() => setNewlyBroken([])} aria-label="Dismiss">
-              <Icon name="x" size={16} />
-            </button>
-          </div>
-        )}
+        {newlyBroken.length > 0 && <RuleToast broken={newlyBroken} onDismiss={dismissBroken} />}
       </main>
       {view === "timeline" && !preview && selectedPto && ptoOf(selectedPto) && (
         <Suspense fallback={null}>
