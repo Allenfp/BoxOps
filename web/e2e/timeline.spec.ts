@@ -1,4 +1,4 @@
-import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, pollNow, save, test, toolbar } from "./helpers";
 
 test("shows departments, lanes, boxes and today", async ({ page, github: _ }) => {
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
@@ -31,6 +31,60 @@ test("shows departments, lanes, boxes and today", async ({ page, github: _ }) =>
   await page.locator(".dept-label", { hasText: "ML Platform" }).click();
   await expect(page.locator(".box:not(.compact)")).toHaveCount(15);
   await expect(page).toHaveURL(/collapsed=(&|$)/);
+});
+
+test("the timeline says over capacity when the warnings do: by a lane's dates, not for the past or boxes that don't fit side by side", async ({
+  page,
+  github,
+}) => {
+  const ANALYTICS = "departments/analytics.yaml";
+  const HIRE = boxFile("bx-4e1a-onboarding-hire");
+  const analytics = page.locator('[data-dept-id="analytics"]');
+  const warnings = async () => {
+    await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+    const text = await page.getByRole("dialog", { name: /warning/ }).innerText();
+    await page.keyboard.press("Escape");
+    return text;
+  };
+
+  // The second lane closes at the end of the year, while its box runs on: 3 FTE in January against the 2 lanes left.
+  github.deploy(github.otherSave({ [ANALYTICS]: (t) => t.replace("  - id: an-2\n    fte: 1\n", "  - id: an-2\n    fte: 1\n    end: 2026-12-31\n") }));
+  await pollNow(page);
+  const over = "3 FTE planned against 2, 2027-01-04 – 2027-01-29";
+  await expect(analytics.locator(".dept-toggle")).toHaveAttribute("title", `Over capacity: ${over}`);
+  await expect(analytics.locator(".dept-over")).toHaveText("3 planned");
+  await expect(analytics.locator(".overflow-note")).toHaveText("Over capacity");
+  await expect(analytics.locator(".overflow-note")).toHaveAttribute("title", `Over capacity: ${over}`);
+  await expect(analytics.locator(".box.overflowing")).toHaveCount(1);
+  expect(await warnings()).toContain(`Analytics: ${over}`);
+
+  // Open all along, with a 2-FTE box squeezed in over September: over capacity, but only before today.
+  github.deploy(
+    github.otherSave({
+      [ANALYTICS]: (t) => t.replace("    end: 2026-12-31\n", ""),
+      [HIRE]: (t) => t.replace("start: 2027-01-04\nend: 2027-02-12\n", "start: 2026-09-07\nend: 2026-09-25\nfte: 2\n"),
+    }),
+  );
+  await pollNow(page);
+  await expect(analytics.locator(".overflow-note")).toHaveText("Over capacity in the past");
+  await expect(analytics.locator(".overflow-note")).toHaveAttribute("title", "Over capacity before today: 4 FTE planned against 3, 2026-09-07 – 2026-09-25");
+  await expect(analytics.locator(".dept-toggle")).not.toHaveAttribute("title", /./);
+  await expect(analytics.locator(".dept-over")).toHaveCount(0);
+  await expect(analytics.locator(".box.overflowing")).toHaveCount(0);
+  expect(await warnings()).not.toContain("Analytics");
+
+  // The lane closes again, and the 2-FTE box moves to April: the 2 lanes left hold it, but they aren't side by side.
+  github.deploy(
+    github.otherSave({
+      [ANALYTICS]: (t) => t.replace("  - id: an-2\n    fte: 1\n", "  - id: an-2\n    fte: 1\n    end: 2026-12-31\n"),
+      [HIRE]: (t) => t.replace("start: 2026-09-07\nend: 2026-09-25\n", "start: 2027-04-05\nend: 2027-04-16\n"),
+    }),
+  );
+  await pollNow(page);
+  await expect(analytics.locator(".overflow-note")).toHaveText("Doesn’t fit side by side");
+  await expect(analytics.locator(".dept-over")).toHaveCount(0);
+  await expect(analytics.locator(".box.overflowing")).toHaveCount(0);
+  expect(await warnings()).not.toContain("Analytics");
 });
 
 test("today moves on at midnight in a tab left open", async ({ page, github: _ }) => {
