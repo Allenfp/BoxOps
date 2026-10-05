@@ -43,6 +43,29 @@ for (const visibility of ["public", "private"] as const) {
         expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-10-05\n");
       });
 
+      test("someone saved since the deploy: the first save takes a token, then shows their saves for review", async ({ page, github }) => {
+        await dragDays(page, DAGSTER, 10);
+        const sam = github.otherSave(
+          { [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline (orders + payments)") },
+          "Sam Lee",
+          "CDC pipeline: renamed",
+        );
+        await page.getByRole("button", { name: /^Save · \d+ changes?$/ }).click();
+        const dialog = page.locator(".save-dialog[open]");
+        await dialog.locator('input[type="password"]').fill(TOKEN);
+        await dialog.getByRole("button", { name: "Save" }).click();
+        await expect(dialog.locator("h2")).toHaveText("The roadmap changed since you opened it");
+        await expect(dialog.locator(".save-list")).toContainText("Sam Lee saved “CDC pipeline: renamed”");
+        await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline (orders + payments)");
+        expect(github.head).toBe(sam); // nothing written yet
+
+        await dialog.getByRole("button", { name: "Save now" }).click();
+        await expect(toolbar(page)).toContainText("No changes");
+        expect(github.headCommit().parent).toBe(sam);
+        expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+        expect(github.file(boxFile(CDC))).toContain("orders + payments");
+      });
+
       test("Keep mine, then the token: the choice carries through and the save goes on top of theirs", async ({ page, github }) => {
         await dragDays(page, DAGSTER, 10);
         const theirs = github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked") });
