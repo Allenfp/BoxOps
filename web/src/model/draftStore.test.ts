@@ -86,6 +86,16 @@ describe("which drafts a tab finds", () => {
     expect(openTab(SCOPE, NOW, s, noShared).key).toBe(first.key);
   });
 
+  it("a reload after a crash (its draft never marked closed) finds the tab's own draft", () => {
+    const s = stores();
+    s.session.setItem("boxops-tab", "aaaa0001");
+    s.local.setItem(draftKey(SCOPE, "aaaa0001"), JSON.stringify(record({ alive: NOW - 1000 })));
+    const t = openTab(SCOPE, NOW, s, noShared, true);
+    expect(t.key).toBe(draftKey(SCOPE, "aaaa0001"));
+    expect(t.own?.record?.items).toEqual(record().items);
+    expect(otherTabs(SCOPE, t.key, NOW, s.local)).toBe(0);
+  });
+
   it("the old shared draft moves over once: this tab's if it has none, else one left behind; one it can't read stays to download", () => {
     const shared = "boxops-draft:acme/roadmap@main";
     const s = stores();

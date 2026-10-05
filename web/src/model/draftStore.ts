@@ -198,15 +198,32 @@ export interface OpenedTab {
   orphans: FoundDraft[];
 }
 
+/** Whether this page was loaded by reloading its tab (not by opening, duplicating or restoring one). */
+export function wasReloaded(): boolean {
+  try {
+    return (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type === "reload";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Find this tab's key and drafts for the roadmap `scope`. A tab id whose draft
  * is alive belongs to another open tab (a duplicated tab copies
- * sessionStorage), so this tab takes a new one. The old shared draft, if any,
- * becomes this tab's own when it has none (it was every tab's before), or else
- * one left by a tab that's gone; `fromShared` turns it into a record (null if
- * it can't: then it's kept as it was, to download).
+ * sessionStorage), so this tab takes a new one; unless this page is a reload
+ * (`reloaded`) of the tab: a page that closes marks its draft closed, so one
+ * still alive was left by a page that crashed, and is this tab's own. The old
+ * shared draft, if any, becomes this tab's own when it has none (it was every
+ * tab's before), or else one left by a tab that's gone; `fromShared` turns it
+ * into a record (null if it can't: then it's kept as it was, to download).
  */
-export function openTab(scope: string, now: number, stores: Stores, fromShared: (value: unknown) => StoredDraft | null): OpenedTab {
+export function openTab(
+  scope: string,
+  now: number,
+  stores: Stores,
+  fromShared: (value: unknown) => StoredDraft | null,
+  reloaded = false,
+): OpenedTab {
   const { local, session } = stores;
   let tab: string | null = null;
   try {
@@ -214,7 +231,7 @@ export function openTab(scope: string, now: number, stores: Stores, fromShared: 
   } catch {
     // No sessionStorage: a new id every time.
   }
-  if (tab && aliveAt(read(local, draftKey(scope, tab))?.value) > now - STALE_MS) tab = null;
+  if (tab && !reloaded && aliveAt(read(local, draftKey(scope, tab))?.value) > now - STALE_MS) tab = null;
   tab ??= takeNewTab(session);
   const key = draftKey(scope, tab);
 

@@ -23,6 +23,7 @@ import {
   readValue,
   removeDraft,
   savedAtOf,
+  wasReloaded,
 } from "./draftStore";
 import { FORMAT } from "./format";
 import { newBoxCode } from "./relations";
@@ -527,16 +528,16 @@ export interface DraftOptions {
 }
 
 /**
- * Open this tab's drafts: its own (from before a reload) restored onto
- * `base`, and the others to offer. Its own draft, if it can't be restored,
- * stays as it is to download, and this tab takes a fresh key. Drafts left by
- * gone tabs with nothing left to restore (all of it saved since) are removed.
- * `adopted` is the page that wrote the draft restored, now this page's to
- * write.
+ * Open this tab's drafts: its own (from before a reload, `reloaded` when this
+ * page is one) restored onto `base`, and the others to offer. Its own draft,
+ * if it can't be restored, stays as it is to download, and this tab takes a
+ * fresh key. Drafts left by gone tabs with nothing left to restore (all of it
+ * saved since) are removed. `adopted` is the page that wrote the draft
+ * restored, now this page's to write.
  */
-export function openDraft(base: DraftState, scope: string, stores: Stores) {
+export function openDraft(base: DraftState, scope: string, stores: Stores, reloaded = false) {
   const now = Date.now();
-  const opened = openTab(scope, now, stores, (value) => fromSharedDraft(value, base, new Date(now)));
+  const opened = openTab(scope, now, stores, (value) => fromSharedDraft(value, base, new Date(now)), reloaded);
   let { key } = opened;
   let restored: { draft: DraftState; conflicts: string[] } | undefined;
   let adopted: string | undefined;
@@ -565,7 +566,7 @@ export function openDraft(base: DraftState, scope: string, stores: Stores) {
 
 export function useDraft(base: DraftState, { scope, commit, build }: DraftOptions) {
   const [stores] = useState(browserStores);
-  const [opened] = useState(() => openDraft(base, scope, stores));
+  const [opened] = useState(() => openDraft(base, scope, stores, wasReloaded()));
   const [history, setHistory] = useState<History>(() => startHistory(base, opened.restored));
   const dispatch = useCallback((a: HistoryAction) => setHistory((h) => reduceHistory(h, a)), []);
 

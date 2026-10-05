@@ -99,6 +99,22 @@ test("a duplicated tab, opened before the original had changes, never touches th
   expect(Object.keys(await storedDrafts(duplicate))).toEqual([key]);
 });
 
+test("a reload the page didn't see coming (after a crash) restores the tab's own draft", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 10);
+  await stored(page);
+  // A crashed page never hears pagehide, so its draft is still marked alive.
+  await page.evaluate(() => window.addEventListener("pagehide", (e) => e.stopImmediatePropagation(), { capture: true }));
+  // Playwright's fake clock hides the browser's navigation timing, which says a page is a reload.
+  await page.addInitScript(() => {
+    performance.getEntriesByType = (type: string) => (type === "navigation" ? [{ type: "reload" } as PerformanceNavigationTiming] : []);
+  });
+  await page.reload();
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+  await expect(page.locator(".banner", { hasText: "unsaved changes in another tab" })).toHaveCount(0);
+  expect(Object.keys(await storedDrafts(page))).toHaveLength(1);
+});
+
 test("a draft left by a tab that's no longer open can be discarded for good", async ({ page, github }) => {
   const later = await leaveDraft(page, github);
   const offer = later.locator(".banner", { hasText: "Restore unsaved changes from another tab?" });
