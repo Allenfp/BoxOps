@@ -35,7 +35,7 @@ test("PTO is added on the timeline, edited in its block and saved on the enginee
   expect(github.headCommit().message.split("\n")[0]).toBe("PTO for Sam Lee: 2026-12-14 – 2026-12-25 (Holiday)");
 });
 
-test("PTO blocks drag like boxes, and Delete removes the selected one", async ({ page, github: _ }) => {
+test("PTO blocks drag like boxes, and the editor's Delete removes one", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: "Table" }).click();
   await group(page, "Analytics").getByRole("button", { name: "Add PTO" }).click();
   await page.getByRole("button", { name: "Timeline" }).click();
@@ -59,7 +59,11 @@ test("PTO blocks drag like boxes, and Delete removes the selected one", async ({
   await block.click();
   await page.keyboard.press("Escape");
   await block.click({ position: { x: 20, y: 6 } });
+  // The Delete key in the editor deletes nothing: focus is on its Engineer field.
+  await expect(editor(page).getByLabel("Engineer")).toBeFocused();
   await page.keyboard.press("Delete");
+  await expect(block).toHaveCount(1);
+  await editor(page).getByRole("button", { name: "Delete" }).click();
   await expect(block).toHaveCount(0);
   await expect(editor(page)).toHaveCount(0);
 });

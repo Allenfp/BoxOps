@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { isBroadToken, isTokenText, pastedToken } from "../github/token";
 import { Icon } from "./Icon";
 
@@ -56,6 +56,7 @@ export function TokenForm({
   repo,
   access,
   lead,
+  leadId,
   submitLabel,
   rejected,
   busy,
@@ -66,6 +67,8 @@ export function TokenForm({
   repo: string;
   access?: TokenAccess;
   lead: ReactNode;
+  /** An id for the lead text, to describe the dialog it's in. */
+  leadId?: string;
   submitLabel: string;
   /** GitHub rejected the last token (401). */
   rejected?: boolean;
@@ -77,6 +80,11 @@ export function TokenForm({
   const [token, setToken] = useState("");
   const value = pastedToken(token);
   const valid = isTokenText(value);
+  const fieldId = useId();
+  const notTokenId = useId();
+  const broadId = useId();
+  const notToken = !!value && !valid;
+  const broad = isBroadToken(value);
   return (
     <form
       className="form"
@@ -86,10 +94,14 @@ export function TokenForm({
       }}
     >
       {rejected && <div className="callout error">GitHub rejected that token. Check it was copied fully and hasn’t expired.</div>}
-      <p className="lead">{lead}</p>
-      <label>
-        GitHub token
+      <p className="lead" id={leadId}>
+        {lead}
+      </p>
+      {/* The notes go outside the <label>, so the field's name is just "GitHub token"; they describe it instead. */}
+      <div className="field">
+        <label htmlFor={fieldId}>GitHub token</label>
         <input
+          id={fieldId}
           type="password"
           value={token}
           onChange={(e) => setToken(e.target.value)}
@@ -98,15 +110,21 @@ export function TokenForm({
           spellCheck={false}
           autoFocus
           disabled={busy}
+          aria-invalid={notToken || undefined}
+          aria-describedby={[notToken && notTokenId, broad && broadId].filter(Boolean).join(" ") || undefined}
         />
-        {value && !valid && <span className="hint warn-text not-token">That isn’t a GitHub token: copy it again from GitHub.</span>}
-        {isBroadToken(value) && (
-          <span className="hint warn-text broad-token">
+        {notToken && (
+          <span className="hint warn-text not-token" id={notTokenId}>
+            That isn’t a GitHub token: copy it again from GitHub.
+          </span>
+        )}
+        {broad && (
+          <span className="hint warn-text broad-token" id={broadId}>
             That’s a classic token (or one from the GitHub CLI), which can write to every repository you can. It works,
             but a fine-grained token for {repo} alone is safer.
           </span>
         )}
-      </label>
+      </div>
       <TokenHelp repo={repo} access={access} />
       {children}
       <footer className="dialog-foot">

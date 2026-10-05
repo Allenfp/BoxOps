@@ -13,6 +13,8 @@ export function liveUrl(): string {
   return `?${q}`;
 }
 
+const focusOnShow = (el: HTMLElement | null) => el?.focus();
+
 const previewing = () => new URLSearchParams(window.location.search).has("ref");
 
 export function LoadProblem({
@@ -36,7 +38,10 @@ export function LoadProblem({
   }, [onRetry]);
   return (
     <div className="crash load-problem" role="alert">
-      <h1>{title}</h1>
+      {/* Focused as it shows: after Try again, focus was on the button that went. */}
+      <h1 tabIndex={-1} ref={focusOnShow}>
+        {title}
+      </h1>
       <p>{message}</p>
       {detail && (
         <details className="files">

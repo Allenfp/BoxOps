@@ -362,6 +362,7 @@ export function TableView(props: Props) {
               <tbody
                 key={dept.id}
                 className={`dept-group${reorder.draggingId === dept.id ? " reordering-this" : ""}`}
+                data-dept-id={dept.id}
                 data-reorder-id={dept.id}
                 style={{ "--dept": dept.color } as CSSProperties}>
                 <tr className="group-row">

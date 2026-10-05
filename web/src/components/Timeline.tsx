@@ -409,6 +409,8 @@ export function Timeline(props: Props) {
       <div
         key={b.id}
         data-box-id={b.id}
+        // Focus can be put here (when its editor closes), not tabbed to.
+        tabIndex={-1}
         className={classes.filter(Boolean).join(" ")}
         style={{ ...style, ...((showPeople || showScale) && { paddingRight: peopleW }), "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
         title={variant === "full" && b.id !== selectedId ? tooltip.filter(Boolean).join("\n") : undefined}
@@ -699,6 +701,7 @@ export function Timeline(props: Props) {
                             <div
                               key={key}
                               data-pto-key={key}
+                              tabIndex={-1}
                               className={`pto-block${props.selectedPto === key ? " selected" : ""}${ptoPreview?.key === key ? " dragging" : ""}`}
                               style={style}
                               title={[

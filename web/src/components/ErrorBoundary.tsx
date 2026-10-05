@@ -79,6 +79,9 @@ function discardDraft(): void {
   location.reload();
 }
 
+/** Focus the heading as the screen shows: focus was in the app it replaced, and is otherwise lost. */
+const focusOnShow = (el: HTMLElement | null) => el?.focus();
+
 interface State {
   error: Error | null;
   /** It crashed in this tab a moment ago too: likely the same cause, such as a stored draft. */
@@ -107,7 +110,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     const draft = stored && shownDraft !== null ? draftRepo(shownDraft) : null;
     return (
       <div className="crash" role="alert">
-        <h1>Something went wrong</h1>
+        <h1 tabIndex={-1} ref={focusOnShow}>
+          Something went wrong
+        </h1>
         <p>BoxOps hit a problem it couldn’t recover from:</p>
         <pre className="crash-message">{error.message || error.name}</pre>
         {again && draft ? (

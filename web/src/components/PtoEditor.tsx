@@ -8,6 +8,8 @@ import type { Department, Person, TimeOff } from "../model/types";
 import { useAnchor } from "./useAnchor";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
+import { LiveRegion } from "../a11y/announce";
+import { loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
 
 const WIDTH = 360;
 
@@ -28,6 +30,9 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
   const ref = useRef<HTMLDivElement>(null);
   const key = ptoKey(target);
   const pos = useAnchor(ref, `[data-pto-key="${CSS.escape(key)}"]`, WIDTH, [key, pto]);
+
+  // Closed (or gone some other way): focus goes back to the PTO block.
+  useReturnFocus(ref, (opener) => document.querySelector(`[data-pto-key="${CSS.escape(key)}"]`) ?? onPage(opener) ?? main());
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -75,15 +80,22 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
       ref={ref}
       className="editor pto-editor"
       role="dialog"
+      // Modal for the keyboard and screen readers (Tab stays inside); a click outside closes it.
+      aria-modal="true"
       aria-label={`Edit PTO for ${person?.name ?? "engineer"}`}
       style={{ width: WIDTH, top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}
+      onKeyDown={loopTab}
     >
+      {/* VoiceOver reads only live regions inside a modal dialog while it's open. */}
+      <LiveRegion />
       <div className="editor-head">
         <span className="code-chip pto-chip">PTO</span>
         <select
           className="editor-title"
           value={target.personId}
           aria-label="Engineer"
+          // Whose time off it is comes first, as a box's title does.
+          autoFocus
           onChange={(e) => onReassign(e.target.value)}
         >
           {groups.map(({ d, members }) => (

@@ -637,6 +637,9 @@ function OfferBanner({
   );
 }
 
+/** The gear button: where focus goes when a dialog opened from its menu closes (the menu item has gone). */
+const settingsButton = () => document.querySelector(".settings-menu > button");
+
 /** A site notice's key, by what it says: the same notice twice is shown once. */
 const noticeKey = (n: Notice) => `${n.level}:${n.text}`;
 
@@ -1357,8 +1360,10 @@ function RoadmapView(props: ViewProps) {
                 <div className="split-button">
                   <button
                     className="primary"
-                    onClick={() => save()}
-                    disabled={busy}
+                    data-save-button
+                    onClick={() => !busy && save()}
+                    // Not disabled while saving: a disabled button loses focus, to the page.
+                    aria-disabled={busy || undefined}
                     title={
                       draft.kept
                         ? "Save to GitHub (⌘S). Until then, changes are kept in this browser."
@@ -1829,12 +1834,12 @@ function RoadmapView(props: ViewProps) {
         </Suspense>
       )}
       {modal === "key" && (
-        <Modal title="Key" className="key-modal" onClose={() => setModal(null)}>
+        <Modal title="Key" className="key-modal" onClose={() => setModal(null)} returnTo={settingsButton}>
           <KeyContent settings={draft.settings} />
         </Modal>
       )}
       {modal === "shortcuts" && (
-        <Modal title="Keyboard shortcuts" className="shortcuts-modal" onClose={() => setModal(null)}>
+        <Modal title="Keyboard shortcuts" className="shortcuts-modal" onClose={() => setModal(null)} returnTo={settingsButton}>
           <Suspense fallback={null}>
             <ShortcutsContent />
           </Suspense>
@@ -1846,6 +1851,7 @@ function RoadmapView(props: ViewProps) {
             settings={draft.settings}
             saved={base.settings}
             boxes={draft.boxes}
+            returnTo={settingsButton}
             onChange={(patch, key) => draft.updateSettings(patch, `settings:${key}`)}
             onClose={() => {
               draft.checkpoint();

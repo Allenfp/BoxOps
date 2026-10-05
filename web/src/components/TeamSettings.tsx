@@ -12,6 +12,7 @@ import {
   type ZoomLevel,
 } from "../model/types";
 import { Icon } from "./Icon";
+import type { Target } from "../a11y/focus";
 import { Modal } from "./Modal";
 
 const MONTHS = [
@@ -52,6 +53,8 @@ interface Props {
   /** `key` groups keystrokes in one field into a single undo step. */
   onChange(patch: Partial<Settings>, key: string): void;
   onClose(): void;
+  /** Where focus goes when it closes (the menu item that opened it has gone). */
+  returnTo?: Target;
 }
 
 /** An id for a new item, from its name (ids are lower case with underscores, like `at_risk`). */
@@ -237,12 +240,13 @@ export function TeamSettings({
   boxes,
   onChange,
   onClose,
+  returnTo,
 }: Props) {
   const usesType = (id: string) => boxes.filter((b) => b.type === id).length;
   const usesFlag = (id: string) => boxes.filter((b) => b.status === id).length;
 
   return (
-    <Modal title="Team settings" className="team-settings" onClose={onClose}>
+    <Modal title="Team settings" className="team-settings" onClose={onClose} startIn="field" returnTo={returnTo}>
       <p className="hint team-intro">
         These apply to everyone. They're saved to settings.yaml with your other
         changes.

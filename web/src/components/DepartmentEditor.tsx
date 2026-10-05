@@ -1,4 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
+import { LiveRegion } from "../a11y/announce";
+import { main, onPage, useReturnFocus } from "../a11y/focus";
 import { DEPT_CODE } from "../model/load";
 import { deriveDeptCode } from "../model/relations";
 import { DEPARTMENT_COLORS } from "../model/structure";
@@ -81,15 +83,29 @@ export function DepartmentEditor(props: Props) {
 
   // Every <dialog> this renders opens as it mounts: one comes and goes as the
   // department it edits does (removed, or undone, while it was open).
+  const dialog = useRef<HTMLDialogElement>(null);
   const open = useCallback((d: HTMLDialogElement | null) => {
+    dialog.current = d;
     if (d && !d.open) {
       d.showModal();
       // showModal() focuses the first focusable element (the close button); start in the first field instead.
       d.querySelector<HTMLInputElement>("input:not([type=color])")?.focus();
     }
   }, []);
+  const titleId = useId();
 
   const id = target.kind === "edit" ? target.id : created;
+  // Closed: focus goes to the department's ✎ (one just added: its heading), in whichever view is
+  // showing; deleted, to what opened the editor if it's still there, else the first department.
+  useReturnFocus(dialog, (opener) => {
+    const inDept = (sel: string) => (id ? document.querySelector(`[data-dept-id="${CSS.escape(id)}"] :is(${sel})`) : null);
+    return (
+      (target.kind === "edit" ? inDept(".dept-edit, .group-edit") : inDept(".dept-toggle, .group-toggle")) ??
+      onPage(opener) ??
+      document.querySelector(".dept-toggle, .group-toggle") ??
+      main()
+    );
+  });
   const codesTakenExcept = (deptId?: string) => new Set([...departments.filter((d) => d.id !== deptId).map((d) => d.code), ...props.reservedCodes]);
   const codeProblem = (code: string, deptId?: string) =>
     !DEPT_CODE.test(code)
@@ -107,18 +123,20 @@ export function DepartmentEditor(props: Props) {
     <dialog
       ref={open}
       className="save-dialog dept-editor"
-      aria-label={title}
+      aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
       }}
     >
       <header className="dialog-head">
-        <h2>{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <button className="icon-button" onClick={onClose} aria-label="Close">
           <Icon name="x" size={16} />
         </button>
       </header>
+      {/* VoiceOver reads only live regions inside an open modal dialog. */}
+      <LiveRegion />
       {body}
     </dialog>
   );

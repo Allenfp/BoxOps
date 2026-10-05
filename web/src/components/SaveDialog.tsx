@@ -1,4 +1,6 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
+import { LiveRegion } from "../a11y/announce";
+import { main, onPage, useReturnFocus } from "../a11y/focus";
 import type { FailureKind, GitHubFailure } from "../github/api";
 import { TOKEN_KINDS, failureMessage } from "../github/messages";
 import type { Source } from "../github/read";
@@ -122,14 +124,20 @@ export function SaveDialog({
   onClose,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  /** What explains the problem, read with the title. */
+  const descId = useId();
+  // showModal() would focus the first thing that takes focus, the Close button. Instead each kind
+  // of problem starts on what's safe to press next (data-autofocus), else its field, else the
+  // dialog itself (a choice none of whose answers is harmless: the explanation is read first).
   useEffect(() => {
     const d = dialogRef.current;
-    if (d && !d.open) {
-      d.showModal();
-      // showModal() focuses the first focusable element (the close button); start in the first field instead.
-      d.querySelector<HTMLInputElement>("input:not([type=color])")?.focus();
-    }
-  }, []);
+    if (!d) return;
+    if (!d.open) d.showModal();
+    (d.querySelector<HTMLElement>("[data-autofocus], input:not([type=color])") ?? d).focus();
+  }, [problem.kind]);
+  // Back to what opened it (the Save button, say), else to the Save button, else the roadmap.
+  useReturnFocus(dialogRef, (opener) => onPage(opener) ?? document.querySelector("[data-save-button]") ?? main());
 
   const title =
     problem.kind === "github"
@@ -150,17 +158,22 @@ export function SaveDialog({
     <dialog
       ref={dialogRef}
       className="save-dialog"
+      aria-labelledby={titleId}
+      aria-describedby={descId}
+      tabIndex={-1}
       onCancel={(e) => {
         e.preventDefault();
         if (!busy) onClose();
       }}
     >
       <header className="dialog-head">
-        <h2>{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <button className="icon-button" onClick={onClose} disabled={busy} aria-label="Close">
           <Icon name="x" size={16} />
         </button>
       </header>
+      {/* VoiceOver reads only live regions inside an open modal dialog. */}
+      <LiveRegion />
 
       {problem.kind === "token" && (
         <TokenForm
@@ -168,6 +181,7 @@ export function SaveDialog({
           rejected={problem.rejected}
           busy={busy}
           submitLabel="Save"
+          leadId={descId}
           lead={
             <>
               Saving writes your changes straight to <code>{source.branch}</code> of <strong>{source.repo}</strong>. Paste a
@@ -184,7 +198,7 @@ export function SaveDialog({
 
       {problem.kind === "review" && (
         <>
-          <p className="lead">
+          <p className="lead" id={descId}>
             These unsaved changes weren’t made in this page: they were kept in this browser, from before a reload or
             from another tab. Saving writes them to <code>{source.branch}</code> of <strong>{source.repo}</strong> as
             you, so check they’re yours:
@@ -192,7 +206,9 @@ export function SaveDialog({
           <Lines lines={lines} />
           <p className="hint">If any aren’t yours, go back and discard them.</p>
           <footer className="dialog-foot">
-            <button onClick={onClose}>Back to editing</button>
+            <button onClick={onClose} data-autofocus>
+              Back to editing
+            </button>
             <button className="primary" onClick={onReviewed}>
               Save {lines.length} change{lines.length === 1 ? "" : "s"}
             </button>
@@ -202,7 +218,7 @@ export function SaveDialog({
 
       {problem.kind === "invalid" && (
         <>
-          <div className="callout error">
+          <div className="callout error" id={descId}>
             These changes would leave the roadmap invalid:
             <ul>
               {problem.issues.map((i, n) => (
@@ -211,7 +227,7 @@ export function SaveDialog({
             </ul>
           </div>
           <footer className="dialog-foot">
-            <button className="primary" onClick={onClose}>
+            <button className="primary" onClick={onClose} data-autofocus>
               Back to editing
             </button>
           </footer>
@@ -220,7 +236,7 @@ export function SaveDialog({
 
       {problem.kind === "unwritable" && (
         <>
-          <p className="lead">
+          <p className="lead" id={descId}>
             Your changes touch {problem.files.length === 1 ? "a file" : "files"} with problems the app can’t work
             around. Saving would delete the parts it couldn’t read, so fix these in the file first (on GitHub or in the
             repo), then save again:
@@ -241,7 +257,7 @@ export function SaveDialog({
           </div>
           <Kept kept={kept}> To save the rest now, undo the changes to these files.</Kept>
           <footer className="dialog-foot">
-            <button className="primary" onClick={onClose}>
+            <button className="primary" onClick={onClose} data-autofocus>
               Back to editing
             </button>
           </footer>
@@ -250,7 +266,7 @@ export function SaveDialog({
 
       {problem.kind === "conflict" && (
         <>
-          <p className="lead">
+          <p className="lead" id={descId}>
             Since you loaded the roadmap, someone else saved changes to {problem.items.length === 1 ? "an item" : "items"}{" "}
             you also edited:
           </p>
@@ -271,15 +287,26 @@ export function SaveDialog({
         </>
       )}
 
-      {problem.kind === "updated" && <Updated problem={problem} busy={busy} onResolve={onResolve} onSaveNow={onSaveNow} onClose={onClose} />}
+      {problem.kind === "updated" && (
+        <Updated problem={problem} descId={descId} busy={busy} onResolve={onResolve} onSaveNow={onSaveNow} onClose={onClose} />
+      )}
 
       {problem.kind === "github" && (
-        <Failure failure={problem.failure} source={source} busy={busy} kept={kept} onRetry={onRetry} onNewToken={onNewToken} onClose={onClose} />
+        <Failure
+          failure={problem.failure}
+          descId={descId}
+          source={source}
+          busy={busy}
+          kept={kept}
+          onRetry={onRetry}
+          onNewToken={onNewToken}
+          onClose={onClose}
+        />
       )}
 
       {problem.kind === "upgrading" && (
         <>
-          <div className="callout warn">
+          <div className="callout warn" id={descId}>
             BoxOps is being upgraded; reload in a minute. The roadmap on GitHub now uses data format {problem.format}, which
             this version of BoxOps doesn’t write, so nothing was saved.
           </div>
@@ -292,7 +319,7 @@ export function SaveDialog({
           <footer className="dialog-foot">
             <button onClick={onClose}>Close</button>
             <button onClick={onDownload}>Download unsaved changes</button>
-            <button className="primary" onClick={onReloadApp}>
+            <button className="primary" onClick={onReloadApp} data-autofocus>
               Reload
             </button>
           </footer>
@@ -301,7 +328,7 @@ export function SaveDialog({
 
       {problem.kind === "folder" && (
         <>
-          <p className="lead">
+          <p className="lead" id={descId}>
             Nothing was saved: the roadmap folder on GitHub breaks the rules BoxOps holds it to. Fix it on GitHub or in
             the repository (or ask whoever looks after it), then save again:
           </p>
@@ -314,7 +341,7 @@ export function SaveDialog({
           </div>
           <Kept kept={kept} />
           <footer className="dialog-foot">
-            <button className="primary" onClick={onClose}>
+            <button className="primary" onClick={onClose} data-autofocus>
               Close
             </button>
           </footer>
@@ -323,19 +350,26 @@ export function SaveDialog({
 
       {problem.kind === "error" && (
         <>
-          <div className="callout error">{problem.message}</div>
+          <div className="callout error" id={descId}>
+            {problem.message}
+          </div>
           <Kept kept={kept} />
           <footer className="dialog-foot">
             <button onClick={onClose} disabled={busy}>
               Close
             </button>
             {problem.reload && (
-              <button className={problem.reload === "instead" ? "primary" : undefined} onClick={onReloadApp} disabled={busy}>
+              <button
+                className={problem.reload === "instead" ? "primary" : undefined}
+                onClick={onReloadApp}
+                disabled={busy}
+                data-autofocus={problem.reload === "instead" || undefined}
+              >
                 Reload
               </button>
             )}
             {problem.reload !== "instead" && (
-              <button className="primary" onClick={onRetry} disabled={busy}>
+              <button className="primary" onClick={onRetry} disabled={busy} data-autofocus>
                 {busy ? "Saving…" : "Try again"}
               </button>
             )}
@@ -361,6 +395,7 @@ function Kept({ kept, children }: { kept: boolean; children?: ReactNode }) {
 /** A GitHub failure in words, what to do about it, and GitHub's own answer for whoever helps. */
 function Failure({
   failure: f,
+  descId,
   source,
   busy,
   kept,
@@ -369,6 +404,7 @@ function Failure({
   onClose,
 }: {
   failure: GitHubFailure;
+  descId: string;
   source: Source;
   busy: boolean;
   kept: boolean;
@@ -389,7 +425,9 @@ function Failure({
   ].filter(Boolean);
   return (
     <>
-      <div className="callout error">{failureMessage(f, source)}</div>
+      <div className="callout error" id={descId}>
+        {failureMessage(f, source)}
+      </div>
       {sso && (
         <p className="lead">
           <a href={sso} target="_blank" rel="noopener noreferrer">
@@ -406,7 +444,7 @@ function Failure({
         </details>
       )}
       <footer className="dialog-foot">
-        <button className={account ? "primary" : undefined} onClick={onClose} disabled={busy}>
+        <button className={account ? "primary" : undefined} onClick={onClose} disabled={busy} data-autofocus={account || undefined}>
           Close
         </button>
         {newToken && (
@@ -414,7 +452,7 @@ function Failure({
             Use a different token
           </button>
         )}
-        <button className={account ? undefined : "primary"} onClick={onRetry} disabled={busy}>
+        <button className={account ? undefined : "primary"} onClick={onRetry} disabled={busy} data-autofocus={!account || undefined}>
           {busy ? "Saving…" : "Try again"}
         </button>
       </footer>
@@ -426,12 +464,14 @@ const MAX_SAVES = 4;
 
 function Updated({
   problem,
+  descId,
   busy,
   onResolve,
   onSaveNow,
   onClose,
 }: {
   problem: Extract<SaveProblem, { kind: "updated" }>;
+  descId: string;
   busy: boolean;
   onResolve(keep: "mine" | "theirs", keys: string[]): void;
   onSaveNow(): void;
@@ -441,7 +481,9 @@ function Updated({
   const shown = saves.slice(-MAX_SAVES);
   return (
     <>
-      <p className="lead">Your changes haven’t been saved yet. Since you opened the roadmap:</p>
+      <p className="lead" id={descId}>
+        Your changes haven’t been saved yet. Since you opened the roadmap:
+      </p>
       {saves.length > 0 && (
         <ul className="save-list">
           {saves.length > MAX_SAVES && <li className="hint">…and {saves.length - MAX_SAVES} earlier saves</li>}
@@ -481,7 +523,7 @@ function Updated({
       <footer className="dialog-foot">
         {clashes.length > 0 ? (
           <>
-            <button onClick={onClose} disabled={busy}>
+            <button onClick={onClose} disabled={busy} data-autofocus>
               Review changes
             </button>
             <button onClick={() => onResolve("theirs", keys)} disabled={busy}>
@@ -493,7 +535,7 @@ function Updated({
           </>
         ) : (
           <>
-            <button onClick={onClose} disabled={busy}>
+            <button onClick={onClose} disabled={busy} data-autofocus>
               Review changes
             </button>
             <button className="primary" onClick={onSaveNow} disabled={busy}>

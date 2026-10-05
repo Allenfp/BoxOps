@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useAnchor } from "./useAnchor";
 import { boxScale, SCALE_HELP } from "../model/scale";
 import { NO_FLAG } from "../model/status";
@@ -10,6 +10,8 @@ import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type RelationT
 import { EngineerPicker } from "./EngineerPicker";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
+import { LiveRegion } from "../a11y/announce";
+import { loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
 
 const WIDTH = 440;
 
@@ -48,6 +50,7 @@ const splitList = (text: string, sep: RegExp) =>
 export function BoxEditor(props: Props) {
   const { box, settings, departments, people, boxes, violations, onAddPerson, onChange, onDelete, onClose } = props;
   const ref = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   // Sit below the box (or above if there's no room), and follow it while the timeline scrolls.
   const pos = useAnchor(ref, `[data-box-id="${CSS.escape(box.id)}"]`, WIDTH, [box]);
   // Free-text list fields keep their raw text while typing so commas and newlines aren't eaten.
@@ -64,6 +67,9 @@ export function BoxEditor(props: Props) {
     if (!same(tagsText, /,/, box.tags)) setTagsText((box.tags ?? []).join(", "));
     if (!same(linksText, /\n/, box.links)) setLinksText((box.links ?? []).join("\n"));
   }
+
+  // Closed (or gone some other way: saved, undone, someone else's save): focus goes back to the box.
+  useReturnFocus(ref, (opener) => document.querySelector(`[data-box-id="${CSS.escape(box.id)}"]`) ?? onPage(opener) ?? main());
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -150,14 +156,23 @@ export function BoxEditor(props: Props) {
       ref={ref}
       className="editor"
       role="dialog"
+      // Modal for the keyboard and screen readers (Tab stays inside); a click outside closes it.
+      aria-modal="true"
       aria-label={`Edit ${box.title || "box"}`}
       style={{ width: WIDTH, top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}
+      onKeyDown={loopTab}
     >
+      {/* VoiceOver reads only live regions inside a modal dialog while it's open. */}
+      <LiveRegion />
       <div className="editor-head" style={{ borderTopColor: typeColor }}>
         <span className="code-chip" title="This box's code. The prefix follows its department.">
           {fullCode(box, departments)}
         </span>
+        <label className="sr-only" htmlFor={titleId}>
+          Title
+        </label>
         <input
+          id={titleId}
           className="editor-title"
           value={box.title}
           placeholder="Box title"

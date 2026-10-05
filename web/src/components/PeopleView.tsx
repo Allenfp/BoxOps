@@ -147,7 +147,7 @@ export function PeopleView(props: Props) {
             if (q && rows.length === 0) return null;
             const isCollapsed = g.id !== NO_DEPT && collapsed.has(g.id) && !q;
             return (
-              <tbody key={g.id || "none"} className="dept-group" style={{ "--dept": g.color } as CSSProperties}>
+              <tbody key={g.id || "none"} className="dept-group" data-dept-id={g.id || undefined} style={{ "--dept": g.color } as CSSProperties}>
                 <tr className="group-row">
                   <td colSpan={COLUMNS.length}>
                     <div className="group-head">

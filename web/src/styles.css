@@ -83,6 +83,10 @@ button:hover {
   font-size: 20px;
   margin: 0 0 12px;
 }
+.crash h1:focus,
+.popover-panel:focus {
+  outline: none;
+}
 .crash-message {
   white-space: pre-wrap;
   padding: 8px 12px;
@@ -772,6 +776,13 @@ button.icon-only:disabled {
   outline-offset: 2px;
   z-index: 2;
 }
+/* Focus back on a box or PTO block once its editor closes: a ring unlike the selection's. */
+.box:focus-visible,
+.pto-block:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  z-index: 2;
+}
 .box.dragging {
   z-index: 5;
   opacity: 0.92;
@@ -803,7 +814,8 @@ body.dragging-resize * {
 
 /* Toolbar draft status */
 
-button:disabled {
+button:disabled,
+button[aria-disabled="true"] {
   opacity: 0.4;
   cursor: default;
 }
@@ -1076,7 +1088,7 @@ button.primary {
   color: #fff;
   font-weight: 600;
 }
-button.primary:hover:not(:disabled) {
+button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   background: color-mix(in srgb, var(--accent) 88%, #000);
 }
 .link-button {
@@ -1231,7 +1243,8 @@ button.primary:hover:not(:disabled) {
   gap: 10px;
   margin-top: 14px;
 }
-.save-dialog .form label {
+.save-dialog .form label,
+.save-dialog .form .field {
   display: flex;
   flex-direction: column;
   gap: 4px;
