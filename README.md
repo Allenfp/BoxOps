@@ -58,13 +58,15 @@ pushed to `main`; every push is validated before it deploys.
 
 ## Developing the app
 
-The app is in `web/`: Vite, React and TypeScript.
+The app is in `web/`: Vite, React and TypeScript, on Node 24 (`.nvmrc`; Node 22
+from 22.12, and 26 or later, work too).
 
 ```sh
 cd web
 npm ci
 npm run dev        # http://localhost:5173; reads ../roadmap and reloads on change
 npm run lint       # oxlint, including the React hooks rules; a warning fails it
+npm run typecheck  # TypeScript (npm run build checks types too)
 npm test           # unit tests
 npm run e2e        # browser tests (Playwright, WebKit)
 npm run validate   # check the roadmap files
