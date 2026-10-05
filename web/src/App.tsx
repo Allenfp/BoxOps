@@ -26,7 +26,7 @@ import { downloadJson } from "./model/draftStore";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
-import type { LoadResult } from "./model/load";
+import { type LoadResult, loadFolder, loadFolderNow, loadParser } from "./model/load";
 import { loadRoadmap } from "./model/parse";
 import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
@@ -129,7 +129,7 @@ async function loadPreview(base: Snapshot, branch: string): Promise<Exclude<Load
   // A private repository: ask for a token rather than make a call that can only fail.
   if (!canRead(base.source, gh)) return { status: "needs-token", repo, branch, rejected: false };
   try {
-    return { status: "ready", ...fromSnapshot(await readSnapshot(gh, base, { branch }), true) };
+    return { status: "ready", ...(await fromSnapshot(await readSnapshot(gh, base, { branch }), true)) };
   } catch (e) {
     if (e instanceof GitHubFailure && e.kind === "unauthorized") {
       setToken(repo, null);
@@ -156,9 +156,20 @@ function changesScreen(next: Pick<Snapshot, "blobs" | "ignored">, current: Pick<
   return !sameBlobs(next.blobs, current.blobs) || others(next) !== others(current);
 }
 
-/** The ignored files (a snapshot lists them) are reported as unexpected. */
-function fromSnapshot(s: Snapshot, preview = false): Loaded {
-  return { ...loadRoadmap(s.files, s.ignored), ...s, preview };
+/**
+ * A snapshot loaded for the screen. Only files this tab hasn't parsed before
+ * (by blob SHA) are parsed, which may first load the parser. The ignored files
+ * (a snapshot lists them) are reported as unexpected.
+ */
+async function fromSnapshot(s: Snapshot, preview = false): Promise<Loaded> {
+  return { ...(await loadFolder(s)), ...s, preview };
+}
+
+/** fromSnapshot() at once, for a snapshot a save brings: saving has loaded the parser. */
+function fromSaveSnapshot(s: Snapshot): Loaded {
+  const loaded = loadFolderNow(s);
+  if (!loaded) throw new Error("The roadmap parser isn’t loaded.");
+  return { ...loaded, ...s, preview: false };
 }
 
 export function App() {
@@ -237,7 +248,9 @@ export function App() {
         // their saves in like any other. Never for a copy built from files on
         // disk (read-only), nor for a private repository without a token (a call
         // that could only fail: viewers see the deployed copy).
-        show(fromSnapshot(base));
+        const loaded = await fromSnapshot(base);
+        if (!live) return;
+        show(loaded);
       } catch (e) {
         // Never "Loading…" for good: a bug, or a browser without what the app
         // needs (WebCrypto, which an insecure origin lacks, for an old bundle).
@@ -251,8 +264,11 @@ export function App() {
       try {
         const fresh = await readSnapshot(gh, base, { seen });
         // Not once the tab has moved on (a poll, a save) or while it's saving.
-        if (!live || fresh === base || saving.current || onScreen.current?.source.commit !== base.source.commit) return;
-        show(fromSnapshot(fresh));
+        const moved = () => !live || saving.current || onScreen.current?.source.commit !== base.source.commit;
+        if (fresh === base || moved()) return;
+        const loaded = await fromSnapshot(fresh);
+        if (moved()) return;
+        show(loaded);
         if (changesScreen(fresh, base)) setRemote({ author: fresh.source.author, subject: fresh.source.subject });
       } catch (e) {
         // The deployed copy stays. A token GitHub rejects is forgotten; the next save asks for one.
@@ -301,7 +317,10 @@ export function App() {
         const current = onScreen.current;
         if (!current || !movesForward(bundle.source, current.source, seen) || saving.current) return;
         const next = remember(await fromBundle(bundle));
-        show(fromSnapshot(next));
+        const loaded = await fromSnapshot(next);
+        // Not if a save showed its commit meanwhile.
+        if (stopped || saving.current || onScreen.current !== current) return;
+        show(loaded);
         if (changesScreen(next, current)) setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
         failures++;
@@ -369,10 +388,10 @@ export function App() {
       onDismissSave={() => setLastSave(null)}
       onDismissRemote={() => setRemote(null)}
       onSavingChange={(busy) => (saving.current = busy)}
-      onReload={(snapshot) => show(fromSnapshot(snapshot))}
+      onReload={(snapshot) => show(fromSaveSnapshot(snapshot))}
       onSaved={(result: SaveResult) => {
         if (result.status === "saved") seen.add(result.parent);
-        show(fromSnapshot(result.snapshot));
+        show(fromSaveSnapshot(result.snapshot));
         if (result.status !== "noop") setLastSave({ commit: result.commit, url: result.url });
         setRemote(null);
       }}
@@ -780,6 +799,8 @@ function RoadmapView(props: ViewProps) {
     draft.flush();
     setBusy(true);
     try {
+      // What the save brings back (its commit, or newer saves) is shown at once, parsed.
+      await loadParser();
       // A new BoxOps deployed that the poll hasn't seen yet: this tab's code
       // mustn't write. A roadmap.json that can't be fetched (or stalls: a
       // captive portal, a flaky network) says nothing.

@@ -235,20 +235,26 @@ export function assemble(parsed: Record<string, ParsedFile>, ignored: string[] =
 /** Blob SHA → what that file parsed to, for every file this tab has loaded or been given parsed: blobs never change. */
 const parsedBlobs = new Map<string, ParsedFile>();
 
-type Parser = typeof import("./parse");
-let parser: Promise<Parser> | undefined;
+/** parse.ts's parseFile, once loaded. */
+let parse: ((path: string, text: string) => ParsedFile) | undefined;
+let parser: Promise<void> | undefined;
 
 /**
- * The parser, and with it the yaml library: fetched on first use (a file no
- * one has parsed yet, or a save). Anything about to need it can start it
- * early. A failure (the app's files replaced by a deploy, say) is tried
- * again next time.
+ * Load the parser, and with it the yaml library: fetched on first use (a
+ * file no one has parsed yet, or a save). Anything about to need it can
+ * start it early. A failure (the app's files replaced by a deploy, say) is
+ * tried again next time.
  */
-export function loadParser(): Promise<Parser> {
-  parser ??= import("./parse").catch((e: unknown) => {
-    parser = undefined;
-    throw e;
-  });
+export function loadParser(): Promise<void> {
+  parser ??= import("./parse").then(
+    (m) => {
+      parse = m.parseFile;
+    },
+    (e: unknown) => {
+      parser = undefined;
+      throw e;
+    },
+  );
   return parser;
 }
 
@@ -262,12 +268,27 @@ export function forgetParsed(): void {
   parsedBlobs.clear();
 }
 
+/** A roadmap folder as the app holds it: the files, their git blob SHAs and the folder's other files. */
+export interface Folder {
+  files: RoadmapFiles;
+  blobs: Record<string, string>;
+  ignored: string[];
+}
+
 /**
- * The roadmap folder (files with their git blob SHAs) as loadRoadmap() would
- * load it, parsing only the files no earlier load or bundle has: a deployed
- * copy the build parsed loads without the yaml library.
+ * The folder as loadRoadmap() would load it, parsing only the files no
+ * earlier load or bundle has: a deployed copy the build parsed loads without
+ * the yaml library.
  */
-export async function loadFolder(folder: { files: RoadmapFiles; blobs: Record<string, string>; ignored: string[] }): Promise<LoadResult> {
+export async function loadFolder(folder: Folder): Promise<LoadResult> {
+  const now = loadFolderNow(folder);
+  if (now) return now;
+  await loadParser();
+  return loadFolderNow(folder)!;
+}
+
+/** loadFolder() without waiting: null if a file needs parsing and the parser isn't loaded (a save always loads it). */
+export function loadFolderNow(folder: Folder): LoadResult | null {
   const parsed: Record<string, ParsedFile> = {};
   const todo: string[] = [];
   for (const path of Object.keys(folder.files)) {
@@ -277,13 +298,11 @@ export async function loadFolder(folder: { files: RoadmapFiles; blobs: Record<st
     else if (!isRoadmapPath(path)) parsed[path] = otherFile(path);
     else todo.push(path);
   }
-  if (todo.length) {
-    const { parseFile } = await loadParser();
-    for (const path of todo) {
-      const file = (parsed[path] = parseFile(path, folder.files[path]));
-      const sha = folder.blobs[path];
-      if (sha !== undefined) parsedBlobs.set(sha, file);
-    }
+  if (todo.length && !parse) return null;
+  for (const path of todo) {
+    const file = (parsed[path] = parse!(path, folder.files[path]));
+    const sha = folder.blobs[path];
+    if (sha !== undefined) parsedBlobs.set(sha, file);
   }
   return assemble(parsed, folder.ignored);
 }

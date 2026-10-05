@@ -150,6 +150,10 @@ both.
   line) and left out, and the file is marked lossy. Problems are compared by
   a key without list positions or line numbers, so one that was already there
   never counts as new.
+- **Parsing.** Each roadmap file is parsed on its own (`model/parse.ts`), then
+  the files are checked together (`model/load.ts`). The app keeps what each
+  file parsed to for the session, by blob SHA, so a poll or a save that brings
+  one changed file parses just that file.
 
 ## Editing
 
