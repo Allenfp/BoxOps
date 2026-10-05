@@ -130,6 +130,7 @@ function ListEditor<T extends BoxType | BoxStatus>({
               placeholder={`${noun[0].toUpperCase()}${noun.slice(1)} name`}
               aria-label={`${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1} name`}
               onChange={(e) => rename(i, e.target.value)}
+              onBlur={(e) => e.target.value.trim() !== e.target.value && rename(i, e.target.value.trim())}
             />
             <span className="hint team-uses">
               {n ? `${n} box${n === 1 ? "" : "es"}` : ""}
@@ -221,6 +222,7 @@ export function TeamSettings({
           <input
             value={settings.title}
             onChange={(e) => onChange({ title: e.target.value }, "title")}
+            onBlur={(e) => e.target.value.trim() !== e.target.value && onChange({ title: e.target.value.trim() }, "title")}
           />
         </label>
         <div className="team-row">

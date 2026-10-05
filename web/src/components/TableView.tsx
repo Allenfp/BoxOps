@@ -9,6 +9,7 @@ import { BOX_FTE_OPTIONS, type Box, type Roadmap, type TimeOff } from "../model/
 import { type PtoRef, ptoEntries, ptoKey } from "../model/pto";
 import { capacityOn, hasDates, laneDates } from "../model/lanes";
 import { today } from "../model/dates";
+import { LINK } from "../model/load";
 import { EngineerPicker } from "./EngineerPicker";
 import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
@@ -546,12 +547,12 @@ export function TableView(props: Props) {
                         value={b.epic ?? ""}
                         readOnly={readOnly}
                         placeholder="https://…"
-                        invalid={(v) => v !== "" && !/^https?:\/\/\S+$/.test(v)}
+                        invalid={(v) => v !== "" && !LINK.test(v)}
                         onCommit={(v) => update(b.id, { epic: v || undefined })}
                         onBlur={onCheckpoint}
                         ariaLabel="Epic link"
                       />
-                      {b.epic && /^https?:\/\//.test(b.epic) && (
+                      {b.epic && LINK.test(b.epic) && (
                         <a href={b.epic} target="_blank" rel="noopener noreferrer" title="Open epic" className="open-link">
                           <Icon name="external" size={14} />
                         </a>

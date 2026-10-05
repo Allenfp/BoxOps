@@ -190,6 +190,7 @@ export function DepartmentEditor(props: Props) {
         <input
           value={dept.name}
           onChange={(e) => props.onUpdate(dept.id, { name: e.target.value }, `${dept.id}:name`)}
+          onBlur={(e) => e.target.value.trim() !== e.target.value && props.onUpdate(dept.id, { name: e.target.value.trim() }, `${dept.id}:name`)}
           aria-label="Department name"
         />
         {!dept.name.trim() && <span className="field-error">A name is required to save.</span>}
@@ -246,6 +247,10 @@ export function DepartmentEditor(props: Props) {
                     placeholder={`FTE ${i + 1}`}
                     aria-label={`Lane ${i + 1} name`}
                     onChange={(e) => props.onUpdateLane(lane.id, { name: e.target.value.trim() ? e.target.value : undefined }, `${lane.id}:name`)}
+                    onBlur={(e) =>
+                      e.target.value.trim() !== e.target.value &&
+                      props.onUpdateLane(lane.id, { name: e.target.value.trim() || undefined }, `${lane.id}:name`)
+                    }
                   />
                   <select
                     value={lane.fte}

@@ -3,6 +3,7 @@
 // the original survive and a commit's diff shows only the lines that really
 // changed: only fields that differ from what was loaded are touched, list
 // entries are matched up one by one, and a file keeps its BOM and line endings.
+// Titles and names are written without spaces at either end.
 //
 // A file the loader couldn't fully read is never written (UnsafeWrite): that
 // would delete whatever the loader left out.
@@ -13,7 +14,7 @@ import { diffDraft, normalize, type DraftState } from "./draft";
 import { FORMAT } from "./format";
 import { DEFAULT_DEPT_COLOR, type LoadResult } from "./load";
 import { loadRoadmap } from "./parse";
-import type { Box, Department, Person, RoadmapFiles } from "./types";
+import type { Box, Department, Person, RoadmapFiles, Settings } from "./types";
 
 /** path → new file text, or null to delete the file. */
 export type FileChanges = Record<string, string | null>;
@@ -101,12 +102,13 @@ function indentless(doc: Document, text: string): boolean {
 }
 
 function boxToPlain(b: Box): Plain {
-  return { ...b, start: formatDay(b.start), end: formatDay(b.end) };
+  return { ...b, title: b.title.trim(), start: formatDay(b.start), end: formatDay(b.end) };
 }
 
 function personToPlain(p: Person): Plain {
   return {
     ...p,
+    name: p.name.trim(),
     pto: p.pto?.map((t) => ({ start: formatDay(t.start), end: formatDay(t.end), ...(t.note?.trim() && { note: t.note.trim() }) })),
   };
 }
@@ -114,12 +116,19 @@ function personToPlain(p: Person): Plain {
 function deptToPlain(d: Department): Plain {
   return {
     ...d,
+    name: d.name.trim(),
     lanes: d.lanes.map((l) => ({
       ...l,
+      name: l.name?.trim() || undefined,
       start: l.start === undefined ? undefined : formatDay(l.start),
       end: l.end === undefined ? undefined : formatDay(l.end),
     })),
   };
+}
+
+function settingsToPlain(s: Settings): Plain {
+  const named = <T extends { name: string }>(list: T[]) => list.map((x) => ({ ...x, name: x.name.trim() }));
+  return { format: FORMAT, ...s, title: s.title.trim(), types: named(s.types), statuses: named(s.statuses) };
 }
 
 const isEmpty = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
@@ -299,8 +308,7 @@ export function serializeChanges(
   // A settings.yaml written from scratch starts with this BoxOps's format.
   if (changes.settings) {
     const path = "settings.yaml";
-    const value = { format: FORMAT, ...draft.settings };
-    writes.set(path, () => writeFile(path, baseFiles[path], value, { format: FORMAT, ...base.settings }, SETTINGS_KEYS, SETTINGS_LISTS, {}));
+    writes.set(path, () => writeFile(path, baseFiles[path], settingsToPlain(draft.settings), settingsToPlain(base.settings), SETTINGS_KEYS, SETTINGS_LISTS, {}));
   }
 
   if (writes.size && loaded.formatStatus !== "current") {

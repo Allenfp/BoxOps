@@ -153,6 +153,7 @@ export function BoxEditor(props: Props) {
           autoFocus
           onFocus={(e) => box.title === "New box" && e.currentTarget.select()}
           onChange={(e) => onChange({ title: e.target.value }, "title")}
+          onBlur={(e) => e.target.value.trim() !== e.target.value && onChange({ title: e.target.value.trim() }, "title")}
         />
         <button className="icon-button" onClick={onClose} aria-label="Close">
           <Icon name="x" size={16} />

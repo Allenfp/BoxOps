@@ -2,7 +2,8 @@ import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from
 
 /**
  * A spreadsheet-style text cell: edits locally, saves on Enter or when focus
- * leaves, Esc puts the old value back. One saved edit = one undo step.
+ * leaves, Esc puts the old value back. One saved edit = one undo step. What's
+ * saved has no spaces at either end, as `invalid` and `required` check it.
  * `multiline` cells wrap and grow to fit; Shift+Enter adds a line break there.
  */
 export function TextCell({
@@ -66,7 +67,9 @@ export function TextCell({
     onChange: (e: { target: { value: string } }) => setText(e.target.value),
     onBlur: () => {
       editing.current = false;
-      if (text !== value) onCommit(text.trim() === "" && !required ? "" : text);
+      const next = text.trim();
+      if (next !== text) setText(next);
+      if (next !== value.trim()) onCommit(next);
       onBlur();
     },
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => {

@@ -244,6 +244,13 @@ describe("PTO and rules are merged entry by entry", () => {
   });
 });
 
+describe("titles and names", () => {
+  it("are written without spaces at either end, and spaces alone are no change", () => {
+    expect(save(ROADMAP, (s) => editBox(s, "b1", { title: "  Box B1X " }))).toEqual({});
+    expect(save(ROADMAP, (s) => editBox(s, "b1", { title: " Renamed " }))["boxes/b1.yaml"]).toBe(ROADMAP["boxes/b1.yaml"].replace("title: Box B1X", "title: Renamed"));
+  });
+});
+
 describe("an empty roster", () => {
   const add = (s: DraftState): DraftState => ({ ...s, people: [...s.people, { id: "ana", name: "Ana" }] });
 
