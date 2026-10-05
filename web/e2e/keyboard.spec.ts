@@ -162,6 +162,11 @@ test("Save from the keyboard: the button keeps focus while saving, then the save
   await expect(page.getByRole("button", { name: "Saving…" })).toHaveAttribute("aria-disabled", "true");
   await page.clock.fastForward(31_000);
   await expect(page.locator(".banner.success [data-saved]")).toBeFocused();
+  // Its Dismiss takes the banner, and focus goes to the roadmap rather than the page.
+  await page.locator(".banner.success").getByRole("button", { name: "Dismiss" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".banner.success")).toHaveCount(0);
+  await expect(page.getByRole("main")).toBeFocused();
 });
 
 test("in the table: Enter and Esc leave focus in the cell, and ⌘S there gives it back after saving", async ({ page, github: _ }) => {

@@ -129,6 +129,20 @@ test("someone else's save coming in is announced, and so is an app update", asyn
   await expect.poll(() => heard(page)).toContain("BoxOps was updated to 0.2.0 — Reload to keep editing.");
 });
 
+test("with an editor or dialog open, messages are spoken from inside it (VoiceOver reads only those)", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await editor.getByRole("textbox", { name: "Title", exact: true }).fill("");
+  await expect(editor.locator('[data-live="polite"]')).toHaveText("A title is required.");
+  await editor.getByRole("textbox", { name: "Title", exact: true }).fill("Dagster");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Edit Analytics" }).click();
+  const dialog = page.locator("dialog[open]"); // its name follows the department's
+  await dialog.getByLabel("Department name").fill("");
+  await expect(dialog.locator('[data-live="polite"]')).toHaveText("A name is required to save.");
+});
+
 test("search results are counted aloud once typing stops, in the table and the People view", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: "Table", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search boxes" }).fill("dagster");

@@ -21,6 +21,8 @@ test("a stored draft that crashes the app can be downloaded and discarded", asyn
   await page.reload();
   const crash = page.locator(".crash");
   await expect(crash).toContainText("Something went wrong");
+  // Focus starts on what it says, not lost with the app it replaced.
+  await expect(crash.getByRole("heading", { name: "Something went wrong" })).toBeFocused();
   await expect(crash).toContainText("Your unsaved changes are kept in this browser.");
   await expect(crash.getByRole("button", { name: "Download unsaved changes" })).toHaveCount(0);
 

@@ -210,6 +210,7 @@ test("a roadmap.json that won't load: a plain message and Try again", async ({ p
   await page.reload();
   const problem = page.locator(".load-problem");
   await expect(problem.locator("h1")).toHaveText("Couldn’t load the roadmap");
+  await expect(problem.locator("h1")).toBeFocused();
   await expect(problem).toContainText("The site answered with an error (HTTP 503). Try again in a minute.");
   await expect(problem.getByRole("link", { name: "Back to the live roadmap" })).toHaveCount(0);
   await page.unroute("**/roadmap.json*", down);
