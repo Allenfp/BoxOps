@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { Bundle } from "../src/model/bundle";
 import { CDC, DAGSTER, box, boxDates, boxFile, expect, heard, pollNow, said, test, toolbar } from "./helpers";
 
 // Moving a box or PTO block from the keyboard: Space picks it up, the arrow
@@ -6,6 +7,8 @@ import { CDC, DAGSTER, box, boxDates, boxFile, expect, heard, pollNow, said, tes
 // Escape or ⌘Z puts it back. Each step is said, with what it would do.
 
 const dragDates = (page: Page) => page.locator(".drag-dates");
+/** The site rebuilt by a later BoxOps. */
+const newerApp = (b: Bundle): Bundle => ({ ...b, app: { version: "0.2.0", build: "0.2.0+0123456789ab", time: "2099-01-01T00:00:00Z" } });
 /** The last thing said to screen readers. */
 const lastSaid = async (page: Page) => (await said(page)).at(-1) ?? "";
 /** What was said last ends with `text` (messages asked for together are read together). */
@@ -176,6 +179,36 @@ test("Tab, a click, or another view drops it where it is", async ({ page, github
   await page.getByRole("button", { name: "Timeline", exact: true }).click();
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-18 – 2026-10-29");
   await expect(toolbar(page)).toContainText("Save · 2 changes");
+});
+
+test("going read-only (a newer BoxOps deployed) drops it where it is", async ({ page, github }) => {
+  // A check for others' saves already under way when the move starts: its answer comes mid-move.
+  let answer!: () => void;
+  const held = new Promise<void>((r) => (answer = r));
+  let asked!: () => void;
+  const asking = new Promise<void>((r) => (asked = r));
+  await page.route("**/roadmap.json*", async (route) => {
+    asked();
+    await held;
+    await route.fallback();
+  });
+  github.patchBundle = newerApp;
+  await pollNow(page);
+  await asking;
+  await box(page, DAGSTER).focus();
+  await press(page, "Space", "ArrowRight");
+  await expect(dragDates(page)).toContainText("2026-09-15 – 2026-10-26");
+  answer();
+  await expect(page.locator(".tl-corner > span")).toHaveText("Read-only");
+  await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
+  await expect.poll(() => heard(page)).toContain("Dropped: Dagster 2.x upgrade, 2026-09-15 to 2026-10-26, Data Engineering / FTE 2.");
+  await expect(page.locator(".banner", { hasText: "BoxOps was updated" })).toContainText("Your unsaved changes are kept in this browser.");
+  // Nor can it be picked up again.
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Space");
+  await expect.poll(() => said(page)).toContainEqual("Read-only: changes can’t be made here.");
+  await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
 });
 
 test("each step says what it would do: a rule broken or kept again; the popup waits for the drop", async ({ page, github: _ }) => {
