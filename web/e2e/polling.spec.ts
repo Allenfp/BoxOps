@@ -121,6 +121,22 @@ test.describe("private repository, signed out", () => {
   });
 });
 
+test("a deploy that changed nothing in the roadmap moves the tab on without a notice", async ({ page, github }) => {
+  const readme = github.outsideSave("README.md", "# Notes\n", "Sam Lee", "Notes");
+  github.deploy(readme);
+  const polled = page.waitForResponse((r) => r.url().includes("roadmap.json"));
+  await pollNow(page);
+  await polled;
+  await page.waitForTimeout(300); // time to (wrongly) announce it
+  await expect(page.locator(".banner")).toHaveCount(0);
+
+  // The next save after it still says who saved what.
+  github.deploy(github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }, "Priya Shah", "Revenue mart: v3"));
+  await pollNow(page);
+  await expect(page.locator(".banner")).toContainText("Priya Shah saved “Revenue mart: v3”");
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+});
+
 test("checks that keep failing say the site is lost, back off, and recover; saving still works", async ({ page, github }) => {
   let fetches = 0;
   const down = (route: Route) => {

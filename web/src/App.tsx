@@ -9,7 +9,7 @@ import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
 import { failureMessage } from "./github/messages";
-import { type Snapshot, type Source, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
+import { type Snapshot, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
 import { NewerFormat, NewerSaves, SaveConflict, type SaveResult, type SaveStep, saveRoadmap } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyMenu";
@@ -157,8 +157,8 @@ export function App() {
    * lags behind saves, so a bundle we've seen is old news, never an update.
    */
   const [seen] = useState(() => new Set<string>());
-  /** Where what's on screen came from. */
-  const onScreen = useRef<Source | null>(null);
+  /** Where what's on screen came from, and its files' blob SHAs. */
+  const onScreen = useRef<Pick<Snapshot, "source" | "blobs"> | null>(null);
   const saving = useRef(false);
 
   /** A newer BoxOps built the site: this tab is read-only until it reloads. */
@@ -181,7 +181,7 @@ export function App() {
 
   const show = useCallback(
     (loaded: Loaded) => {
-      onScreen.current = loaded.source;
+      onScreen.current = { source: loaded.source, blobs: loaded.blobs };
       seen.add(loaded.source.commit);
       setState({ status: "ready", ...loaded });
     },
@@ -236,7 +236,7 @@ export function App() {
       try {
         const fresh = await readSnapshot(gh, base, { seen });
         // Not once the tab has moved on (a poll, a save) or while it's saving.
-        if (!live || fresh === base || saving.current || onScreen.current?.commit !== base.source.commit) return;
+        if (!live || fresh === base || saving.current || onScreen.current?.source.commit !== base.source.commit) return;
         show(fromSnapshot(fresh));
         // A commit to other files changes nothing on screen: no notice.
         if (!sameBlobs(fresh.blobs, base.blobs)) setRemote({ author: fresh.source.author, subject: fresh.source.subject });
@@ -255,9 +255,9 @@ export function App() {
 
   // Look for other people's saves every couple of minutes while the tab is
   // visible, in the site's own roadmap.json: a 304 when nothing changed, and
-  // no GitHub API calls. Only ever forward (movesForward). Failed checks back
-  // off (2, 4, 8, then every 15 minutes); a few in a row (offline, or signed
-  // out of a private site) say so, but never stop the tab from saving.
+  // no GitHub API calls. Only ever forward (movesForward). A failed check
+  // waits longer each time (4, 8, then 15 minutes); two in a row (offline, or
+  // signed out of a private site) say so, but never stop the tab from saving.
   const pollable = state.status === "ready" && !state.preview && !state.source.local;
   const [lost, setLost] = useState(false);
   useEffect(() => {
@@ -285,9 +285,11 @@ export function App() {
         setLost(false);
         noteSite(bundle);
         const current = onScreen.current;
-        if (!current || !movesForward(bundle.source, current, seen) || saving.current) return;
-        show(fromSnapshot(remember(await fromBundle(bundle))));
-        setRemote({ author: bundle.source.author, subject: bundle.source.subject });
+        if (!current || !movesForward(bundle.source, current.source, seen) || saving.current) return;
+        const next = remember(await fromBundle(bundle));
+        show(fromSnapshot(next));
+        // A commit to other files (a README, the app) changes nothing on screen: no notice.
+        if (!sameBlobs(next.blobs, current.blobs)) setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
         failures++;
         if (!stopped && failures >= LOST_AFTER) setLost(true);

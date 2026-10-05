@@ -123,7 +123,8 @@ both.
   commits can share a second), or if it's older by commit time. So a deploy
   that finishes late (deploys aren't cancelled, and the tab may have read a
   newer head from GitHub) never rolls the tab back. A newer commit is merged
-  into the screen in place, and a notice says who saved what. A failed check
+  into the screen in place, and a notice says who saved what (none when no
+  roadmap file changed, as for a README commit). A failed check
   (offline, mid-deploy, or a private site whose sign-in expired: the
   same-origin request is then redirected to github.com and fails) waits
   longer each time, 4, 8, then 15 minutes; two in a row show a calm notice,
