@@ -21,8 +21,9 @@ essentials are below.
   `note`.
 - **Codes.** People refer to boxes by code, like `DE-A1F`: the department's
   `code` plus the box's own 3-character `code`. To find the file for `DE-A1F`,
-  `grep -l "^code: A1F$" roadmap/boxes/*`. The prefix follows the box's
-  current department.
+  `grep -lE '^code: "?A1F"?$' roadmap/boxes/*` (a code YAML would read as a
+  number, like `"234"`, is quoted). The prefix follows the box's current
+  department.
 - **Rules** (`relations` on a box) say how boxes sit in time relative to each
   other: finishes before, starts after, happens during, starts when, ends
   when, runs at the same time as, doesn't overlap. Broken rules are warnings.
@@ -157,8 +158,10 @@ def workdays(start: date, end: date) -> int:
 **Add a box.** Pick an id `bx-<4 random hex digits>-<slug>` (the slug is the
 title in lowercase, non-letters/digits replaced by `-`, at most 40 characters)
 and a new 3-character `code` from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no 0, O,
-1 or I). Check that no file has that id (`ls roadmap/boxes`) or that code
-(`grep -h "^code:" roadmap/boxes/*`), and create `roadmap/boxes/<id>.yaml`:
+1 or I), not all digits and not digit-E-digit like `2E5` (YAML would read
+those as numbers). Check that no file has that id (`ls roadmap/boxes`) or that
+code (`grep -h "^code:" roadmap/boxes/*`), and create
+`roadmap/boxes/<id>.yaml`:
 
 ```yaml
 id: bx-3f9c-q3-planning
@@ -296,9 +299,13 @@ too: `grep -l "sam-lee" roadmap/boxes/*` finds Sam's boxes.
 
 ## Rules
 
-- IDs and file names never change once saved. `id` must equal the file name.
+- IDs and file names never change once saved. `id` must equal the file name:
+  a copied file whose `id` wasn't changed is skipped (and fails validation).
 - Dates are weekdays, inclusive, `YYYY-MM-DD`, and `end` is not before `start`.
-- `fte` on a box is 0.5, 1, 1.5 or 2; on a lane, more than 0 and at most 1.
+- `fte` on a box is 0.5, 1, 1.5 or 2; on a lane, 0.5 or 1.
+- Colours are `"#rrggbb"` (quoted); `epic` and `links` are `http(s)://` links.
+  Quote text YAML would read as a number or `true`/`false` (`title: "1.10"`).
+- Leave `format: 1` in `settings.yaml` alone: it's the data format version.
 - Everything a box refers to must exist: `lane`, `type`, `status` if set (in
   `settings.yaml`) and each `engineers` id.
 - Always run `npm run validate` before pushing; never push a failing roadmap.

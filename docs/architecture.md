@@ -24,13 +24,14 @@ web/
     App.tsx                 loading, polling, saving, toolbar, views
     components/             Timeline, TableView, PeopleView, BoxEditor,
                             DepartmentEditor, EngineerPicker, SaveDialog, TextCell
-    model/                  data: dates, load (validator), draft, structure
-                            (departments and lanes), relations (codes and
-                            rules), serialize, summary (change descriptions),
-                            report
+    model/                  data: dates, format (data format version), load
+                            (validator), draft, structure (departments and
+                            lanes), relations (codes and rules), serialize,
+                            summary (change descriptions), report
     timeline/               scale (time ↔ pixels), layout (lanes, capacity)
     github/                 api (REST client), save (commit, conflicts, loading)
-  scripts/                  validate.ts, report.ts (command-line checks)
+  scripts/                  validate.ts, report.ts (command-line checks; an
+                            optional argument names another roadmap folder)
   e2e/                      browser tests, fake GitHub, fixture roadmap
   vite.config.ts            bundles roadmap/ into roadmap.json at build time
 ```
@@ -50,6 +51,13 @@ web/
   notice says who saved what. The tab remembers which commits it has already
   shown or saved on top of, so the lagging deploy never rolls it back.
 - **Previews.** `?ref=<branch>` shows another branch read-only.
+- **Data format.** `format` in `settings.yaml` must be the one this build reads
+  (`model/format.ts`); a roadmap in any other format opens read-only, with a
+  banner saying why.
+- **Problems.** Loading is lenient: a bad entry or value is reported (with its
+  line) and left out, and the file is marked lossy. Problems are compared by
+  a key without list positions or line numbers, so one that was already there
+  never counts as new.
 
 ## Editing
 
@@ -66,7 +74,9 @@ yours but are flagged as clashes.
 ## Saving
 
 1. **Validate.** The roadmap as it would be after the save is checked with the
-   same validator CI uses; new problems block the save.
+   same validator CI uses; new problems block the save. So does a change to a
+   lossy file (one the loader left part of out): writing it would delete what
+   was left out, so the user is asked to fix the file first.
 2. **Token.** The first save asks for a fine-grained token (Contents: write on
    this repo). It's kept in `sessionStorage`, so it's forgotten when the tab
    closes, and it's sent only to GitHub.
@@ -75,7 +85,10 @@ yours but are flagged as clashes.
    teal, and the save pauses on a dialog listing who saved what. The user can
    review, then save, or choose whose version to keep for clashing items.
 4. **Commit.** The changed files are written with the `yaml` Document API, so
-   only the edited lines change and comments survive. The app makes one tree
+   only the edited lines change and comments survive: only fields that differ
+   from what was loaded are touched, list entries (lanes, people, PTO, rules)
+   are matched up one by one, and a file keeps its BOM and line endings. Each
+   department and box goes to the file it was loaded from. The app makes one tree
    (based on the head), one commit, then a fast-forward-only update of `main`.
    If someone saved in the split second in between, GitHub refuses, and the app
    retries once on top of their commit. A same-file clash at that point shows
