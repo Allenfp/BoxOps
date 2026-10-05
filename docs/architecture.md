@@ -22,8 +22,11 @@ Browser (static app on GitHub Pages)            GitHub (this repo)
 web/
   src/
     App.tsx                 loading, polling, saving, toolbar, views
+    site.ts                 the site's roadmap.json, app updates, reloading
     components/             Timeline, TableView, PeopleView, BoxEditor,
-                            DepartmentEditor, EngineerPicker, SaveDialog, TextCell
+                            DepartmentEditor, EngineerPicker, SaveDialog,
+                            TokenForm, TextCell, LoadScreen (load failures),
+                            ErrorBoundary
     model/                  data: dates, format (data format version), load
                             (validator), draft, structure (departments and
                             lanes), relations (codes and rules), serialize,
@@ -38,7 +41,9 @@ web/
   scripts/                  validate.ts, report.ts (command-line checks; an
                             optional argument names another roadmap folder)
   e2e/                      browser tests, fake GitHub, fixture roadmap
-  vite.config.ts            build id, and roadmap.json at build time and in dev
+  index.html                early theme, boot watchdog (inline scripts)
+  vite.config.ts            build id, CSP, and roadmap.json at build time
+                            and in dev
 ```
 
 `model/` also holds `paths.ts` (which files are roadmap files) and `bundle.ts`
@@ -68,46 +73,69 @@ both.
   - `app`: version, build id and time. The build id is the version plus
     `web/`'s tree at HEAD, so roadmap-only saves keep it (`.dirty` with
     uncommitted app changes). It's put in `<meta name="boxops-build">`, and
-    defined for the app as `__BOXOPS_BUILD__` and `__BOXOPS_BUILD_TIME__`
-    (Vite inlines them where code uses them; nothing does yet, until the
-    coming build check);
+    defined for the app as `__BOXOPS_BUILD__` and `__BOXOPS_BUILD_TIME__`,
+    which the app compares with every `roadmap.json` it fetches (see [Tabs
+    left open](#tabs-left-open));
   - `schema` (1), `format` and `notices`.
 
   A local build whose `roadmap/` has uncommitted changes reads the files on
   disk instead: `tree` is null and the bundle is marked `local`. The dev server
   always reads files on disk (`$BOXOPS_ROADMAP`, else `../roadmap`) and marks
-  its bundle `local`, so the app neither compares it with GitHub nor polls (for
-  now; local bundles are to become read-only). `npm run validate` and
+  its bundle `local`. The app shows a local bundle read-only, with a banner,
+  and never calls GitHub or polls for it. `npm run validate` and
   `report` read files on disk under the same rules: symlinks are errors, never
   followed. The app still opens a `roadmap.json` from before schema 1, treating
   what it lacks as unknown.
-- **On load** the app asks GitHub for the head of `main`, from a URL the
-  browser hasn't cached (GitHub lets browsers keep a branch head for 60 s; no
-  cache header is sent, since Safari may add one GitHub's CORS check refuses).
-  If it's newer than the bundled commit (someone saved and the redeploy
-  hasn't finished), the app reads the newer roadmap by SHA diff
-  (`github/read.ts`): the commit and root tree, the folder's listing if its
-  tree SHA changed, then only blobs whose SHA the tab doesn't hold, 4 at a
-  time, from a cache kept for the session and at most 300 per read. Whether
-  roadmap files changed is decided from their blob SHAs, never from the tree
-  SHA alone. A head older than one the tab has seen is asked for once more.
-  The folder is held to the build's rules (plain files, the same limits,
-  UTF-8 with any BOM kept). With a token every call goes through the API,
-  which is how a private repository is read. Without one the app reads only a
-  repository the build says is public, taking file contents from
-  `raw.githubusercontent.com` to spare the anonymous allowance (60 API calls
-  an hour per IP address): one call when nothing changed. A private
-  repository and no token cost no calls; the tab shows the deployed copy. If
-  the read fails, the bundled copy stays.
-- **Polling.** Every 2 minutes, while the tab is visible, the app re-fetches the
-  site's own `roadmap.json`. That's a cheap 304 when nothing changed, and it
-  doesn't touch the GitHub API, whose anonymous limit (60 requests an hour per
-  IP) counts 304s too. A newer commit is merged into the screen in place, and a
-  notice says who saved what. The tab remembers which commits it has already
-  shown or saved on top of, so the lagging deploy never rolls it back.
+- **On load** the app paints the bundle as soon as `roadmap.json` arrives.
+  Then, in the background and for 4 seconds at most (an abort signal on the
+  GitHub client stops every call of the read), it asks GitHub for the head
+  of `main`, from a URL the browser hasn't cached (GitHub lets browsers keep
+  a branch head for 60 s; no cache header is sent, since Safari may add one
+  GitHub's CORS check refuses). If it's newer than the bundled commit
+  (someone saved and the redeploy hasn't finished), the app reads the newer
+  roadmap by SHA diff (`github/read.ts`): the commit and root tree, the
+  folder's listing if its tree SHA changed, then only blobs whose SHA the
+  tab doesn't hold, 4 at a time, from a cache kept for the session and at
+  most 300 per read. Whether roadmap files changed is decided from their
+  blob SHAs, never from the tree SHA alone. A head older than one the tab
+  has seen is asked for once more. The folder is held to the build's rules
+  (plain files, the same limits, UTF-8 with any BOM kept). The newer roadmap
+  comes in like a poll's, through the draft's rebase, with the usual notice
+  of who saved what; not if the tab has moved on or is saving meanwhile. If
+  the check fails or runs out of time, the bundled copy stays (the pre-save
+  check catches up anyway), and a token GitHub rejects (401) is forgotten.
+  With a token every call goes through the API, which is how a private
+  repository is read. Without one the app reads only a repository the build
+  says is public, taking file contents from `raw.githubusercontent.com` to
+  spare the anonymous allowance (60 API calls an hour per IP address): one
+  call when nothing changed. A private repository and no token cost no
+  calls; the tab shows the deployed copy and says so, quietly ("Deployed
+  copy" in the toolbar, with a tooltip). A `roadmap.json` that can't be
+  fetched or read gets a plain message with Try again (also tried again
+  when the browser comes back online), never a blank page.
+- **Polling.** Every 2 minutes (counted from the start of the last check),
+  while the tab is visible, the app re-fetches the site's own `roadmap.json`.
+  That's a cheap 304 when nothing changed, and it doesn't touch the GitHub
+  API, whose anonymous limit (60 requests an hour per IP) counts 304s too.
+  It only ever moves forward (`movesForward` in `site.ts`): a bundle is
+  taken only if its `history` holds the commit on screen; otherwise it's
+  ignored if the tab has seen it or it's older by commit time. So a deploy
+  that finishes late (deploys aren't cancelled, and the tab may have read a
+  newer head from GitHub) never rolls the tab back. A newer commit is merged
+  into the screen in place, and a notice says who saved what. A failed check
+  (offline, mid-deploy, or a private site whose sign-in expired: the
+  same-origin request is then redirected to github.com and fails) waits
+  longer each time, 4, 8, then 15 minutes; two in a row show a calm notice,
+  "Lost the connection to the site", with Reload, until a check succeeds.
+  Coming back online checks at once. A failed check never counts as an app
+  update. Every `roadmap.json` fetched also brings the site's `notices`,
+  shown as plain-text banners (never HTML) that can be put away.
 - **Previews.** `?ref=<branch>` shows another branch read-only, read the same
   way (only files that differ from `main`'s are fetched). The name is checked
-  against git's rules before any call. A private repository needs a token.
+  against git's rules before any call. A private repository without a token
+  shows a token form instead (read access is enough). A branch that isn't
+  there, or any other failure, gets a plain message with Try again and a link
+  back to the live roadmap.
 - **Data format.** `format` in `settings.yaml` must be the one this build reads
   (`model/format.ts`); a roadmap in any other format opens read-only, with a
   banner saying why.
@@ -134,10 +162,28 @@ yours but are flagged as clashes.
    same validator CI uses; new problems block the save. So does a change to a
    lossy file (one the loader left part of out): writing it would delete what
    was left out, so the user is asked to fix the file first.
-2. **Token.** The first save asks for a fine-grained token (Contents: write on
-   this repo). It's kept in `sessionStorage`, so it's forgotten when the tab
-   closes, and it's sent only to GitHub.
-3. **Pre-save check.** The app reads the head of `main` as on load. If someone
+2. **Token.** The first save asks for a token. The form links to GitHub's
+   new-token page filled in for this repository (`target_name` = its owner,
+   Contents: write) and lists what to check there: Resource owner shows the
+   owner, Only select repositories → this one, Contents: Read and write, and
+   the org's approval if it requires one. A classic token (or one from the
+   GitHub CLI) is accepted, with a note that a fine-grained one is safer;
+   outside collaborators need one. The token is kept as soon as it's
+   submitted, in `sessionStorage` under `boxops-github-token:<owner>/<repo>`
+   (the old tab-wide key moves over once) and in memory, and it's forgotten
+   only on a 401 or Forget token, so Try again and the automatic re-save
+   after a clash never ask again. A choice already made (keep mine or keep
+   theirs) is carried through the token form. The key names the repository
+   because every project site on `<owner>.github.io` shares one origin;
+   scripts of those other sites, opened in the same tab, could read it, which
+   private Pages (a subdomain of its own) or a custom domain avoid. It's sent
+   only to GitHub.
+3. **Pre-save check.** First the app re-fetches `roadmap.json`: if a newer
+   BoxOps was deployed that the poll hasn't seen, the tab goes read-only
+   instead of saving (see [Tabs left open](#tabs-left-open)). Then it reads
+   the head of `main` as on load. If its `settings.yaml` states a newer data
+   format than this BoxOps writes (an upgrade was merged and is deploying),
+   nothing is written: "BoxOps is being upgraded; reload in a minute". If someone
    saved roadmap changes since the tab loaded (by blob SHA: a commit to other
    files doesn't count), their changes are merged onto the screen, outlined in
    teal, and the save pauses on a dialog listing who saved what. The user can
@@ -165,9 +211,65 @@ yours but are flagged as clashes.
    the head it goes on. Every call has a timeout that also covers reading the
    answer (15 s for reads, 30 s for the save). There's no permission check
    first: GitHub's refusals are sorted into kinds (`github/api.ts`, for REST
-   and GraphQL alike) and worded in `github/messages.ts`.
+   and GraphQL alike) and worded in `github/messages.ts`; the save dialog is
+   titled for the kind and says what to do (the token's resource owner,
+   repository and approval; Contents: Read and write; single sign-on, with
+   GitHub's authorize link; an organization's token policy; an IP allow
+   list; when a rate limit lifts; being offline; a ruleset, whose bypass
+   list takes teams, roles and apps, never people). Failures a different
+   token fixes offer one; GitHub's own answer and request id are under
+   Details. While a save runs, the toolbar says which step it's on, with the
+   seconds once it's slow.
 5. **Deploy.** The push triggers the Pages workflow; the site usually updates
-   within a minute (deploys queue, so longer if one is already running).
+   within a minute (deploys queue, so longer if one is already running). The
+   saved banner says so: "The site picks it up in about a minute."
+
+⌘S while typing in a table or people cell commits the cell first, then saves.
+
+## Tabs left open
+
+A tab can stay open across a deploy of BoxOps itself, running old code
+against data the new code wrote.
+
+- **App updates.** Every `roadmap.json` the app fetches (on load, when
+  polling, and just before a save) carries `app.build` and `app.time`. If
+  the build differs from `__BOXOPS_BUILD__` and was made later than
+  `__BOXOPS_BUILD_TIME__` (one direction only, so a CDN briefly serving an
+  older `roadmap.json` with newer JavaScript flags nothing, and nor does an
+  unknown build), the tab goes read-only with the banner "BoxOps was updated
+  — Reload to keep editing". The draft is kept in `localStorage` (a field
+  being typed in is committed first). Old code never saves.
+- **Reload** goes to `./?boxops-reload=<build>`, keeping the other parameters
+  and the hash: a URL the browser has never cached, since Pages sends
+  `index.html` with `max-age=600`. The app removes the parameter with
+  `history.replaceState` once it starts.
+- **Boot watchdog.** An inline script in `index.html` reloads once from such
+  a URL if the app's script fails to load (a cached `index.html` naming
+  files the latest deploy replaced) or the app hasn't started within 8 s
+  (`main.tsx` calls `__boxopsBoot()`); if that fails too, the page says so
+  instead of staying blank. The page shows "Loading…" until the app replaces
+  it.
+- **An upgrade still deploying.** The pre-save check refuses to write to a
+  head in a newer data format (see Saving, step 3).
+
+## The page
+
+- **Theme.** A second inline script in `index.html` applies the stored theme
+  (or the system's) before the first paint, so dark-mode visitors never see
+  a light flash; `<meta name="color-scheme">` says `light dark`.
+- **Content-Security-Policy.** The build adds a CSP meta tag (Pages can't send
+  headers): `default-src 'none'`; scripts and styles only from the site,
+  plus the two inline scripts by their SHA-256 hashes (computed by
+  `vite.config.ts` from the built page); `connect-src` the site,
+  `api.github.com` and `raw.githubusercontent.com`; images from the site and
+  `data:`; no base URL, forms or plugins. React's style props go through the
+  CSSOM, which the policy doesn't govern. The dev server has no CSP.
+- **Title.** `document.title` follows the team title in `settings.yaml`
+  (plus the branch for a preview); `index.html` says "BoxOps" until then.
+- **Errors.** An error boundary around the app shows a recovery screen with
+  Reload instead of a blank page. A second crash in a row (a stored draft can
+  make every reload crash) also offers to download the unsaved changes as
+  JSON and discard them.
 
 ## Timeline layout
 
@@ -182,7 +284,8 @@ yours but are flagged as clashes.
   arrangement (`timeline/layout.ts`).
 - **Rules between boxes** (`model/relations.ts`) are checked on every change.
   A broken rule outlines both boxes in red and is listed in the toolbar. An
-  edit that breaks a rule shows a popup with the dates. Nothing is blocked.
+  edit that breaks a rule shows a popup with the dates (only the user's own
+  edits, not someone else's save merged in). Nothing is blocked.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes.
@@ -204,7 +307,8 @@ yours but are flagged as clashes.
   stand-in saw no call a correct app never makes. It makes each deploy's
   `roadmap.json` with the build's own code, so its blob and tree SHAs are
   real. The clock is pinned to 2026-10-03, so tests
-  never depend on live data, the date or the network.
+  never depend on live data, the date or the network. Any
+  Content-Security-Policy violation fails a test.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
   the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
   doesn't support TypeScript 7 yet.) A deliberate exception is a

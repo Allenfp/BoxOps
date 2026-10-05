@@ -30,11 +30,19 @@ straight to `main`, and the site updates within a minute.
   notes, plus their PTO (read-only; edit it on the timeline or table). Boxes
   are assigned engineers from this list.
 - **Saving.** Edits stay in your browser until you press **Save** (⌘S). The
-  first save asks for a GitHub token: create a fine-grained token with access to
-  only this repo and *Contents: Read and write*. If someone else saved while you
-  were editing, you see their changes before anything is written, and choose
-  whose version to keep for anything you both changed. Open tabs pick up other
-  people's saves every couple of minutes.
+  first save asks for a GitHub token; its link opens GitHub's new-token page
+  filled in for this repo. Check there that *Resource owner* is the repo's
+  owner (the organization, not your own account), that *Repository access* is
+  *Only select repositories* with this repo, and that *Contents* is *Read and
+  write*. If the organization approves tokens, it works once an owner has
+  approved it. A classic token with the `repo` scope works too (an outside
+  collaborator needs one) but can write to all your repos, so fine-grained is
+  recommended. The token is kept for the tab's session and sent only to
+  GitHub; if a save fails, the dialog says why and what to change. If someone
+  else saved while you were editing, you see their changes before anything is
+  written, and choose whose version to keep for anything you both changed.
+  Open tabs pick up other people's saves every couple of minutes, and ask you
+  to reload when BoxOps itself is updated.
 - **Settings (gear menu).** Your own preferences: theme (light, dark or
   match the system), density, what boxes show (codes, flags, initials,
   scale), the zoom and view to open with, PTO rows on or off, and hiding
@@ -65,7 +73,7 @@ from 22.12, and 26 or later, work too).
 ```sh
 cd web
 npm ci
-npm run dev        # http://localhost:5173; reads ../roadmap (or $BOXOPS_ROADMAP) and reloads on change
+npm run dev        # http://localhost:5173; shows ../roadmap (or $BOXOPS_ROADMAP) read-only, reloading on change
 npm run lint       # oxlint, including the React hooks rules; a warning fails it
 npm run typecheck  # TypeScript, browser and Node code apart (npm run build checks types too)
 npm test           # unit tests
