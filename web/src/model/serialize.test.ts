@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
@@ -121,6 +122,16 @@ describe("commitMessage", () => {
     expect(commitMessage(describeChanges(base, renamed)).split("\n")[0]).toBe(
       "Billing v2 (was Payments) (DE-D9U): renamed from “Dagster 2.x upgrade”",
     );
+  });
+
+  it("reads as the example in AGENTS.md has it, engineers first", () => {
+    const agents = readFileSync(new URL("../../../AGENTS.md", import.meta.url), "utf8");
+    const example = /For example:\n\n```\n([^]*?)\n```/.exec(agents)![1];
+    const dept = { id: "data-eng", code: "DE", name: "Data Engineering", color: "#4f7cff", order: 1, collapsed: false, lanes: [{ id: "de-1", fte: 1 }, { id: "de-2", fte: 1 }] };
+    const before: DraftState = { boxes: [], departments: [dept], people: [{ id: "jordan-diaz", name: "Jordan Diaz" }], settings: DEFAULT_SETTINGS };
+    const box = { id: "bx-3f9c-data-quality-checks", code: "K7P", title: "Data quality checks", lane: "de-2", start: parseDay("2027-03-01")!, end: parseDay("2027-03-19")!, type: "project", fte: 1 };
+    const after: DraftState = { ...before, boxes: [box], people: [{ id: "jordan-diaz", name: "Jordan Diaz", role: "Lead" }] };
+    expect(commitMessage(describeChanges(before, after))).toBe(`${example}\n\nSaved from the BoxOps web app.`);
   });
 
   it("keeps each change on one line, whatever a title holds", () => {
