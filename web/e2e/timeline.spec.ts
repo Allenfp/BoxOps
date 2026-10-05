@@ -3,7 +3,7 @@ import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect,
 test("shows departments, lanes, boxes and today", async ({ page, github: _ }) => {
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
   await expect(page.locator(".dept-label")).toHaveText([/Data Engineering/, /Analytics/, /ML Platform/]);
-  await expect(page.locator(".today-flag")).toBeVisible();
+  await expect(page.locator(".today-flag")).toHaveAttribute("title", "2026-10-03");
   // Progress comes from the dates (today is 2026-10-03); flags are set by hand.
   await expect(box(page, DAGSTER)).toHaveClass(/progress-underway/); // Sep 14 – Oct 23
   await expect(box(page, CDC)).toHaveClass(/progress-upcoming/); // from Oct 26
@@ -25,6 +25,13 @@ test("shows departments, lanes, boxes and today", async ({ page, github: _ }) =>
   await page.locator(".dept-label", { hasText: "ML Platform" }).click();
   await expect(page.locator(".box:not(.compact)")).toHaveCount(15);
   await expect(page).toHaveURL(/collapsed=(&|$)/);
+});
+
+test("today moves on at midnight in a tab left open", async ({ page, github: _ }) => {
+  const flag = page.locator(".today-flag");
+  await expect(flag).toHaveAttribute("title", "2026-10-03");
+  await page.clock.fastForward("15:00:02"); // from 09:00 to just past midnight
+  await expect(flag).toHaveAttribute("title", "2026-10-04");
 });
 
 test("drag moves a box in time and across lanes; edges resize", async ({ page, github: _ }) => {

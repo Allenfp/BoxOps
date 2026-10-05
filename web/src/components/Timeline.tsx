@@ -15,6 +15,7 @@ import { ScaleBadge } from "./ScaleBadge";
 import { capacityOn, hasDates, laneDates } from "../model/lanes";
 import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import { CollapseAll } from "./CollapseAll";
+import { useToday } from "./useToday";
 import {
   type Day,
   addMonths,
@@ -26,7 +27,6 @@ import {
   prevWorkday,
   startOfMonth,
   startOfWeek,
-  today as todayDay,
   workIndex,
   workdays,
 } from "../model/dates";
@@ -109,7 +109,7 @@ export function Timeline(props: Props) {
     props;
   const { settings, departments, boxes, people } = roadmap;
   const fy = settings.fiscal_year_start_month;
-  const now = useMemo(() => todayDay(), []);
+  const now = useToday();
 
   const [rangeStart, rangeEnd] = useMemo(() => timelineRange(boxes, now, fy), [boxes, now, fy]);
   const scale = useMemo(() => makeScale(rangeStart, rangeEnd, zoom), [rangeStart, rangeEnd, zoom]);
@@ -469,7 +469,7 @@ export function Timeline(props: Props) {
               </div>
             ))}
             {showToday && (
-              <div className="today-flag" style={{ left: todayX }}>
+              <div className="today-flag" style={{ left: todayX }} title={prettyDay(now)}>
                 Today
               </div>
             )}

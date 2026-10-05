@@ -8,8 +8,8 @@ import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../mode
 import { BOX_FTE_OPTIONS, type Box, type Roadmap, type TimeOff } from "../model/types";
 import { type PtoRef, ptoEntries, ptoKey } from "../model/pto";
 import { capacityOn, hasDates, laneDates } from "../model/lanes";
-import { today } from "../model/dates";
 import { LINK } from "../model/load";
+import { useToday } from "./useToday";
 import { EngineerPicker } from "./EngineerPicker";
 import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
@@ -99,7 +99,7 @@ export function TableView(props: Props) {
   const fromDay = parseDay(from);
   const toDay = parseDay(to);
   const inDates = (start: number, end: number) => (fromDay === null || end >= fromDay) && (toDay === null || start <= toDay);
-  const now = today();
+  const now = useToday();
   const [focusId, setFocusId] = useState<string | null>(null);
 
   // Lane order and labels, for the lane column and for sorting by it.
@@ -335,7 +335,7 @@ export function TableView(props: Props) {
             const members = people.filter((p) => p.department === dept.id).sort((a, b) => a.name.localeCompare(b.name));
             if (searching && group.rows.length === 0 && ptoRows.length === 0) return null;
             // Capacity today; dated lanes (listed in the tooltip) make it change over time.
-            const fte = capacityOn(dept, today());
+            const fte = capacityOn(dept, now);
             const dated = dept.lanes.filter(hasDates);
             const datedText = dept.lanes
               .map((l, i) => (hasDates(l) ? `${l.name ?? `FTE ${i + 1}`}: ${laneDates(l)}` : ""))

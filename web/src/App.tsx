@@ -19,7 +19,8 @@ import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
 import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
 import { downloadJson } from "./model/draftStore";
-import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
+import { addWorkdays, prettyDay, startOfWeek } from "./model/dates";
+import { useToday } from "./components/useToday";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
 import { type LoadResult, loadFolder, loadFolderNow, loadParser, rememberParsed, reservedBoxes } from "./model/load";
@@ -620,10 +621,12 @@ function RoadmapView(props: ViewProps) {
     [draft.boxes, draft.departments, draft.people, draft.settings],
   );
   const roadmap = useMemo(() => ({ ...base, ...draftState }), [base, draftState]);
+  /** Today, moving on at midnight: every view and warning uses the same day. */
+  const now = useToday();
   // What the views draw: finished boxes can be hidden (warnings still count them).
   const shown = useMemo(
-    () => (prefs.hideFinished ? { ...roadmap, boxes: roadmap.boxes.filter((b) => b.end >= today()) } : roadmap),
-    [roadmap, prefs.hideFinished],
+    () => (prefs.hideFinished ? { ...roadmap, boxes: roadmap.boxes.filter((b) => b.end >= now) } : roadmap),
+    [roadmap, prefs.hideFinished, now],
   );
   /** Box files the loader couldn't fully read: new boxes never take their codes or ids (saving over one is refused). */
   const reserved = useMemo(() => reservedBoxes(props.lossy, files), [props.lossy, files]);
@@ -1037,7 +1040,6 @@ function RoadmapView(props: ViewProps) {
 
   // Departments over capacity now or later (past overloads are history, not a warning).
   const overCapacity = useMemo(() => {
-    const now = today();
     return draft.departments.flatMap((d) => {
       const laneIds = new Set(d.lanes.map((l) => l.id));
       const over = capacityStretches(
@@ -1056,13 +1058,13 @@ function RoadmapView(props: ViewProps) {
         },
       ];
     });
-  }, [draft.boxes, draft.departments]);
+  }, [draft.boxes, draft.departments, now]);
 
   // Engineers booked on a box while they're on PTO (from today on).
-  const onPto = useMemo(() => {
-    const now = today();
-    return ptoClashes(draft.boxes, draft.people).filter((c) => c.box.end >= now && c.pto.end >= now);
-  }, [draft.boxes, draft.people]);
+  const onPto = useMemo(
+    () => ptoClashes(draft.boxes, draft.people).filter((c) => c.box.end >= now && c.pto.end >= now),
+    [draft.boxes, draft.people, now],
+  );
 
   /** Show a PTO block on the timeline and open it. */
   const goToPto = (ref: PtoRef) => {
@@ -1390,7 +1392,7 @@ function RoadmapView(props: ViewProps) {
                 draft.departments.find((d) => d.id === departmentId && d.lanes.length) ??
                 draft.departments.find((d) => d.lanes.length);
               const firstLane = dept?.lanes[0];
-              const start = startOfWeek(today());
+              const start = startOfWeek(now);
               const id = draft.addBox(
                 {
                   lane: firstLane?.id ?? "",
@@ -1420,7 +1422,7 @@ function RoadmapView(props: ViewProps) {
             }}
             onRemovePto={removePto}
             onAddPto={(departmentId) => {
-              const start = startOfWeek(today());
+              const start = startOfWeek(now);
               addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
             }}
           />
