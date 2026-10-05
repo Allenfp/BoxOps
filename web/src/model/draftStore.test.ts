@@ -195,10 +195,21 @@ describe("DraftWriter", () => {
 
   it("marking alive or closed changes only that, keeping what's stored", () => {
     const { local, w } = setup();
-    w.mark(NOW); // nothing stored: nothing written
-    expect(local.data.size).toBe(0);
     local.setItem(w.key, JSON.stringify({ ...record(), extra: 1 }));
     w.mark(0);
     expect(JSON.parse(local.getItem(w.key)!)).toEqual({ ...record(), extra: 1, alive: 0 });
+  });
+
+  it("marking alive writes the draft again if it's gone (another tab restored it while this one slept)", () => {
+    const { local, w, writes } = setup();
+    w.mark(0);
+    expect(local.data.size).toBe(0);
+    w.mark(NOW);
+    expect(writes()).toBe(1);
+    expect(local.data.has(w.key)).toBe(true);
+    w.track(() => null); // nothing to keep: nothing written
+    local.data.clear();
+    w.mark(NOW);
+    expect(local.data.size).toBe(0);
   });
 });

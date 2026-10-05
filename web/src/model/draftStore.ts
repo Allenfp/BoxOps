@@ -303,11 +303,15 @@ export class DraftWriter {
     if (this.timer !== undefined) this.write();
   }
 
-  /** Mark the stored draft, if there is one, as alive now (`at`) or closed (0), leaving the rest as stored. */
+  /**
+   * Mark the stored draft as alive now (`at`) or closed (0), leaving the rest
+   * as stored. Alive, with none stored (another tab restored it while this
+   * one slept), it's written again: this tab still has it.
+   */
   mark(at: number): void {
     const found = read(this.local, this.key);
-    if (!found || !isObject(found.value)) return;
-    this.onResult(put(this.local, this.key, JSON.stringify({ ...found.value, alive: at })));
+    const value = found ? found.value : at ? this.record() : null;
+    if (isObject(value)) this.onResult(put(this.local, this.key, JSON.stringify({ ...value, alive: at })));
   }
 }
 
