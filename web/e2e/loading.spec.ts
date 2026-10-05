@@ -110,6 +110,20 @@ test("a roadmap.json that won't load: a plain message and Try again", async ({ p
   await expect(page.locator(".box").first()).toBeVisible();
 });
 
+test("a roadmap.json that arrives but can't be opened: a plain message and Try again, never Loading… for good", async ({ page, github }) => {
+  // A bundle from before schema 1 (no blob SHAs) in a browser without WebCrypto (an insecure origin).
+  github.patchBundle = (b) => ({ ...b, blobs: {} });
+  await page.addInitScript(() => Object.defineProperty(crypto, "subtle", { configurable: true, get: () => undefined }));
+  await page.reload();
+  const problem = page.locator(".load-problem");
+  await expect(problem.locator("h1")).toHaveText("Couldn’t load the roadmap");
+  await expect(problem).toContainText("The roadmap arrived, but BoxOps couldn’t open it.");
+  await expect(problem.locator("details")).toContainText("TypeError");
+  github.patchBundle = undefined;
+  await problem.getByRole("button", { name: "Try again" }).click();
+  await expect(page.locator(".box").first()).toBeVisible();
+});
+
 test("a copy built from files on disk is read-only and asks GitHub nothing", async ({ page, github }) => {
   github.patchBundle = (b) => ({ ...b, source: { ...b.source, local: true } });
   await page.reload();

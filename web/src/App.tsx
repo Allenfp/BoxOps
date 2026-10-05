@@ -100,6 +100,16 @@ function siteProblem(e: unknown): Extract<LoadState, { status: "error" }> {
   return { status: "error", title, message: "The site’s roadmap.json couldn’t be read.", detail };
 }
 
+/** The roadmap arrived but couldn't be opened. */
+function openProblem(e: unknown): Extract<LoadState, { status: "error" }> {
+  return {
+    status: "error",
+    title: "Couldn’t load the roadmap",
+    message: "The roadmap arrived, but BoxOps couldn’t open it. Try again; if it keeps happening, pass the details on to whoever looks after this site.",
+    detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+  };
+}
+
 /** A `?ref=` branch, read-only, read from GitHub (only files that differ from the deployed copy are fetched). */
 async function loadPreview(base: Snapshot, branch: string): Promise<Exclude<LoadState, { status: "loading" }>> {
   const { repo } = base.source;
@@ -193,24 +203,32 @@ export function App() {
         if (live) setState(siteProblem(e));
         return;
       }
-      const base = remember(await fromBundle(bundle));
-      if (!live) return;
-      noteSite(bundle);
-      seen.add(base.source.commit);
-      const ref = new URLSearchParams(window.location.search).get("ref");
-      if (ref && ref !== base.source.branch) {
-        const loaded = await loadPreview(base, ref);
-        if (live) setState(loaded);
+      let base: Snapshot;
+      try {
+        base = remember(await fromBundle(bundle));
+        if (!live) return;
+        noteSite(bundle);
+        seen.add(base.source.commit);
+        const ref = new URLSearchParams(window.location.search).get("ref");
+        if (ref && ref !== base.source.branch) {
+          const loaded = await loadPreview(base, ref);
+          if (live) setState(loaded);
+          return;
+        }
+
+        // Paint the deployed copy at once. The site is redeployed a minute or so
+        // after each save, so then, in the background and for a few seconds at
+        // most, ask GitHub whether anyone saved since this deploy, and bring
+        // their saves in like any other. Never for a copy built from files on
+        // disk (read-only), nor for a private repository without a token (a call
+        // that could only fail: viewers see the deployed copy).
+        show(fromSnapshot(base));
+      } catch (e) {
+        // Never "Loading…" for good: a bug, or a browser without what the app
+        // needs (WebCrypto, which an insecure origin lacks, for an old bundle).
+        if (live) setState(openProblem(e));
         return;
       }
-
-      // Paint the deployed copy at once. The site is redeployed a minute or so
-      // after each save, so then, in the background and for a few seconds at
-      // most, ask GitHub whether anyone saved since this deploy, and bring
-      // their saves in like any other. Never for a copy built from files on
-      // disk (read-only), nor for a private repository without a token (a call
-      // that could only fail: viewers see the deployed copy).
-      show(fromSnapshot(base));
       if (base.source.local) return;
       const gh = new GitHubClient({ token: getToken(base.source.repo), signal: deadline.signal });
       if (!canRead(base.source, gh)) return;
