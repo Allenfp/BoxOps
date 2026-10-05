@@ -789,10 +789,17 @@ button.collapse-all:hover {
   color: var(--text);
 }
 
-/* A private repository without a token shows the deployed copy (no GitHub calls). */
-.site-copy {
+/* A private repository without a token shows the deployed copy (no GitHub calls); the button says what that means. */
+.site-copy > button {
   white-space: nowrap;
-  cursor: help;
+  border: 0;
+  background: none;
+  padding: 5px 4px;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.site-copy .popover-panel {
+  width: 300px;
 }
 
 /* What a save is doing, beside the Save button while it runs. */

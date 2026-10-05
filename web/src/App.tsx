@@ -1173,17 +1173,16 @@ function RoadmapView(props: ViewProps) {
 
         <div className="toolbar-zone end">
           {deployedCopy && (
-            <span
-              className="hint site-copy"
-              tabIndex={0}
-              title={
-                `${source.repo} is private, so without a GitHub token this tab shows the site’s copy` +
-                `${source.date ? `, deployed from a commit of ${stamp(source.date)}` : ""}. Others’ saves appear a minute or ` +
-                "two after each one, once the site has redeployed. Saving asks for a token and checks for newer saves first."
-              }
-            >
-              Deployed copy
-            </span>
+            // A toggletip: a button that shows what it means, for the keyboard and touch too.
+            <Popover className="site-copy" label="Deployed copy" buttonClass="hint" button="Deployed copy">
+              {() => (
+                <p className="menu-note">
+                  {source.repo} is private, so without a GitHub token this tab shows the site’s copy
+                  {source.date ? `, deployed from a commit of ${stamp(source.date)}` : ""}. Others’ saves appear a minute or
+                  two after each one, once the site has redeployed. Saving asks for a token and checks for newer saves first.
+                </p>
+              )}
+            </Popover>
           )}
           <WarningsMenu groups={warningGroups} />
           {!preview && (

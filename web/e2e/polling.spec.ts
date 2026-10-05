@@ -118,8 +118,13 @@ test.describe("private repository, signed out", () => {
     await page.reload();
     await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
     await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline for orders DB"); // not deployed yet, and not asked for
-    await expect(page.locator(".site-copy")).toHaveText("Deployed copy");
-    await expect(page.locator(".site-copy")).toHaveAttribute("title", /^acme\/roadmap is private, so without a GitHub token this tab shows the site’s copy/);
+    const deployed = page.getByRole("button", { name: "Deployed copy" });
+    await deployed.click();
+    await expect(page.getByRole("dialog", { name: "Deployed copy" })).toContainText(
+      "acme/roadmap is private, so without a GitHub token this tab shows the site’s copy, deployed from a commit of 2026-10-02 16:",
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Deployed copy" })).toHaveCount(0);
     expect(github.calls()).toBe(0);
   });
 });

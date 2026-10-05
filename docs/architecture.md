@@ -129,10 +129,10 @@ both.
   spare the anonymous allowance (60 API calls an hour per IP address): one
   call when nothing changed. A private repository and no token cost no
   calls; the tab shows the deployed copy and says so, quietly ("Deployed
-  copy" in the toolbar, with a tooltip). A `roadmap.json` that can't be
-  fetched or read, or doesn't come within 20 s, gets a plain message with
-  Try again (also tried again when the browser comes back online), never a
-  blank page or "Loading…" for good.
+  copy" in the toolbar, a button that says what that means). A
+  `roadmap.json` that can't be fetched or read, or doesn't come within
+  20 s, gets a plain message with Try again (also tried again when the
+  browser comes back online), never a blank page or "Loading…" for good.
 - **Polling.** Every 2 minutes (counted from the start of the last check),
   while the tab is visible, the app re-fetches the site's own `roadmap.json`.
   That's a cheap 304 when nothing changed, and it doesn't touch the GitHub
