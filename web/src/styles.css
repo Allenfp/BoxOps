@@ -111,6 +111,16 @@ button:hover {
   display: flex;
   flex-direction: column;
 }
+/* The banners and the view under the toolbar. Focused by the skip link and when focus has nowhere better to go. */
+.app > main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.app > main:focus {
+  outline: none;
+}
 
 /* Read by screen readers, not shown. */
 .sr-only {
@@ -120,6 +130,26 @@ button:hover {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+/* "Skip to roadmap": the first stop for Tab, shown only while it has focus. */
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.skip-link:not(:focus) {
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* Toolbar */
@@ -1917,6 +1947,18 @@ button.primary:hover:not(:disabled) {
 .label.dept-label {
   padding: 0;
   gap: 0;
+}
+/* The <h3> around a department's toggle, in every view: a heading for screen readers, nothing to see. */
+.dept-heading {
+  margin: 0;
+  font: inherit;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.dept-label > .dept-heading {
+  flex: 1;
+  height: 100%;
 }
 .dept-toggle {
   flex: 1;

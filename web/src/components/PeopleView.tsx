@@ -144,18 +144,20 @@ export function PeopleView(props: Props) {
                 <tr className="group-row">
                   <td colSpan={COLUMNS.length}>
                     <div className="group-head">
-                      <button
-                        className="group-toggle"
-                        onClick={() => g.id !== NO_DEPT && onToggleDepartment(g.id)}
-                        aria-expanded={!isCollapsed}
-                        disabled={!!q || g.id === NO_DEPT}
-                      >
-                        <Icon name="chevron-right" size={14} className={`chevron${isCollapsed ? "" : " open"}`} />
-                        <span className="dept-name">{g.name}</span>
-                        <span className="dept-meta">
-                          {q ? `${rows.length} of ${g.all.length}` : g.all.length} engineer{g.all.length === 1 ? "" : "s"}
-                        </span>
-                      </button>
+                      <h3 className="dept-heading">
+                        <button
+                          className="group-toggle"
+                          onClick={() => g.id !== NO_DEPT && onToggleDepartment(g.id)}
+                          aria-expanded={!isCollapsed}
+                          disabled={!!q || g.id === NO_DEPT}
+                        >
+                          <Icon name="chevron-right" size={14} className={`chevron${isCollapsed ? "" : " open"}`} />
+                          <span className="dept-name">{g.name}</span>
+                          <span className="dept-meta">
+                            {q ? `${rows.length} of ${g.all.length}` : g.all.length} engineer{g.all.length === 1 ? "" : "s"}
+                          </span>
+                        </button>
+                      </h3>
                       {!readOnly && g.id !== NO_DEPT && props.onEditDepartment && (
                         <button
                           className="icon-button group-edit"

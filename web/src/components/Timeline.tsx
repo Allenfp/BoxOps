@@ -880,27 +880,30 @@ function DeptLabel({
           <Icon name="grip" size={14} />
         </span>
       )}
-      <button
-        className="dept-toggle"
-        onClick={onToggle}
-        aria-expanded={!collapsed}
-        title={over.length ? `Over capacity: ${overloadText(over)}` : undefined}
-      >
-        <Icon name="chevron-right" size={14} className={`chevron${collapsed ? "" : " open"}`} />
-        <span className="dept-text">
-          <span className="dept-name">{dept.name}</span>
-          <span className="dept-sub">
-            <span className="dept-meta" title={dated ? `${fte} FTE today; some lanes open or close on set dates` : undefined}>
-              {fte} FTE
-            </span>
-            {over.length > 0 && (
-              <span className="dept-over">
-                <Icon name="alert" size={11} /> {worstStretch(over).fte} planned
+      {/* A heading for each department, as in the table and People views: screen readers can jump between them. */}
+      <h3 className="dept-heading">
+        <button
+          className="dept-toggle"
+          onClick={onToggle}
+          aria-expanded={!collapsed}
+          title={over.length ? `Over capacity: ${overloadText(over)}` : undefined}
+        >
+          <Icon name="chevron-right" size={14} className={`chevron${collapsed ? "" : " open"}`} />
+          <span className="dept-text">
+            <span className="dept-name">{dept.name}</span>
+            <span className="dept-sub">
+              <span className="dept-meta" title={dated ? `${fte} FTE today; some lanes open or close on set dates` : undefined}>
+                {fte} FTE
               </span>
-            )}
+              {over.length > 0 && (
+                <span className="dept-over">
+                  <Icon name="alert" size={11} /> {worstStretch(over).fte} planned
+                </span>
+              )}
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+      </h3>
       {onEdit && (
         <button className="icon-button dept-edit" onClick={onEdit} aria-label={`Edit ${dept.name}`} title="Edit department and lanes">
           <Icon name="pencil" size={14} />

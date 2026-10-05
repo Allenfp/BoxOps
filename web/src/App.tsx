@@ -1229,6 +1229,18 @@ function RoadmapView(props: ViewProps) {
 
   return (
     <div className={`app density-${prefs.density}`}>
+      {/* An explicit tabindex: Safari's Tab otherwise skips links. */}
+      <a
+        className="skip-link"
+        href="#main"
+        tabIndex={0}
+        onClick={(e) => {
+          e.preventDefault(); // focus the roadmap without putting #main in the address
+          document.getElementById("main")?.focus();
+        }}
+      >
+        Skip to roadmap
+      </a>
       <header className="toolbar">
         <div className="toolbar-zone start">
           <Logo />
@@ -1354,281 +1366,300 @@ function RoadmapView(props: ViewProps) {
         </div>
       </header>
 
-      {props.notices
-        .filter((n, i, all) => all.findIndex((m) => noticeKey(m) === noticeKey(n)) === i && !dismissed.includes(n.text))
-        .map((n) => (
-          <div key={noticeKey(n)} className={`banner notice-${n.level}`} role={n.level === "info" ? "status" : "alert"}>
-            <span>{n.text}</span>
-            <button className="icon-button" onClick={() => setDismissed((d) => [...d, n.text])} aria-label="Dismiss">
+      <main id="main" tabIndex={-1} aria-labelledby="view-heading">
+        <h2 id="view-heading" className="sr-only">
+          {VIEWS.find((v) => v.id === view)!.label}
+        </h2>
+        {props.notices
+          .filter((n, i, all) => all.findIndex((m) => noticeKey(m) === noticeKey(n)) === i && !dismissed.includes(n.text))
+          .map((n) => (
+            <div key={noticeKey(n)} className={`banner notice-${n.level}`} role={n.level === "info" ? "status" : "alert"}>
+              <span>{n.text}</span>
+              <button className="icon-button" onClick={() => setDismissed((d) => [...d, n.text])} aria-label="Dismiss">
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+          ))}
+        {/* A banner is a flex row: its text goes in one <span>, or each run of text, <code> and link is spaced apart. */}
+        {props.preview && (
+          <div className="banner">
+            <span>
+              Previewing branch <code>{source.branch}</code> (read-only). <a href={liveUrl()}>Back to the live roadmap</a>
+            </span>
+          </div>
+        )}
+        {source.local && !props.preview && (
+          <div className="banner">
+            <span>
+              Read-only: this copy was built from the files on disk (<code>npm run dev</code>, or a build with uncommitted
+              changes in <code>roadmap/</code>), so it can’t save. Edit the YAML files, or save from the deployed site.
+            </span>
+          </div>
+        )}
+        {source.readonly && !source.local && !props.preview && <div className="banner">Read-only: this site doesn’t save.</div>}
+        {/* A newer format with a newer BoxOps to reload onto: the update banner says what to do. */}
+        {props.formatStatus !== "current" && !(props.formatStatus === "newer" && props.update) && (
+          <div className="banner">
+            <span>
+              {props.formatStatus === "older" && files["settings.yaml"] === undefined ? (
+                <>
+                  Read-only: the roadmap has no <code>roadmap/settings.yaml</code>, which says which data format the files
+                  use. Add one holding <code>format: {FORMAT}</code> to edit the roadmap here.
+                </>
+              ) : props.formatStatus === "older" ? (
+                <>
+                  Read-only: <code>roadmap/settings.yaml</code> doesn’t say which data format the files use. Add{" "}
+                  <code>format: {FORMAT}</code> to it to edit the roadmap here.
+                </>
+              ) : props.formatStatus === "newer" && props.preview ? (
+                <>
+                  Read-only: this branch uses data format {base.format}, newer than this BoxOps reads ({FORMAT}).
+                </>
+              ) : props.formatStatus === "newer" ? (
+                // Merged on GitHub before the site has redeployed with the BoxOps that reads it.
+                <>
+                  Read-only: the roadmap now uses data format {base.format}, newer than this BoxOps reads ({FORMAT}), so
+                  BoxOps is probably being upgraded. Reload in a few minutes; if it stays like this, ask whoever looks after
+                  the site.
+                  {stranded && " Your unsaved changes were made in the old format: the upgraded BoxOps offers them only as a download (JSON)."}
+                </>
+              ) : (
+                <>
+                  Read-only: the data format in <code>roadmap/settings.yaml</code> can’t be read. Fix the file (see the
+                  problems list) to edit the roadmap here.
+                </>
+              )}
+            </span>
+            {props.formatStatus === "newer" && !props.preview && stranded && <button onClick={downloadDraft}>Download unsaved changes</button>}
+          </div>
+        )}
+        {lastSave && (
+          <div className="banner success">
+            <span>
+              Saved to <code>{source.branch}</code> as commit{" "}
+              <a href={lastSave.url} target="_blank" rel="noopener noreferrer">
+                {lastSave.commit.slice(0, 7)}
+              </a>
+              . The site picks it up in about a minute.
+            </span>
+            <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
               <Icon name="x" size={16} />
             </button>
           </div>
-        ))}
-      {/* A banner is a flex row: its text goes in one <span>, or each run of text, <code> and link is spaced apart. */}
-      {props.preview && (
-        <div className="banner">
-          <span>
-            Previewing branch <code>{source.branch}</code> (read-only). <a href={liveUrl()}>Back to the live roadmap</a>
-          </span>
-        </div>
-      )}
-      {source.local && !props.preview && (
-        <div className="banner">
-          <span>
-            Read-only: this copy was built from the files on disk (<code>npm run dev</code>, or a build with uncommitted
-            changes in <code>roadmap/</code>), so it can’t save. Edit the YAML files, or save from the deployed site.
-          </span>
-        </div>
-      )}
-      {source.readonly && !source.local && !props.preview && <div className="banner">Read-only: this site doesn’t save.</div>}
-      {/* A newer format with a newer BoxOps to reload onto: the update banner says what to do. */}
-      {props.formatStatus !== "current" && !(props.formatStatus === "newer" && props.update) && (
-        <div className="banner">
-          <span>
-            {props.formatStatus === "older" && files["settings.yaml"] === undefined ? (
-              <>
-                Read-only: the roadmap has no <code>roadmap/settings.yaml</code>, which says which data format the files
-                use. Add one holding <code>format: {FORMAT}</code> to edit the roadmap here.
-              </>
-            ) : props.formatStatus === "older" ? (
-              <>
-                Read-only: <code>roadmap/settings.yaml</code> doesn’t say which data format the files use. Add{" "}
-                <code>format: {FORMAT}</code> to it to edit the roadmap here.
-              </>
-            ) : props.formatStatus === "newer" && props.preview ? (
-              <>
-                Read-only: this branch uses data format {base.format}, newer than this BoxOps reads ({FORMAT}).
-              </>
-            ) : props.formatStatus === "newer" ? (
-              // Merged on GitHub before the site has redeployed with the BoxOps that reads it.
-              <>
-                Read-only: the roadmap now uses data format {base.format}, newer than this BoxOps reads ({FORMAT}), so
-                BoxOps is probably being upgraded. Reload in a few minutes; if it stays like this, ask whoever looks after
-                the site.
-                {stranded && " Your unsaved changes were made in the old format: the upgraded BoxOps offers them only as a download (JSON)."}
-              </>
-            ) : (
-              <>
-                Read-only: the data format in <code>roadmap/settings.yaml</code> can’t be read. Fix the file (see the
-                problems list) to edit the roadmap here.
-              </>
-            )}
-          </span>
-          {props.formatStatus === "newer" && !props.preview && stranded && <button onClick={downloadDraft}>Download unsaved changes</button>}
-        </div>
-      )}
-      {lastSave && (
-        <div className="banner success">
-          <span>
-            Saved to <code>{source.branch}</code> as commit{" "}
-            <a href={lastSave.url} target="_blank" rel="noopener noreferrer">
-              {lastSave.commit.slice(0, 7)}
-            </a>
-            . The site picks it up in about a minute.
-          </span>
-          <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-      )}
-      {props.update && (
-        <div className="banner" role="status">
-          <span>
-            <strong>{updatedText(props.update)}</strong>
-            {keptOnReload}
-          </span>
-          {count > 0 && (!draft.kept || stranded) && <button onClick={downloadDraft}>Download unsaved changes</button>}
-          <button className="primary" ref={updateReload} onClick={() => reloadApp(props.update!.build)}>
-            Reload
-          </button>
-        </div>
-      )}
-      {props.behind && (
-        <div className="banner notice-warning" role="status">
-          <span>{props.behind}</span>
-          <button className="icon-button" onClick={props.onDismissBehind} aria-label="Dismiss">
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-      )}
-      {props.connectionLost && (
-        <div className="banner" role="status">
-          {/* The poll keeps trying, and coming back online checks at once: reloading offline would lose the page. */}
-          <span>
-            Can’t reach the site, so others’ saves aren’t coming in. BoxOps keeps trying; if this goes on, reload (a
-            private site may want you to sign in again).
-            {count > 0 && draft.kept ? " Your unsaved changes are kept in this browser." : ""}
-          </span>
-          <button onClick={() => reloadApp("")}>Reload</button>
-        </div>
-      )}
-      {/* While the update banner shows, it says this of any unsaved changes. */}
-      {!draft.kept && !storageWarned && !(props.update && count > 0) && (
-        <div className="banner notice-warning" role="alert">
-          <span>
-            This browser isn’t keeping your unsaved changes (its storage is full, or turned off for this site), so they’d
-            be lost if this tab closed. {preview ? "This tab can’t save them: download them to keep them." : "Save soon."}
-          </span>
-          {preview && count > 0 && <button onClick={downloadDraft}>Download unsaved changes</button>}
-          <button className="icon-button" onClick={() => setStorageWarned(true)} aria-label="Dismiss">
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-      )}
-      {!preview && draft.offers.length > 0 && (
-        <OfferBanner
-          offer={draft.offers[0]}
-          busy={busy}
-          onRestore={() => draft.restoreOffer(draft.offers[0].key)}
-          onDiscard={() => draft.discardOffer(draft.offers[0].key)}
-        />
-      )}
-      {draft.others > 0 && !othersDismissed && (
-        <div className="banner" role="status">
-          <span>This roadmap has unsaved changes in another tab. Each tab keeps and saves its own.</span>
-          <button className="icon-button" onClick={() => setOthersDismissed(true)} aria-label="Dismiss">
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-      )}
-      {remote && (
-        <div className="banner">
-          <span>
-            {remote.author ? <strong>{remote.author}</strong> : "Someone"} saved
-            {remote.subject ? <> “{remote.subject}”</> : " changes"}. The roadmap has been updated
-            {count > 0 ? "; your unsaved changes were kept" : ""}.
-            {draft.conflicts.length > 0 && (
-              <span className="warn-text">
-                {" "}
-                They also changed {draft.conflicts.length === 1 ? "an item" : `${draft.conflicts.length} items`} you’re
-                editing; you’ll choose whose version to keep when you save.
-              </span>
-            )}
-          </span>
-          <button
-            className="icon-button"
-            onClick={() => {
-              onDismissRemote();
-              setUpdatedIds(new Set());
-            }}
-            aria-label="Dismiss"
-          >
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-      )}
-      <Suspense fallback={<div className="splash">Loading…</div>}>
-        {view === "people" ? (
-          <PeopleView
-            roadmap={roadmap}
-            readOnly={preview || busy}
-            collapsed={collapsed}
-            allCollapsed={allCollapsed}
-            onToggleAll={toggleAll}
-            onToggleDepartment={toggle}
-            onEditDepartment={editDepartment}
-            onAddDepartment={addDepartment}
-            onShowPto={goToPto}
-            onAdd={(department) => {
-              const id = draft.addPerson("New engineer", department);
-              draft.checkpoint();
-              return id;
-            }}
-            onUpdate={(id, patch) => draft.updatePerson(id, patch)}
-            onRemove={(id) => draft.removePerson(id)}
-            onCheckpoint={draft.checkpoint}
-          />
-        ) : view === "table" ? (
-          <TableView
-            roadmap={roadmap}
-            showPto={prefs.showPto}
-            hideFinished={prefs.hideFinished}
-            onHideFinished={(hideFinished) => setPrefs({ hideFinished })}
-            readOnly={preview || busy}
-            conflictIds={conflictBoxIds}
-            updatedIds={updatedIds}
-            onUpdate={(id, patch, key) => draft.updateBox(id, patch, key)}
-            collapsed={collapsed}
-            allCollapsed={allCollapsed}
-            onToggleAll={toggleAll}
-            onToggleDepartment={toggle}
-            onAdd={(departmentId) => {
-              const dept =
-                draft.departments.find((d) => d.id === departmentId && d.lanes.length) ??
-                draft.departments.find((d) => d.lanes.length);
-              // No lane anywhere (the table says to add a department first): a box would show nowhere.
-              if (!dept) return null;
-              const start = startOfWeek(now);
-              const id = draft.addBox(
-                {
-                  lane: dept.lanes[0].id,
-                  start,
-                  end: addWorkdays(start, 9), // two working weeks
-                  title: "New box",
-                  fte: 1,
-                  type: draft.settings.types[0].id,
-                },
-                reserved,
-              );
-              draft.checkpoint();
-              return id;
-            }}
-            onDelete={(id) => draft.removeBox(id)}
-            onAddPerson={(name, department) => draft.addPerson(name, department)}
-            onCheckpoint={draft.checkpoint}
-            onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
-            onEditDepartment={editDepartment}
-            onAddDepartment={addDepartment}
-            onMoveDepartment={draft.placeDepartment}
-            ruleWarnings={ruleWarnings}
-            onUpdatePto={updatePto}
-            onReassignPto={(ref, toId) => {
-              reassignPto(ref, toId);
-              draft.checkpoint();
-            }}
-            onRemovePto={removePto}
-            onAddPto={(departmentId) => {
-              const start = startOfWeek(now);
-              addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
-            }}
-          />
-        ) : (
-          <Timeline
-            roadmap={shown}
-            allBoxes={roadmap.boxes}
-            display={prefs}
-            zoom={zoom}
-            collapsed={collapsed}
-            allCollapsed={allCollapsed}
-            onToggleAll={toggleAll}
-            onToggleDepartment={toggle}
-            jumpToToday={jumpToToday}
-            selectedId={selectedBox ? selectedBox.id : null}
-            onSelect={(id) => {
-              if (id) setUpdatedIds((cur) => (cur.has(id) ? new Set([...cur].filter((x) => x !== id)) : cur));
-              select(id);
-            }}
-            onPlaceBox={placeBox}
-            onCreateBox={createBox}
-            onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
-            readOnly={preview || busy}
-            readOnlyLabel={props.preview ? "Read-only preview" : preview ? "Read-only" : undefined}
-            conflictIds={conflictBoxIds}
-            updatedIds={updatedIds}
-            ruleWarnings={ruleWarnings}
-            onEditDepartment={editDepartment}
-            onAddDepartment={addDepartment}
-            onMoveDepartment={draft.placeDepartment}
-            selectedPto={selectedPto && ptoOf(selectedPto) ? ptoKey(selectedPto) : null}
-            onSelectPto={selectPto}
-            onPlacePto={(ref, dates) => updatePto(ref, dates)}
-            onCreatePto={(departmentId, dates) => {
-              const ref = addPto(dates, { departmentId });
-              if (ref) selectPto(ref);
-            }}
+        )}
+        {props.update && (
+          <div className="banner" role="status">
+            <span>
+              <strong>{updatedText(props.update)}</strong>
+              {keptOnReload}
+            </span>
+            {count > 0 && (!draft.kept || stranded) && <button onClick={downloadDraft}>Download unsaved changes</button>}
+            <button className="primary" ref={updateReload} onClick={() => reloadApp(props.update!.build)}>
+              Reload
+            </button>
+          </div>
+        )}
+        {props.behind && (
+          <div className="banner notice-warning" role="status">
+            <span>{props.behind}</span>
+            <button className="icon-button" onClick={props.onDismissBehind} aria-label="Dismiss">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        )}
+        {props.connectionLost && (
+          <div className="banner" role="status">
+            {/* The poll keeps trying, and coming back online checks at once: reloading offline would lose the page. */}
+            <span>
+              Can’t reach the site, so others’ saves aren’t coming in. BoxOps keeps trying; if this goes on, reload (a
+              private site may want you to sign in again).
+              {count > 0 && draft.kept ? " Your unsaved changes are kept in this browser." : ""}
+            </span>
+            <button onClick={() => reloadApp("")}>Reload</button>
+          </div>
+        )}
+        {/* While the update banner shows, it says this of any unsaved changes. */}
+        {!draft.kept && !storageWarned && !(props.update && count > 0) && (
+          <div className="banner notice-warning" role="alert">
+            <span>
+              This browser isn’t keeping your unsaved changes (its storage is full, or turned off for this site), so they’d
+              be lost if this tab closed. {preview ? "This tab can’t save them: download them to keep them." : "Save soon."}
+            </span>
+            {preview && count > 0 && <button onClick={downloadDraft}>Download unsaved changes</button>}
+            <button className="icon-button" onClick={() => setStorageWarned(true)} aria-label="Dismiss">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        )}
+        {!preview && draft.offers.length > 0 && (
+          <OfferBanner
+            offer={draft.offers[0]}
+            busy={busy}
+            onRestore={() => draft.restoreOffer(draft.offers[0].key)}
+            onDiscard={() => draft.discardOffer(draft.offers[0].key)}
           />
         )}
-      </Suspense>
+        {draft.others > 0 && !othersDismissed && (
+          <div className="banner" role="status">
+            <span>This roadmap has unsaved changes in another tab. Each tab keeps and saves its own.</span>
+            <button className="icon-button" onClick={() => setOthersDismissed(true)} aria-label="Dismiss">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        )}
+        {remote && (
+          <div className="banner">
+            <span>
+              {remote.author ? <strong>{remote.author}</strong> : "Someone"} saved
+              {remote.subject ? <> “{remote.subject}”</> : " changes"}. The roadmap has been updated
+              {count > 0 ? "; your unsaved changes were kept" : ""}.
+              {draft.conflicts.length > 0 && (
+                <span className="warn-text">
+                  {" "}
+                  They also changed {draft.conflicts.length === 1 ? "an item" : `${draft.conflicts.length} items`} you’re
+                  editing; you’ll choose whose version to keep when you save.
+                </span>
+              )}
+            </span>
+            <button
+              className="icon-button"
+              onClick={() => {
+                onDismissRemote();
+                setUpdatedIds(new Set());
+              }}
+              aria-label="Dismiss"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        )}
+        <Suspense fallback={<div className="splash">Loading…</div>}>
+          {view === "people" ? (
+            <PeopleView
+              roadmap={roadmap}
+              readOnly={preview || busy}
+              collapsed={collapsed}
+              allCollapsed={allCollapsed}
+              onToggleAll={toggleAll}
+              onToggleDepartment={toggle}
+              onEditDepartment={editDepartment}
+              onAddDepartment={addDepartment}
+              onShowPto={goToPto}
+              onAdd={(department) => {
+                const id = draft.addPerson("New engineer", department);
+                draft.checkpoint();
+                return id;
+              }}
+              onUpdate={(id, patch) => draft.updatePerson(id, patch)}
+              onRemove={(id) => draft.removePerson(id)}
+              onCheckpoint={draft.checkpoint}
+            />
+          ) : view === "table" ? (
+            <TableView
+              roadmap={roadmap}
+              showPto={prefs.showPto}
+              hideFinished={prefs.hideFinished}
+              onHideFinished={(hideFinished) => setPrefs({ hideFinished })}
+              readOnly={preview || busy}
+              conflictIds={conflictBoxIds}
+              updatedIds={updatedIds}
+              onUpdate={(id, patch, key) => draft.updateBox(id, patch, key)}
+              collapsed={collapsed}
+              allCollapsed={allCollapsed}
+              onToggleAll={toggleAll}
+              onToggleDepartment={toggle}
+              onAdd={(departmentId) => {
+                const dept =
+                  draft.departments.find((d) => d.id === departmentId && d.lanes.length) ??
+                  draft.departments.find((d) => d.lanes.length);
+                // No lane anywhere (the table says to add a department first): a box would show nowhere.
+                if (!dept) return null;
+                const start = startOfWeek(now);
+                const id = draft.addBox(
+                  {
+                    lane: dept.lanes[0].id,
+                    start,
+                    end: addWorkdays(start, 9), // two working weeks
+                    title: "New box",
+                    fte: 1,
+                    type: draft.settings.types[0].id,
+                  },
+                  reserved,
+                );
+                draft.checkpoint();
+                return id;
+              }}
+              onDelete={(id) => draft.removeBox(id)}
+              onAddPerson={(name, department) => draft.addPerson(name, department)}
+              onCheckpoint={draft.checkpoint}
+              onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
+              onEditDepartment={editDepartment}
+              onAddDepartment={addDepartment}
+              onMoveDepartment={draft.placeDepartment}
+              ruleWarnings={ruleWarnings}
+              onUpdatePto={updatePto}
+              onReassignPto={(ref, toId) => {
+                reassignPto(ref, toId);
+                draft.checkpoint();
+              }}
+              onRemovePto={removePto}
+              onAddPto={(departmentId) => {
+                const start = startOfWeek(now);
+                addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
+              }}
+            />
+          ) : (
+            <Timeline
+              roadmap={shown}
+              allBoxes={roadmap.boxes}
+              display={prefs}
+              zoom={zoom}
+              collapsed={collapsed}
+              allCollapsed={allCollapsed}
+              onToggleAll={toggleAll}
+              onToggleDepartment={toggle}
+              jumpToToday={jumpToToday}
+              selectedId={selectedBox ? selectedBox.id : null}
+              onSelect={(id) => {
+                if (id) setUpdatedIds((cur) => (cur.has(id) ? new Set([...cur].filter((x) => x !== id)) : cur));
+                select(id);
+              }}
+              onPlaceBox={placeBox}
+              onCreateBox={createBox}
+              onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
+              readOnly={preview || busy}
+              readOnlyLabel={props.preview ? "Read-only preview" : preview ? "Read-only" : undefined}
+              conflictIds={conflictBoxIds}
+              updatedIds={updatedIds}
+              ruleWarnings={ruleWarnings}
+              onEditDepartment={editDepartment}
+              onAddDepartment={addDepartment}
+              onMoveDepartment={draft.placeDepartment}
+              selectedPto={selectedPto && ptoOf(selectedPto) ? ptoKey(selectedPto) : null}
+              onSelectPto={selectPto}
+              onPlacePto={(ref, dates) => updatePto(ref, dates)}
+              onCreatePto={(departmentId, dates) => {
+                const ref = addPto(dates, { departmentId });
+                if (ref) selectPto(ref);
+              }}
+            />
+          )}
+        </Suspense>
+        {newlyBroken.length > 0 && (
+          <div className="toast" role="status">
+            <strong><Icon name="alert" size={14} /> That breaks {newlyBroken.length === 1 ? "a rule" : `${newlyBroken.length} rules`}</strong>
+            <ul>
+              {newlyBroken.map((v, i) => (
+                <li key={i}>{v.message}</li>
+              ))}
+            </ul>
+            <span className="hint">Nothing is blocked; it's a heads-up.</span>
+            <button className="icon-button" onClick={() => setNewlyBroken([])} aria-label="Dismiss">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        )}
+      </main>
       {view === "timeline" && !preview && selectedPto && ptoOf(selectedPto) && (
         <Suspense fallback={null}>
           <PtoEditor
@@ -1674,20 +1705,6 @@ function RoadmapView(props: ViewProps) {
             onClose={() => select(null)}
           />
         </Suspense>
-      )}
-      {newlyBroken.length > 0 && (
-        <div className="toast" role="status">
-          <strong><Icon name="alert" size={14} /> That breaks {newlyBroken.length === 1 ? "a rule" : `${newlyBroken.length} rules`}</strong>
-          <ul>
-            {newlyBroken.map((v, i) => (
-              <li key={i}>{v.message}</li>
-            ))}
-          </ul>
-          <span className="hint">Nothing is blocked; it's a heads-up.</span>
-          <button className="icon-button" onClick={() => setNewlyBroken([])} aria-label="Dismiss">
-            <Icon name="x" size={16} />
-          </button>
-        </div>
       )}
       {deptEditor && !preview && (
         <Suspense fallback={null}>

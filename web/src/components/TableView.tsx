@@ -364,19 +364,21 @@ export function TableView(props: Props) {
                           <Icon name="grip" size={14} />
                         </span>
                       )}
-                      <button
-                        className="group-toggle"
-                        onClick={() => onToggleDepartment(dept.id)}
-                        aria-expanded={!isCollapsed}
-                        disabled={searching}
-                      >
-                        <Icon name="chevron-right" size={14} className={`chevron${isCollapsed ? "" : " open"}`} />
-                        <span className="dept-name">{dept.name}</span>
-                        <span className="dept-meta" title={dated.length ? `FTE today. Dated lanes:\n${datedText}` : undefined}>
-                          {searching ? `${group.rows.length} of ${total}` : total} box{total === 1 ? "" : "es"} · {fte} FTE
-                          {dated.length > 0 && ` today · ${dated.length} dated lane${dated.length === 1 ? "" : "s"}`}
-                        </span>
-                      </button>
+                      <h3 className="dept-heading">
+                        <button
+                          className="group-toggle"
+                          onClick={() => onToggleDepartment(dept.id)}
+                          aria-expanded={!isCollapsed}
+                          disabled={searching}
+                        >
+                          <Icon name="chevron-right" size={14} className={`chevron${isCollapsed ? "" : " open"}`} />
+                          <span className="dept-name">{dept.name}</span>
+                          <span className="dept-meta" title={dated.length ? `FTE today. Dated lanes:\n${datedText}` : undefined}>
+                            {searching ? `${group.rows.length} of ${total}` : total} box{total === 1 ? "" : "es"} · {fte} FTE
+                            {dated.length > 0 && ` today · ${dated.length} dated lane${dated.length === 1 ? "" : "s"}`}
+                          </span>
+                        </button>
+                      </h3>
                       {!readOnly && props.onEditDepartment && (
                         <button
                           className="icon-button group-edit"
