@@ -4,6 +4,15 @@
 /** A Jira issue key: project key, a dash, a number. */
 const KEY = /^[A-Z][A-Z0-9_]+-\d+$/;
 
+/** A path segment decoded, or as it is when its %-escapes are malformed ("100%", "%E0%A4"): never throws. */
+function decode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 /**
  * The Jira key in a link, if there is one. Handles /browse/DATA-123, board
  * links with ?selectedIssue=DATA-123 and /projects/DATA/issues/DATA-123.
@@ -18,6 +27,6 @@ export function jiraKey(link: string | undefined): string | undefined {
   }
   const selected = url.searchParams.get("selectedIssue")?.toUpperCase();
   if (selected && KEY.test(selected)) return selected;
-  const segments = url.pathname.split("/").map((s) => decodeURIComponent(s).toUpperCase());
+  const segments = url.pathname.split("/").map((s) => decode(s).toUpperCase());
   return segments.reverse().find((s) => KEY.test(s));
 }

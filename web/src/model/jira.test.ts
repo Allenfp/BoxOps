@@ -16,4 +16,14 @@ describe("jiraKey", () => {
     expect(jiraKey("https://github.com/Allenfp/BoxOps/issues/1")).toBeUndefined();
     expect(jiraKey("https://acme.atlassian.net/jira/software/projects/DATA/boards/4")).toBeUndefined();
   });
+
+  it("never throws on a malformed %-escape, and still finds a key beside one", () => {
+    expect(jiraKey("https://x.com/100%")).toBeUndefined();
+    expect(jiraKey("https://x.com/%")).toBeUndefined();
+    expect(jiraKey("https://x.com/%zz")).toBeUndefined();
+    expect(jiraKey("https://x.com/a%E0%A4%A")).toBeUndefined();
+    expect(jiraKey("https://drive.example.com/Q3%20100%/x")).toBeUndefined();
+    expect(jiraKey("https://acme.atlassian.net/browse/DATA-12/Save%2050%")).toBe("DATA-12");
+    expect(jiraKey("https://acme.atlassian.net/browse/DATA%2D5")).toBe("DATA-5");
+  });
 });
