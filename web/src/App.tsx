@@ -483,7 +483,11 @@ const STEP_TEXT: Record<SaveStep, string> = {
   retrying: "Trying again…",
 };
 
-/** What a save is doing, with the seconds so far once it's slow: a save can wait on GitHub for a minute or two. */
+/**
+ * What a save is doing, with the seconds so far once it's slow: a save can
+ * wait on GitHub for a minute or two. Only the step is announced, not every
+ * second.
+ */
 function SaveProgress({ step }: { step: SaveStep }) {
   const [start] = useState(() => Date.now());
   const [now, setNow] = useState(start);
@@ -493,8 +497,8 @@ function SaveProgress({ step }: { step: SaveStep }) {
   }, []);
   const seconds = Math.floor((now - start) / 1000);
   return (
-    <span className="hint save-progress" role="status">
-      {STEP_TEXT[step]}
+    <span className="hint save-progress">
+      <span role="status">{STEP_TEXT[step]}</span>
       {seconds >= 5 ? ` ${seconds} s` : ""}
     </span>
   );

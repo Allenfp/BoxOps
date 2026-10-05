@@ -241,7 +241,11 @@ for (const visibility of ["public", "private"] as const) {
       await save(page);
       await expect.poll(() => github.calls("graphql")).toBe(1);
       await expect(page.locator(".save-progress")).toHaveText("Writing the commit…");
-      await page.clock.fastForward(31_000);
+      await page.clock.fastForward(6_000);
+      // The seconds show once it's slow, outside the live region, which announces the step alone.
+      await expect(page.locator(".save-progress")).toHaveText("Writing the commit… 6 s");
+      await expect(page.locator(".save-progress").getByRole("status")).toHaveText("Writing the commit…");
+      await page.clock.fastForward(25_000);
       await expect(page.locator(".banner.success")).toContainText("Saved to main");
       expect(github.headCommit().parent).toBe(github.root);
       expect(github.calls("graphql")).toBe(2);

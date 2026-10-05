@@ -330,7 +330,7 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    teams, roles and apps, never people). Failures a different
    token fixes offer one; GitHub's own answer and request id are under
    Details. While a save runs, the toolbar says which step it's on, with the
-   seconds once it's slow.
+   seconds once it's slow (a screen reader hears each step, not the seconds).
 5. **Deploy.** The push triggers the Pages workflow; the site usually updates
    within a minute (deploys queue, so longer if one is already running). The
    saved banner says so: "The site picks it up in about a minute."
