@@ -22,6 +22,9 @@ Browser (static app on GitHub Pages)            GitHub (this repo)
 web/
   src/
     App.tsx                 loading, polling, saving, toolbar, views
+    a11y/                   announce (live regions), focus (putting focus
+                            back, Tab inside editors), keys (shortcut labels,
+                            letters in any keyboard layout)
     site.ts                 the site's roadmap.json, app updates, reloading
     saving.ts               what saving needs, fetched once editing starts
     components/             Timeline, TableView, PeopleView, BoxEditor,
@@ -468,6 +471,70 @@ against data the new code wrote.
   counts as the same one again within 5 minutes, unless the app ran for a few
   seconds in between.
 
+## Accessibility
+
+The aim is WCAG 2.2 AA. Safari (WebKit) sets the terms: it doesn't focus a
+button that's clicked, its Tab skips buttons and links unless "Press Tab to
+highlight each item" is on (which a page can't tell), and it fires no `blur`
+when a focused element is removed.
+
+- **Structure.** The toolbar is the `<header>` (banner) with the roadmap's
+  title as `h1`. "Skip to roadmap", the first Tab stop, focuses `<main>`,
+  which holds the banners and the view and is named by a visually hidden
+  `h2` saying which view it is. Each department's name is an `h3` (its
+  toggle inside) on the timeline, in the table and in People; the box
+  editor's sections are `h3`s too. `<main>` takes a tabindex only while it
+  has focus: with one for good, a click anywhere in it would focus it.
+- **Announcements** (`a11y/announce.tsx`). A polite and an assertive live
+  region are on the page from the first paint (`main.tsx`); `announce()`
+  empties the region, then writes the message 150 ms later, so the same
+  message twice is read twice, and messages asked for together are read
+  together. VoiceOver reads no live region outside a modal dialog, so each
+  dialog and editor has a pair of its own, and a message goes to the
+  innermost one open when it's written. Announced: each step of a save and
+  where it went (the saved banner), others' saves coming in, an app update
+  and the tab going read-only, other banners that appear once the roadmap
+  is up, search results in the table and People once typing pauses, a rule
+  an edit breaks and a rising warning count, deletions (with how to undo
+  them), undo and redo, and field problems and date corrections as they
+  appear. Nothing uses `role="status"` on an element added already filled.
+- **Focus** is never left on `<body>`. Each dialog and editor notes what
+  had focus when it opened; when it goes, if focus was in it (or lost), it
+  goes back there, or to the nearest thing still on the page: the box or
+  PTO block, the department's ✎, the gear (for what its menu opened), the
+  Save button, else the roadmap (`useReturnFocus` in `a11y/focus.ts`). A
+  deleted box or PTO block hands focus to its neighbour, a deleted table row
+  to the next row's Delete; a save gives it back where it was, or to the
+  saved banner; Enter and Esc in a table cell, a date picked from the
+  calendar and a lane renamed in place keep it there. Save stays focusable
+  while saving (`aria-disabled`).
+- **Dialogs** are named by their titles (the save dialog is also described
+  by what went wrong) and start on what's safe to press next, their first
+  field, or themselves, never the Close button. The native ones
+  (`showModal()`) make the rest of the page inert. The box and PTO editors
+  are `aria-modal` and keep Tab, Shift+Tab and Alt+Tab going round their own
+  controls, buttons included; a click outside still closes them. Menus
+  opened from the keyboard start on their first control, and Esc puts focus
+  back on their button. The Engineers list is a small dialog of checkboxes
+  (↑ and ↓ move between them) whose button is named by who's assigned.
+- **Keys.** ⌘ and Ctrl both work everywhere; labels say ⌘ on Apple's
+  platforms and Ctrl elsewhere (`a11y/keys.ts`). A letter is matched by
+  `key`, or by its place (`code`) when the layout doesn't type Latin
+  letters. Undo, redo and ⌘S never act behind the save dialog, the key or
+  the shortcuts list, nor with a menu open; in the editors they do, as the
+  editing happens there. Delete and Backspace delete the selected box or
+  PTO only with focus on the page itself, no editor open and the key not
+  held, so a stray Backspace in an editor deletes nothing; Backspace is
+  never the browser's Back.
+- **Not colour alone.** The table marks rows someone else changed, and
+  clashes, with a mark and words for screen readers as well as their tint;
+  a cell, team-settings name or editor field that won't do says why next to
+  it, tied to the field with `aria-describedby`.
+- **Not yet.** The timeline's boxes and PTO blocks can't be reached from
+  the keyboard (their editors can, once open); the table edits every field
+  of a box. What a test can't hear needs a person with VoiceOver and Safari,
+  NVDA with Firefox or Chrome, and JAWS with Edge.
+
 ## Timeline layout
 
 - **Working days only.** The x axis counts Monday–Friday (`workIndex` in
@@ -522,7 +589,14 @@ against data the new code wrote.
   after UTC's and 14 hours before it. Tests of unsaved drafts open a second
   tab in the same browser context (so the same `localStorage`), with a clock
   of its own. An uncaught error or a Content-Security-Policy violation in
-  any tab a test opens fails it.
+  any tab a test opens fails it. `e2e/a11y.spec.ts` runs axe-core
+  (`@axe-core/playwright`, a test-only dependency) over each view, the
+  editors, the menus and the save dialog against WCAG 2.2 A and AA, in the
+  light and the dark theme, and checks the page's structure, names and
+  what's announced (an init script records every message the live regions
+  are given); `e2e/keyboard.spec.ts` checks where focus goes and what keys
+  do. WebKit's Tab skips buttons, as Safari's does by default, so those
+  tests focus a control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build with a generated 2,000-box roadmap
   (`scripts/gen-roadmap.ts`; and a 500-box one) as its `roadmap.json`,

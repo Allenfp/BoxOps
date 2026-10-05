@@ -29,10 +29,11 @@ straight to `main`, and the site updates within a minute.
 - **People.** The engineer roster: name, department, role, email, manager and
   notes, plus their PTO (read-only; edit it on the timeline or table). Boxes
   are assigned engineers from this list.
-- **Saving.** Edits stay in your browser until you press **Save** (⌘S), each
-  tab's on its own; edits left in a tab you closed are offered back in the
-  roadmap's other tabs, or the next time you open it. Safari forgets them
-  after 7 days of use without a visit to the site, so save before then. The
+- **Saving.** Edits stay in your browser until you press **Save** (⌘S, or
+  Ctrl+S on Windows and Linux), each tab's on its own; edits left in a tab
+  you closed are offered back in the roadmap's other tabs, or the next time
+  you open it. Safari forgets them after 7 days of use without a visit to
+  the site, so save before then. The
   first save asks for a GitHub token; its link opens GitHub's new-token page
   filled in for this repo. Check there that *Resource owner* is the repo's
   owner (the organization, not your own account), that *Repository access* is
@@ -56,10 +57,19 @@ straight to `main`, and the site updates within a minute.
   finished boxes. These are kept in your browser only (only the ones you
   changed, so a new default reaches you, and a change in one tab reaches the
   others) and never change anyone else's view; Reset puts them all back.
-  The menu also has the key, keyboard shortcuts, "Forget
-  token", discard and a link to the history. **Team settings** (title, fiscal
-  year, default zoom, box types and flags) change `roadmap/settings.yaml`
-  for everyone and are saved like any other edit.
+  The menu also has the key, keyboard shortcuts (⌘ on a Mac, Ctrl
+  elsewhere), "Forget token", discard and a link to the history. **Team
+  settings** (title, fiscal year, default zoom, box types and flags) change
+  `roadmap/settings.yaml` for everyone and are saved like any other edit.
+- **Keyboard and screen readers.** "Skip to roadmap" is the first stop for
+  Tab. Dialogs and the box and PTO editors keep Tab inside them, Esc closes
+  them, and focus goes back where it was. In the table and People, Enter
+  keeps what's typed and stays in the cell, and Esc puts it back. Saves,
+  other people's saves, search results, broken rules and problems with a
+  field are announced to screen readers. Delete a box or PTO with its
+  editor's **Delete** button (⌘Z or Ctrl+Z brings it back): the Delete key
+  does nothing while an editor is open. Boxes on the timeline itself can't
+  yet be reached from the keyboard; the Table view edits all of a box.
 
 ## Editing without the app
 
