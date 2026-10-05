@@ -92,13 +92,21 @@ export function movesForward(
 }
 
 /**
+ * When this app was built (AppInfo.time), from index.html; "" when unknown.
+ * Not in the JavaScript, which then stays the same across roadmap saves.
+ */
+export function builtAt(): string {
+  return document.querySelector<HTMLMetaElement>('meta[name="boxops-build-time"]')?.content ?? "";
+}
+
+/**
  * Whether roadmap.json was built by a newer BoxOps than the one running in
  * this tab: another build id, made later. One direction only, so a CDN that
  * briefly serves an older roadmap.json with newer JavaScript doesn't flag the
  * newer tab, and an unknown build or time never flags anything. A tab running
  * older code must not save: it could drop what the newer app writes.
  */
-export function isNewerApp(app: AppInfo, mine: Pick<AppInfo, "build" | "time"> = { build: __BOXOPS_BUILD__, time: __BOXOPS_BUILD_TIME__ }): boolean {
+export function isNewerApp(app: AppInfo, mine: Pick<AppInfo, "build" | "time"> = { build: __BOXOPS_BUILD__, time: builtAt() }): boolean {
   if (!app.build || !mine.build || app.build === mine.build) return false;
   return Date.parse(app.time) > Date.parse(mine.time);
 }

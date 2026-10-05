@@ -18,7 +18,7 @@ export interface AppInfo {
    * changes). vite.config.ts also defines it for the app as __BOXOPS_BUILD__. "" when unknown.
    */
   build: string;
-  /** Committer date of the app's commit (ISO 8601, UTC); __BOXOPS_BUILD_TIME__ for the app. "" when unknown. */
+  /** Committer date of the app's commit (ISO 8601, UTC); `<meta name="boxops-build-time">` for the app. "" when unknown. */
   time: string;
 }
 

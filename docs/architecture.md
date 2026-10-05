@@ -75,10 +75,13 @@ both.
     from the Actions event; when unknown the site counts as private;
   - `app`: version, build id and time. The build id is the version plus
     `web/`'s tree at HEAD, so roadmap-only saves keep it (`.dirty` with
-    uncommitted app changes). It's put in `<meta name="boxops-build">`, and
-    defined for the app as `__BOXOPS_BUILD__` and `__BOXOPS_BUILD_TIME__`,
-    which the app compares with every `roadmap.json` it fetches (see [Tabs
-    left open](#tabs-left-open));
+    uncommitted app changes). Both are put in `index.html`
+    (`<meta name="boxops-build">` and `"boxops-build-time"`), and the id is
+    defined for the app as `__BOXOPS_BUILD__`; the app compares them with
+    every `roadmap.json` it fetches (see [Tabs left
+    open](#tabs-left-open)). The time, HEAD's committer date, is kept out of
+    the JavaScript, so roadmap-only saves leave every app file as it was and
+    a tab left open can still fetch the parts it loads on first use;
   - `schema` (1), `format` and `notices`;
   - `parsed` (optional): each roadmap file as the build's parser makes of it
     (`model/parse.ts`), by blob SHA, stamped with the build id. The app takes
@@ -309,8 +312,8 @@ against data the new code wrote.
 
 - **App updates.** Every `roadmap.json` the app fetches (on load, when
   polling, and just before a save) carries `app.build` and `app.time`. If
-  the build differs from `__BOXOPS_BUILD__` and was made later than
-  `__BOXOPS_BUILD_TIME__` (one direction only, so a CDN briefly serving an
+  the build differs from `__BOXOPS_BUILD__` and was made later than the
+  page's `boxops-build-time` (one direction only, so a CDN briefly serving an
   older `roadmap.json` with newer JavaScript flags nothing, and nor does an
   unknown build), the tab goes read-only with the banner "BoxOps was updated
   — Reload to keep editing". The draft is kept in `localStorage` (a field

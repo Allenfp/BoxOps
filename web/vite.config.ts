@@ -12,7 +12,13 @@ const REPO_DIR = resolve(WEB_DIR, "..");
 const DEV_ROADMAP = process.env.BOXOPS_ROADMAP
   ? resolve(process.env.INIT_CWD ?? process.cwd(), process.env.BOXOPS_ROADMAP)
   : resolve(REPO_DIR, "roadmap");
-/** The build id and time: defined for the app, in index.html and in roadmap.json. */
+/**
+ * The build id and time, in roadmap.json and in index.html. The id is also
+ * defined for the app; the time isn't, as it changes with every commit while
+ * the id changes only with the app's code: the JavaScript then stays the same
+ * from one roadmap save's deploy to the next, so a tab left open can still
+ * fetch the parts of the app it loads later.
+ */
 const APP = appInfo(WEB_DIR, REPO_DIR);
 
 /**
@@ -62,7 +68,10 @@ function roadmapData(): Plugin {
       const bundle = await buildBundle({ repoDir: REPO_DIR, app: APP, warn: (message) => this.warn(message) });
       this.emitFile({ type: "asset", fileName: "roadmap.json", source: JSON.stringify(bundle) });
     },
-    transformIndexHtml: () => [{ tag: "meta", attrs: { name: "boxops-build", content: APP.build }, injectTo: "head" }],
+    transformIndexHtml: () => [
+      { tag: "meta", attrs: { name: "boxops-build", content: APP.build }, injectTo: "head" },
+      { tag: "meta", attrs: { name: "boxops-build-time", content: APP.time }, injectTo: "head" },
+    ],
   };
 }
 
@@ -103,7 +112,7 @@ function contentSecurityPolicy(): Plugin {
 export default defineConfig({
   // Relative asset paths so the site works under https://<user>.github.io/BoxOps/.
   base: "./",
-  define: { __BOXOPS_BUILD__: JSON.stringify(APP.build), __BOXOPS_BUILD_TIME__: JSON.stringify(APP.time) },
+  define: { __BOXOPS_BUILD__: JSON.stringify(APP.build) },
   plugins: [react(), roadmapData(), contentSecurityPolicy()],
   test: { environment: "node", include: ["src/**/*.test.ts", "cli/**/*.test.ts"] },
 });

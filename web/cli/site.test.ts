@@ -206,7 +206,6 @@ describe("appInfo", () => {
     const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
     expect(__BOXOPS_BUILD__.startsWith(`${version}+`)).toBe(true);
     expect(__BOXOPS_BUILD__).toMatch(/^\d+\.\d+\.\d+\+([0-9a-f]{12}|unknown)(\.dirty)?$/);
-    expect(__BOXOPS_BUILD_TIME__).toMatch(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)?$/);
   });
 
   it("is the version plus web/'s tree, '.dirty' with uncommitted changes there; the time is HEAD's committer date", () => {

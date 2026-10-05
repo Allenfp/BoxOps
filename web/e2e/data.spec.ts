@@ -104,4 +104,5 @@ test("other files in the roadmap folder are reported, from a deploy and on load"
 // `github` keeps the app off the network: the build's own roadmap.json would send it to api.github.com.
 test("index.html names the build", async ({ page, github: _github }) => {
   await expect(page.locator('meta[name="boxops-build"]')).toHaveAttribute("content", /^\d+\.\d+\.\d+\+([0-9a-f]{12}|unknown)(\.dirty)?$/);
+  await expect(page.locator('meta[name="boxops-build-time"]')).toHaveAttribute("content", /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)?$/);
 });
