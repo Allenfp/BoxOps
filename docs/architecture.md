@@ -103,7 +103,8 @@ both.
   its bundle `local`. The app shows a local bundle read-only, with a banner,
   and never calls GitHub or polls for it. `npm run validate` and
   `report` read files on disk under the same rules: symlinks are errors, never
-  followed. The app still opens a `roadmap.json` from before schema 1, treating
+  followed. A submodule, though, is just a folder on disk, so only a build
+  from git objects stops on one. The app still opens a `roadmap.json` from before schema 1, treating
   what it lacks as unknown.
 - **On load** the app paints the bundle as soon as `roadmap.json` arrives.
   Then, in the background and for 4 seconds at most (an abort signal on the

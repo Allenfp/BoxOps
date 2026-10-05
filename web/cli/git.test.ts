@@ -275,6 +275,14 @@ describe("readRoadmapDir", () => {
     ]);
   });
 
+  it("sees a submodule only as a folder: a checked-out one's files are read, its .git skipped; one not checked out is empty", async () => {
+    const dir = folder({ ...ROADMAP, "vendor/.git": "gitdir: ../../.git/modules/vendor\n", "vendor/notes.md": "x\n" });
+    mkdirSync(join(dir, "plans"));
+    const read = await readRoadmapDir(dir);
+    expect(read.files).toEqual(ROADMAP);
+    expect(read.ignored).toEqual(["vendor/notes.md"]);
+  });
+
   it("refuses a folder that's a symlink, isn't a folder, or doesn't exist", async () => {
     const real = folder(ROADMAP);
     const link = join(folder({}), "roadmap");

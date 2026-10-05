@@ -13,7 +13,9 @@
 // whatever they are, symlinks and submodules included. Every other entry must
 // be a plain file (git modes 100644 and 100755; an executable roadmap file is
 // read with a warning, as the app's reader does): a symlink, a submodule or
-// anything else is an error naming it. Roadmap files (model/paths.ts) are
+// anything else is an error naming it. Only git can see a submodule, though:
+// on disk it's a folder, walked like any other (its .git is hidden), and an
+// empty one if it isn't checked out. Roadmap files (model/paths.ts) are
 // read; other files are listed as `ignored`. Limits: 20,000 files, 1 MiB per
 // roadmap file, 64 MiB in all. Text must be UTF-8; a BOM is kept, so a file's
 // text hashes to its git blob SHA.
