@@ -1,4 +1,4 @@
-import { CDC, DAGSTER, box, dragDays, expect, said, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, dragDays, expect, focusApp, said, save, test, toolbar } from "./helpers";
 
 // Working by keyboard: where focus goes, and what keys do. WebKit's Tab, like
 // Safari's by default, skips buttons and links unless they have a tabindex,
@@ -228,4 +228,71 @@ test("a department picked from the warnings gets focus", async ({ page, github: 
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
   await page.getByRole("dialog", { name: /warning/ }).getByRole("button", { name: /^Data Engineering: / }).click();
   await expect(page.locator('[data-dept-id="data-eng"] .dept-toggle')).toBeFocused();
+});
+
+// Shortcuts: only where they're meant, labelled for the platform, and matched whatever the keyboard layout.
+
+test("Backspace and Delete never delete the box or PTO being edited", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  // Focus on the page itself, after a click on the editor's text…
+  await editor.getByRole("heading", { name: "Schedule" }).click();
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Delete");
+  // …or on one of its buttons.
+  await editor.getByRole("button", { name: /^Engineers/ }).focus();
+  await page.keyboard.press("Delete");
+  await expect(editor).toBeVisible();
+  await expect(box(page, DAGSTER)).toHaveCount(1);
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Add PTO in Data Engineering" }).focus();
+  await page.keyboard.press("Enter");
+  const pto = page.getByRole("dialog", { name: /^Edit PTO/ });
+  await pto.locator(".editor-foot .hint").click();
+  await page.keyboard.press("Backspace");
+  await expect(pto).toBeVisible();
+  await expect(page.locator(".pto-block")).toHaveCount(1);
+});
+
+test("undo and save don't act behind a dialog or an open menu", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 5);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await page.getByRole("button", { name: "Keyboard shortcuts…" }).click();
+  await page.keyboard.press("ControlOrMeta+z");
+  // ⌘S saves nothing, nor opens the browser's Save Page.
+  await page.evaluate(() => window.addEventListener("keydown", (e) => ((window as { taken?: boolean }).taken = e.defaultPrevented)));
+  await page.keyboard.press("ControlOrMeta+s");
+  expect(await page.evaluate(() => (window as { taken?: boolean }).taken)).toBe(true);
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  expect(github.calls("graphql")).toBe(0);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("No changes");
+});
+
+test("⌘Z and ⌘S work from a keyboard that doesn't type Latin letters (by the key's place)", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 5);
+  await focusApp(page);
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "я", code: "KeyZ", ctrlKey: true, bubbles: true })));
+  await expect(toolbar(page)).toContainText("No changes");
+  const taken = await page.evaluate(() => !document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ы", code: "KeyS", ctrlKey: true, bubbles: true, cancelable: true })));
+  expect(taken).toBe(true);
+});
+
+test("shortcuts are labelled ⌘ on Apple's platforms and Ctrl elsewhere, in tooltips and the list", async ({ page, github: _ }) => {
+  // As the app tells: by the platform the browser reports (a Chromium made to look like Windows says Windows).
+  const apple = await page.evaluate(() =>
+    /mac|iphone|ipad/i.test((navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform),
+  );
+  const [save, undo, redo] = apple ? ["⌘S", "⌘Z", "⇧⌘Z"] : ["Ctrl+S", "Ctrl+Z", "Ctrl+Shift+Z"];
+  await expect(toolbar(page).getByRole("button", { name: "Undo" })).toHaveAttribute("title", `Undo (${undo})`);
+  await expect(toolbar(page).getByRole("button", { name: "Redo" })).toHaveAttribute("title", `Redo (${redo})`);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Keyboard shortcuts…" }).click();
+  const list = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(list.getByRole("table", { name: "Anywhere" }).getByRole("rowheader")).toHaveText([save, undo, `${redo}  or  ${apple ? "⌘Y" : "Ctrl+Y"}`, "Esc"]);
+  await expect(list).not.toContainText(apple ? "Ctrl+" : "⌘");
 });

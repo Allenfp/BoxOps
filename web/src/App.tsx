@@ -17,7 +17,7 @@ import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { Banner } from "./components/Banner";
 import { announce, useAnnounce } from "./a11y/announce";
-import { shortcut, undoHint } from "./a11y/keys";
+import { letter, shortcut, undoHint } from "./a11y/keys";
 import { focusLater, focusLost, main, onPage } from "./a11y/focus";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
@@ -856,15 +856,21 @@ function RoadmapView(props: ViewProps) {
   /** The update banner's Reload: where ⌘S goes in a tab gone read-only for a newer BoxOps. */
   const updateReload = useRef<HTMLButtonElement>(null);
 
-  // ⌘S, undo/redo and delete. Text fields keep their own native undo.
+  // ⌘S (Ctrl+S), undo/redo and delete. Text fields keep their own native
+  // undo. None of them acts on what's behind a dialog (saving, the key) or an
+  // open menu; the editors (box, PTO, department, team settings) aren't that,
+  // being where the editing is. Letters are matched by the key's place too,
+  // for keyboards that don't type Latin ones.
   const onKey = (e: KeyboardEvent) => {
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && e.key.toLowerCase() === "s") {
+    const key = letter(e);
+    const behind = !!document.querySelector("dialog[open]:not(.dept-editor, .team-settings), .popover-panel, .picker-menu, .calendar");
+    if (mod && key === "s") {
       // Like saving a file — and never the browser's "save page" dialog, read-only too.
       e.preventDefault();
       // Read-only: nothing to save; for a newer BoxOps, what to do is reload.
       if (preview) return updateReload.current?.focus();
-      if (busy || problem) return;
+      if (busy || problem || behind) return;
       // A table or people cell keeps what's typed until it loses focus: commit
       // it, then save on the next tick, once the draft has it.
       if (isTyping(document.activeElement)) {
@@ -874,22 +880,29 @@ function RoadmapView(props: ViewProps) {
       } else saveRef.current();
       return;
     }
-    if (preview || isTyping(e.target) || busy) return;
-    if (mod && e.key.toLowerCase() === "z") {
+    if (preview || isTyping(e.target) || busy || behind) return;
+    if (mod && key === "z") {
       e.preventDefault();
       if (e.shiftKey) redo();
       else undo();
-    } else if (mod && e.key.toLowerCase() === "y") {
+    } else if (mod && key === "y") {
       e.preventDefault();
       redo();
-    } else if ((e.key === "Delete" || e.key === "Backspace") && selected) {
-      e.preventDefault();
-      focusAfterBox(selected.id);
-      removeBox(selected.id);
-    } else if ((e.key === "Delete" || e.key === "Backspace") && selectedPto) {
-      e.preventDefault();
-      focusAfterPto(selectedPto);
-      removePto(selectedPto);
+    } else if ((e.key === "Delete" || e.key === "Backspace") && !mod && !e.altKey && e.target === document.body) {
+      e.preventDefault(); // nor is it the browser's Back (WebKit's own Backspace, in some browsers)
+      // Only a deliberate press with nothing else in hand: focus on the page itself (not a button or
+      // field, nor anything in an editor), no editor open, and not a held-down key (which would go on
+      // to the next box). A stray Backspace, the Mac's delete key, otherwise deleted the box being edited.
+      if (e.shiftKey || e.repeat || e.isComposing || document.querySelector(".editor")) return;
+      if (selected) {
+        e.preventDefault();
+        focusAfterBox(selected.id);
+        removeBox(selected.id);
+      } else if (selectedPto) {
+        e.preventDefault();
+        focusAfterPto(selectedPto);
+        removePto(selectedPto);
+      }
     }
   };
   const onKeyRef = useRef(onKey);
@@ -1404,10 +1417,24 @@ function RoadmapView(props: ViewProps) {
           <WarningsMenu groups={warningGroups} />
           {!preview && (
             <div className="draft-status">
-              <button className="icon-only" onClick={undo} disabled={!draft.canUndo} title={`Undo (${shortcut("Z")})`} aria-label="Undo">
+              <button
+                className="icon-only"
+                onClick={undo}
+                disabled={!draft.canUndo}
+                title={`Undo (${shortcut("Z")})`}
+                aria-label="Undo"
+                aria-keyshortcuts="Meta+Z Control+Z"
+              >
                 <Icon name="undo" size={16} />
               </button>
-              <button className="icon-only" onClick={redo} disabled={!draft.canRedo} title={`Redo (${shortcut("Z", true)})`} aria-label="Redo">
+              <button
+                className="icon-only"
+                onClick={redo}
+                disabled={!draft.canRedo}
+                title={`Redo (${shortcut("Z", true)})`}
+                aria-label="Redo"
+                aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z Meta+Y Control+Y"
+              >
                 <Icon name="redo" size={16} />
               </button>
               {busy && <SaveProgress step={step} />}
@@ -1421,9 +1448,10 @@ function RoadmapView(props: ViewProps) {
                     aria-disabled={busy || undefined}
                     title={
                       draft.kept
-                        ? "Save to GitHub (⌘S). Until then, changes are kept in this browser."
-                        : "Save to GitHub (⌘S). This browser isn’t keeping your changes, so save before closing the tab."
+                        ? `Save to GitHub (${shortcut("S")}). Until then, changes are kept in this browser.`
+                        : `Save to GitHub (${shortcut("S")}). This browser isn’t keeping your changes, so save before closing the tab.`
                     }
+                    aria-keyshortcuts="Meta+S Control+S"
                   >
                     {busy ? "Saving…" : `Save · ${count} change${count === 1 ? "" : "s"}`}
                   </button>

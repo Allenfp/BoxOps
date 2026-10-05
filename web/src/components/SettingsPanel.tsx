@@ -15,6 +15,7 @@ import {
 } from "../prefs";
 import { ZOOM_LEVELS, type ZoomLevel } from "../model/types";
 import { Icon } from "./Icon";
+import { shortcut } from "../a11y/keys";
 
 const ZOOM_NAME: Record<ZoomLevel, string> = {
   weeks: "Weeks",
@@ -263,31 +264,69 @@ export function SettingsPanel({ close, ...props }: SettingsProps & { close(): vo
   );
 }
 
-const SHORTCUTS: [string, string][] = [
-  ["⌘S", "Save"],
-  ["⌘Z", "Undo"],
-  ["⇧⌘Z  or  ⌘Y", "Redo"],
-  ["Delete", "Delete the selected box or PTO"],
-  ["Esc", "Close the editor or menu"],
-  ["Double-click a lane", "Add a box"],
-  ["Double-click a PTO row", "Book time off"],
-  ["Drag a box", "Move it"],
-  ["Drag a box's ends", "Change its dates"],
+/** What the keys and the mouse do, by where; each platform's own modifier key (⌘ on a Mac, Ctrl elsewhere). */
+const shortcuts = (): { title: string; rows: [string, string][] }[] => [
+  {
+    title: "Anywhere",
+    rows: [
+      [shortcut("S"), "Save"],
+      [shortcut("Z"), "Undo (in a text field, undo typing)"],
+      [`${shortcut("Z", true)}  or  ${shortcut("Y")}`, "Redo"],
+      ["Esc", "Close the editor, dialog or menu"],
+    ],
+  },
+  {
+    title: "In an editor",
+    rows: [
+      ["Tab, ⇧Tab", "Next or previous field, round the editor (buttons too)"],
+      ["Delete button", "Delete the box or PTO (undo brings it back)"],
+    ],
+  },
+  {
+    title: "In the table and People",
+    rows: [
+      ["Enter", "Keep what's typed in the cell, staying in it"],
+      ["Esc", "Put the cell back as it was"],
+      ["⇧Enter", "New line in a description or notes"],
+    ],
+  },
+  {
+    title: "In the Engineers list",
+    rows: [
+      ["↑ ↓", "Previous or next engineer"],
+      ["Space", "Tick or untick"],
+      ["Enter or Esc", "Close the list"],
+    ],
+  },
+  {
+    title: "With the mouse",
+    rows: [
+      ["Double-click a lane", "Add a box"],
+      ["Double-click a PTO row", "Book time off"],
+      ["Drag a box", "Move it"],
+      ["Drag a box's ends", "Change its dates"],
+    ],
+  },
 ];
 
 export function ShortcutsContent() {
   return (
-    <table className="shortcuts">
-      <tbody>
-        {SHORTCUTS.map(([keys, what]) => (
-          <tr key={keys}>
-            <td>
-              <kbd>{keys}</kbd>
-            </td>
-            <td>{what}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="shortcuts">
+      {shortcuts().map(({ title, rows }) => (
+        <table key={title}>
+          <caption>{title}</caption>
+          <tbody>
+            {rows.map(([keys, what]) => (
+              <tr key={keys}>
+                <th scope="row">
+                  <kbd>{keys}</kbd>
+                </th>
+                <td>{what}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ))}
+    </div>
   );
 }
