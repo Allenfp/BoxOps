@@ -120,3 +120,31 @@ test("a failed save opens on Try again, with the reason as the dialog's descript
   await expect(dialog.getByRole("button", { name: "Try again" })).toBeFocused();
   await expect(dialog).toHaveAccessibleDescription(/^GitHub’s rules for main blocked this save/);
 });
+
+test("the Engineers list: its button says who's on the box; arrows, Space and Escape work it", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: "Edit Dagster 2.x upgrade" });
+  await editor.getByRole("button", { name: "Engineers: unassigned" }).focus();
+  await page.keyboard.press("Enter");
+  const list = editor.getByRole("dialog", { name: "Engineers" });
+  await expect(list.getByRole("group", { name: "Assigned engineers" })).toBeVisible();
+  await expect(list.getByRole("checkbox", { name: "Alex Kim" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(list.getByRole("checkbox", { name: "Jordan Diaz" })).toBeFocused();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Space");
+  await expect(list.getByRole("checkbox", { name: "Jordan Diaz" })).toBeChecked();
+  await expect(list.getByRole("checkbox", { name: "Alex Kim" })).toBeChecked();
+  await page.keyboard.press("Escape"); // closes the list, not the editor
+  await expect(list).toHaveCount(0);
+  await expect(editor.getByRole("button", { name: "Engineers: Jordan Diaz, Alex Kim" })).toBeFocused();
+  await expect(editor.getByRole("button", { name: "Engineers: Jordan Diaz, Alex Kim" })).toHaveText("Jordan Diaz, Alex Kim");
+
+  // Enter closes it too, from the list, which opens on the first one ticked.
+  await page.keyboard.press("Enter");
+  await expect(list.getByRole("checkbox", { name: "Alex Kim" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(list).toHaveCount(0);
+  await expect(editor.getByRole("button", { name: /^Engineers: / })).toBeFocused();
+});

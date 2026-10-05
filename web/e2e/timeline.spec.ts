@@ -199,7 +199,7 @@ test("FTE sets a box's height; 2 FTE covers the lane below", async ({ page, gith
 test("engineers are picked from the roster, and new ones can be added", async ({ page, github }) => {
   await box(page, DAGSTER).click();
   await page.getByRole("button", { name: "Engineers" }).click();
-  await page.getByRole("option", { name: "Sam Lee" }).click();
+  await page.getByRole("checkbox", { name: "Sam Lee" }).click();
   await page.getByLabel("New engineer name").fill("Robin Park");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByRole("button", { name: "Engineers" })).toHaveText("Sam Lee, Robin Park");
@@ -281,7 +281,7 @@ test("a title sliding along while scrolling never runs into the initials", async
   const warehouse = "bx-a1f0-warehouse-migration";
   await box(page, warehouse).locator(".box-name").click();
   await page.getByRole("button", { name: "Engineers" }).click();
-  await page.getByRole("option", { name: "Sam Lee" }).click();
+  await page.getByRole("checkbox", { name: "Sam Lee" }).click();
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await expect(box(page, warehouse).locator(".avatar")).toHaveText(["SL"]);

@@ -112,7 +112,7 @@ test("an engineer booked on a box during their PTO is a warning", async ({ page,
   await page.getByRole("button", { name: "Timeline" }).click();
   await page.locator(`[data-box-id="${DAGSTER}"]`).click();
   await page.getByRole("button", { name: "Engineers" }).click();
-  await page.getByRole("option", { name: "Alex Kim" }).click();
+  await page.getByRole("checkbox", { name: "Alex Kim" }).click();
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
 

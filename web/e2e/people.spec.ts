@@ -61,7 +61,7 @@ test("removing an engineer unassigns them, and undo brings it all back", async (
   await page.getByRole("button", { name: "Timeline" }).click();
   await page.locator(`[data-box-id="${DAGSTER}"]`).click();
   await page.getByRole("button", { name: "Engineers" }).click();
-  await page.getByRole("option", { name: "Alex Kim" }).click();
+  await page.getByRole("checkbox", { name: "Alex Kim" }).click();
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await save(page);
