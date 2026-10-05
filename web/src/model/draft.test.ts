@@ -198,6 +198,30 @@ describe("clashes", () => {
     expect(h.conflicts).toEqual(["box:b"]);
   });
 
+  it("an edit made while our save ran is ours, not a clash with our own commit", () => {
+    // Saving box a's new title; meanwhile the title is typed on, and box b moved.
+    let h = edit(startHistory(state([box("a"), box("b")])), "a", { title: "A1" });
+    const target = h.present;
+    h = edit(edit(h, "a", { title: "A12" }), "b", { end: 150 });
+    h = reduceHistory(h, { type: "saved", draft: target });
+    h = reduceHistory(h, { type: "rebase", base: state([box("a", { title: "A1" }), box("b")]) });
+    expect(h.conflicts).toEqual([]);
+    expect(h.present.boxes.map((b) => [b.title, b.end])).toEqual([["A12", 110], ["b", 150]]);
+    expect(diffDraft(h.base, h.present).count).toBe(2);
+    expect(h.saved).toBeUndefined();
+  });
+
+  it("an undo made while our save ran stays, and others' changes merged into the save come in", () => {
+    let h = edit(startHistory(state([box("a"), box("b")])), "a", { title: "A1" });
+    const target = h.present;
+    h = reduceHistory(h, { type: "undo" });
+    h = reduceHistory(h, { type: "saved", draft: target });
+    // The save went on top of Sam's change to b.
+    h = reduceHistory(h, { type: "rebase", base: state([box("a", { title: "A1" }), box("b", { status: "done" })]) });
+    expect(h.conflicts).toEqual([]);
+    expect(h.present.boxes.map((b) => [b.title, b.status])).toEqual([["a", "planned"], ["b", "done"]]);
+  });
+
   it("restored clashes count only while the item still differs", () => {
     const base = state([box("a"), box("b")]);
     const draft = state([box("a", { title: "A mine" }), box("b")]);

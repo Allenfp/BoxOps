@@ -753,6 +753,9 @@ function RoadmapView(props: ViewProps) {
       setBusy(false);
       ownSave.current = true;
       setUpdatedIds(new Set());
+      // The roadmap that comes back is rebased from what this save wrote, so an
+      // edit (or undo) made while it ran is ours, not a clash with our own commit.
+      draft.saved(target);
       onSaved(result);
     } catch (e) {
       if (e instanceof NewerSaves) {

@@ -163,8 +163,11 @@ saved version (you took theirs, put it back by hand, discarded, or saved it),
 and the save dialog's Keep mine / Keep theirs settles only the clashes it
 lists: one that came in while it was open is asked about next. Keep theirs is
 an edit like any other (undo brings back yours, and the clash) and leaves the
-item where it was in its list. The clash bookkeeping is a pure reducer over
-the draft and its undo history (`reduceHistory` in `model/draft.ts`).
+item where it was in its list. When one of your own saves comes back, the
+draft is rebased from what that save wrote, so anything edited (or undone)
+while it ran stays an unsaved change of yours, never a clash with your own
+commit. The clash bookkeeping is a pure reducer over the draft and its undo
+history (`reduceHistory` in `model/draft.ts`).
 
 ## Saving
 

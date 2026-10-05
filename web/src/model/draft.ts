@@ -208,6 +208,8 @@ export interface History {
    * a clash is over once the item matches the saved version.
    */
   conflicts: string[];
+  /** What a save of ours just wrote: the roadmap that comes back is rebased from this, not from `base`. */
+  saved?: DraftState;
 }
 
 export type HistoryAction =
@@ -220,7 +222,9 @@ export type HistoryAction =
   /** Ends typing coalescing, e.g. when the editor closes. */
   | { type: "checkpoint" }
   /** The user chose whose version to keep for these clashes, and only these (the ones they were shown). */
-  | { type: "resolve"; keys: string[]; keep: "mine" | "theirs" };
+  | { type: "resolve"; keys: string[]; keep: "mine" | "theirs" }
+  /** Our save went through, writing `draft`. */
+  | { type: "saved"; draft: DraftState };
 
 const UNDO_STEPS = 200;
 
@@ -240,8 +244,10 @@ export function reduceHistory(h: History, a: HistoryAction): History {
   switch (a.type) {
     case "rebase": {
       if (a.base === h.base) return h;
-      // Undo history refers to the old roadmap, so it starts fresh.
-      const r = rebaseDraft(h.base, h.present, a.base);
+      // Undo history refers to the old roadmap, so it starts fresh. After our
+      // own save, the old version is what it wrote: an edit made while it ran
+      // is ours, not a clash with our own commit, and an undo made then stays.
+      const r = rebaseDraft(h.saved ?? h.base, h.present, a.base);
       return { base: a.base, past: [], present: r.draft, future: [], conflicts: liveConflicts([...h.conflicts, ...r.conflicts], a.base, r.draft) };
     }
     case "edit": {
@@ -290,6 +296,8 @@ export function reduceHistory(h: History, a: HistoryAction): History {
       const steps = (s: Step[]) => s.map((x) => ({ ...x, conflicts: settle(x.conflicts) }));
       return { ...h, past: steps(h.past), future: steps(h.future), conflicts: settle(h.conflicts) };
     }
+    case "saved":
+      return { ...h, saved: a.draft };
   }
 }
 
@@ -567,6 +575,8 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
   const discard = useCallback(() => apply(() => base), [apply, base]);
   /** Settle these clashes (the ones the user was shown): keep our version, or take the latest saved one. */
   const resolve = useCallback((keys: string[], keep: "mine" | "theirs") => dispatch({ type: "resolve", keys, keep }), [dispatch]);
+  /** Our save wrote `draft`: the roadmap it comes back with is rebased from that, so edits made meanwhile are ours. */
+  const saved = useCallback((draft: DraftState) => dispatch({ type: "saved", draft }), [dispatch]);
   /** Ends typing coalescing, e.g. when the editor closes. */
   const checkpoint = useCallback(() => dispatch({ type: "checkpoint" }), [dispatch]);
 
@@ -605,6 +615,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     redo,
     discard,
     resolve,
+    saved,
     checkpoint,
   };
 }
