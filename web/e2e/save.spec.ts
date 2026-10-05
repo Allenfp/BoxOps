@@ -284,6 +284,30 @@ test("someone else's save to another engineer in people.yaml, racing ours: no qu
   expect(people).toContain("    name: Priya Shah\n    role: Analyst\n");
 });
 
+test("a commit GitHub doesn't sign, or can't say it signed, is saved all the same, and nothing claims a signature", async ({ page, github }) => {
+  // Where GitHub doesn't sign (GitHub Enterprise Server without signing set up, say), the answer's signature is null.
+  github.signCommits = false;
+  await dragDays(page, DAGSTER, 10);
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  const banner = page.locator(".banner.success");
+  await expect(banner).toContainText(`Saved to main as commit ${github.head.slice(0, 7)}.`);
+  const first = github.head;
+  expect(github.headCommit()).toMatchObject({ parent: github.root, signed: false });
+
+  // GitHub makes the commit, then fails to load its signature, so the commit comes back null: the head says it's saved.
+  github.inject("graphql", "field-error");
+  await dragDays(page, DAGSTER, 5);
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(banner).toContainText(`Saved to main as commit ${github.head.slice(0, 7)}.`);
+  await expect(page.locator(".save-dialog[open]")).toHaveCount(0);
+  expect(github.headCommit()).toMatchObject({ parent: first, signed: false });
+  expect(github.calls("graphql")).toBe(2); // checked, not written twice
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-10-05\n");
+  await expect(banner).not.toContainText(/sign|verif/i);
+});
+
 test("a head GitHub still names from before this tab's last save stops the save, rolling nothing back", async ({ page, github }) => {
   await dragDays(page, DAGSTER, 10);
   await save(page);
