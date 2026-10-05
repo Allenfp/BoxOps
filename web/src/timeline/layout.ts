@@ -43,7 +43,7 @@ export interface DepartmentLayout {
   overCapacity: boolean;
 }
 
-const slotsOf = (fte: number) => Math.max(1, Math.round(fte * 2));
+export const slotsOf = (fte: number) => Math.max(1, Math.round(fte * 2));
 
 type Span = Pick<Box, "start" | "end" | "fte">;
 

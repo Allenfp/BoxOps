@@ -1,10 +1,12 @@
 // Drag to reorder a vertical list of rows (departments on the timeline and in
 // the table). Press on a row's handle and move a few pixels to start; a line
 // shows where it will land; release to drop. A press that doesn't move stays
-// an ordinary click. Rows are found by `data-reorder-id`, in document order,
+// an ordinary click; Escape, or losing the pointer, cancels the drag
+// (followPointer.ts). Rows are found by `data-reorder-id`, in document order,
 // inside the container.
 
 import { type PointerEvent as ReactPointerEvent, type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { followPointer } from "./followPointer";
 
 const THRESHOLD = 4;
 /** Distance (px) from the scroller's top or bottom edge that scrolls it. */
@@ -58,7 +60,7 @@ export function useReorder(
 
   const start = useCallback(
     (e: ReactPointerEvent, id: string) => {
-      if (opts.disabled || e.button !== 0) return;
+      if (opts.disabled || e.button !== 0 || cleanup.current) return;
       press.current = { id, x: e.clientX, y: e.clientY, active: false, target: null };
       let lastY = e.clientY;
       let frame = 0;
@@ -76,55 +78,42 @@ export function useReorder(
         frame = requestAnimationFrame(autoScroll);
       };
 
-      const move = (ev: PointerEvent) => {
-        const p = press.current;
-        if (!p) return;
-        lastY = ev.clientY;
-        if (!p.active) {
-          if (Math.hypot(ev.clientX - p.x, ev.clientY - p.y) < THRESHOLD) return;
-          p.active = true;
-          setDraggingId(p.id);
-          document.body.classList.add("reordering");
-        }
-        ev.preventDefault();
-        window.getSelection()?.removeAllRanges(); // the press may have started selecting text
-        track(ev.clientY);
-        if (!frame) frame = requestAnimationFrame(autoScroll);
-      };
-      const end = (ev: PointerEvent | KeyboardEvent) => {
-        const p = press.current;
-        const cancelled = ev.type === "keydown";
-        if (ev.type === "keydown" && (ev as KeyboardEvent).key !== "Escape") return;
-        if (cancelled && p?.active) ev.stopPropagation(); // Esc cancels the drag, nothing else
-        stop();
-        if (!p?.active) return;
-        // The release would also click whatever is under it (e.g. collapse the department): swallow that.
-        const swallow = (c: Event) => {
-          c.stopPropagation();
-          c.preventDefault();
-        };
-        window.addEventListener("click", swallow, { capture: true, once: true });
-        setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
-        if (!cancelled && p.target !== null) onMoveRef.current(p.id, p.target);
-      };
-      const stop = () => {
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", end);
-        document.removeEventListener("pointercancel", stop);
-        document.removeEventListener("keydown", end, true);
-        document.body.classList.remove("reordering");
-        if (frame) cancelAnimationFrame(frame);
-        press.current = null;
-        cleanup.current = null;
-        setDraggingId(null);
-        setLine(null);
-      };
-      cleanup.current?.();
-      cleanup.current = stop;
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", end);
-      document.addEventListener("pointercancel", stop);
-      document.addEventListener("keydown", end, true);
+      cleanup.current = followPointer(e, opts.scroller?.current ?? null, {
+        move: (ev) => {
+          const p = press.current;
+          if (!p) return false;
+          lastY = ev.clientY;
+          if (!p.active) {
+            if (Math.hypot(ev.clientX - p.x, ev.clientY - p.y) < THRESHOLD) return false;
+            p.active = true;
+            setDraggingId(p.id);
+            document.body.classList.add("reordering");
+          }
+          ev.preventDefault();
+          window.getSelection()?.removeAllRanges(); // the press may have started selecting text
+          track(ev.clientY);
+          if (!frame) frame = requestAnimationFrame(autoScroll);
+          return true;
+        },
+        end: (released) => {
+          const p = press.current;
+          document.body.classList.remove("reordering");
+          if (frame) cancelAnimationFrame(frame);
+          press.current = null;
+          cleanup.current = null;
+          setDraggingId(null);
+          setLine(null);
+          if (!p?.active) return;
+          // The release would also click whatever is under it (e.g. collapse the department): swallow that.
+          const swallow = (c: Event) => {
+            c.stopPropagation();
+            c.preventDefault();
+          };
+          window.addEventListener("click", swallow, { capture: true, once: true });
+          setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
+          if (released && p.target !== null) onMoveRef.current(p.id, p.target);
+        },
+      });
     },
     // track and opts.scroller only reach the DOM through refs, so an older render's copies
     // behave the same, and start stays the same function between renders.

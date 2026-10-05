@@ -30,14 +30,15 @@ import {
   workdays,
 } from "../model/dates";
 import type { Box, Department, Lane, Roadmap, TimeOff, ZoomLevel } from "../model/types";
-import { type DepartmentLayout, type Placed, laneAtSlot, layoutDepartment } from "../timeline/layout";
+import { type Placed, laneAtSlot, layoutDepartment, slotsOf } from "../timeline/layout";
 import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
-import { type DragMode, dragDays, movedDates } from "../timeline/drag";
+import { type DragMode, dragDays, dropLane, movedDates, previewSlot } from "../timeline/drag";
 import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
 import { UseChart } from "./UseChart";
 import { useReorder } from "./useReorder";
 import { focusLater } from "../a11y/focus";
+import { followPointer } from "./followPointer";
 
 const LABEL_W = 240;
 /** Height of half an FTE; a 1-FTE lane is two of these. */
@@ -140,9 +141,10 @@ export function Timeline(props: Props) {
     [departments],
   );
 
-  // While a box is dragged it is left out of the layout, so nothing jumps around under the pointer.
+  // Where a box being dragged would go. The layout stays as it was until it's dropped, so
+  // nothing moves under the pointer (nor does its department change height); the box is
+  // drawn where it's going.
   const [preview, setPreview] = useState<(BoxPlacement & { id: string }) | null>(null);
-  const draggingId = preview?.id ?? null;
 
   const laneDept = useMemo(
     () => new Map(departments.flatMap((d) => d.lanes.map((l) => [l.id, d.id] as const))),
@@ -151,15 +153,18 @@ export function Timeline(props: Props) {
   const layouts = useMemo(() => {
     const byDept = new Map<string, Box[]>(departments.map((d) => [d.id, []]));
     for (const b of boxes) {
-      if (b.id !== draggingId) byDept.get(laneDept.get(b.lane) ?? "")?.push(b);
+      byDept.get(laneDept.get(b.lane) ?? "")?.push(b);
     }
     return new Map(departments.map((d) => [d.id, layoutDepartment(d, byDept.get(d.id) ?? [])]));
-  }, [boxes, departments, draggingId, laneDept]);
+  }, [boxes, departments, laneDept]);
   // Over capacity, in the same terms as the app's warnings: finished boxes count too.
   const overloads = useMemo(
     () => new Map(departments.map((d) => [d.id, overCapacity(d, props.allBoxes ?? boxes)])),
     [departments, props.allBoxes, boxes],
   );
+
+  const latest = useRef({ props, scale, layouts });
+  latest.current = { props, scale, layouts };
 
   // Keep the same date centred when zooming; start with today a third of the way in.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -193,69 +198,64 @@ export function Timeline(props: Props) {
     if (el) centerDay.current = scale.dayAt(el.scrollLeft + trackWidth() / 2);
   };
 
-  /** The lane under a point, from a department track's layout. */
-  const laneAt = (clientX: number, clientY: number, layoutsNow: Map<string, DepartmentLayout>) => {
+  /** The department under a point, and how many slots down its lanes the point is. */
+  const slotAt = (clientX: number, clientY: number) => {
     const track = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-dept-track]");
-    if (!track) return undefined;
-    const layout = layoutsNow.get(track.dataset.deptTrack!);
-    if (!layout) return undefined;
-    return laneAtSlot(layout, Math.floor((clientY - track.getBoundingClientRect().top) / SLOT_H));
+    const layout = track && latest.current.layouts.get(track.dataset.deptTrack!);
+    return layout ? { layout, slot: Math.floor((clientY - track.getBoundingClientRect().top) / SLOT_H) } : undefined;
   };
 
   // ---- Dragging -------------------------------------------------------------
-  // Listeners go on window, not pointer capture: a box dragged to another lane
-  // re-mounts elsewhere, which would drop the capture. Everything moves in
-  // working days; a box keeps its number of working days when moved.
+  // Only the pointer that pressed moves a box, and the drag ends however that
+  // pointer goes (followPointer.ts). Everything moves in working days; a box
+  // keeps its number of working days when moved.
 
-  const latest = useRef({ props, scale, layouts });
-  latest.current = { props, scale, layouts };
+  /** Cancels the drag under way, if any: one at a time, and none left behind when the timeline goes. */
+  const endDrag = useRef<(() => void) | null>(null);
+  useEffect(() => () => endDrag.current?.(), []);
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>, box: Box) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || endDrag.current) return;
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
     const y0 = e.clientY;
     let moved = false;
     let placement: BoxPlacement = { lane: box.lane, start: box.start, end: box.end };
+    // Which of its half-FTE slots it was held by: it's the box's top that lands in a lane.
+    const need = slotsOf(box.fte);
+    const held = Math.floor((y0 - e.currentTarget.getBoundingClientRect().top + BOX_PAD) / SLOT_H);
+    const grab = { need, own: box.lane, slot: Math.min(need - 1, Math.max(0, held)) };
 
-    const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - x0;
-      if (!moved && Math.hypot(dx, ev.clientY - y0) < DRAG_THRESHOLD) return;
-      if (!moved) {
-        moved = true;
-        document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
-      }
-      const { props: p, scale: s, layouts: l } = latest.current;
-      const dates = movedDates(box, mode, dragDays(dx, s.pxPerDay, p.zoom));
-      placement = { lane: mode === "move" ? (laneAt(ev.clientX, ev.clientY, l) ?? placement.lane) : box.lane, ...dates };
-      setPreview({ id: box.id, ...placement });
-    };
-
-    const finish = (commit: boolean) => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onCancel);
-      window.removeEventListener("keydown", onKey);
-      document.body.classList.remove("dragging-move", "dragging-resize");
-      setPreview(null);
-      if (!commit) return;
-      if (!moved) {
-        latest.current.props.onSelect(box.id);
-        return;
-      }
-      const changed = placement.lane !== box.lane || placement.start !== box.start || placement.end !== box.end;
-      if (changed) latest.current.props.onPlaceBox(box.id, placement);
-    };
-    const onUp = () => finish(true);
-    const onCancel = () => finish(false);
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") finish(false);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onCancel);
-    window.addEventListener("keydown", onKey);
+    endDrag.current = followPointer(e, scrollRef.current, {
+      move: (ev) => {
+        const dx = ev.clientX - x0;
+        if (!moved && Math.hypot(dx, ev.clientY - y0) < DRAG_THRESHOLD) return false;
+        if (!moved) {
+          moved = true;
+          document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
+        }
+        const { props: p, scale: s } = latest.current;
+        const dates = movedDates(box, mode, dragDays(dx, s.pxPerDay, p.zoom));
+        const under = mode === "move" ? slotAt(ev.clientX, ev.clientY) : undefined;
+        const lane = under && dropLane(under.layout, { slot: under.slot, dy: ev.clientY - y0 }, grab, SLOT_H);
+        placement = { lane: mode === "move" ? (lane ?? placement.lane) : box.lane, ...dates };
+        setPreview({ id: box.id, ...placement });
+        return true;
+      },
+      end: (released) => {
+        endDrag.current = null;
+        document.body.classList.remove("dragging-move", "dragging-resize");
+        setPreview(null);
+        if (!released) return;
+        if (!moved) {
+          latest.current.props.onSelect(box.id);
+          return;
+        }
+        const changed = placement.lane !== box.lane || placement.start !== box.start || placement.end !== box.end;
+        if (changed) latest.current.props.onPlaceBox(box.id, placement);
+      },
+    });
   };
 
   /** Double-click empty space in a lane: a new box there, sized to the zoom level. */
@@ -272,45 +272,36 @@ export function Timeline(props: Props) {
   const [ptoPreview, setPtoPreview] = useState<{ key: string; start: Day; end: Day } | null>(null);
 
   const startPtoDrag = (e: ReactPointerEvent<HTMLDivElement>, ref: PtoRef, pto: TimeOff) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || endDrag.current) return;
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
     let moved = false;
     let dates = { start: pto.start, end: pto.end };
 
-    const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - x0;
-      if (!moved && Math.abs(dx) < DRAG_THRESHOLD) return;
-      if (!moved) {
-        moved = true;
-        document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
-      }
-      const { props: p, scale: s } = latest.current;
-      dates = movedDates(pto, mode, dragDays(dx, s.pxPerDay, p.zoom));
-      setPtoPreview({ key: ptoKey(ref), ...dates });
-    };
-    const finish = (commit: boolean) => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onCancel);
-      window.removeEventListener("keydown", onKey);
-      document.body.classList.remove("dragging-move", "dragging-resize");
-      setPtoPreview(null);
-      if (!commit) return;
-      const p = latest.current.props;
-      if (!moved) p.onSelectPto?.(ref);
-      else if (dates.start !== pto.start || dates.end !== pto.end) p.onPlacePto?.(ref, dates);
-    };
-    const onUp = () => finish(true);
-    const onCancel = () => finish(false);
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") finish(false);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onCancel);
-    window.addEventListener("keydown", onKey);
+    endDrag.current = followPointer(e, scrollRef.current, {
+      move: (ev) => {
+        const dx = ev.clientX - x0;
+        if (!moved && Math.abs(dx) < DRAG_THRESHOLD) return false;
+        if (!moved) {
+          moved = true;
+          document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
+        }
+        const { props: p, scale: s } = latest.current;
+        dates = movedDates(pto, mode, dragDays(dx, s.pxPerDay, p.zoom));
+        setPtoPreview({ key: ptoKey(ref), ...dates });
+        return true;
+      },
+      end: (released) => {
+        endDrag.current = null;
+        document.body.classList.remove("dragging-move", "dragging-resize");
+        setPtoPreview(null);
+        if (!released) return;
+        const p = latest.current.props;
+        if (!moved) p.onSelectPto?.(ref);
+        else if (dates.start !== pto.start || dates.end !== pto.end) p.onPlacePto?.(ref, dates);
+      },
+    });
   };
 
   /** Double-click empty space in a PTO row: a week off, starting that day. */
@@ -437,6 +428,7 @@ export function Timeline(props: Props) {
   };
 
   const dragged = preview ? boxes.find((b) => b.id === preview.id) : undefined;
+  const moving = preview && dragged ? { ...dragged, ...preview } : null;
   const boxTop = (slot: number) => slot * SLOT_H + BOX_PAD;
   const boxHeight = (slots: number) => slots * SLOT_H - BOX_PAD * 2;
 
@@ -483,15 +475,19 @@ export function Timeline(props: Props) {
             const over = layout.overCapacity && stretches.length > 0;
             const ahead = stretches.filter((x) => x.to >= now);
             const extra = layout.height > layout.capacity;
-            const deptBoxes = boxes.filter((b) => b.id !== draggingId && laneDept.get(b.lane) === dept.id);
-            const previewHere = preview && dragged && laneDept.get(preview.lane) === dept.id ? preview : null;
+            const deptBoxes = boxes.filter((b) => laneDept.get(b.lane) === dept.id);
             // Each box goes in the row of the lane it's drawn in (its own, or wherever the layout found room), in time order.
+            // One being dragged stays there while it's only moved in time; dragged to another lane, it's in that lane's row.
             const byRow = new Map<string, { box: Box; at: Placed }[]>();
+            const add = (row: string, box: Box, at: Placed) => byRow.set(row, [...(byRow.get(row) ?? []), { box, at }]);
             for (const b of deptBoxes) {
               const at = layout.boxes.get(b.id);
-              if (!at) continue;
-              const row = at.overflow ? OVERFLOW : (laneAtSlot(layout, at.slot) ?? OVERFLOW);
-              byRow.set(row, [...(byRow.get(row) ?? []), { box: b, at }]);
+              if (!at || (moving?.id === b.id && moving.lane !== b.lane)) continue;
+              add(at.overflow ? OVERFLOW : (laneAtSlot(layout, at.slot) ?? OVERFLOW), b, at);
+            }
+            if (moving && moving.lane !== dragged!.lane && laneDept.get(moving.lane) === dept.id) {
+              const need = slotsOf(moving.fte);
+              add(moving.lane, dragged!, { slot: previewSlot(layout, moving.lane, need), slots: need, overflow: false });
             }
             for (const list of byRow.values()) list.sort((a, b) => a.box.start - b.box.start || a.at.slot - b.at.slot);
             return (
@@ -540,7 +536,7 @@ export function Timeline(props: Props) {
                       return (
                         <div
                           key={rowId}
-                          className={`lane-row${lane ? "" : " overflow-row"}${previewHere?.lane === rowId ? " drop-target" : ""}`}
+                          className={`lane-row${lane ? "" : " overflow-row"}${moving?.lane === rowId ? " drop-target" : ""}`}
                           style={{ height: l.slots * SLOT_H }}
                         >
                           {lane ? (
@@ -599,32 +595,20 @@ export function Timeline(props: Props) {
                                 </>
                               );
                             })()}
+                            {rowBoxes.map(({ box: b, at }) => {
+                              const style = { top: boxTop(at.slot - l.slot), height: boxHeight(at.slots) };
+                              // The same element dragged or not: moved in time, it keeps focus.
+                              return b.id === moving?.id
+                                ? boxEl(moving, { ...span(moving.start, moving.end), ...style }, "dragging", at.slots)
+                                : boxEl(b, { ...span(b.start, b.end), ...style }, "full", at.slots, over && at.slot >= layout.capacity && ahead.length > 0 && b.end >= now);
+                            })}
                             {rowBoxes.map(({ box: b, at }) =>
-                              boxEl(
-                                b,
-                                { ...span(b.start, b.end), top: boxTop(at.slot - l.slot), height: boxHeight(at.slots) },
-                                "full",
-                                at.slots,
-                                over && at.slot >= layout.capacity && ahead.length > 0 && b.end >= now,
-                              ),
-                            )}
-                            {previewHere?.lane === rowId && dragged && (
-                              <>
-                                {boxEl(
-                                  { ...dragged, ...previewHere },
-                                  {
-                                    ...span(previewHere.start, previewHere.end),
-                                    top: BOX_PAD,
-                                    height: boxHeight(Math.max(1, Math.round(dragged.fte * 2))),
-                                  },
-                                  "dragging",
-                                  Math.max(1, Math.round(dragged.fte * 2)),
-                                )}
-                                <div className="drag-dates" style={{ left: scale.x(previewHere.start), top: BOX_PAD - 21 }}>
-                                  {prettyDay(previewHere.start)} – {prettyDay(previewHere.end)} ·{" "}
-                                  {workdays(previewHere.start, previewHere.end)} working day{workdays(previewHere.start, previewHere.end) === 1 ? "" : "s"}
+                              b.id === moving?.id ? (
+                                <div key="drag-dates" className="drag-dates" style={{ left: scale.x(moving.start), top: boxTop(at.slot - l.slot) - 21 }}>
+                                  {prettyDay(moving.start)} – {prettyDay(moving.end)} · {workdays(moving.start, moving.end)} working day
+                                  {workdays(moving.start, moving.end) === 1 ? "" : "s"}
                                 </div>
-                              </>
+                              ) : null,
                             )}
                           </div>
                         </div>
