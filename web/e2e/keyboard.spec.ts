@@ -311,6 +311,22 @@ test("a banner that goes while focus is elsewhere leaves focus alone", async ({ 
   await expect(page.getByRole("main")).not.toBeFocused();
 });
 
+test("a save that didn't go through doesn't leave its cell to send focus to after a later one", async ({ page, github }) => {
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await page.locator('input[aria-label="Title"][value="Dagster 2.x upgrade"]').fill("Dagster 2.x upgrade (phase 1)");
+  github.inject("graphql", "rules");
+  await page.keyboard.press("ControlOrMeta+s"); // from the cell
+  const dialog = page.getByRole("dialog", { name: "GitHub’s rules blocked this save" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  // Save clicked as WebKit clicks: focus stays on the page.
+  await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+  await page.locator("[data-save-button]").dispatchEvent("click");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(page.locator(".banner.success [data-saved]")).toBeFocused();
+});
+
 test("a department picked from the warnings gets focus", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
   await page.getByRole("dialog", { name: /warning/ }).getByRole("button", { name: /^Data Engineering: / }).click();

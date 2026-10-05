@@ -914,7 +914,10 @@ function RoadmapView(props: ViewProps) {
         focusBeforeSave.current = document.activeElement;
         (document.activeElement as HTMLElement).blur();
         setTimeout(() => saveRef.current(), 0);
-      } else saveRef.current();
+      } else {
+        focusBeforeSave.current = null; // not a cell from a save that didn't go through
+        saveRef.current();
+      }
       return;
     }
     if (preview || isTyping(e.target) || busy || behind) return;
@@ -1226,8 +1229,8 @@ function RoadmapView(props: ViewProps) {
 
   // While saving, fields are disabled, and once it's saved the Save button
   // gives way to "No changes": focus went to the page. Once the saved roadmap
-  // is on screen it goes back where it was (a cell ⌘S was pressed in), else to
-  // the saved banner.
+  // is on screen it goes back where it was (a cell ⌘S was pressed in, kept
+  // through the dialogs a save may need on the way), else to the saved banner.
   const focusBeforeSave = useRef<Element | null>(null);
   const [saved, setSaved] = useState(0);
   useEffect(() => {
@@ -1476,7 +1479,11 @@ function RoadmapView(props: ViewProps) {
                   <button
                     className="primary"
                     data-save-button
-                    onClick={() => !busy && save()}
+                    onClick={() => {
+                      if (busy) return;
+                      focusBeforeSave.current = null; // not a cell from a save that didn't go through
+                      void save();
+                    }}
                     // Not disabled while saving: a disabled button loses focus, to the page.
                     aria-disabled={busy || undefined}
                     title={
