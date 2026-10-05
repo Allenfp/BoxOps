@@ -38,15 +38,18 @@ straight to `main`, and the site updates within a minute.
   owner (the organization, not your own account), that *Repository access* is
   *Only select repositories* with this repo, and that *Contents* is *Read and
   write*. If the organization approves tokens, it works once an owner has
-  approved it; if it caps token lifetimes, pick an expiration within the
-  cap. A classic token with the `repo` scope works too (an outside
-  collaborator needs one) but can write to all your repos, so fine-grained is
-  recommended. The token is kept for the tab's session and sent only to
-  GitHub; if a save fails, the dialog says why and what to change. If someone
-  else saved while you were editing, you see their changes before anything is
-  written, and choose whose version to keep for anything you both changed.
-  Open tabs pick up other people's saves every couple of minutes, and ask you
-  to reload when BoxOps itself is updated.
+  approved it; if it caps token lifetimes, pick an expiration within the cap.
+  A classic token with the `repo` scope works too (an outside collaborator
+  needs one) but can write to all your repos, so fine-grained is recommended.
+  The token is kept for the tab's session and sent only to GitHub; if a save
+  fails, the dialog says why and what to change. A save is one commit,
+  authored by your GitHub account (with the email your email-privacy setting
+  gives it) and committed by GitHub: a ruleset that restricts author or
+  committer emails, or commit messages, by pattern must allow these, or it
+  rejects every save. If someone else saved while you were editing, you see
+  their changes before anything is written, and choose whose version to keep
+  for anything you both changed. Open tabs pick up other people's saves every
+  couple of minutes, and ask you to reload when BoxOps itself is updated.
 - **Settings (gear menu).** Your own preferences: theme (light, dark or
   match the system), density, what boxes show (codes, flags, initials,
   scale), the zoom and view to open with, PTO rows on or off, and hiding

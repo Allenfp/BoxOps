@@ -301,41 +301,45 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    only the edited lines change and comments survive: only fields that differ
    from what was loaded are touched, list entries (lanes, people, PTO, rules,
    and plain values like tags and engineers) are matched up one by one, and a
-   file keeps its BOM and line endings. Each
-   department and box goes to the file it was loaded from. The save is one
-   GraphQL `createCommitOnBranch` call (`github/save.ts`): GitHub makes the
-   commit and moves `main` in one step, only if `main` is still at the head
-   the save was checked against. The commit is authored by the token's owner
-   and committed by GitHub, which signs it "if supported", in GitHub's words;
-   whether that satisfies a *Require signed commits* rule with a fine-grained
-   token is still to be checked live. Only files whose blob SHA differs from
-   the head's are sent, and an empty change never is. CI skip markers such as
-   `[skip ci]` in titles are neutralised, so every save deploys. If someone
-   saved in between, GitHub refuses (`STALE_DATA`): the app re-reads only what
-   changed, checks clashes and validates again, then retries on top of their
-   commit, at most twice. A same-file clash at that point shows the keep-mine
-   / keep-theirs choice; a re-read that fails (too many changes, the folder's
-   problems, a rate limit) stops the save with its own reason. After a
-   failure that leaves unclear whether the
-   commit was made (a timeout, a dropped connection, a 5xx, an error in a
-   field of the commit GitHub sends back), the app reads the head again: if
-   every changed file there is ours, the save landed and is reported as
-   saved; otherwise retrying is safe, since each attempt names the head it
-   goes on. Every call has a timeout that also covers reading the answer
-   (15 s for reads, 30 s for the save). There's no permission check first:
-   GitHub's refusals are sorted into kinds (`github/api.ts`, for REST and
-   GraphQL alike: what the error says first, a spent hourly allowance last)
-   and worded in `github/messages.ts`; the save dialog is titled for the kind
-   and says what to do (the token's resource owner, repository and approval;
-   Contents: Read and write, or any Contents access when even reading is
-   refused; whether the account may write at all; single sign-on, with
-   GitHub's authorize link; an organization's token policy; an IP allow
-   list; when a rate limit lifts, and whether it's the token's or, without
-   one, the network's; being offline; a ruleset, whose bypass list takes
-   teams, roles and apps, never people). Failures a different
-   token fixes offer one; GitHub's own answer and request id are under
-   Details. While a save runs, the toolbar says which step it's on, with the
-   seconds once it's slow (a screen reader hears each step, not the seconds).
+   file keeps its BOM and line endings. Each department and box goes to the
+   file it was loaded from. The save is one GraphQL `createCommitOnBranch`
+   call (`github/save.ts`): GitHub makes the commit and moves `main` in one
+   step, only if `main` is still at the head the save was checked against. The
+   commit is authored by the token's owner and committed by GitHub, which
+   signs it "if supported", in GitHub's words; whether that satisfies a
+   *Require signed commits* rule with a fine-grained token is still to be
+   checked live. The app can't choose either name: the committer is GitHub,
+   and the author's email follows the user's email-privacy setting (their
+   `noreply` address when it's private). A ruleset that restricts author or
+   committer emails, or the commit message, by pattern rejects saves unless it
+   allows these. Only files whose blob SHA differs from the head's are sent,
+   and an empty change never is. CI skip markers such as `[skip ci]` in titles
+   are neutralised, so every save deploys. If someone saved in between, GitHub
+   refuses (`STALE_DATA`): the app re-reads only what changed, checks clashes
+   and validates again, then retries on top of their commit, at most twice. A
+   same-file clash at that point shows the keep-mine / keep-theirs choice; a
+   re-read that fails (too many changes, the folder's problems, a rate limit)
+   stops the save with its own reason. After a failure that leaves unclear
+   whether the commit was made (a timeout, a dropped connection, a 5xx, an
+   error in a field of the commit GitHub sends back), the app reads the head
+   again: if every changed file there is ours, the save landed and is reported
+   as saved; otherwise retrying is safe, since each attempt names the head it
+   goes on. Every call has a timeout that also covers reading the answer (15 s
+   for reads, 20 s for a file's contents, 30 s for the save). There's no
+   permission check first: GitHub's refusals are sorted into kinds
+   (`github/api.ts`, for REST and GraphQL alike: what the error says first, a
+   spent hourly allowance last) and worded in `github/messages.ts`; the save
+   dialog is titled for the kind and says what to do (the token's resource
+   owner, repository and approval; Contents: Read and write, or any Contents
+   access when even reading is refused; whether the account may write at all;
+   single sign-on, with GitHub's authorize link; an organization's token
+   policy; an IP allow list; when a rate limit lifts, and whether it's the
+   token's or, without one, the network's; being offline; a ruleset, whose
+   bypass list takes teams, roles and apps, never people). Failures a
+   different token fixes offer one; GitHub's own answer and request id are
+   under Details. While a save runs, the toolbar says which step it's on, with
+   the seconds once it's slow (a screen reader hears each step, not the
+   seconds).
 5. **Deploy.** The push triggers the Pages workflow; the site usually updates
    within a minute (deploys queue, so longer if one is already running). The
    saved banner says so: "The site picks it up in about a minute."
