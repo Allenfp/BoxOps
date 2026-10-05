@@ -10,6 +10,7 @@ import {
   openDraft,
   SETTINGS_KEY,
   rebaseDraft,
+  recountOffers,
   reduceHistory,
   restoreDelta,
   restoreRecord,
@@ -443,6 +444,21 @@ describe("stored drafts", () => {
       ]);
     });
 
+    it("counts an offer again against a newer roadmap: what's been saved since isn't a change, and all of it isn't offered", () => {
+      const base = loaded();
+      const stores = { local: memory(), session: memory() };
+      const two = { ...base, boxes: [box("a", { end: 300 }), box("b", { end: 400 }), box("c")] };
+      stores.local.setItem(at("bbbb0002"), JSON.stringify(recordOf(base, two)));
+      const { offers } = openDraft(base, SCOPE, stores);
+      expect(offers.map((x) => x.count)).toEqual([2]);
+      // Someone saved one of the two changes, then the other.
+      const one = { ...base, boxes: [box("a", { end: 300 }), box("b"), box("c")] };
+      expect(recountOffers(offers, one).map((x) => [x.key, x.count])).toEqual([[at("bbbb0002"), 1]]);
+      expect(recountOffers(offers, two)).toEqual([]);
+      // Download-only offers are left as they are.
+      const other = { key: at("cccc0003"), value: {}, restorable: false, unreadable: false, count: 0, savedAt: "" };
+      expect(recountOffers([other], two)).toEqual([other]);
+    });
   });
 });
 

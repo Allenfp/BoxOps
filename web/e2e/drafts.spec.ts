@@ -79,6 +79,20 @@ test("a draft left by a tab that's no longer open is offered to restore, never t
   await expect(offer).toHaveCount(0);
 });
 
+test("a draft on offer is counted again when others' saves come in: what they saved isn't offered", async ({ page, github }) => {
+  await dragDays(page, CDC, 5);
+  const later = await leaveDraft(page, github);
+  const offer = later.locator(".banner", { hasText: "Restore unsaved changes from another tab?" });
+  await expect(offer).toContainText("2 changes");
+  // Someone saves the same new dates for Dagster.
+  github.deploy(github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("start: 2026-09-14\nend: 2026-10-23", "start: 2026-09-28\nend: 2026-11-06") }));
+  await pollNow(later);
+  await expect.poll(() => boxDates(later, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+  await expect(offer).toContainText("1 change,");
+  await offer.getByRole("button", { name: "Restore" }).click();
+  await expect(toolbar(later)).toContainText("Save · 1 change");
+});
+
 test("unsaved edits that can't be read are said to be unreadable, to download or discard", async ({ page, github: _ }) => {
   await page.evaluate(() => localStorage.setItem("boxops-draft:acme/roadmap@main:0000abcd", "{ not JSON"));
   await page.reload();

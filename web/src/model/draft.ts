@@ -644,6 +644,20 @@ function offersFor(left: FoundDraft[], base: DraftState, local: Store): DraftOff
   });
 }
 
+/**
+ * Offers to restore counted again against `base`, a newer roadmap (a poll, a
+ * save): what restoring each would change now. One with nothing left to
+ * restore (all of it saved since) isn't offered. Download-only offers stay
+ * as they are.
+ */
+export function recountOffers(offers: DraftOffer[], base: DraftState): DraftOffer[] {
+  return offers.flatMap((offer) => {
+    if (!offer.restorable) return [offer];
+    const now = offerOf({ key: offer.key, value: offer.value, record: asRecord(offer.value) }, base);
+    return now.restorable && !now.count ? [] : [now];
+  });
+}
+
 /** What to store for a draft: its changed items, with what they were changed from; null when there's nothing to keep. */
 function recordOf(
   { base, present, conflicts, changes, commit }: { base: DraftState; present: DraftState; conflicts: string[]; changes: Changes; commit: string },
@@ -735,6 +749,8 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
   useEffect(() => {
     latest.current = { base, offers };
   }, [base, offers]);
+  // A newer roadmap (a poll, a save): each offer says what restoring it would change now.
+  const offered = useMemo(() => recountOffers(offers, base), [offers, base]);
   // While the tab is open its draft is marked alive (a heartbeat); once it
   // closes (or goes into the back/forward cache), closed. Another tab's
   // draft coming or going updates the notice, and one on offer that its tab
@@ -1051,7 +1067,8 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     /** Write any change still waiting now (before saving). */
     flush: useCallback(() => writer.flush(), [writer]),
     others,
-    offers,
+    /** Drafts on offer, as restoring each would change the roadmap now. */
+    offers: offered,
     restoreOffer,
     discardOffer,
   };

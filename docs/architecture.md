@@ -243,8 +243,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
   for 5 minutes: browsers slow down hidden tabs' timers) are offered, newest
   first: "Restore unsaved changes from another tab?" with Restore (its items
   over this tab's, one undo step; the one left behind is removed once this
-  tab's draft, with them in, is written) or Discard. Never taken silently. One
-  whose changes have all been saved since is just removed. A tab that was
+  tab's draft, with them in, is written) or Discard. Never taken silently. The count of changes follows others' saves as
+  they come in; one whose changes have all been saved since is no longer
+  offered (and is removed when a tab next opens the roadmap). A tab that was
   only asleep keeps its changes: when it wakes it writes its draft again, and
   whichever tab saves first makes the other's the same as the saved roadmap.
   The single key every tab shared before 0.1.0 moves over once, and is
