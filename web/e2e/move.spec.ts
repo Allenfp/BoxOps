@@ -103,6 +103,14 @@ test("Alt+← and Alt+→ are the move's, never the browser's Back and Forward, 
   await expect.poll(() => lastSaid(page)).toMatch(/^Press Space to pick it up first; then (Option|Alt) with Left or Right changes the end date\.$/);
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
   expect(page.url()).toContain("zoom=months");
+  // Nor on any other cell: a lane's name, its +, a department's heading or its pencil, and they stay put.
+  for (const key of ["lane:de-2", "lane-add:de-2", "dept:data-eng", "dept-edit:data-eng", "pto-add:data-eng"]) {
+    await page.locator(`[data-cell="${key}"]`).focus();
+    await press(page, "Alt+ArrowLeft", "Alt+ArrowRight");
+    await expect(page.locator(`[data-cell="${key}"]`)).toBeFocused();
+  }
+  expect(await page.evaluate(() => (window as unknown as { early: boolean[] }).early)).toEqual(Array(12).fill(true));
+  await box(page, DAGSTER).focus();
   await page.keyboard.press("Space");
   await page.evaluate(() => {
     const w = window as unknown as { kept: boolean[] };

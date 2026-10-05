@@ -575,7 +575,8 @@ when a focused element is removed.
   a department over capacity or back within it, a rule broken or kept, an
   engineer on PTO then), only the last of a key held down; others' saves
   wait meanwhile, and Alt+← and Alt+→ are never the browser's Back and
-  Forward (on a box not picked up, they say to pick it up first). While
+  Forward, on any cell (on a box not picked up, they say to pick it up
+  first). While
   the timeline is read-only (a preview, or saving), its cells stay, as
   text or `aria-disabled` buttons, and keys that would change something
   say why they don't. The dates along the top, grid lines, hatching and
