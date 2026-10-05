@@ -132,3 +132,6 @@ yours but are flagged as clashes.
   can't be read, the browser tests run. Deploys run one at a time and are never
   cancelled midway; a burst of saves deploys at most twice. Jobs get only the
   permissions they need, and actions are pinned to commits.
+- **Upgrades.** Dependabot (`.github/dependabot.yml`) opens pull requests
+  weekly for the actions' pinned commits and for the npm packages in `web/`
+  (minor and patch upgrades together), once a release is 3 days old.

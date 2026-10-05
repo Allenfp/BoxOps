@@ -1,0 +1,24 @@
+# Proposes upgrades once a week, as pull requests (CI checks them): GitHub's
+# actions, which the workflows pin to commits, and the app's npm packages.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3 # wait 3 days after a release; the only cooldown key actions support
+    groups:
+      github-actions:
+        patterns: ["actions/*"]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
+    groups:
+      # Minor and patch upgrades in one pull request; each major gets its own.
+      npm-minor-and-patch:
+        update-types: [minor, patch]
