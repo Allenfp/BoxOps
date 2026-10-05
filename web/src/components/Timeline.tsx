@@ -84,7 +84,8 @@ const OVERFLOW = "overflow";
 /** The id of what's said about the focused box beyond its name (useGridFocus.ts writes it). */
 const DESCRIBED_BY = "tl-focus-desc";
 const GRID_HELP =
-  "Arrow keys move between lanes, boxes and PTO. Enter opens a box, Space picks it up to move it, N adds one, Delete deletes it. Question mark lists the keys.";
+  "Arrow keys move between lanes, boxes and PTO. Enter opens a box, Space picks it up to move it, Delete deletes it. " +
+  "The + beside a lane or PTO adds one there, as N does. Question mark lists the keys.";
 
 /** A cell's key, `kind:id` (data-cell), in its two parts. */
 const splitKey = (key: string): [string, string] => {
