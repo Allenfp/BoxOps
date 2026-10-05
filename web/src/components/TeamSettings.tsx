@@ -85,11 +85,25 @@ function ListEditor<T extends BoxType | BoxStatus>({
   const set = (next: T[], key: string) =>
     onChange({ [field]: next } as Partial<Settings>, `${field}:${key}`);
   // Each row keeps its React key through moves, removals and renames (an
-  // unsaved item's id follows its name), so focus stays with its item.
-  const keys = useRef(new Map<string, number>());
-  const keyOf = (id: string) => {
-    if (!keys.current.has(id)) keys.current.set(id, keys.current.size);
-    return keys.current.get(id)!;
+  // unsaved item's id follows its name), so focus stays with its item. Keys
+  // come from a counter; a rename hands its item's key to the new id. An old
+  // id keeps its key too, for an undo, but a key goes to one row at a time:
+  // the id that last had it, unless that id is gone. So a second "New type",
+  // whose id the first one had before its rename, gets a key of its own.
+  const keys = useRef({ next: 0, byId: new Map<string, number>(), owner: new Map<number, string>() });
+  const rowKeys = (list: T[]) => {
+    const { byId, owner } = keys.current;
+    const ids = new Set(list.map((x) => x.id));
+    return list.map(({ id }) => {
+      let key = byId.get(id);
+      const had = key === undefined ? undefined : owner.get(key);
+      if (key === undefined || (had !== id && had !== undefined && ids.has(had))) {
+        key = keys.current.next++;
+        byId.set(id, key);
+      }
+      owner.set(key, id);
+      return key;
+    });
   };
   const rename = (i: number, name: string) => {
     const item = items[i];
@@ -99,7 +113,11 @@ function ListEditor<T extends BoxType | BoxStatus>({
     const id = followName
       ? idFor(name, new Set(items.filter((_, j) => j !== i).map((x) => x.id)))
       : item.id;
-    if (id !== item.id && !keys.current.has(id)) keys.current.set(id, keyOf(item.id));
+    const key = keys.current.byId.get(item.id);
+    if (id !== item.id && key !== undefined) {
+      keys.current.byId.set(id, key);
+      keys.current.owner.set(key, id);
+    }
     set(
       items.map((x, j) => (j === i ? { ...x, id, name } : x)),
       `name:${i}`,
@@ -110,15 +128,17 @@ function ListEditor<T extends BoxType | BoxStatus>({
     [next[i], next[i + by]] = [next[i + by], next[i]];
     set(next, `move:${i}`);
   };
+  // Read and written while rendering, on purpose: the same items always get
+  // the same keys, so a second render is harmless.
+  // eslint-disable-next-line react-hooks/refs -- stable row keys, see above
+  const rowKey = rowKeys(items);
   return (
     <ul className="team-list">
-      {/* keyOf reads keys while rendering, on purpose; it only ever adds an id, so a second render is harmless. */}
-      {/* eslint-disable-next-line react-hooks/refs -- stable row keys, see above */}
       {items.map((item, i) => {
         const n = uses(item.id);
         const canRemove = n === 0 && items.length > minimum;
         return (
-          <li key={keyOf(item.id)}>
+          <li key={rowKey[i]}>
             {"color" in item && (
               <input
                 type="color"

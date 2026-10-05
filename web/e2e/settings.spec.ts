@@ -109,6 +109,45 @@ test("in team settings, a flag moved from the keyboard keeps the focus, place af
   await expect.poll(flags).toEqual(["Late", "Blocked", "At risk"]);
 });
 
+test("in team settings, new flags keep rows of their own: moved place after place, one removed", async ({ page, github: _ }) => {
+  await openMenu(page);
+  await menu(page).getByRole("button", { name: "Team settings…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Team settings" });
+  const flags = () => dialog.getByLabel(/^Flag \d name$/).evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  // Each "New flag" starts with the id the one before had until it was renamed.
+  await dialog.getByRole("button", { name: "Add flag" }).click();
+  await dialog.getByLabel("Flag 4 name").fill("Waiting");
+  await dialog.getByRole("button", { name: "Add flag" }).click();
+  await dialog.getByLabel("Flag 5 name").fill("Parked");
+  await dialog.getByRole("button", { name: "Add flag" }).click();
+  await expect.poll(flags).toEqual(["At risk", "Late", "Blocked", "Waiting", "Parked", "New flag"]);
+
+  const up = dialog.getByRole("button", { name: "Move Parked up" });
+  await up.focus();
+  for (const order of [
+    ["At risk", "Late", "Blocked", "Parked", "Waiting", "New flag"],
+    ["At risk", "Late", "Parked", "Blocked", "Waiting", "New flag"],
+    ["At risk", "Parked", "Late", "Blocked", "Waiting", "New flag"],
+  ]) {
+    await page.keyboard.press("Enter");
+    await expect.poll(flags).toEqual(order);
+    await expect(up).toBeFocused();
+  }
+
+  // Remove takes its own row, and its focus doesn't pass to the next one's.
+  await dialog.getByRole("button", { name: "Remove Waiting" }).focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(flags).toEqual(["At risk", "Parked", "Late", "Blocked", "New flag"]);
+  await expect(dialog.getByRole("button", { name: "Remove New flag" })).not.toBeFocused();
+  const down = dialog.getByRole("button", { name: "Move Parked down" });
+  await down.focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(flags).toEqual(["At risk", "Late", "Parked", "Blocked", "New flag"]);
+  await page.keyboard.press("Enter");
+  await expect.poll(flags).toEqual(["At risk", "Late", "Blocked", "Parked", "New flag"]);
+  await expect(down).toBeFocused();
+});
+
 test("team settings are a change like any other, saved to settings.yaml for everyone", async ({ page, github }) => {
   await openMenu(page);
   await menu(page).getByRole("button", { name: "Team settings…" }).click();
