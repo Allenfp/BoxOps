@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { CDC, DAGSTER, box, boxFile, dragDays, expect, focusApp, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, boxFile, dragDays, expect, focusApp, pollNow, save, test, toolbar } from "./helpers";
 
 /** A box without rules hides the section until "+ Rule" is clicked. */
 async function showRules(dialog: Locator) {
@@ -119,4 +119,18 @@ test("removing a rule from the other box, and deleting a box, clean up rules", a
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
   expect(github.file(boxFile(DAGSTER))).not.toContain("relations");
+});
+
+test("a rule someone else's save breaks is listed, without the popup meant for your own edits", async ({ page, github }) => {
+  github.deploy(
+    github.otherSave({
+      [boxFile(DAGSTER)]: (t) => `${t.replace("end: 2026-10-23", "end: 2026-10-30")}relations:\n  - type: before\n    box: C4P\n`,
+    }),
+  );
+  await pollNow(page);
+  await expect(box(page, DAGSTER)).toHaveClass(/rule-broken/);
+  await page.waitForTimeout(300); // time for a popup that shouldn't come
+  await expect(page.locator(".toast")).toHaveCount(0);
+  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+  await expect(page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: "Broken rules" }).locator("li")).toHaveCount(1);
 });

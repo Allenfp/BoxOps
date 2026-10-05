@@ -745,15 +745,20 @@ function RoadmapView(props: ViewProps) {
   }, [violations]);
   const [newlyBroken, setNewlyBroken] = useState<Violation[]>([]);
   const knownBroken = useRef<Set<string> | null>(null);
+  const brokenBase = useRef(draftBase);
   useEffect(() => {
     const key = (v: Violation) => `${v.from.code}:${v.type}:${v.to.code}`;
     const now = new Set(violations.map(key));
-    if (knownBroken.current) {
+    // Announced only for the user's own edits: not for a save merged in from
+    // someone else (polling, the pre-save check) or our own coming back.
+    const elsewhere = brokenBase.current !== draftBase;
+    brokenBase.current = draftBase;
+    if (knownBroken.current && !elsewhere) {
       const fresh = violations.filter((v) => !knownBroken.current!.has(key(v)));
       if (fresh.length) setNewlyBroken(fresh);
     }
     knownBroken.current = now;
-  }, [violations]);
+  }, [violations, draftBase]);
   useEffect(() => {
     if (!newlyBroken.length) return;
     const t = setTimeout(() => setNewlyBroken([]), 10_000);
