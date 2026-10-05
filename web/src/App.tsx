@@ -32,7 +32,7 @@ import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
 import { noteDraft, runningFine } from "./components/ErrorBoundary";
 import { LoadProblem, PreviewToken, liveUrl } from "./components/LoadScreen";
-import { SiteError, fetchBundle, isNewerApp, movesForward, reloadApp } from "./site";
+import { SiteError, fetchBundle, guardReload, isNewerApp, movesForward, reloadApp } from "./site";
 
 interface Loaded extends LoadResult, Snapshot {
   /** Showing a branch other than the one this site was built from (`?ref=`). */
@@ -863,7 +863,23 @@ function RoadmapView(props: ViewProps) {
     if (!draft.others) setOthersDismissed(false);
   }, [draft.others]);
   const [storageWarned, setStorageWarned] = useState(false);
-  const keptHere = draft.kept ? " Your unsaved changes are kept in this browser." : "";
+  const unsaved = `${count} unsaved change${count === 1 ? "" : "s"}`;
+  const them = count === 1 ? "it" : "them";
+  /** What reloading for an update does to the unsaved changes, if there are any. */
+  const keptOnReload = !count
+    ? ""
+    : draft.kept
+      ? " Your unsaved changes are kept in this browser."
+      : ` This browser isn’t keeping your ${unsaved}: download ${them} first, or reloading loses ${them}.`;
+  /** This tab's unsaved changes as a JSON file, as the crash screen and another version's offer give them. */
+  const downloadDraft = () => downloadJson({ [draft.storageKey]: draft.record() });
+  // Reloading loses unsaved changes this browser isn't keeping: every Reload
+  // in the app (an update, a lost connection, a part that couldn't load) asks.
+  useEffect(() => {
+    if (!count || draft.kept) return;
+    guardReload(() => confirm(`Reload and lose ${unsaved}? This browser isn’t keeping ${them}.`));
+    return () => guardReload(null);
+  }, [count, draft.kept, unsaved, them]);
   const discardAll = () => {
     if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
       setSelected(null);
@@ -1358,8 +1374,9 @@ function RoadmapView(props: ViewProps) {
         <div className="banner" role="status">
           <span>
             <strong>{updatedText(props.update)}</strong>
-            {count > 0 ? keptHere : ""}
+            {keptOnReload}
           </span>
+          {count > 0 && !draft.kept && <button onClick={downloadDraft}>Download unsaved changes</button>}
           <button className="primary" onClick={() => reloadApp(props.update!.build)}>
             Reload
           </button>
@@ -1382,12 +1399,14 @@ function RoadmapView(props: ViewProps) {
           <button onClick={() => reloadApp("")}>Reload</button>
         </div>
       )}
-      {!draft.kept && !storageWarned && (
+      {/* While the update banner shows, it says this of any unsaved changes. */}
+      {!draft.kept && !storageWarned && !(props.update && count > 0) && (
         <div className="banner notice-warning" role="alert">
           <span>
             This browser isn’t keeping your unsaved changes (its storage is full, or turned off for this site), so they’d
-            be lost if this tab closed. Save soon.
+            be lost if this tab closed. {preview ? "This tab can’t save them: download them to keep them." : "Save soon."}
           </span>
+          {preview && count > 0 && <button onClick={downloadDraft}>Download unsaved changes</button>}
           <button className="icon-button" onClick={() => setStorageWarned(true)} aria-label="Dismiss">
             <Icon name="x" size={16} />
           </button>

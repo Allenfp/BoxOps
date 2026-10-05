@@ -238,10 +238,11 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
 - **When.** Once editing pauses for 0.4 s (at least every 2 s while it goes
   on), never on every keystroke; at once when nothing is left to keep, and
   before a save starts, when the tab is hidden or closed. A write the browser
-  refuses (full storage, or site data blocked) shows a warning once, and the
-  save menu, and any save dialog, says changes aren't being kept until a
-  write goes through: the heartbeat tries again rather than marking the older
-  copy alive.
+  refuses (full storage, or site data blocked) shows a warning once (in a
+  read-only tab, with a download instead of "Save soon"), and the save menu,
+  and any save dialog, says changes aren't being kept until a write goes
+  through: the heartbeat tries again rather than marking the older copy
+  alive.
 - **Tabs that are gone.** A draft also carries a heartbeat: marked alive every
   minute while its tab is open, and closed when the tab closes (`pagehide`).
   A page that crashed never marked its draft closed, so a reload (navigation
@@ -391,7 +392,9 @@ against data the new code wrote.
   — Reload to keep editing". The draft is kept in `localStorage` (a field
   being typed in is committed first). Old code never saves: a save dialog
   left open closes (once a save under way is done), and none of its buttons
-  would write.
+  would write. If this browser isn't keeping the draft (storage full or
+  blocked), the banner says so and offers it as a download (JSON, as the
+  crash screen does), and every Reload in the app asks before losing it.
 - **Reload** goes to `./?boxops-reload=<build>`, keeping the other parameters
   and the hash: a URL the browser has never cached, since Pages sends
   `index.html` with `max-age=600`. The app removes the parameter with

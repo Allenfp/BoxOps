@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import type { Page } from "@playwright/test";
 import type { Bundle } from "../src/model/bundle";
 import { DAGSTER, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
@@ -5,6 +7,31 @@ import { DAGSTER, boxFile, dragDays, expect, pollNow, save, test, toolbar } from
 
 /** The site rebuilt by a later BoxOps (the files served are this build's still). */
 const newerApp = (b: Bundle): Bundle => ({ ...b, app: { version: "0.2.0", build: "0.2.0+0123456789ab", time: "2099-01-01T00:00:00Z" } });
+
+/** Site data blocked, or storage full: this browser keeps no draft. */
+async function refuseDrafts(page: Page) {
+  await page.evaluate(() => {
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith("boxops-draft:")) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      return setItem.call(this, key, value);
+    };
+  });
+}
+
+/** The JSON file a Download unsaved changes button gives: this tab's draft, by its key. */
+async function downloaded(page: Page, button: ReturnType<Page["getByRole"]>): Promise<Record<string, { items: Record<string, Moved> }>> {
+  const downloading = page.waitForEvent("download");
+  await button.click();
+  return JSON.parse(await readFile(await (await downloading).path(), "utf8"));
+}
+/** A box's item in a stored draft: what it was changed from, and to (its start as a day number). */
+type Moved = { old: { start: number }; now: { start: number } };
+/** Days a box in a downloaded draft was moved by. */
+const movedBy = (saved: Record<string, { items: Record<string, Moved> }>, id: string) => {
+  const item = Object.values(saved)[0].items[`box:${id}`];
+  return item.now.start - item.old.start;
+};
 
 test("a new BoxOps makes the tab read-only; Reload loads it from a fresh URL and keeps the draft", async ({ page, github }) => {
   await dragDays(page, DAGSTER, 10);
@@ -32,6 +59,51 @@ test("a new BoxOps makes the tab read-only; Reload loads it from a fresh URL and
   github.patchBundle = undefined;
   await page.reload();
   await expect(toolbar(page)).toContainText("Save · 1 change");
+});
+
+test("a tab gone read-only for a new BoxOps, whose draft this browser isn't keeping: download it, and Reload asks", async ({ page, github }) => {
+  await refuseDrafts(page);
+  await dragDays(page, DAGSTER, 10);
+  const warning = page.locator(".banner", { hasText: "This browser isn’t keeping your unsaved changes" });
+  await expect(warning).toContainText("Save soon.");
+  github.patchBundle = newerApp;
+  await pollNow(page);
+  const banner = page.locator(".banner", { hasText: "BoxOps was updated" });
+  await expect(banner).toContainText(
+    "BoxOps was updated to 0.2.0 — Reload to keep editing. This browser isn’t keeping your 1 unsaved change: download it first, or reloading loses it.",
+  );
+  await expect(warning).toHaveCount(0); // the update banner says it
+  const saved = await downloaded(page, banner.getByRole("button", { name: "Download unsaved changes" }));
+  expect(Object.keys(saved)).toEqual([expect.stringMatching(/^boxops-draft:acme\/roadmap@main:[0-9a-f]{8}$/)]);
+  expect(movedBy(saved, DAGSTER)).toBe(14); // 10 working days
+
+  const navigations: string[] = [];
+  page.on("request", (r) => r.isNavigationRequest() && navigations.push(r.url()));
+  const asked: string[] = [];
+  page.once("dialog", (d) => {
+    asked.push(d.message());
+    void d.dismiss();
+  });
+  await banner.getByRole("button", { name: "Reload" }).click();
+  await expect.poll(() => asked).toEqual(["Reload and lose 1 unsaved change? This browser isn’t keeping it."]);
+  await page.waitForTimeout(100);
+  expect(navigations).toEqual([]);
+  page.once("dialog", (d) => void d.accept());
+  await banner.getByRole("button", { name: "Reload" }).click();
+  await expect.poll(() => navigations.length).toBe(1);
+});
+
+test("a tab gone read-only for a newer data format, whose draft this browser isn't keeping, offers it as a download", async ({ page, github }) => {
+  await refuseDrafts(page);
+  await dragDays(page, DAGSTER, 10);
+  github.deploy(github.otherSave({ "settings.yaml": (t) => t.replace(/^format: 1 /m, "format: 2 ") }, "Ada Admin", "Upgrade BoxOps to 0.2.0"));
+  await pollNow(page);
+  await expect(toolbar(page)).toHaveCount(0);
+  const warning = page.locator(".banner", { hasText: "This browser isn’t keeping your unsaved changes" });
+  await expect(warning).toContainText("This tab can’t save them: download them to keep them.");
+  await expect(warning).not.toContainText("Save soon");
+  const saved = await downloaded(page, warning.getByRole("button", { name: "Download unsaved changes" }));
+  expect(movedBy(saved, DAGSTER)).toBe(14); // 10 working days
 });
 
 test("saving first checks for a new BoxOps the poll hasn't seen, and then writes nothing", async ({ page, github }) => {

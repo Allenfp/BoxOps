@@ -19,12 +19,26 @@ export function stripReloadParam(): void {
   history.replaceState(history.state, "", `${location.pathname}${search ? `?${search}` : ""}${location.hash}`);
 }
 
+/** Asked before reloadApp() leaves the page; null: nothing to ask (see guardReload). */
+let mayReload: (() => boolean) | null = null;
+
+/**
+ * Have reloadApp() ask `check` first, and stay on the page unless it says
+ * yes: while unsaved changes this browser isn't keeping would be lost, say.
+ * null stops asking.
+ */
+export function guardReload(check: (() => boolean) | null): void {
+  mayReload = check;
+}
+
 /**
  * Load the page again from a URL no cache has seen (`./?boxops-reload=<tag>`,
  * other parameters and the hash kept), so a new deploy's index.html and app
  * come in. A field being typed in is committed first, so the draft has it.
+ * Every Reload in the app comes here, so guardReload() covers them all.
  */
 export function reloadApp(tag: string): void {
+  if (mayReload && !mayReload()) return;
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   const q = new URLSearchParams(location.search);
   q.set(RELOAD_PARAM, tag || Date.now().toString(36));

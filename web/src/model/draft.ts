@@ -753,12 +753,17 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
   const [writer] = useState(
     () => new DraftWriter(opened.key, scope, stores, { result: setKept, move: setStorageKey }, opened.adopted),
   );
+  /** The draft as it's stored (null: nothing to keep). */
+  const record = useCallback(
+    () => recordOf({ base, present, conflicts, changes, commit }, build),
+    [base, present, conflicts, changes, commit, build],
+  );
   // A pause after the last change writes it; nothing left to keep removes it at once.
   useEffect(() => {
-    writer.track(() => recordOf({ base, present, conflicts, changes, commit }, build));
+    writer.track(record);
     if (changes.count) writer.changed();
     else writer.write();
-  }, [writer, base, present, conflicts, changes, commit, build]);
+  }, [writer, record, changes]);
 
   /** Other open tabs with unsaved changes to this roadmap. */
   const [others, setOthers] = useState(0);
@@ -1097,6 +1102,8 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     /** Where this tab keeps its draft (the crash screen offers it). */
     storageKey,
     kept,
+    /** The draft as it's stored, to download when this browser won't keep it. */
+    record,
     /** Write any change still waiting now (before saving). */
     flush: useCallback(() => writer.flush(), [writer]),
     others,
