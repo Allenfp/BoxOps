@@ -29,6 +29,12 @@ export const HEARTBEAT_MS = 60_000;
  * offers its changes to a second tab too.
  */
 export const STALE_MS = 5 * 60_000;
+/**
+ * A draft its tab marked closed is offered in the roadmap's other open tabs
+ * this long after: a reload of that tab marks it alive again before then,
+ * as a rule.
+ */
+export const REOPEN_MS = 5000;
 /** A pause in editing this long writes the draft… */
 export const WRITE_AFTER_MS = 400;
 /** …and so does editing this long without one. */

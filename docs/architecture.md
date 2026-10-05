@@ -243,7 +243,10 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
   for 5 minutes: browsers slow down hidden tabs' timers) are offered, newest
   first: "Restore unsaved changes from another tab?" with Restore (its items
   over this tab's, one undo step; the one left behind is removed once this
-  tab's draft, with them in, is written) or Discard. Never taken silently. The count of changes follows others' saves as
+  tab's draft, with them in, is written) or Discard. A draft marked closed is
+  offered 5 seconds after its `storage` event (a reload of its tab marks it
+  alive again sooner), not at the next heartbeat. Never taken silently, and
+  never once its tab is back. The count of changes follows others' saves as
   they come in; one whose changes have all been saved since is no longer
   offered (and is removed when a tab next opens the roadmap). A tab that was
   only asleep keeps its changes: when it wakes it writes its draft again, and

@@ -79,6 +79,23 @@ test("a draft left by a tab that's no longer open is offered to restore, never t
   await expect(offer).toHaveCount(0);
 });
 
+test("a tab that closes leaves its draft to the roadmap's other tabs at once: offered seconds later", async ({ page, github }) => {
+  const other = await openTab(page.context(), github);
+  await dragDays(page, DAGSTER, 10);
+  await stored(page);
+  const notice = other.locator(".banner", { hasText: "This roadmap has unsaved changes in another tab." });
+  await expect(notice).toBeVisible();
+  await page.goto("./favicon.svg"); // the tab leaves the roadmap, as on closing: its draft is marked closed
+  await expect(notice).toHaveCount(0);
+  // A moment later (a reload would have marked it alive again by then), not at the next heartbeat.
+  const offer = other.locator(".banner", { hasText: "Restore unsaved changes from another tab?" });
+  await other.clock.fastForward(5_000);
+  await expect(offer).toContainText("1 change, last changed 2026-10-03 09:00, in a tab that’s no longer open.");
+  await offer.getByRole("button", { name: "Restore" }).click();
+  await expect(toolbar(other)).toContainText("Save · 1 change");
+  await expect.poll(() => boxDates(other, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+});
+
 test("a draft on offer is counted again when others' saves come in: what they saved isn't offered", async ({ page, github }) => {
   await dragDays(page, CDC, 5);
   const later = await leaveDraft(page, github);

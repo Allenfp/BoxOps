@@ -11,6 +11,7 @@ import {
   type FoundDraft,
   HEARTBEAT_MS,
   RECORD,
+  REOPEN_MS,
   type Store,
   type StoredDraft,
   type Stores,
@@ -755,10 +756,12 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
   // closes (or goes into the back/forward cache), closed. Another tab's
   // draft coming or going updates the notice, and one on offer that its tab
   // took back (or another tab restored) stops being offered. While the tab is
-  // in view, each heartbeat also offers drafts left since by tabs that have
-  // gone (closed, or crashed: not marked alive for STALE_MS).
+  // in view, it offers drafts left since by tabs that have gone: one marked
+  // closed a moment after (REOPEN_MS: a reload marks it alive again sooner),
+  // one whose tab crashed (not marked alive for STALE_MS) at a heartbeat.
   useEffect(() => {
     const { local } = stores;
+    let looking: ReturnType<typeof setTimeout> | undefined;
     const count = () => setOthers(otherTabs(scope, writer.key, Date.now(), local));
     const lookAround = () => {
       if (document.hidden) return;
@@ -794,6 +797,9 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
         const left = cur.filter((o) => isLeft(o.key, now, local));
         return left.length === cur.length ? cur : left;
       });
+      // Another tab may have just closed, marking its draft closed: offer it soon, not at the next heartbeat.
+      clearTimeout(looking);
+      looking = setTimeout(lookAround, REOPEN_MS);
     };
     writer.mark(Date.now());
     count();
@@ -804,6 +810,7 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       clearInterval(timer);
+      clearTimeout(looking);
       window.removeEventListener("pagehide", close);
       window.removeEventListener("pageshow", onShow);
       window.removeEventListener("storage", onStorage);
@@ -821,6 +828,7 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
       const found = asRecord(readValue(stores.local, key));
       setOffers((cur) => cur.filter((o) => o.key !== key));
       if (!found) return; // gone meanwhile: another tab restored or discarded it
+      if (!isLeft(key, Date.now(), stores.local)) return; // its tab is back: it's that tab's again
       let r: { draft: DraftState; conflicts: string[] };
       try {
         r = restoreRecord(found, base);
@@ -833,11 +841,12 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     },
     [stores, base, dispatch, writer],
   );
-  /** Throw away a draft on offer, for good. */
+  /** Throw away a draft on offer, for good; not one to restore whose tab is back meanwhile (it's that tab's again). */
   const discardOffer = useCallback(
     (key: string) => {
+      const restorable = latest.current.offers.find((o) => o.key === key)?.restorable;
       setOffers((cur) => cur.filter((o) => o.key !== key));
-      removeDraft(key, stores.local);
+      if (!restorable || isLeft(key, Date.now(), stores.local)) removeDraft(key, stores.local);
     },
     [stores],
   );
