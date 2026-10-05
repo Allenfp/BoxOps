@@ -124,6 +124,25 @@ describe("each item is written to the file it was loaded from", () => {
     const { "boxes/b1.yaml": text, ...rest } = ROADMAP;
     expect(Object.keys(save({ ...rest, "boxes/b1.yml": text }, (s) => editBox(s, "b1", { title: "Renamed" })))).toEqual(["boxes/b1.yml"]);
   });
+
+  it("but deleting one isn't saved while a skipped copy (.yml beside .yaml) would come back in its place", () => {
+    const boxes = { ...ROADMAP, "boxes/b1.yml": box("b1", "OLD").replace("Box OLD", "Old copy") };
+    expect(refused(boxes, (s) => ({ ...s, boxes: s.boxes.filter((b) => b.id !== "b1") }))).toEqual([
+      {
+        path: "boxes/b1.yml",
+        problems: [
+          'id: "b1" is already used by boxes/b1.yaml, so this file is skipped',
+          'deleting box "b1" would bring this copy back in its place: delete or rename this file first',
+        ],
+      },
+    ]);
+    // Editing it is saved as ever.
+    expect(Object.keys(save(boxes, (s) => editBox(s, "b1", { title: "Renamed" })))).toEqual(["boxes/b1.yaml"]);
+
+    const depts = { ...ROADMAP, "departments/eng.yml": DEPT.replace("name: Eng", "name: Old copy") };
+    const out = refused(depts, (s) => ({ ...s, boxes: [], departments: [] }));
+    expect(out.map((f) => [f.path, f.problems.at(-1)])).toEqual([["departments/eng.yml", 'deleting department "eng" would bring this copy back in its place: delete or rename this file first']]);
+  });
 });
 
 describe("untouched lines stay as written", () => {

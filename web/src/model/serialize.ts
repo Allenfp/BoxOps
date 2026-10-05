@@ -306,7 +306,8 @@ function writeFile(
  * The file changes that turn `base`, loaded from `baseFiles`, into `draft`.
  * Each department and box is written to the file it was loaded from. Throws
  * UnsafeWrite when that would mean writing a file the loader couldn't fully
- * read, or when the roadmap isn't in this BoxOps's data format.
+ * read, deleting one whose skipped copy (x.yml beside x.yaml) would then load
+ * in its place, or when the roadmap isn't in this BoxOps's data format.
  */
 export function serializeChanges(
   baseFiles: RoadmapFiles,
@@ -325,7 +326,16 @@ export function serializeChanges(
     const was = baseBoxes.get(b.id);
     writes.set(path, () => writeFile(path, baseFiles[path], boxToPlain(b), was && boxToPlain(was), BOX_KEYS, BOX_LISTS));
   }
-  for (const b of changes.removed) writes.set(boxPath(b.id), () => null);
+  // A copy of a deleted item's file under the other extension, skipped as the
+  // item had its id, would load in its place: it must go first.
+  const twins: { path: string; problems: string[] }[] = [];
+  const remove = (path: string, id: string, noun: string) => {
+    writes.set(path, () => null);
+    const twin = path.replace(/\.ya?ml$/, (ext) => (ext === ".yaml" ? ".yml" : ".yaml"));
+    const problems = loaded.lossy.get(twin);
+    if (problems) twins.push({ path: twin, problems: [...problems, `deleting ${noun} "${id}" would bring this copy back in its place: delete or rename this file first`] });
+  };
+  for (const b of changes.removed) remove(boxPath(b.id), b.id, "box");
 
   const baseDepts = new Map(base.departments.map((d) => [d.id, d]));
   for (const d of changes.departments) {
@@ -333,7 +343,7 @@ export function serializeChanges(
     const was = baseDepts.get(d.id);
     writes.set(path, () => writeFile(path, baseFiles[path], deptToPlain(d), was && deptToPlain(was), DEPT_KEYS, DEPT_LISTS));
   }
-  for (const d of changes.removedDepartments) writes.set(deptPath(d.id), () => null);
+  for (const d of changes.removedDepartments) remove(deptPath(d.id), d.id, "department");
 
   if (changes.people.added.length + changes.people.changed.length + changes.people.removed.length) {
     const path = "people.yaml";
@@ -352,8 +362,8 @@ export function serializeChanges(
     const problems = loaded.issues.filter((i) => i.path === "settings.yaml" && (/^(format|missing):/.test(i.message) || i.lossy));
     throw new UnsafeWrite([{ path: "settings.yaml", problems: problems.map((i) => i.message) }]);
   }
-  const unsafe = [...writes.keys()].filter((path) => loaded.lossy.has(path)).sort();
-  if (unsafe.length) throw new UnsafeWrite(unsafe.map((path) => ({ path, problems: loaded.lossy.get(path)! })));
+  const unsafe = [...writes.keys()].filter((path) => loaded.lossy.has(path)).map((path) => ({ path, problems: loaded.lossy.get(path)! }));
+  if (unsafe.length || twins.length) throw new UnsafeWrite([...unsafe, ...twins].sort((a, b) => (a.path < b.path ? -1 : 1)));
 
   const out: FileChanges = {};
   for (const [path, write] of writes) {

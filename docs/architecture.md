@@ -269,7 +269,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
 1. **Validate.** The roadmap as it would be after the save is checked with the
    same validator CI uses; new problems block the save. So does a change to a
    lossy file (one the loader left part of out): writing it would delete what
-   was left out, so the user is asked to fix the file first.
+   was left out, so the user is asked to fix the file first. Deleting a box
+   or department is blocked the same way while a skipped copy of its file
+   (`x.yml` beside `x.yaml`) would load in its place.
 2. **Token.** The first save asks for a token. The form links to GitHub's
    new-token page filled in for this repository (`target_name` = its owner,
    Contents: write) and lists what to check there: Resource owner shows the
