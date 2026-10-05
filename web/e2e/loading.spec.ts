@@ -57,6 +57,36 @@ for (const visibility of ["public", "private"] as const) {
   });
 }
 
+test("newer saves too many to read: the deployed copy stays, with a notice", async ({ page, github }) => {
+  github.otherSave(Object.fromEntries(Array.from({ length: 301 }, (_, i) => [`boxes/bx-${i}.yaml`, () => `id: bx-${i}\n`])), "Sam Lee", "Import");
+  await page.reload();
+  const notice = page.locator(".banner.notice-warning");
+  await expect(notice).toContainText(
+    "Newer saves aren’t shown: 301 roadmap files changed since this copy was loaded, more than BoxOps reads at once (300). Reload once the site has redeployed.",
+  );
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
+  expect(github.calls("blob") + github.calls("raw")).toBe(0);
+  await notice.getByRole("button", { name: "Dismiss" }).click();
+  await expect(notice).toHaveCount(0);
+});
+
+test("newer saves in a folder that breaks the build's rules: the deployed copy stays, with a notice", async ({ page, github }) => {
+  github.otherSave({ "boxes/link.yaml": () => "../../.git/config" }, "Sam Lee", "Link");
+  github.modes = { "roadmap/boxes/link.yaml": "120000" };
+  await page.reload();
+  await expect(page.locator(".banner.notice-warning")).toHaveText(
+    "Newer saves aren’t shown, and saving won’t work, until the roadmap folder on GitHub is fixed: roadmap/boxes/link.yaml: is a symlink; a roadmap folder holds plain files only.",
+  );
+  await expect(page.locator(".box").first()).toBeVisible();
+  // Once a fixed deploy arrives, the notice goes with the copy it was about.
+  github.modes = {};
+  const fixed = { "boxes/link.yaml": () => undefined, [boxFile(REVENUE)]: (t: string) => t.replace("Revenue mart v2", "Revenue mart v3") };
+  github.deploy(github.otherSave(fixed, "Sam Lee", "Unlink; Revenue mart v3"));
+  await pollNow(page);
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  await expect(page.locator(".banner.notice-warning")).toHaveCount(0);
+});
+
 test.describe("branch previews (?ref=)", () => {
   test("show a branch read-only, with a way back to the live roadmap", async ({ page, github }) => {
     featureBranch(github);

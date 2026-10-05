@@ -120,6 +120,9 @@ both.
   of who saved what; not if the tab has moved on or is saving meanwhile. If
   the check fails or runs out of time, the bundled copy stays (the pre-save
   check catches up anyway), and a token GitHub rejects (401) is forgotten.
+  Newer saves it won't read past (more than 300 changed files, or a folder
+  that breaks the build's rules, which also stops saving) keep the bundled
+  copy too, with a notice saying why, until the tab moves on.
   With a token every call goes through the API, which is how a private
   repository is read. Without one the app reads only a repository the build
   says is public, taking file contents from `raw.githubusercontent.com` to

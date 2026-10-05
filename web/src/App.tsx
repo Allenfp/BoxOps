@@ -6,7 +6,7 @@ import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
 import { TOKEN_KINDS, failureMessage } from "./github/messages";
-import { type Snapshot, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
+import { FolderProblems, type Snapshot, TooManyChanges, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
 import type { SaveResult, SaveStep } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyContent";
@@ -139,6 +139,22 @@ function siteProblem(e: unknown): Extract<LoadState, { status: "error" }> {
   return { status: "error", title, message: "The site’s roadmap.json couldn’t be read.", detail };
 }
 
+/**
+ * Why the load-time check won't bring in newer saves, for a notice; null for
+ * a failure that needs none (the deployed copy stays either way, and a save
+ * reads the head again).
+ */
+function newerProblem(e: unknown): string | null {
+  if (e instanceof TooManyChanges) return `Newer saves aren’t shown: ${e.message}`;
+  if (!(e instanceof FolderProblems)) return null;
+  const shown = e.problems.slice(0, 3).map((p) => `${p.path ? `${e.dir}/${p.path}` : e.dir}: ${p.message}`);
+  const more = e.problems.length - shown.length;
+  return (
+    `Newer saves aren’t shown, and saving won’t work, until the roadmap folder on GitHub is fixed: ${shown.join("; ")}` +
+    `${more ? `; and ${more} more` : ""}.`
+  );
+}
+
 /** The roadmap arrived but couldn't be opened. */
 function openProblem(e: unknown): Extract<LoadState, { status: "error" }> {
   return {
@@ -231,6 +247,8 @@ export function App() {
   const [seen] = useState(() => new Set<string>());
   /** Where what's on screen came from, and its files (blob SHAs, and the folder's other files). */
   const onScreen = useRef<Pick<Snapshot, "source" | "blobs" | "ignored"> | null>(null);
+  /** Why newer saves on GitHub aren't on screen (newerProblem), until the tab moves on. */
+  const [behind, setBehind] = useState<string | null>(null);
   const saving = useRef(false);
 
   /** A newer BoxOps built the site: this tab is read-only until it reloads. */
@@ -253,6 +271,7 @@ export function App() {
 
   const show = useCallback(
     (loaded: Loaded) => {
+      if (onScreen.current?.source.commit !== loaded.source.commit) setBehind(null);
       onScreen.current = { source: loaded.source, blobs: loaded.blobs, ignored: loaded.ignored };
       seen.add(loaded.source.commit);
       // A newer commit with the same roadmap files (a change to the app, say):
@@ -326,6 +345,9 @@ export function App() {
       } catch (e) {
         // The deployed copy stays. A token GitHub rejects is forgotten; the next save asks for one.
         if (e instanceof GitHubFailure && e.kind === "unauthorized") setToken(base.source.repo, null);
+        // Newer saves it won't read past: say so (a save would stop the same way).
+        const problem = newerProblem(e);
+        if (problem && live && onScreen.current?.source.commit === base.source.commit) setBehind(problem);
       } finally {
         clearTimeout(timer);
       }
@@ -436,6 +458,8 @@ export function App() {
       update={update}
       onSite={noteSite}
       connectionLost={lost}
+      behind={behind}
+      onDismissBehind={() => setBehind(null)}
       lastSave={lastSave}
       remote={remote}
       onDismissSave={() => setLastSave(null)}
@@ -487,6 +511,9 @@ interface ViewProps extends Loaded {
   onSite(bundle: Bundle): boolean;
   /** Checks for others' saves keep failing. */
   connectionLost: boolean;
+  /** Why newer saves on GitHub aren't on screen, if the load-time check couldn't bring them in. */
+  behind: string | null;
+  onDismissBehind(): void;
   lastSave: { commit: string; url: string } | null;
   remote: RemoteUpdate | null;
   onDismissSave(): void;
@@ -1291,6 +1318,14 @@ function RoadmapView(props: ViewProps) {
           </span>
           <button className="primary" onClick={() => reloadApp(props.update!.build)}>
             Reload
+          </button>
+        </div>
+      )}
+      {props.behind && (
+        <div className="banner notice-warning" role="status">
+          <span>{props.behind}</span>
+          <button className="icon-button" onClick={props.onDismissBehind} aria-label="Dismiss">
+            <Icon name="x" size={16} />
           </button>
         </div>
       )}
