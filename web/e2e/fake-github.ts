@@ -148,6 +148,8 @@ export class FakeGitHub {
   beforeRefUpdate?: () => void;
   /** Whether GitHub signs the commits createCommitOnBranch makes. */
   signCommits = true;
+  /** Whether the signed-in account may write (GET /repos's `permissions.push`): one with Read access may not, whatever its token. */
+  writer = true;
   /** Truncate recursive tree listings ("recursive"), or every listing below the root ("all"). */
   truncate: "none" | "recursive" | "all" = "none";
   /** Changes to every roadmap.json the site serves: an app update, notices, a build from files on disk. */
@@ -400,8 +402,8 @@ export class FakeGitHub {
     let m: RegExpExecArray | null;
 
     if (p === "") {
-      // permissions describe the account (a writer), not what the token was granted.
-      return reply(200, { full_name: REPO, private: this.visibility !== "public", visibility: this.visibility, ...(token ? { permissions: { push: true, pull: true } } : {}) });
+      // permissions describe the account (a writer, unless `writer` is false), not what the token was granted.
+      return reply(200, { full_name: REPO, private: this.visibility !== "public", visibility: this.visibility, ...(token ? { permissions: { push: this.writer, pull: true } } : {}) });
     }
     if ((m = /^\/git\/ref\/heads\/(.+)$/.exec(p))) {
       const branch = m[1].split("/").map(decodeURIComponent).join("/");
@@ -557,7 +559,7 @@ export class FakeGitHub {
     if (token === OTHER_OWNER_TOKEN || input.branch?.repositoryNameWithOwner !== REPO) {
       return error("NOT_FOUND", `Could not resolve to a Repository with the name '${input.branch?.repositoryNameWithOwner}'.`);
     }
-    if (token === READ_TOKEN) return error("FORBIDDEN", "Resource not accessible by personal access token");
+    if (token === READ_TOKEN || !this.writer) return error("FORBIDDEN", "Resource not accessible by personal access token");
     if (input.branch.branchName !== BRANCH) return error("NOT_FOUND", `Could not resolve to a Ref with the name 'refs/heads/${input.branch.branchName}'.`);
     if (!input.message?.headline) return error("UNPROCESSABLE", "A commit message headline is required.");
     const additions = input.fileChanges?.additions ?? [];

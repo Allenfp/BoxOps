@@ -47,6 +47,26 @@ test.describe("private repository, signed out", () => {
   });
 });
 
+test("an account without Write access: ask an admin, with no token help, and Close first", async ({ page, github }) => {
+  github.writer = false;
+  await dragDays(page, DAGSTER, 10);
+  await save(page);
+  await expect(dialog(page).locator("h2")).toHaveText("Your account can’t write to the repository");
+  await expect(dialog(page).locator(".callout.error")).toHaveText("Your GitHub account can’t write to acme/roadmap. Ask an admin for Write access.");
+  // Another token of the same account can't write either.
+  await expect(dialog(page).locator(".token-help")).toHaveCount(0);
+  await expect(dialog(page).getByRole("button", { name: "Use a different token" })).toHaveCount(0);
+  const foot = dialog(page).locator(".dialog-foot");
+  await expect(foot.getByRole("button", { name: "Close" })).toHaveClass(/primary/);
+  await expect(foot.getByRole("button", { name: "Try again" })).not.toHaveClass(/primary/);
+  expect(github.head).toBe(github.root);
+  // Once an admin grants it, Try again saves.
+  github.writer = true;
+  await foot.getByRole("button", { name: "Try again" }).click();
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+});
+
 test.describe("signed out", () => {
   test.use({ signedIn: false });
 

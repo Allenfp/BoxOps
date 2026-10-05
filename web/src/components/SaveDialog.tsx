@@ -75,8 +75,15 @@ const GITHUB_TITLE: Record<FailureKind, string> = {
   unknown: "Save failed",
 };
 
+/**
+ * A write refused because the account, not the token, lacks Write access
+ * (GET /repos, asked after the refusal, said so): no token of its can save.
+ */
+const accountCantWrite = (f: GitHubFailure) => (f.kind === "read-only" || f.kind === "no-access") && !f.detail.read && f.detail.push === false;
+
 /** A GitHub failure's title: by kind, or by what GitHub said the token can do (read-only and no-access refusals). */
 function githubTitle(f: GitHubFailure): string {
+  if (accountCantWrite(f)) return "Your account can’t write to the repository";
   if (f.kind === "read-only" && f.detail.read) return "This token can’t read the repository’s files";
   if (f.kind === "no-access" && f.detail.visible) return GITHUB_TITLE["read-only"];
   return GITHUB_TITLE[f.kind];
@@ -315,7 +322,9 @@ function Failure({
 }) {
   const owner = source.repo.split("/")[0];
   const sso = f.kind === "sso" && f.detail.ssoUrl?.startsWith("https://github.com/") ? f.detail.ssoUrl : undefined;
-  const newToken = TOKEN_KINDS.includes(f.kind);
+  // No other token helps an account without Write access, nor does trying again until an admin grants it.
+  const account = accountCantWrite(f);
+  const newToken = TOKEN_KINDS.includes(f.kind) && !account;
   const said = [
     f.message && `GitHub said: “${f.message.trim()}”`,
     f.detail.status && f.detail.status !== 200 && `HTTP ${f.detail.status}`,
@@ -341,7 +350,7 @@ function Failure({
         </details>
       )}
       <footer className="dialog-foot">
-        <button onClick={onClose} disabled={busy}>
+        <button className={account ? "primary" : undefined} onClick={onClose} disabled={busy}>
           Close
         </button>
         {newToken && (
@@ -349,7 +358,7 @@ function Failure({
             Use a different token
           </button>
         )}
-        <button className="primary" onClick={onRetry} disabled={busy}>
+        <button className={account ? undefined : "primary"} onClick={onRetry} disabled={busy}>
           {busy ? "Saving…" : "Try again"}
         </button>
       </footer>
