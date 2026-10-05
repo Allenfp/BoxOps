@@ -14,9 +14,9 @@ import { EngineerPicker } from "./EngineerPicker";
 import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
-import { useReorder } from "./useReorder";
+import { reorderByKey, useReorder } from "./useReorder";
 import { announce, useAnnounceResults } from "../a11y/announce";
-import { focusAfterRow } from "../a11y/focus";
+import { focusAfterRow, focusLater } from "../a11y/focus";
 
 interface Props {
   roadmap: Roadmap;
@@ -393,7 +393,15 @@ export function TableView(props: Props) {
                         <button
                           className="group-toggle"
                           onClick={() => onToggleDepartment(dept.id)}
+                          // Alt+↑ or Alt+↓ moves the department, as dragging its heading does; focus stays on it.
+                          onKeyDown={(e) => {
+                            const why = readOnly ? "Read-only: changes can’t be made here." : "Clear the search to reorder departments.";
+                            if (reorderByKey(e, departments, dept.id, canReorder ? props.onMoveDepartment : undefined, why) === null) return;
+                            const button = e.currentTarget;
+                            focusLater([() => document.querySelector(`.box-table [data-dept-id="${CSS.escape(dept.id)}"] .group-toggle`)], button);
+                          }}
                           aria-expanded={!isCollapsed}
+                          aria-keyshortcuts={canReorder ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
                           disabled={searching}
                         >
                           <Icon name="chevron-right" size={14} className={`chevron${isCollapsed ? "" : " open"}`} />

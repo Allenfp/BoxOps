@@ -3,9 +3,11 @@
 // shows where it will land; release to drop. A press that doesn't move stays
 // an ordinary click; Escape, or losing the pointer, cancels the drag
 // (followPointer.ts). Rows are found by `data-reorder-id`, in document order,
-// inside the container.
+// inside the container. From the keyboard, Alt+↑ and Alt+↓ on a heading move
+// it a place at a time (reorderByKey).
 
 import { type PointerEvent as ReactPointerEvent, type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { announce } from "../a11y/announce";
 import { followPointer } from "./followPointer";
 
 const THRESHOLD = 4;
@@ -122,4 +124,35 @@ export function useReorder(
   );
 
   return { draggingId, line, start };
+}
+
+/**
+ * Alt+↑ or Alt+↓ (Option on a Mac) on a department's heading moves it one
+ * place up or down, the keyboard's way to drag it, and says where it is now
+ * ("Analytics moved up, 1 of 3"). `move` is undefined when it can't be
+ * reordered now; `why` says so. Returns the new place, or null if the key
+ * wasn't one of these or nothing moved.
+ */
+export function reorderByKey(
+  e: Pick<KeyboardEvent, "key" | "altKey" | "metaKey" | "ctrlKey" | "shiftKey" | "preventDefault">,
+  order: { id: string; name: string }[],
+  id: string,
+  move: ((id: string, index: number) => void) | undefined,
+  why: string,
+): number | null {
+  if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return null;
+  e.preventDefault();
+  const i = order.findIndex((d) => d.id === id);
+  if (i < 0) return null;
+  const up = e.key === "ArrowUp";
+  const j = i + (up ? -1 : 1);
+  const name = order[i].name;
+  const stays = !move ? why : j < 0 || j >= order.length ? `${name} is already ${up ? "first" : "last"}.` : null;
+  if (stays) {
+    announce(stays);
+    return null;
+  }
+  move!(id, j);
+  announce(`${name} moved ${up ? "up" : "down"}, ${j + 1} of ${order.length}.`);
+  return j;
 }

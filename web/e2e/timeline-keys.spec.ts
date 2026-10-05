@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { CDC, DAGSTER, box, boxFile, expect, heard, pollNow, said, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, boxFile, expect, heard, pollNow, said, save, test, toolbar } from "./helpers";
 
 // The timeline from the keyboard: a grid with one Tab stop, the arrow keys
 // between its cells, Enter to open a box and focus back on it after. Start
@@ -303,5 +303,44 @@ test.describe("a branch preview", () => {
     await expect(page.getByRole("button", { name: "Add a box to Data Engineering / FTE 2" })).toHaveAttribute("aria-disabled", "true");
     await page.keyboard.press("Enter");
     await expect(page.locator(".box")).toHaveCount(12);
+    // Nor do departments move.
+    await page.keyboard.press("PageUp");
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect(page.locator(".dept-label .dept-name")).toHaveText(["Data Engineering", "Analytics", "ML Platform"]);
   });
+});
+
+test("Option or Alt with ↑ ↓ on a department's heading moves it, keeping focus, on the timeline and in the table", async ({ page, github }) => {
+  const names = page.locator(".dept-label .dept-name");
+  const analytics = cell(page, "dept:analytics");
+  await analytics.focus();
+  await expect(analytics).toHaveAttribute("aria-keyshortcuts", "Alt+ArrowUp Alt+ArrowDown");
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect(names).toHaveText(["Analytics", "Data Engineering", "ML Platform"]);
+  await expect(analytics).toBeFocused();
+  await expect.poll(() => heard(page)).toContain("Analytics moved up, 1 of 3.");
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect.poll(() => heard(page)).toContain("Analytics is already first.");
+  // Down twice: the heading that moves is the one with focus, and keeps it.
+  await page.keyboard.press("Alt+ArrowDown");
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(names).toHaveText(["Data Engineering", "ML Platform", "Analytics"]);
+  await expect(analytics).toBeFocused();
+  await expect.poll(() => heard(page)).toContain("Analytics moved down, 3 of 3.");
+  // Each move is a step to undo.
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(names).toHaveText(["Data Engineering", "Analytics", "ML Platform"]);
+
+  // In the table: Data Engineering down a place.
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const toggle = page.locator('.box-table [data-dept-id="data-eng"] .group-toggle');
+  await toggle.focus();
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(page.locator(".group-toggle .dept-name")).toHaveText(["Analytics", "Data Engineering", "ML Platform"]);
+  await expect(toggle).toBeFocused();
+  await expect.poll(() => heard(page)).toContain("Data Engineering moved down, 2 of 3.");
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file("departments/analytics.yaml")).toContain("order: 1\n");
+  expect(github.file("departments/data-eng.yaml")).toContain("order: 2\n");
 });

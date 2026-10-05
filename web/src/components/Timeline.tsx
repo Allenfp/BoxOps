@@ -38,7 +38,7 @@ import { type DragMode, dragDays, dropLane, movedDates, previewSlot } from "../t
 import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
 import { UseChart } from "./UseChart";
-import { useReorder } from "./useReorder";
+import { reorderByKey, useReorder } from "./useReorder";
 import { focusLater } from "../a11y/focus";
 import { followPointer } from "./followPointer";
 import { cellOf, useGridFocus } from "./useGridFocus";
@@ -328,6 +328,11 @@ export function Timeline(props: Props) {
       // The extra area: in the focused box's own lane.
       else if (kind === "box") createBoxIn(boxes.find((b) => b.id === id)!.lane, after);
       else say("N adds a box in a lane, or PTO in a PTO row.");
+    } else if (kind === "dept" && e.altKey) {
+      // Alt+↑ or Alt+↓ on a heading moves the department; focus stays on it.
+      const order = latest.current.props.roadmap.departments;
+      const move = readOnly ? undefined : props.onMoveDepartment;
+      if (reorderByKey(e, order, id, move, readOnlyWhy) !== null) grid.keep(`dept:${id}`);
     } else if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
       props.onShowShortcuts?.();

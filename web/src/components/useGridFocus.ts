@@ -57,6 +57,8 @@ export interface GridFocus {
   focus(cell: HTMLElement): void;
   /** The cell focus goes back to should what has it go (a deleted box's neighbour). */
   setActive(key: string): void;
+  /** After the next render, focus goes back to this cell if it was lost, even with what had it still on the page (moved, which loses focus too). */
+  keep(key: string): void;
   /** A navigation key pressed on a cell: moves focus, and returns true, if it's one. */
   onKey(e: KeyboardEvent): boolean;
   /** The key of the cell after `cell` in its row, else the one before, else the row's first: where focus goes once it's deleted. */
@@ -99,6 +101,8 @@ export function useGridFocus(
   const vertical = useRef(false);
   /** Focus comes from a press (on a box about to be dragged, say): it's where the pointer is, so nothing scrolls. */
   const pressed = useRef(false);
+  /** A cell to put focus back on after the next render (keep). */
+  const kept = useRef<string | null>(null);
 
   const find = (key: string | null) => (key ? (grid.current?.querySelector<HTMLElement>(`[data-cell="${CSS.escape(key)}"]`) ?? null) : null);
 
@@ -201,6 +205,9 @@ export function useGridFocus(
   useLayoutEffect(() => {
     const g = grid.current;
     if (!g) return;
+    const keep = find(kept.current);
+    kept.current = null;
+    if (keep && focusLost()) return focus(keep);
     if (owns.current && focusLost()) {
       // Focus went with what had it: back to the same cell, else beside it, else the first. Not
       // from a field (a lane's name being typed), whose own code puts it back after its key's
@@ -218,6 +225,9 @@ export function useGridFocus(
     focus,
     setActive: (key) => {
       active.current = remembered = key;
+    },
+    keep: (key) => {
+      kept.current = key;
     },
     neighbour: (el) => keysBeside(el)[0] ?? null,
     reveal,
