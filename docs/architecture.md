@@ -301,6 +301,10 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    files doesn't count), their changes are merged onto the screen, outlined in
    teal, and the save pauses on a dialog listing who saved what. The user can
    review, then save, or choose whose version to keep for clashing items.
+   A save with that choice made isn't stopped for newer saves, unless they
+   would leave its changes invalid (a lane gone that a box of ours moved
+   into): then they come in for review the same way, with the box moved
+   where the lane's other boxes went and flagged.
 4. **Commit.** The changed files are written with the `yaml` Document API, so
    only the edited lines change and comments survive: only fields that differ
    from what was loaded are touched, list entries (lanes, people, PTO, rules,
@@ -321,7 +325,8 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    are neutralised, so every save deploys. If someone saved in between, GitHub
    refuses (`STALE_DATA`): the app re-reads only what changed, checks clashes
    and validates again, then retries on top of their commit, at most twice. A
-   same-file clash at that point shows the keep-mine / keep-theirs choice; a
+   same-file clash at that point shows the keep-mine / keep-theirs choice,
+   and changes of theirs that leave ours invalid come in for review; a
    re-read that fails (too many changes, the folder's problems, a rate limit)
    stops the save with its own reason. After a failure that leaves unclear
    whether the commit was made (a timeout, a dropped connection, a 5xx, an

@@ -9,10 +9,12 @@
 // other files stay and ours go on top; a file both of us changed is a
 // conflict the user settles. A head older than that copy is GitHub's answer
 // lagging: the save stops, to be tried again a moment later, rather than take
-// it for newer saves and roll the screen back. The roadmap as it would be after the save is
-// validated first. Files the head already holds exactly as ours are left
-// out, and an empty change is never sent. A head in a newer data format (an
-// upgrade merged, its deploy still running) is never written to.
+// it for newer saves and roll the screen back. The roadmap as it would be
+// after the save is validated first; if someone else's saves are what make
+// it invalid, they're shown for review instead. Files the head already holds
+// exactly as ours are left out, and an empty change is never sent. A head in
+// a newer data format (an upgrade merged, its deploy still running) is never
+// written to.
 //
 // Retrying is safe: every attempt names the head it goes on, so at most one
 // lands. After STALE_DATA, or a failure that leaves unclear whether the
@@ -28,7 +30,10 @@ import { type GitHubClient, GitHubFailure } from "./api";
 import { textBlobSha, utf8ToBase64 } from "./git-objects";
 import { type Snapshot, type Source, readSnapshot, remember, sameBlobs } from "./read";
 
-/** Others saved roadmap changes since the edits' base: shown for review before anything is written. */
+/**
+ * Others saved roadmap changes since the edits' base (with `review`, or ones
+ * the edits would be invalid on): shown for review before anything is written.
+ */
 export class NewerSaves extends Error {
   constructor(readonly head: Snapshot) {
     super("The roadmap changed since you opened it.");
@@ -79,7 +84,7 @@ export interface SaveRequest {
   review?: boolean;
   /** Commits the tab has already shown or moved past (see ReadOptions). */
   seen?: ReadonlySet<string>;
-  /** Problems with the files as they would be after this save; any problem stops the save. */
+  /** Problems with the files as they would be after this save; any problem stops the save (with NewerSaves, on others' newer saves). */
   validate?(files: RoadmapFiles): string[];
   /** Told what the save is doing, for a progress line: a save can wait on GitHub for a minute or two. */
   onProgress?(step: SaveStep): void;
@@ -148,9 +153,13 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
     const at = (p: string) => head.blobs[p];
     const conflicts = paths.filter((p) => at(p) !== base.blobs[p] && (at(p) ?? null) !== mine[p]);
     if (conflicts.length) throw new SaveConflict(conflicts, head);
-    // Someone else's save could, e.g., delete a lane our boxes use.
+    // Someone else's save could, e.g., delete a lane our boxes use: then their
+    // roadmap comes in for review, as before any save, where the edits are
+    // carried onto it and what they left pointing at nothing is put right.
+    // (Saving again with the same choice would only fail the same way.)
     const next = applyChanges(head.files, changes);
     const problems = req.validate?.(next) ?? [];
+    if (problems.length && !sameBlobs(head.blobs, base.blobs)) throw new NewerSaves(head);
     if (problems.length) throw new Error(`This save would leave the roadmap invalid: ${problems.join("; ")}`);
 
     const additions = paths.filter((p) => mine[p] !== null && at(p) !== mine[p]).map((p) => ({ path: `${dir}/${p}`, contents: contents[p] }));

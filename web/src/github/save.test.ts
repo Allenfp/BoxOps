@@ -298,6 +298,38 @@ describe("saveRoadmap", () => {
     expect(g.calls("graphql")).toBe(0);
   });
 
+  it("brings in for review newer saves it would be invalid on, rather than fail the same way every time", async () => {
+    // Someone else's box c makes ours invalid (a lane of theirs gone, say).
+    const validate = (files: Record<string, string>) => (files["boxes/c.yaml"] ? ["boxes/a.yaml: lane: x doesn't exist"] : []);
+    {
+      // Already there when the save starts, with whose version to keep already chosen (no review).
+      const { g, save } = await setup();
+      const theirs = g.otherSave({ "boxes/c.yaml": () => "id: c\n" });
+      const e = await save({ validate }).catch((x) => x);
+      expect(e).toBeInstanceOf(NewerSaves);
+      expect(e.head.source.commit).toBe(theirs);
+      expect(g.calls("graphql")).toBe(0);
+    }
+    {
+      // Racing it: GitHub refuses (STALE_DATA), and the re-read finds it.
+      const { g, save } = await setup();
+      let theirs = "";
+      g.beforeRefUpdate = () => void (theirs = g.otherSave({ "boxes/c.yaml": () => "id: c\n" }));
+      const e = await save({ review: true, validate }).catch((x) => x);
+      expect(e).toBeInstanceOf(NewerSaves);
+      expect(e.head.source.commit).toBe(theirs);
+      expect(g.calls("graphql")).toBe(1);
+      expect(g.head).toBe(theirs);
+    }
+    {
+      // A newer commit outside the roadmap folder isn't what makes it invalid.
+      const { g, save } = await setup();
+      g.outsideSave("README.md", "# Notes\n");
+      await expect(save({ validate: () => ["boxes/a.yaml: lane: x doesn't exist"] })).rejects.toThrow(/would leave the roadmap invalid/);
+      expect(g.calls("graphql")).toBe(0);
+    }
+  });
+
   it("refuses to write anything but roadmap files", async () => {
     const { g, save } = await setup();
     await expect(save({ changes: { "../.github/workflows/x.yml": "on: push\n" } })).rejects.toThrow(/writes only roadmap files/);

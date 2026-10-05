@@ -941,7 +941,8 @@ function RoadmapView(props: ViewProps) {
       }
       // The pre-save check (unless the user already chose whose version to
       // keep): if anyone saved roadmap changes since this tab loaded, bring
-      // them in and let the user review before anything is written.
+      // them in and let the user review before anything is written. Either
+      // way, newer saves our changes would be invalid on come in like that.
       const result = await s.saveRoadmap({
         gh,
         base: { source, files, blobs: props.blobs, ignored: props.ignored },

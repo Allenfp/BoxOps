@@ -1,4 +1,5 @@
-import { CLASSIC_TOKEN, REPO, TOKEN } from "./fake-github";
+import { type Page } from "@playwright/test";
+import { CLASSIC_TOKEN, type FakeGitHub, REPO, TOKEN } from "./fake-github";
 import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
 // Saving works the same on a public and on a private repository; on a private
@@ -346,19 +347,68 @@ test("a box with no title can't be saved: the problem is shown, and nothing is w
   expect(github.head).toBe(github.root);
 });
 
-test("a save someone else's racing save would leave invalid fails, says why, and writes nothing", async ({ page, github }) => {
-  // Dagster into the Contractor lane, while someone else removes that lane.
+/** Someone removes the Contractor lane (de-4), moving its boxes to the lane above. */
+const removeContractor = (github: FakeGitHub) =>
+  github.otherSave(
+    {
+      "departments/data-eng.yaml": (t) => t.replace("  - id: de-4\n    name: Contractor\n    fte: 0.5\n", ""),
+      [boxFile("bx-0a7c-terraform-cleanup")]: (t) => t.replace("lane: de-4", "lane: de-3"),
+      [boxFile("bx-8c5e-legacy-sunset")]: (t) => t.replace("lane: de-4", "lane: de-3"),
+    },
+    "Sam Lee",
+    "Removed lane Contractor from Data Engineering",
+  );
+
+/** Move Dagster into the Contractor lane, in its editor. */
+async function toContractor(page: Page) {
   await box(page, DAGSTER).click();
   await page.getByRole("dialog", { name: /Edit/ }).getByLabel("Lane").selectOption("de-4");
   await page.keyboard.press("Escape");
+}
+
+test("a save someone else's racing save would leave invalid brings theirs in for review, writing nothing", async ({ page, github }) => {
+  await toContractor(page);
   let theirs = "";
   github.beforeRefUpdate = () => {
-    theirs = github.otherSave({ "departments/data-eng.yaml": (t) => t.replace("  - id: de-4\n    name: Contractor\n    fte: 0.5\n", "") });
+    theirs = removeContractor(github);
   };
   await save(page);
   const dialog = page.locator(".save-dialog[open]");
-  await expect(dialog.locator("h2")).toHaveText("Save failed");
-  await expect(dialog).toContainText("This save would leave the roadmap invalid");
-  await expect(dialog).toContainText(`lane: "de-4" does not exist`);
+  await expect(dialog.locator("h2")).toHaveText("The roadmap changed since you opened it");
+  await expect(dialog.locator(".save-list")).toContainText("Sam Lee saved “Removed lane Contractor from Data Engineering”");
+  // Dagster goes where the lane's boxes went, for a second look.
+  await expect(dialog.locator(".callout.warn")).toContainText("Box “Dagster 2.x upgrade”");
   expect(github.head).toBe(theirs);
+
+  await dialog.getByRole("button", { name: "Keep mine & save" }).click();
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.headCommit().parent).toBe(theirs);
+  expect(github.file(boxFile(DAGSTER))).toContain("lane: de-3");
+});
+
+test("a save with whose version to keep chosen, that newer saves would leave invalid, brings them in for review", async ({ page, github }) => {
+  await toContractor(page);
+  // Someone flags Dagster: a clash, once it's deployed and polled in.
+  github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked") });
+  github.deploy();
+  await pollNow(page);
+  await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
+  // Then someone removes the lane Dagster moves into; that hasn't deployed.
+  const theirs = removeContractor(github);
+
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("Someone else changed the same items");
+  // Saving again with the same choice would only fail again: their roadmap comes in for review.
+  await dialog.getByRole("button", { name: "Keep mine" }).click();
+  await expect(dialog.locator("h2")).toHaveText("The roadmap changed since you opened it");
+  await expect(dialog.locator(".save-list")).toContainText("Sam Lee saved “Removed lane Contractor from Data Engineering”");
+  await expect(dialog.locator(".callout.warn")).toContainText("Box “Dagster 2.x upgrade”");
+  expect(github.head).toBe(theirs);
+
+  await dialog.getByRole("button", { name: "Keep mine & save" }).click();
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.headCommit().parent).toBe(theirs);
+  expect(github.file(boxFile(DAGSTER))).toContain("lane: de-3");
+  expect(github.file(boxFile(DAGSTER))).toContain("status: at_risk");
 });
