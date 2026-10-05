@@ -258,6 +258,13 @@ describe("plain lists (tags, engineers, links) are merged item by item", () => {
     const fewer = save(files, (s) => editBox(s, "b1", { tags: ["iceberg"], engineers: ["sam", "kim", "ana"] }))["boxes/b1.yaml"];
     expect(fewer).toBe(tagged.replace("  - q4\n", "").replace("  - kim\n", "  - kim\n  - ana\n"));
   });
+
+  it("never handing a removed item's comment to a new one", () => {
+    const out = save(files, (s) => editBox(s, "b1", { tags: ["q4", "delta"], engineers: ["kim", "ana"] }))["boxes/b1.yaml"];
+    expect(out).toBe(
+      tagged.replace("  - sam # lead\n  - kim\n", "  - kim\n  - ana\n").replace("  - iceberg # the table format\n  - q4\n", "  - q4\n  - delta\n"),
+    );
+  });
 });
 
 describe("titles and names", () => {

@@ -232,9 +232,10 @@ function mergeList(doc: Document, seq: YAMLSeq, items: Plain[], base: Plain[], s
 }
 
 /**
- * Merge a list of plain values (tags, engineers, links) item by item, as
- * mergeList does mappings: an item that stays keeps its node, and so any
- * comment beside it; an edited one takes over the node of one that's gone.
+ * Merge a list of plain values (tags, engineers, links) item by item: an item
+ * that stays keeps its node, and so any comment beside it, and so does one
+ * edited in its place. Any other is a new node: a comment never passes to an
+ * item that merely came in where a removed one was.
  */
 function mergeValues(doc: Document, seq: YAMLSeq, items: unknown[]) {
   const nodes = seq.items as Scalar[];
@@ -244,9 +245,8 @@ function mergeValues(doc: Document, seq: YAMLSeq, items: unknown[]) {
     if (j >= 0) used.add(j);
     return j;
   });
-  const spare = nodes.map((_, i) => i).filter((i) => !used.has(i));
   seq.items = items.map((item, k) => {
-    const j = kept[k] >= 0 ? kept[k] : spare.shift();
+    const j = kept[k] >= 0 ? kept[k] : k < nodes.length && !used.has(k) ? k : undefined;
     if (j === undefined) return doc.createNode(item);
     nodes[j].value = item;
     return nodes[j];
