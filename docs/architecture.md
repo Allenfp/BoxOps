@@ -505,6 +505,9 @@ against data the new code wrote.
   deploy's `roadmap.json` with the build's own code, so its blob and tree
   SHAs are real. The clock is pinned to 09:00 on 2026-10-03 in the browser's
   time zone, so tests never depend on live data, the date or the network.
+  Two draft tests keep the browser's own clock, since Playwright's fake one
+  hides the navigation timing that tells a reload from a page opened anew
+  (and nothing they check depends on the date).
   The browser runs in UTC (`timezoneId`; WebKit ignores `TZ`), and in WebKit
   the specs about dates (timeline, table, PTO, saving) run again in
   America/Los_Angeles and Pacific/Kiritimati, where the day starts 7 hours

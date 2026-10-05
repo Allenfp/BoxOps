@@ -30,21 +30,25 @@ export const boxFile = (id: string) => `boxes/${id}.yaml`;
 /**
  * `page` comes with the clock pinned, the fake GitHub installed, and the app
  * open. `visibility` makes the repository public (the default) or private;
- * `files` are the roadmap's, in place of the fixture's. Every page of every
- * test, tabs it opens later included, is watched: an uncaught error or a
- * Content-Security-Policy violation (`csp` lists them) fails the test.
+ * `files` are the roadmap's, in place of the fixture's. `fakeClock: false`
+ * leaves the browser's own clock, and with it the navigation timing that
+ * Playwright's fake one hides (it says no page is a reload). Every page of
+ * every test, tabs it opens later included, is watched: an uncaught error or
+ * a Content-Security-Policy violation (`csp` lists them) fails the test.
  */
 export const test = base.extend<{
   github: FakeGitHub;
   signedIn: boolean;
   visibility: "public" | "private";
   files: Record<string, string> | undefined;
+  fakeClock: boolean;
   watched: { errors: string[]; csp: string[] };
   csp: string[];
 }>({
   signedIn: [true, { option: true }],
   visibility: ["public", { option: true }],
   files: [undefined, { option: true }],
+  fakeClock: [true, { option: true }],
   watched: [
     async ({ context }, use) => {
       const watched = { errors: [] as string[], csp: [] as string[] };
@@ -64,9 +68,9 @@ export const test = base.extend<{
     { auto: true },
   ],
   csp: async ({ watched }, use) => use(watched.csp),
-  github: async ({ page, signedIn, visibility, files, timezoneId }, use) => {
+  github: async ({ page, signedIn, visibility, files, fakeClock, timezoneId }, use) => {
     const github = await FakeGitHub.create(files, { visibility });
-    await page.clock.install({ time: morningIn(timezoneId) });
+    if (fakeClock) await page.clock.install({ time: morningIn(timezoneId) });
     await page.context().addInitScript(countSiteFetches);
     await github.install(page);
     if (signedIn) {

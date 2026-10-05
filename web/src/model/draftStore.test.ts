@@ -11,6 +11,7 @@ import {
   isLeft,
   openTab,
   otherTabs,
+  wasReloaded,
 } from "./draftStore";
 import { FORMAT } from "./format";
 
@@ -94,6 +95,27 @@ describe("which drafts a tab finds", () => {
     expect(t.key).toBe(draftKey(SCOPE, "aaaa0001"));
     expect(t.own?.record?.items).toEqual(record().items);
     expect(otherTabs(SCOPE, t.key, NOW, s.local)).toBe(0);
+  });
+
+  it("a page is a reload only when the browser's navigation timing says so", () => {
+    const entries = vi.spyOn(performance, "getEntriesByType");
+    const says = (navigation: unknown[]) => entries.mockImplementation((type) => (type === "navigation" ? navigation : []) as PerformanceEntryList);
+    try {
+      // A duplicated or restored tab is back_forward (Chrome, Firefox), a new one navigate.
+      for (const [type, reloaded] of [["reload", true], ["back_forward", false], ["navigate", false], ["prerender", false]] as const) {
+        says([{ type }]);
+        expect(wasReloaded(), type).toBe(reloaded);
+      }
+      // None at all (Playwright's fake clock), or a browser that throws.
+      says([]);
+      expect(wasReloaded()).toBe(false);
+      entries.mockImplementation(() => {
+        throw new TypeError("not supported");
+      });
+      expect(wasReloaded()).toBe(false);
+    } finally {
+      entries.mockRestore();
+    }
   });
 
   it("the old shared draft moves over once, offered like one left behind (an older BoxOps may still have it open); one it can't read stays to download", () => {

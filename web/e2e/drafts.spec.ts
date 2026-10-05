@@ -8,6 +8,16 @@ import { CDC, DAGSTER, REVENUE, TODAY, box, boxDates, boxFile, boxTitle, dragDay
 const MINUTE = 60_000;
 /** Drafts are written once editing pauses: wait until this tab's is. */
 const stored = async (page: Page, n = 1) => expect.poll(async () => Object.keys(await storedDrafts(page)).length).toBe(n);
+/**
+ * The page stops writing to storage, as one that crashes does: its draft stays
+ * marked alive, as on no pagehide. (A pagehide listener can't stop the app's:
+ * Chromium runs them in the order they were added, capture or not.)
+ */
+const crash = (page: Page) =>
+  page.evaluate(() => {
+    Storage.prototype.setItem = () => {};
+    Storage.prototype.removeItem = () => {};
+  });
 
 test("each tab keeps its own draft: another tab polling, saving and discarding leaves it alone", async ({ page, github }) => {
   await dragDays(page, DAGSTER, 10);
@@ -208,7 +218,9 @@ test("a duplicated tab, opened once the original has changes, starts without the
   await stored(page);
   const before = await storedDrafts(page);
   const [key] = Object.keys(before);
-  // Its page isn't a reload (Chrome and Firefox say back_forward), so the original's live draft isn't its own.
+  // Its page isn't a reload, so the original's live draft isn't its own. Chrome and Firefox say a duplicated tab
+  // is back_forward (Safari not yet checked); Playwright can't duplicate one, and its fake clock says nothing,
+  // which counts the same.
   const original = await page.evaluate(() => sessionStorage.getItem("boxops-tab"));
   const duplicate = await openTab(page.context(), github, TODAY, { "boxops-tab": original! });
   await expect(duplicate.locator(".banner", { hasText: "This roadmap has unsaved changes in another tab." })).toBeVisible();
@@ -238,9 +250,9 @@ test("a duplicated tab, opened once the original has changes, starts without the
 test("a reload the page didn't see coming (after a crash) restores the tab's own draft", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 10);
   await stored(page);
-  // A crashed page never hears pagehide, so its draft is still marked alive.
-  await page.evaluate(() => window.addEventListener("pagehide", (e) => e.stopImmediatePropagation(), { capture: true }));
-  // Playwright's fake clock hides the browser's navigation timing, which says a page is a reload.
+  await crash(page);
+  // Playwright's fake clock hides the browser's navigation timing, which says a page is a reload
+  // (the tests with the browser's own clock, below, see the real one).
   await page.addInitScript(() => {
     performance.getEntriesByType = (type: string) => (type === "navigation" ? [{ type: "reload" } as PerformanceNavigationTiming] : []);
   });
@@ -249,6 +261,44 @@ test("a reload the page didn't see coming (after a crash) restores the tab's own
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
   await expect(page.locator(".banner", { hasText: "unsaved changes in another tab" })).toHaveCount(0);
   expect(Object.keys(await storedDrafts(page))).toHaveLength(1);
+});
+
+test.describe("with the browser's own clock, whose navigation timing tells a reload from a page opened anew", () => {
+  test.use({ fakeClock: false });
+  const navigation = (page: Page) => page.evaluate(() => (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type);
+
+  test("the browser says which a page is", async ({ page, github: _ }) => {
+    expect(await navigation(page)).toBe("navigate");
+    await page.reload();
+    expect(await navigation(page)).toBe("reload");
+  });
+
+  test("a reload after a crash restores the tab's own draft; the tab opening the roadmap anew doesn't take it", async ({ page, github: _ }) => {
+    // Not a drag: with the real date, where the timeline opens isn't fixed.
+    await page.getByRole("button", { name: "Edit Analytics" }).click();
+    const editor = page.locator("dialog.dept-editor[open]");
+    await editor.getByLabel("Department name").fill("Analytics & BI");
+    await editor.getByRole("button", { name: "Done" }).click();
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    await stored(page);
+    const tab = () => page.evaluate(() => sessionStorage.getItem("boxops-tab"));
+    const id = await tab();
+    await crash(page);
+    await page.reload();
+    expect(await navigation(page)).toBe("reload");
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    await expect(page.getByRole("button", { name: "Edit Analytics & BI" })).toBeVisible();
+    await expect(page.locator(".banner", { hasText: "unsaved changes in another tab" })).toHaveCount(0);
+    expect([await tab(), Object.keys(await storedDrafts(page))]).toEqual([id, [expect.stringMatching(new RegExp(`:${id}$`))]]);
+
+    // Opened anew in the same tab (as a restored or duplicated tab is), the draft still alive is another tab's.
+    await crash(page);
+    await page.goto("./?zoom=weeks");
+    expect(await navigation(page)).toBe("navigate");
+    await expect(page.locator(".banner", { hasText: "This roadmap has unsaved changes in another tab." })).toBeVisible();
+    await expect(toolbar(page)).toContainText("No changes");
+    expect(await tab()).not.toBe(id);
+  });
 });
 
 test("unsaved edits kept over a reload after someone else saved: theirs come in, a box both changed clashes", async ({ page, github }) => {
