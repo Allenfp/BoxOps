@@ -155,9 +155,9 @@ All edits go into a **draft**: the boxes, departments and people as changed,
 with undo and redo. Department and lane changes (`model/structure.ts`) are plain
 functions over the draft. Removing a lane or department that still has boxes
 requires a lane to move them to, so work is never dropped. When a newer version
-arrives, the draft is **rebased** onto it item by item. Items only someone else changed take
-their version, items only you changed keep yours, and items both changed keep
-yours but are flagged as clashes. A clash lasts until the item matches the
+arrives, the draft is **rebased** onto it item by item. Items only someone else
+changed take their version, items only you changed keep yours, and items both
+changed keep yours but are flagged as clashes. A clash lasts until the item matches the
 saved version (you took theirs, put it back by hand, discarded, or saved it),
 and the save dialog's Keep mine / Keep theirs settles only the clashes it
 lists: one that came in while it was open is asked about next. Keep theirs is
