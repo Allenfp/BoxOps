@@ -187,6 +187,14 @@ async function loadPreview(base: Snapshot, branch: string): Promise<Exclude<Load
       setToken(repo, null);
       return base.source.private ? { status: "needs-token", repo, branch, rejected: true } : loadPreview(base, branch);
     }
+    // A branch is never deployed, so waiting for a deploy (as for main) won't help.
+    if (e instanceof TooManyChanges) {
+      return {
+        status: "error",
+        title,
+        message: `“${branch}” differs from the deployed roadmap in ${e.count} files, more than BoxOps reads at once (${e.limit}). Check the branch out to see it.`,
+      };
+    }
     if (!(e instanceof GitHubFailure)) return { status: "error", title, message: (e as Error).message };
     if (e.kind === "offline") {
       return { status: "error", title, message: "Couldn’t reach GitHub: you may be offline, or a network filter may be blocking api.github.com." };

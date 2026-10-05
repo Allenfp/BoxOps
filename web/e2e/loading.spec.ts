@@ -122,6 +122,19 @@ test.describe("branch previews (?ref=)", () => {
     await problem.getByRole("link", { name: "Back to the live roadmap" }).click();
     await expect(page.locator(".box").first()).toBeVisible();
   });
+
+  test("a branch too different to read says to check it out, not to wait for a deploy", async ({ page, github }) => {
+    const main = github.head;
+    github.branches.big = github.otherSave(Object.fromEntries(Array.from({ length: 301 }, (_, i) => [`boxes/bx-${i}.yaml`, () => `id: bx-${i}\n`])));
+    github.head = main;
+    await page.goto("./?ref=big&zoom=months");
+    const problem = page.locator(".load-problem");
+    await expect(problem.locator("h1")).toHaveText("Couldn’t show branch “big”");
+    await expect(problem.locator("p").first()).toHaveText(
+      "“big” differs from the deployed roadmap in 301 files, more than BoxOps reads at once (300). Check the branch out to see it.",
+    );
+    expect(github.calls("blob") + github.calls("raw")).toBe(0);
+  });
 });
 
 test.describe("private repository, signed out", () => {
