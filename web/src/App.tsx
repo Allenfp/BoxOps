@@ -59,6 +59,8 @@ const MAX_BACKOFF_MS = 15 * 60_000;
 const FRESHNESS_MS = 4000;
 /** How long saving waits for the site's roadmap.json (a check for a newer BoxOps) before going on without it. */
 const SITE_CHECK_MS = 5000;
+/** How long loading, or a poll, waits for the site's roadmap.json, body included: then Try again, or the poll's backoff. */
+const SITE_MS = 20_000;
 
 // Not needed to show the timeline: each fetched when first shown (lazyPart).
 const TableView = lazyPart(() => import("./components/TableView").then((m) => m.TableView));
@@ -126,6 +128,9 @@ const isTyping = (t: EventTarget | null) =>
 function siteProblem(e: unknown): Extract<LoadState, { status: "error" }> {
   const title = "Couldn’t load the roadmap";
   const detail = (e as Error).message;
+  if (e instanceof SiteError && e.timeout) {
+    return { status: "error", title, message: "The site didn’t answer in time. Check your connection, then try again.", detail };
+  }
   if (!(e instanceof SiteError) || e.status === 0) {
     return { status: "error", title, message: "This browser couldn’t reach the site. Check your connection, then try again.", detail };
   }
@@ -272,7 +277,7 @@ export function App() {
     void (async () => {
       let bundle: Bundle;
       try {
-        bundle = await fetchBundle();
+        bundle = await fetchBundle(SITE_MS);
       } catch (e) {
         if (live) setState(siteProblem(e));
         return;
@@ -357,7 +362,7 @@ export function App() {
       checking = true;
       lastCheck = Date.now();
       try {
-        const bundle = await fetchBundle();
+        const bundle = await fetchBundle(SITE_MS);
         failures = 0;
         if (stopped) return;
         setLost(false);

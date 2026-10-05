@@ -130,6 +130,20 @@ test("a roadmap.json that won't load: a plain message and Try again", async ({ p
   await expect(page.locator(".box").first()).toBeVisible();
 });
 
+test("a roadmap.json that never comes: a plain message and Try again, never Loading… for good", async ({ page, github: _ }) => {
+  const stalled = () => {}; // never answered
+  await page.route("**/roadmap.json*", stalled);
+  await page.reload();
+  await expect(page.locator(".splash")).toHaveText("Loading roadmap…");
+  await page.clock.fastForward(20_000);
+  const problem = page.locator(".load-problem");
+  await expect(problem).toContainText("The site didn’t answer in time. Check your connection, then try again.");
+  await expect(problem.locator("details")).toContainText("roadmap.json: no answer within 20 s");
+  await page.unroute("**/roadmap.json*", stalled);
+  await problem.getByRole("button", { name: "Try again" }).click();
+  await expect(page.locator(".box").first()).toBeVisible();
+});
+
 test("a roadmap.json that arrives but can't be opened: a plain message and Try again, never Loading… for good", async ({ page, github }) => {
   // A bundle from before schema 1 (no blob SHAs) in a browser without WebCrypto (an insecure origin).
   github.patchBundle = (b) => ({ ...b, blobs: {} });

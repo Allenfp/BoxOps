@@ -127,8 +127,9 @@ both.
   call when nothing changed. A private repository and no token cost no
   calls; the tab shows the deployed copy and says so, quietly ("Deployed
   copy" in the toolbar, with a tooltip). A `roadmap.json` that can't be
-  fetched or read gets a plain message with Try again (also tried again
-  when the browser comes back online), never a blank page.
+  fetched or read, or doesn't come within 20 s, gets a plain message with
+  Try again (also tried again when the browser comes back online), never a
+  blank page or "Loading…" for good.
 - **Polling.** Every 2 minutes (counted from the start of the last check),
   while the tab is visible, the app re-fetches the site's own `roadmap.json`.
   That's a cheap 304 when nothing changed, and it doesn't touch the GitHub
@@ -142,13 +143,14 @@ both.
   into the screen in place, and a notice says who saved what (none when
   nothing in the roadmap folder changed, as for an app commit: then only the
   commit on screen moves on, and undo history is kept). A failed check
-  (offline, mid-deploy, or a private site whose sign-in expired: the
-  same-origin request is then redirected to github.com and fails) waits
-  longer each time, 4, 8, then 15 minutes; two in a row show a calm notice,
-  "Lost the connection to the site", with Reload, until a check succeeds.
-  Coming back online checks at once. A failed check never counts as an app
-  update. Every `roadmap.json` fetched also brings the site's `notices`,
-  shown as plain-text banners (never HTML) that can be put away.
+  (offline, mid-deploy, a private site whose sign-in expired: the
+  same-origin request is then redirected to github.com and fails, or no
+  answer within 20 s) waits longer each time, 4, 8, then 15 minutes; two in
+  a row show a calm notice, "Lost the connection to the site", with Reload,
+  until a check succeeds. Coming back online checks at once. A failed check
+  never counts as an app update. Every `roadmap.json` fetched also brings
+  the site's `notices`, shown as plain-text banners (never HTML) that can be
+  put away.
 - **Previews.** `?ref=<branch>` shows another branch read-only, read the same
   way (only files that differ from `main`'s are fetched). The name is checked
   against git's rules before any call. A private repository without a token

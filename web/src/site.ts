@@ -32,11 +32,12 @@ export function reloadApp(tag: string): void {
   setTimeout(() => location.replace(`./?${q}${location.hash}`), 0);
 }
 
-/** roadmap.json couldn't be fetched (`status` 0: no answer at all) or read. */
+/** roadmap.json couldn't be fetched (`status` 0: no answer at all; `timeout`: none in time) or read. */
 export class SiteError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly timeout = false,
   ) {
     super(message);
     this.name = "SiteError";
@@ -55,16 +56,17 @@ export async function fetchBundle(timeoutMs?: number): Promise<Bundle> {
   const timer = timeoutMs === undefined ? undefined : setTimeout(() => abort.abort(), timeoutMs);
   try {
     let res: Response;
+    const late = () => new SiteError(`roadmap.json: no answer within ${(timeoutMs ?? 0) / 1000} s`, 0, true);
     try {
       res = await fetch("roadmap.json", { cache: "no-cache", signal: abort.signal });
     } catch (e) {
-      throw new SiteError(`roadmap.json: ${(e as Error).message}`, 0);
+      throw abort.signal.aborted ? late() : new SiteError(`roadmap.json: ${(e as Error).message}`, 0);
     }
     if (!res.ok) throw new SiteError(`roadmap.json: HTTP ${res.status}`, res.status);
     try {
       return readBundle(await res.json());
     } catch (e) {
-      throw new SiteError(`roadmap.json: ${(e as Error).message}`, abort.signal.aborted ? 0 : res.status);
+      throw abort.signal.aborted ? late() : new SiteError(`roadmap.json: ${(e as Error).message}`, res.status);
     }
   } finally {
     clearTimeout(timer);

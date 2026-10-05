@@ -167,6 +167,21 @@ test("a deploy that changed nothing in the roadmap moves the tab on without a no
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
 });
 
+test("a check that never gets an answer gives up after a while, and backs off like any failure", async ({ page, github: _ }) => {
+  let fetches = 0;
+  const stalled = () => void fetches++; // never answered
+  await page.route("**/roadmap.json*", stalled);
+  await pollNow(page);
+  await expect.poll(() => fetches).toBe(1);
+  await page.clock.fastForward(20_000); // given up on: one failure, which says nothing
+  await page.clock.fastForward(3 * 60_000 + 30_000);
+  expect(fetches).toBe(1); // the next check is 4 minutes after this one started
+  await page.clock.fastForward(15_000);
+  await expect.poll(() => fetches).toBe(2);
+  await page.clock.fastForward(20_000);
+  await expect(page.locator(".banner", { hasText: "Lost the connection to the site" })).toBeVisible();
+});
+
 test("checks that keep failing say the site is lost, back off, and recover; saving still works", async ({ page, github }) => {
   let fetches = 0;
   const down = (route: Route) => {

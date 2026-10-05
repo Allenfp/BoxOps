@@ -52,6 +52,7 @@ export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibil
   github: async ({ page, signedIn, visibility, timezoneId, csp: _ }, use) => {
     const github = await FakeGitHub.create(undefined, { visibility });
     await page.clock.install({ time: morningIn(timezoneId) });
+    await page.context().addInitScript(countSiteFetches);
     await github.install(page);
     if (signedIn) {
       await page.addInitScript(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, TOKEN]);
@@ -118,8 +119,31 @@ export async function save(page: Page) {
   await page.keyboard.press("ControlOrMeta+s");
 }
 
-/** Make the app's 2-minute check for others' saves happen now. */
+/**
+ * Counts this page's fetches of roadmap.json under way, body included
+ * (`__boxopsSiteFetches`): the clock mustn't jump past one's deadline (20 s)
+ * while it's still coming in, which would fail it. In every page of a test.
+ */
+function countSiteFetches() {
+  const w = window as unknown as { __boxopsSiteFetches: number };
+  const fetch = window.fetch.bind(window);
+  w.__boxopsSiteFetches = 0;
+  window.fetch = async (input, init) => {
+    if (!String(input instanceof Request ? input.url : input).includes("roadmap.json")) return fetch(input, init);
+    w.__boxopsSiteFetches++;
+    try {
+      const res = await fetch(input, init);
+      await res.clone().arrayBuffer().catch(() => {});
+      return res;
+    } finally {
+      w.__boxopsSiteFetches--;
+    }
+  };
+}
+
+/** Make the app's 2-minute check for others' saves happen now, once the last one has finished. */
 export async function pollNow(page: Page) {
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __boxopsSiteFetches?: number }).__boxopsSiteFetches ?? 0)).toBe(0);
   await page.clock.fastForward(2 * 60_000 + 1000);
 }
 
