@@ -76,6 +76,11 @@ export function monthName(month: number): string {
   return MONTHS[month - 1];
 }
 
+export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** "2026-09-14, Monday": a date as it's said, with its weekday (a Saturday is a different matter on the roadmap). */
+export const spokenDay = (day: Day): string => `${formatDay(day)}, ${WEEKDAYS[dayParts(day).weekday]}`;
+
 /** A date for display: always YYYY-MM-DD, the same as the files, everywhere in the app. */
 export function prettyDay(day: Day): string {
   return formatDay(day);
@@ -126,3 +131,52 @@ export const workdays = (start: Day, end: Day): number => workIndex(end + 1) - w
 
 /** Move a working day by `n` working days (a weekend counts from the Monday after). */
 export const addWorkdays = (day: Day, n: number): Day => dayOfWorkIndex(workIndex(day) + n);
+
+// ---- The calendar's keys -----------------------------------------------------
+// A date field's calendar (DateInput.tsx) can't pick a weekend, so its keys
+// only ever land on a working day, and the month shown is the one they land in.
+
+/** The day itself, or the nearest working day in its month: a Saturday's Friday, a Sunday's Monday, or the other way when that leaves the month. */
+export function workdayInMonth(day: Day): Day {
+  const { weekday, month } = dayParts(day);
+  if (weekday < 5) return day;
+  const near = weekday === 5 ? day - 1 : day + 1;
+  if (dayParts(near).month === month) return near;
+  return weekday === 5 ? day + 2 : day - 2;
+}
+
+/** The same day of the month `n` months on (the month's last day, if it's shorter), as a working day in that month. */
+export function sameDayMonthsOn(day: Day, n: number): Day {
+  const { year, month, day: date } = dayParts(day);
+  const length = dayParts(makeDay(year, month + n + 1, 0)).day;
+  return workdayInMonth(makeDay(year, month + n, Math.min(date, length)));
+}
+
+/**
+ * Where a key takes the calendar from `day`: ← → the working day before or
+ * after, ↑ ↓ the same weekday a week before or after, Home and End that
+ * week's Monday and Friday, Page Up and Page Down the same day a month
+ * before or after (with Shift, a year). Null for any other key.
+ */
+export function calendarMove(day: Day, key: string, shift = false): Day | null {
+  switch (key) {
+    case "ArrowLeft":
+      return prevWorkday(day - 1);
+    case "ArrowRight":
+      return nextWorkday(day + 1);
+    case "ArrowUp":
+      return day - 7;
+    case "ArrowDown":
+      return day + 7;
+    case "Home":
+      return startOfWeek(day);
+    case "End":
+      return startOfWeek(day) + 4;
+    case "PageUp":
+      return sameDayMonthsOn(day, shift ? -12 : -1);
+    case "PageDown":
+      return sameDayMonthsOn(day, shift ? 12 : 1);
+    default:
+      return null;
+  }
+}
