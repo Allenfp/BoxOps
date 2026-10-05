@@ -16,7 +16,7 @@ import { getPrefs, setPrefs, usePrefs, type ViewMode } from "./prefs";
 import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
-import { capacityStretches } from "./model/report";
+import { overCapacity, overloadText } from "./model/report";
 import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
 import { downloadJson } from "./model/draftStore";
 import { addWorkdays, prettyDay, startOfWeek } from "./model/dates";
@@ -1038,27 +1038,16 @@ function RoadmapView(props: ViewProps) {
     requestAnimationFrame(() => document.querySelector(`[data-dept-id="${id}"]`)?.scrollIntoView({ block: "nearest" }));
   };
 
-  // Departments over capacity now or later (past overloads are history, not a warning).
-  const overCapacity = useMemo(() => {
-    return draft.departments.flatMap((d) => {
-      const laneIds = new Set(d.lanes.map((l) => l.id));
-      const over = capacityStretches(
-        draft.boxes.filter((b) => laneIds.has(b.lane)),
-        d.lanes,
-        (load, cap) => load > cap,
-      ).filter((x) => x.to >= now);
-      if (!over.length) return [];
-      // The worst stretch (most FTE over what the lanes open then hold).
-      const worst = over.reduce((a, b) => (b.fte - b.capacity > a.fte - a.capacity ? b : a));
-      const more = over.length > 1 ? `, and ${over.length - 1} more stretch${over.length > 2 ? "es" : ""}` : "";
-      return [
-        {
-          id: d.id,
-          text: `${d.name}: ${worst.fte} FTE planned against ${worst.capacity}, ${prettyDay(worst.from)} – ${prettyDay(worst.to)}${more}`,
-        },
-      ];
-    });
-  }, [draft.boxes, draft.departments, now]);
+  // Departments over capacity now or later (past overloads are history, not a
+  // warning), by the worst stretch, as the timeline's department headings say.
+  const overloaded = useMemo(
+    () =>
+      draft.departments.flatMap((d) => {
+        const over = overCapacity(d, draft.boxes).filter((x) => x.to >= now);
+        return over.length ? [{ id: d.id, text: `${d.name}: ${overloadText(over)}` }] : [];
+      }),
+    [draft.boxes, draft.departments, now],
+  );
 
   // Engineers booked on a box while they're on PTO (from today on).
   const onPto = useMemo(
@@ -1088,7 +1077,7 @@ function RoadmapView(props: ViewProps) {
       })),
     },
     { title: "Broken rules", items: violations.map((v) => ({ text: v.message, onGo: () => goToBox(v.from.id) })) },
-    { title: "Over capacity", items: overCapacity.map((o) => ({ text: o.text, onGo: () => goToDepartment(o.id) })) },
+    { title: "Over capacity", items: overloaded.map((o) => ({ text: o.text, onGo: () => goToDepartment(o.id) })) },
     {
       title: "Booked during PTO",
       items: onPto.map((c) => ({

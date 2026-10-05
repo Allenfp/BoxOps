@@ -35,10 +35,12 @@ export interface DepartmentLayout {
   /** Total slots drawn, including any extra area. */
   height: number;
   boxes: Map<string, Placed>;
-  /** Some day has more FTE planned than the department's lanes hold. */
+  /**
+   * Some day has more FTE planned than the department's lanes hold: how the
+   * extra area is drawn. What the timeline says about it comes from
+   * model/report.ts's overCapacity(), as the app's warnings do.
+   */
   overCapacity: boolean;
-  /** Most FTE in use on any one day. */
-  peakFte: number;
 }
 
 const slotsOf = (fte: number) => Math.max(1, Math.round(fte * 2));
@@ -208,7 +210,6 @@ export function layoutDepartment(dept: Department, boxes: Box[]): DepartmentLayo
     if (better(attempt, best)) best = attempt;
   }
 
-  const peak = peakSlots(mine);
   const over = peakSlots([...mine, ...closedSpans]) > capacity;
   if (best.score[0] > 0 && !over) best = search(mine, lanes, capacity, closed) ?? best;
   return {
@@ -217,7 +218,6 @@ export function layoutDepartment(dept: Department, boxes: Box[]): DepartmentLayo
     height: best.height,
     boxes: best.boxes,
     overCapacity: over,
-    peakFte: peak / 2,
   };
 }
 

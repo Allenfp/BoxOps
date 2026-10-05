@@ -13,6 +13,11 @@ test("shows departments, lanes, boxes and today", async ({ page, github: _ }) =>
   // 4 FTE running at once (around Oct 1) against 3.5 FTE of lanes.
   await expect(page.locator(".dept-label", { hasText: "Data Engineering" }).locator(".dept-meta")).toHaveText("3.5 FTE");
   await expect(page.locator(".dept-label", { hasText: "Data Engineering" }).locator(".dept-over")).toHaveText("4 planned");
+  // The heading says what the warnings say: the worst stretch from today on, against the lanes open then.
+  await expect(page.locator(".dept-label", { hasText: "Data Engineering" }).locator(".dept-toggle")).toHaveAttribute(
+    "title",
+    "Over capacity: 4 FTE planned against 3.5, 2026-10-01 – 2026-11-27, and 1 more stretch",
+  );
   await expect(page.locator(".box.overflowing")).toHaveCount(1);
   await expect(page.locator(".overflow-label")).toContainText("Over capacity");
   await expect(page.locator(".dept-label", { hasText: "Analytics" })).not.toContainText("planned");

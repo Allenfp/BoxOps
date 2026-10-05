@@ -5,12 +5,13 @@
 // broken rules. Over all time, past included, so it never depends on the day
 // it's run and two reports can be compared with diff. (The app warns about
 // over capacity and PTO from today on; it doesn't list overloaded engineers
-// or unassigned boxes.)
+// or unassigned boxes.) Also what the app and the timeline use to find a
+// department's stretches over capacity.
 
 import { type Day, dayOfWorkIndex, prettyDay, workIndex } from "./dates";
 import { ptoClashes } from "./pto";
 import { findViolations, fullCode } from "./relations";
-import type { Box, Lane, Roadmap, TimeOff } from "./types";
+import type { Box, Department, Lane, Roadmap, TimeOff } from "./types";
 
 export interface Stretch {
   from: Day;
@@ -100,6 +101,30 @@ export function capacityStretches(
     }
   }
   return out;
+}
+
+/** A department's stretches over capacity: where its boxes need more FTE than its lanes open then hold. */
+export function overCapacity(dept: Department, boxes: Box[]): CapacityStretch[] {
+  const laneIds = new Set(dept.lanes.map((l) => l.id));
+  return capacityStretches(
+    boxes.filter((b) => laneIds.has(b.lane)),
+    dept.lanes,
+    (load, cap) => load > cap,
+  );
+}
+
+/** The worst of these stretches (at least one): the most FTE over what the lanes open then hold. */
+export const worstStretch = (over: CapacityStretch[]): CapacityStretch =>
+  over.reduce((a, b) => (b.fte - b.capacity > a.fte - a.capacity ? b : a));
+
+/**
+ * Stretches over capacity in words, by the worst one: "2 FTE planned against
+ * 1.5, 2027-01-04 – 2027-01-29, and 1 more stretch". At least one stretch.
+ */
+export function overloadText(over: CapacityStretch[]): string {
+  const worst = worstStretch(over);
+  const more = over.length > 1 ? `, and ${over.length - 1} more stretch${over.length > 2 ? "es" : ""}` : "";
+  return `${worst.fte} FTE planned against ${worst.capacity}, ${prettyDay(worst.from)} – ${prettyDay(worst.to)}${more}`;
 }
 
 /** One line of an engineer's calendar: a box they're on (with their share of it), or their PTO. */

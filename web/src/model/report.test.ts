@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDay, parseDay } from "./dates";
-import { buildReport, formatReport, levelStretches, overStretches } from "./report";
+import { buildReport, formatReport, levelStretches, overCapacity, overloadText, overStretches } from "./report";
 import type { Roadmap } from "./types";
 
 const d = (s: string) => parseDay(s)!;
@@ -36,6 +36,27 @@ describe("overStretches", () => {
   it("finds stretches at exactly a level (a full department)", () => {
     const items = [item("2026-10-05", "2026-10-16", 1), item("2026-10-12", "2026-10-23", 1)];
     expect(fmt(levelStretches(items, (f) => f === 2))).toEqual([["2026-10-12", "2026-10-16", 2]]);
+  });
+});
+
+describe("overCapacity", () => {
+  it("measures each stretch against the lanes open then, as the warnings and the timeline's headings say", () => {
+    // Two lanes, one closing at the end of 2026, and two 1-FTE boxes in January 2027.
+    const lanes = [
+      { id: "e1", fte: 1 },
+      { id: "e2", fte: 1, end: d("2026-12-31") },
+    ];
+    const dept = { id: "eng", code: "EN", name: "Eng", color: "#000000", order: 1, collapsed: false, lanes };
+    const jan = { start: d("2027-01-04"), end: d("2027-01-15"), fte: 1, type: "p", status: "s", title: "x" };
+    const over = overCapacity(dept, [
+      { ...jan, id: "a", code: "AAA", lane: "e1" },
+      { ...jan, id: "b", code: "BBB", lane: "e2" },
+      { ...jan, id: "c", code: "CCC", lane: "elsewhere" },
+    ]);
+    expect(over.map((s) => [formatDay(s.from), formatDay(s.to), s.fte, s.capacity])).toEqual([["2027-01-04", "2027-01-15", 2, 1]]);
+    expect(overloadText(over)).toBe("2 FTE planned against 1, 2027-01-04 – 2027-01-15");
+    // Seen from later on, it's in the past: nothing to warn about.
+    expect(over.filter((s) => s.to >= d("2027-02-01"))).toEqual([]);
   });
 });
 

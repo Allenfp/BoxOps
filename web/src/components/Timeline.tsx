@@ -16,6 +16,7 @@ import { capacityOn, hasDates, laneDates } from "../model/lanes";
 import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import { CollapseAll } from "./CollapseAll";
 import { useToday } from "./useToday";
+import { type CapacityStretch, overCapacity, overloadText, worstStretch } from "../model/report";
 import {
   type Day,
   addMonths,
@@ -136,6 +137,11 @@ export function Timeline(props: Props) {
     }
     return new Map(departments.map((d) => [d.id, layoutDepartment(d, byDept.get(d.id) ?? [])]));
   }, [boxes, departments, draggingId, laneDept]);
+  // Over capacity, in the same terms as the app's warnings: finished boxes count too.
+  const overloads = useMemo(
+    () => new Map(departments.map((d) => [d.id, overCapacity(d, props.allBoxes ?? boxes)])),
+    [departments, props.allBoxes, boxes],
+  );
 
   // Keep the same date centred when zooming; start with today a third of the way in.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -484,7 +490,10 @@ export function Timeline(props: Props) {
             const layout = layouts.get(dept.id)!;
             const isCollapsed = collapsed.has(dept.id);
             // Over capacity is FTE arithmetic; the extra area is where boxes that couldn't be drawn in the lanes go.
+            // Only an overload from today on is a warning, as in the app's warnings; past ones are history.
             const over = layout.overCapacity;
+            const stretches = overloads.get(dept.id) ?? [];
+            const ahead = stretches.filter((x) => x.to >= now);
             const extra = layout.height > layout.capacity;
             const deptBoxes = boxes.filter((b) => b.id !== draggingId && laneDept.get(b.lane) === dept.id);
             const previewHere = preview && dragged && laneDept.get(preview.lane) === dept.id ? preview : null;
@@ -503,8 +512,7 @@ export function Timeline(props: Props) {
                   <DeptLabel
                     dept={dept}
                     now={now}
-                    over={over}
-                    peakFte={layout.peakFte}
+                    over={ahead}
                     collapsed={isCollapsed}
                     onToggle={() => onToggleDepartment(dept.id)}
                     onGrab={readOnly || !props.onMoveDepartment ? undefined : (e) => reorder.start(e, dept.id)}
@@ -556,11 +564,12 @@ export function Timeline(props: Props) {
                           className={`lane-label overflow-label${over ? "" : " squeezed"}`}
                           style={{ height: (layout.height - layout.capacity) * SLOT_H }}
                         >
-                          {over ? (
-                            <span
-                              className="overflow-note warn-text"
-                              title={`Up to ${layout.peakFte} FTE is planned at once; the lanes hold ${layout.capacity / 2} FTE.`}
-                            >
+                          {over && !ahead.length && stretches.length ? (
+                            <span className="overflow-note" title={`Over capacity before today: ${overloadText(stretches)}`}>
+                              Over capacity in the past
+                            </span>
+                          ) : over ? (
+                            <span className="overflow-note warn-text" title={ahead.length ? `Over capacity: ${overloadText(ahead)}` : undefined}>
                               Over capacity
                             </span>
                           ) : (
@@ -622,7 +631,7 @@ export function Timeline(props: Props) {
                           { ...span(b.start, b.end), top: boxTop(p.slot), height: boxHeight(p.slots) },
                           "full",
                           p.slots,
-                          over && p.slot >= layout.capacity,
+                          over && p.slot >= layout.capacity && ahead.length > 0 && b.end >= now,
                         );
                       })}
                       {previewHere && dragged && previewLane && (
@@ -821,7 +830,6 @@ function DeptLabel({
   dept,
   now,
   over,
-  peakFte,
   collapsed,
   onToggle,
   onGrab,
@@ -829,8 +837,8 @@ function DeptLabel({
 }: {
   dept: Department;
   now: Day;
-  over: boolean;
-  peakFte: number;
+  /** Its stretches over capacity from today on. */
+  over: CapacityStretch[];
   collapsed: boolean;
   onToggle(): void;
   onGrab?(e: ReactPointerEvent): void;
@@ -854,7 +862,7 @@ function DeptLabel({
         className="dept-toggle"
         onClick={onToggle}
         aria-expanded={!collapsed}
-        title={over ? `Over capacity: up to ${peakFte} FTE planned at once, ${fte} FTE available.` : undefined}
+        title={over.length ? `Over capacity: ${overloadText(over)}` : undefined}
       >
         <Icon name="chevron-right" size={14} className={`chevron${collapsed ? "" : " open"}`} />
         <span className="dept-text">
@@ -863,9 +871,9 @@ function DeptLabel({
             <span className="dept-meta" title={dated ? `${fte} FTE today; some lanes open or close on set dates` : undefined}>
               {fte} FTE
             </span>
-            {over && (
+            {over.length > 0 && (
               <span className="dept-over">
-                <Icon name="alert" size={11} /> {peakFte} planned
+                <Icon name="alert" size={11} /> {worstStretch(over).fte} planned
               </span>
             )}
           </span>

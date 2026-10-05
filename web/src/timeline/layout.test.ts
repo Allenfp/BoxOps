@@ -90,7 +90,6 @@ describe("layoutDepartment", () => {
               overflow: [],
               over: false,
             });
-            expect(l.peakFte).toBe(3);
           }
         }
       }
@@ -100,7 +99,6 @@ describe("layoutDepartment", () => {
   it("3.5 FTE at once in 3 FTE is over capacity", () => {
     const l = layoutDepartment(threeFte, [box("x", "a", 0, 9, 1.5), box("y", "b", 0, 9, 1.5), box("z", "c", 5, 9, 0.5)]);
     expect(l.overCapacity).toBe(true);
-    expect(l.peakFte).toBe(3.5);
     expect(overflowed(l)).toEqual(["z"]);
   });
 
@@ -108,7 +106,6 @@ describe("layoutDepartment", () => {
     // 2 + 2 FTE, but one ends the day before the other starts.
     const l = layoutDepartment(threeFte, [box("x", "a", 0, 9, 2), box("y", "b", 10, 19, 2)]);
     expect(l.overCapacity).toBe(false);
-    expect(l.peakFte).toBe(2);
   });
 
   it("a half lane can't hold a 1-FTE box when nothing else is free", () => {
@@ -144,7 +141,6 @@ describe("fully booked departments", () => {
     const boxes = rows.map(([id, lane, s, e, fte]) => box(id, lane, parseDay(s)!, parseDay(e)!, fte));
     const l = layoutDepartment(de, boxes);
     expect(l.overCapacity).toBe(false);
-    expect(l.peakFte).toBe(3.5);
     expect(overflowed(l)).toEqual([]);
     // Nothing drawn on top of anything else.
     for (const a of boxes) {
