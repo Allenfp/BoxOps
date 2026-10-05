@@ -176,3 +176,21 @@ test("the calendar picks a date and closes; a click elsewhere or Esc closes it t
   await expect(calendar).toHaveCount(0);
 });
 
+
+test("⌘S while typing in a cell saves what's being typed", async ({ page, github }) => {
+  await row(page, "Dagster 2.x upgrade").getByLabel("Title").fill("Dagster 2.x upgrade (phase 1)");
+  await page.keyboard.press("ControlOrMeta+s"); // still in the cell
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("title: Dagster 2.x upgrade (phase 1)\n");
+  expect(github.headCommit().message.split("\n")[0]).toMatch(/^Dagster 2\.x upgrade \(phase 1\) \(DE-D9U\): renamed from/);
+});
+
+test("⌘S while typing in a people cell saves it too", async ({ page, github }) => {
+  await page.getByRole("button", { name: "People" }).click();
+  const name = page.locator('input[aria-label="Name"]').first();
+  const before = await name.inputValue();
+  await name.fill(`${before} Jr.`);
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file("people.yaml")).toContain(`name: ${before} Jr.\n`);
+});

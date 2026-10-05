@@ -523,7 +523,13 @@ function RoadmapView(props: ViewProps) {
       if (mod && e.key.toLowerCase() === "s") {
         // Like saving a file — and never the browser's "save page" dialog.
         e.preventDefault();
-        if (!busy && !problem) saveRef.current();
+        if (busy || problem) return;
+        // A table or people cell keeps what's typed until it loses focus: commit
+        // it, then save on the next tick, once the draft has it.
+        if (isTyping(document.activeElement)) {
+          (document.activeElement as HTMLElement).blur();
+          setTimeout(() => saveRef.current(), 0);
+        } else saveRef.current();
         return;
       }
       if (isTyping(e.target) || busy) return;
