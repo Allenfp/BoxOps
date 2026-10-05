@@ -26,6 +26,8 @@ interface Props {
   hideFinished?: boolean;
   onHideFinished?(hide: boolean): void;
   readOnly?: boolean;
+  /** Why nothing can be changed while `readOnly`, said when a key would have changed something. */
+  readOnlyReason?: string;
   conflictIds?: Set<string>;
   updatedIds?: Set<string>;
   /**
@@ -395,7 +397,7 @@ export function TableView(props: Props) {
                           onClick={() => onToggleDepartment(dept.id)}
                           // Alt+↑ or Alt+↓ moves the department, as dragging its heading does; focus stays on it.
                           onKeyDown={(e) => {
-                            const why = readOnly ? "Read-only: changes can’t be made here." : "Clear the search to reorder departments.";
+                            const why = readOnly ? (props.readOnlyReason ?? "Read-only: changes can’t be made here.") : "Clear the search to reorder departments.";
                             if (reorderByKey(e, departments, dept.id, canReorder ? props.onMoveDepartment : undefined, why) === null) return;
                             const button = e.currentTarget;
                             focusLater([() => document.querySelector(`.box-table [data-dept-id="${CSS.escape(dept.id)}"] .group-toggle`)], button);

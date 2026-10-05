@@ -734,6 +734,12 @@ function RoadmapView(props: ViewProps) {
     if (b) setStep("checking");
     onSavingChange(b);
   };
+  /** Why the timeline and table can't be changed while they're read-only (`preview || busy`). */
+  const readOnlyReason = props.preview
+    ? "Read-only preview: changes can’t be made here."
+    : preview
+      ? "Read-only: changes can’t be made here."
+      : "Saving… try again in a moment.";
   const [problem, setProblem] = useState<SaveProblem | null>(null);
   /** Notices dismissed in this page view (by text). */
   const [dismissed, setDismissed] = useState<string[]>([]);
@@ -1746,6 +1752,7 @@ function RoadmapView(props: ViewProps) {
               hideFinished={prefs.hideFinished}
               onHideFinished={(hideFinished) => setPrefs({ hideFinished })}
               readOnly={preview || busy}
+              readOnlyReason={readOnlyReason}
               conflictIds={conflictBoxIds}
               updatedIds={updatedIds}
               onUpdate={(id, patch, key) => draft.updateBox(id, patch, key)}
@@ -1814,13 +1821,7 @@ function RoadmapView(props: ViewProps) {
               onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
               readOnly={preview || busy}
               readOnlyLabel={props.preview ? "Read-only preview" : preview ? "Read-only" : undefined}
-              readOnlyReason={
-                props.preview
-                  ? "Read-only preview: changes can’t be made here."
-                  : preview
-                    ? "Read-only: changes can’t be made here."
-                    : "Saving… try again in a moment."
-              }
+              readOnlyReason={readOnlyReason}
               conflictIds={conflictBoxIds}
               updatedIds={updatedIds}
               ruleWarnings={ruleWarnings}

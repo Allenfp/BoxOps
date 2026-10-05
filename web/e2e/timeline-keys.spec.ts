@@ -329,10 +329,16 @@ test.describe("a branch preview", () => {
     await expect(page.getByRole("button", { name: "Add a box to Data Engineering / FTE 2" })).toHaveAttribute("aria-disabled", "true");
     await page.keyboard.press("Enter");
     await expect(page.locator(".box")).toHaveCount(12);
-    // Nor do departments move.
+    // Nor do departments move, here or in the table, which says why the same way.
     await page.keyboard.press("PageUp");
     await page.keyboard.press("Alt+ArrowDown");
     await expect(page.locator(".dept-label .dept-name")).toHaveText(["Data Engineering", "Analytics", "ML Platform"]);
+    await page.getByRole("button", { name: "Table", exact: true }).click();
+    await page.locator('.box-table [data-dept-id="data-eng"] .group-toggle').focus();
+    const before = (await said(page)).length;
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect.poll(async () => (await said(page)).slice(before)).toEqual(["Read-only preview: changes can’t be made here."]);
+    await expect(page.locator(".group-toggle .dept-name")).toHaveText(["Data Engineering", "Analytics", "ML Platform"]);
   });
 });
 
