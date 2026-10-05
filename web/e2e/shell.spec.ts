@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { DAGSTER, dragDays, expect, test, toolbar } from "./helpers";
+import { FakeGitHub, REPO, TOKEN } from "./fake-github";
+import { DAGSTER, TODAY, dragDays, expect, test, toolbar } from "./helpers";
 
 // The page around the app: what happens when the app itself fails.
 
@@ -90,4 +91,30 @@ test("if the app still can't load after that reload, the page says so", async ({
   await page.reload();
   await expect(page.locator("#root")).toContainText("BoxOps couldn’t start: part of the app didn’t load.");
   await expect(page.locator("#root").getByRole("link", { name: "Try again" })).toBeVisible();
+});
+
+test("an empty roadmap says where to start; nothing offers to collapse, or to add a box nobody could see", async ({ page }) => {
+  const github = await FakeGitHub.create({ "settings.yaml": "format: 1\n", "people.yaml": "people: []\n" });
+  await page.clock.install({ time: TODAY });
+  await github.install(page);
+  await page.addInitScript(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, TOKEN]);
+  await page.goto("./");
+  await expect(page.getByText("This roadmap has no departments yet.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(Expand|Collapse) all$/ })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Table" }).click();
+  await expect(page.getByRole("button", { name: "Add box" })).toBeDisabled();
+  await expect(page.locator(".table-toolbar")).toContainText("Add a department first");
+  await expect(page.getByRole("button", { name: /^(Expand|Collapse) all$/ })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Timeline" }).click();
+  await page.locator(".empty-roadmap").getByRole("button", { name: "Add department" }).click();
+  const editor = page.locator("dialog.dept-editor[open]");
+  await editor.getByLabel("Department name").fill("Platform");
+  await editor.getByRole("button", { name: "Add department" }).click();
+  await editor.getByRole("button", { name: "Done" }).click();
+  await expect(page.locator(".empty-roadmap")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Collapse all" })).toBeVisible();
+  await page.getByRole("button", { name: "Table" }).click();
+  await expect(page.getByRole("button", { name: "Add box" })).toBeEnabled();
 });

@@ -33,8 +33,8 @@ interface Props {
   onUpdate(id: string, patch: Partial<Box>, key?: string): string;
   /** Add someone to the engineer roster; returns their id. */
   onAddPerson(name: string, department?: string): string;
-  /** Add a box (to this department's first lane, if given); returns its id. */
-  onAdd(departmentId?: string): string;
+  /** Add a box (to this department's first lane, if given); returns its id, or null when there's no lane to put it in. */
+  onAdd(departmentId?: string): string | null;
   /** Collapsed departments; shared with the timeline. */
   collapsed: Set<string>;
   onToggleDepartment(id: string): void;
@@ -101,6 +101,8 @@ export function TableView(props: Props) {
   const inDates = (start: number, end: number) => (fromDay === null || end >= fromDay) && (toDay === null || start <= toDay);
   const now = useToday();
   const [focusId, setFocusId] = useState<string | null>(null);
+  /** A box needs a lane to go in. */
+  const hasLanes = departments.some((d) => d.lanes.length > 0);
 
   // Lane order and labels, for the lane column and for sorting by it.
   const lanes = useMemo(() => {
@@ -290,10 +292,12 @@ export function TableView(props: Props) {
         <span className="hint">
           {rows.length === boxes.length ? `${boxes.length} boxes` : `${rows.length} of ${boxes.length} boxes`}
         </span>
-        <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />
+        {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
+        {!readOnly && !hasLanes && <span className="hint">Add a department first: boxes go in its lanes.</span>}
         {!readOnly && (
           <button
             className="primary"
+            disabled={!hasLanes}
             onClick={() => {
               setQuery("");
               setFocusId(onAdd());

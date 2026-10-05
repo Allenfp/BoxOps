@@ -105,7 +105,7 @@ export function PeopleView(props: Props) {
         <span className="hint">
           {shown === people.length ? `${people.length} engineers` : `${shown} of ${people.length} engineers`}
         </span>
-        <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />
+        {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
         {!readOnly && (
           <button
             className="primary"

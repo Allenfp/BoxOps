@@ -1380,11 +1380,12 @@ function RoadmapView(props: ViewProps) {
               const dept =
                 draft.departments.find((d) => d.id === departmentId && d.lanes.length) ??
                 draft.departments.find((d) => d.lanes.length);
-              const firstLane = dept?.lanes[0];
+              // No lane anywhere (the table says to add a department first): a box would show nowhere.
+              if (!dept) return null;
               const start = startOfWeek(now);
               const id = draft.addBox(
                 {
-                  lane: firstLane?.id ?? "",
+                  lane: dept.lanes[0].id,
                   start,
                   end: addWorkdays(start, 9), // two working weeks
                   title: "New box",

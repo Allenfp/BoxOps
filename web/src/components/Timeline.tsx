@@ -463,7 +463,7 @@ export function Timeline(props: Props) {
       <div className="tl-canvas" style={{ width: LABEL_W + scale.width }}>
         <div className="tl-head">
           <div className="tl-corner" style={{ width: LABEL_W }}>
-            <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />
+            {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
             {readOnly && <span>Read-only preview</span>}
           </div>
           <div className="tl-bands" style={{ width: scale.width }}>
@@ -734,7 +734,25 @@ export function Timeline(props: Props) {
             );
           })}
 
-          {!readOnly && props.onAddDepartment && (
+          {departments.length === 0 && (
+            <div className="empty-roadmap">
+              <p>
+                <strong>This roadmap has no departments yet.</strong>
+              </p>
+              <p>
+                Start with a department: its lanes are your capacity. Then double-click a lane to add a box, and add
+                engineers under People.
+              </p>
+              {!readOnly && props.onAddDepartment && (
+                <button className="primary" onClick={props.onAddDepartment}>
+                  <Icon name="plus" size={14} />
+                  Add department
+                </button>
+              )}
+            </div>
+          )}
+
+          {!readOnly && props.onAddDepartment && departments.length > 0 && (
             <div className="row add-dept-row">
               <div className="label" style={{ width: LABEL_W }}>
                 <button className="add-button" onClick={props.onAddDepartment}>

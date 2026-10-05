@@ -1930,6 +1930,20 @@ button.primary:hover:not(:disabled) {
 .add-dept-row {
   border-bottom: 0;
 }
+/* An empty roadmap: what to do first, where the departments would be. */
+.empty-roadmap {
+  position: sticky;
+  left: 0;
+  width: min(520px, 100vw);
+  padding: 24px 16px;
+  color: var(--text-muted);
+}
+.empty-roadmap p {
+  margin: 0 0 12px;
+}
+.empty-roadmap strong {
+  color: var(--text);
+}
 .add-dept-row .label {
   border-right: 0;
   background: transparent;
