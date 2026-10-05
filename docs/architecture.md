@@ -510,7 +510,8 @@ against data the new code wrote.
   America/Los_Angeles and Pacific/Kiritimati, where the day starts 7 hours
   after UTC's and 14 hours before it. Tests of unsaved drafts open a second
   tab in the same browser context (so the same `localStorage`), with a clock
-  of its own. Any Content-Security-Policy violation fails a test.
+  of its own. An uncaught error or a Content-Security-Policy violation in
+  any tab a test opens fails it.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build with a generated 2,000-box roadmap
   (`scripts/gen-roadmap.ts`; and a 500-box one) as its `roadmap.json`,

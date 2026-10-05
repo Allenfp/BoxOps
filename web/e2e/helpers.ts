@@ -29,28 +29,43 @@ export const boxFile = (id: string) => `boxes/${id}.yaml`;
 
 /**
  * `page` comes with the clock pinned, the fake GitHub installed, and the app
- * open. `visibility` makes the repository public (the default) or private.
- * `csp` collects Content-Security-Policy violations; any left at the end
- * fails the test (every test has it, through `github`).
+ * open. `visibility` makes the repository public (the default) or private;
+ * `files` are the roadmap's, in place of the fixture's. Every page of every
+ * test, tabs it opens later included, is watched: an uncaught error or a
+ * Content-Security-Policy violation (`csp` lists them) fails the test.
  */
-export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibility: "public" | "private"; csp: string[] }>({
+export const test = base.extend<{
+  github: FakeGitHub;
+  signedIn: boolean;
+  visibility: "public" | "private";
+  files: Record<string, string> | undefined;
+  watched: { errors: string[]; csp: string[] };
+  csp: string[];
+}>({
   signedIn: [true, { option: true }],
   visibility: ["public", { option: true }],
-  csp: async ({ page }, use) => {
-    const violations: string[] = [];
-    await page.addInitScript(() =>
-      document.addEventListener("securitypolicyviolation", (e) =>
-        console.error(`CSP violation: ${e.violatedDirective} blocked ${e.blockedURI || "inline code"} (${e.sourceFile}:${e.lineNumber})`),
-      ),
-    );
-    page.on("console", (m) => {
-      if (m.type() === "error" && m.text().startsWith("CSP violation")) violations.push(m.text());
-    });
-    await use(violations);
-    expect(violations, "Content-Security-Policy violations").toEqual([]);
-  },
-  github: async ({ page, signedIn, visibility, timezoneId, csp: _ }, use) => {
-    const github = await FakeGitHub.create(undefined, { visibility });
+  files: [undefined, { option: true }],
+  watched: [
+    async ({ context }, use) => {
+      const watched = { errors: [] as string[], csp: [] as string[] };
+      await context.addInitScript(() =>
+        document.addEventListener("securitypolicyviolation", (e) =>
+          console.error(`CSP violation: ${e.violatedDirective} blocked ${e.blockedURI || "inline code"} (${e.sourceFile}:${e.lineNumber})`),
+        ),
+      );
+      context.on("console", (m) => {
+        if (m.type() === "error" && m.text().startsWith("CSP violation")) watched.csp.push(m.text());
+      });
+      context.on("weberror", (e) => watched.errors.push(e.error().message));
+      await use(watched);
+      expect(watched.errors, "uncaught page errors").toEqual([]);
+      expect(watched.csp, "Content-Security-Policy violations").toEqual([]);
+    },
+    { auto: true },
+  ],
+  csp: async ({ watched }, use) => use(watched.csp),
+  github: async ({ page, signedIn, visibility, files, timezoneId }, use) => {
+    const github = await FakeGitHub.create(files, { visibility });
     await page.clock.install({ time: morningIn(timezoneId) });
     await page.context().addInitScript(countSiteFetches);
     await github.install(page);
@@ -64,16 +79,13 @@ export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibil
         localStorage.setItem("boxops-prefs", JSON.stringify({ showCodes: true, showScale: true, showInitials: true }));
       }
     });
-    const errors: string[] = [];
-    page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("./?zoom=months");
-    await expect(page.locator(".box").first()).toBeVisible();
+    await expect(page.locator(".box, .empty-roadmap").first()).toBeVisible();
     // The deployed copy is painted first; then the app asks GitHub for newer saves (when it
     // may: with a token, or a public repository). Let that start, so it can't take a failure
     // a test sets up for its save.
     if (signedIn || visibility === "public") await expect.poll(() => github.calls("ref")).toBe(1);
     await use(github);
-    expect(errors, "uncaught page errors").toEqual([]);
     expect(github.forbidden, "calls GitHub would refuse, or a correct app never makes").toEqual([]);
   },
 });
