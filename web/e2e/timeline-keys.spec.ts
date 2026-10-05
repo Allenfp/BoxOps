@@ -344,3 +344,35 @@ test("Option or Alt with ↑ ↓ on a department's heading moves it, keeping foc
   expect(github.file("departments/analytics.yaml")).toContain("order: 1\n");
   expect(github.file("departments/data-eng.yaml")).toContain("order: 2\n");
 });
+
+test("a box's scale card can be hovered, shows while the box has keyboard focus, and Escape puts it away", async ({ page, github: _ }) => {
+  const pop = page.getByRole("tooltip");
+  // The pointer can go from the number onto the card, and the card stays.
+  const number = box(page, DAGSTER).locator(".box-scale");
+  await number.hover();
+  await expect(pop).toContainText("Scale 30");
+  const card = (await pop.boundingBox())!;
+  await page.mouse.move(card.x + 20, card.y + card.height / 2, { steps: 5 });
+  await page.waitForTimeout(300);
+  await expect(pop).toBeVisible();
+  // Escape puts it away, and nothing else happens.
+  await page.keyboard.press("Escape");
+  await expect(pop).toHaveCount(0);
+  await page.mouse.move(5, 5);
+
+  // Keyboard focus on a box shows its card; Escape puts it away, focus staying on the box.
+  await cell(page, "lane:de-2").focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(box(page, DAGSTER)).toBeFocused();
+  await expect(pop).toContainText("29% of Data Engineering while it runs");
+  await page.keyboard.press("Escape");
+  await expect(pop).toHaveCount(0);
+  await expect(box(page, DAGSTER)).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(pop).toContainText("Scale");
+  // Picking it up puts the card away.
+  await page.keyboard.press("Space");
+  await expect(pop).toHaveCount(0);
+  await page.keyboard.press("Escape");
+});

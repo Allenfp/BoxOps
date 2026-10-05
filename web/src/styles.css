@@ -2478,7 +2478,7 @@ button.primary {
   line-height: 14px;
 }
 
-/* The scale number is underlined; hovering it shows .scale-pop. */
+/* The scale number is underlined; hovering it (or focus on its box) shows .scale-pop, which the pointer can move onto. */
 .scale-number {
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -2496,7 +2496,6 @@ button.primary {
   font-size: 12px;
   line-height: 18px;
   color: var(--text);
-  pointer-events: none;
 }
 
 /* Date fields: plain YYYY-MM-DD text, with the browser's picker behind a calendar button. */
