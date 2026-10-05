@@ -1,4 +1,4 @@
-import { CDC, DAGSTER, box, dragDays, expect, focusApp, said, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, boxFile, dragDays, expect, focusApp, said, save, test, toolbar } from "./helpers";
 
 // Working by keyboard: where focus goes, and what keys do. WebKit's Tab, like
 // Safari's by default, skips buttons and links unless they have a tabindex,
@@ -127,6 +127,39 @@ test("a failed save opens on Try again, with the reason as the dialog's descript
   const dialog = page.getByRole("dialog", { name: "GitHub’s rules blocked this save" });
   await expect(dialog.getByRole("button", { name: "Try again" })).toBeFocused();
   await expect(dialog).toHaveAccessibleDescription(/^GitHub’s rules for main blocked this save/);
+});
+
+test("a save that meets others' saves opens on Review changes; a clash, on its question; Escape goes back to Save", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline v2") }, "Sam Lee", "CDC pipeline: renamed");
+  await save(page);
+  const updated = page.getByRole("dialog", { name: "The roadmap changed since you opened it" });
+  await expect(updated.getByRole("button", { name: "Review changes" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(updated).toHaveCount(0);
+  await expect(page.locator("[data-save-button]")).toBeFocused();
+
+  // None of its answers is harmless, so it starts on itself: its question is read first.
+  github.beforeRefUpdate = () => {
+    github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked") });
+  };
+  await save(page);
+  const conflict = page.getByRole("dialog", { name: "Someone else changed the same items" });
+  await expect(conflict).toBeFocused();
+  await expect(conflict).toHaveAccessibleDescription(/^Since you loaded the roadmap, someone else saved changes to an item you also edited/);
+  await page.keyboard.press("Escape");
+  await expect(conflict).toHaveCount(0);
+  await expect(page.locator("[data-save-button]")).toBeFocused();
+});
+
+test("⌘S with the box editor open saves and closes it, leaving focus on the box", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await editor.getByRole("textbox", { name: "Title", exact: true }).fill("Dagster 2.x upgrade (phase 1)");
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(editor).toHaveCount(0);
+  await expect(box(page, DAGSTER)).toBeFocused();
 });
 
 test("the Engineers list: its button says who's on the box; arrows, Space and Escape work it", async ({ page, github: _ }) => {
