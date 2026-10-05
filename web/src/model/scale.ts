@@ -9,7 +9,7 @@ export const boxScale = (b: Pick<Box, "fte" | "start" | "end">) => Math.round(b.
 
 export const SCALE_HELP = "Scale: FTE × working days";
 
-/** Eng Days (one engineer's working day) in a week, month and quarter, rounded for planning. */
+/** Working days in a week, month and quarter, rounded for planning (one engineer's working day is one FTE-day). */
 export const PERIOD_DAYS = { week: 5, month: 20, quarter: 60 } as const;
 export type Period = keyof typeof PERIOD_DAYS;
 

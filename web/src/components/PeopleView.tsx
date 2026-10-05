@@ -103,7 +103,8 @@ export function PeopleView(props: Props) {
           onChange={(e) => setQuery(e.target.value)}
         />
         <span className="hint">
-          {shown === people.length ? `${people.length} engineers` : `${shown} of ${people.length} engineers`}
+          {shown === people.length ? "" : `${shown} of `}
+          {people.length} engineer{people.length === 1 ? "" : "s"}
         </span>
         {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
         {!readOnly && (

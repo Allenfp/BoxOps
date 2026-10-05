@@ -2692,7 +2692,7 @@ kbd {
   outline: none;
 }
 
-/* Table toolbar: date range and "Hide completed" */
+/* Table toolbar: date range and "Hide finished boxes" */
 .date-filter {
   display: inline-flex;
   align-items: center;

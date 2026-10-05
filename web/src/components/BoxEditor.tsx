@@ -219,8 +219,8 @@ export function BoxEditor(props: Props) {
               </select>
             </label>
             <label>
-              Status
-              <select aria-label="Status" value={box.status ?? ""} onChange={(e) => onChange({ status: e.target.value || undefined }, "status")}>
+              Flag
+              <select aria-label="Flag" value={box.status ?? ""} onChange={(e) => onChange({ status: e.target.value || undefined }, "status")}>
                 <option value="">{NO_FLAG}</option>
                 {settings.statuses.map((s) => (
                   <option key={s.id} value={s.id}>

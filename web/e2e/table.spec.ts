@@ -23,7 +23,7 @@ test("edits cells and saves them", async ({ page, github }) => {
   await expect(row(page, "CDC pipeline for orders DB")).toHaveCount(1);
 
   const r = row(page, "Dagster 2.x upgrade (phase 1)");
-  await r.getByLabel("Status").selectOption("blocked");
+  await r.getByLabel("Flag").selectOption("blocked");
   await r.getByLabel("End").fill("2026-11-20");
   await r.getByLabel("Lane").selectOption("de-4");
   await r.getByLabel("Epic link").fill("not a url");
@@ -126,7 +126,7 @@ test("departments collapse, shared with the timeline", async ({ page, github: _ 
   await expect(page.locator('input[aria-label="Title"]')).toHaveCount(16);
 });
 
-test("a date range and a Hide completed switch filter the table", async ({ page, github: _ }) => {
+test("a date range and a Hide finished boxes switch filter the table", async ({ page, github: _ }) => {
   const titles = page.locator("tbody tr:not(.group-row) .col-title input[aria-label='Title']");
   const count = page.locator(".table-toolbar .hint");
   await expect(count).toHaveText("15 boxes");
@@ -141,10 +141,10 @@ test("a date range and a Hide completed switch filter the table", async ({ page,
   await page.getByRole("button", { name: "Clear dates" }).click();
   await expect(count).toHaveText("15 boxes");
 
-  // Completed = ended before today (2026-10-03): Legacy ETL sunset ended 2026-07-31.
+  // Finished = ended before today (2026-10-03): Legacy ETL sunset ended 2026-07-31.
   const legacy = page.locator("tbody tr").filter({ has: page.locator("input[value='Legacy ETL sunset']") });
   await expect(legacy).toHaveCount(1);
-  await page.getByRole("switch", { name: "Hide completed" }).click();
+  await page.getByRole("switch", { name: "Hide finished boxes" }).click();
   await expect(legacy).toHaveCount(0);
   await expect(count).toHaveText(/^1[0-4] of 15 boxes$/);
   // It's the same preference as the timeline's.

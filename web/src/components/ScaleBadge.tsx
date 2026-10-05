@@ -44,7 +44,7 @@ export function ScaleBadge({ box, departments, className }: Props) {
             <strong>Scale {stats.scale}</strong>
             <span className="hint">
               {" "}
-              = {box.fte} FTE × {stats.days} Eng Day{stats.days === 1 ? "" : "s"}
+              = {box.fte} FTE × {stats.days} working day{stats.days === 1 ? "" : "s"}
             </span>
             <div>
               ≈ {amount(stats.in.week)} weeks · {amount(stats.in.month)} months · {amount(stats.in.quarter)} quarters

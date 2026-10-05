@@ -399,7 +399,7 @@ export function Timeline(props: Props) {
       ...warnings.map((w) => `⚠ ${w}\n`),
       jira ? `${jira}  ${b.title}  (BoxOps ${code})` : `${code}  ${b.title}`,
       `${prettyDay(b.start)} – ${prettyDay(b.end)}`,
-      `${workdays(b.start, b.end)} working days · ${b.fte} FTE · Scale ${scale} · ${PROGRESS_NAME[stage]}${flag ? ` · ${flag}` : ""}`,
+      `${workdays(b.start, b.end)} working day${workdays(b.start, b.end) === 1 ? "" : "s"} · ${b.fte} FTE · Scale ${scale} · ${PROGRESS_NAME[stage]}${flag ? ` · ${flag}` : ""}`,
       engineers.length ? `Engineers: ${engineers.join(", ")}` : "No engineer assigned",
       b.description && `\n${b.description}`,
     ];
@@ -651,7 +651,7 @@ export function Timeline(props: Props) {
                             style={{ left: scale.x(previewHere.start), top: boxTop(previewLane.slot) - 21 }}
                           >
                             {prettyDay(previewHere.start)} – {prettyDay(previewHere.end)} ·{" "}
-                            {workdays(previewHere.start, previewHere.end)} working days
+                            {workdays(previewHere.start, previewHere.end)} working day{workdays(previewHere.start, previewHere.end) === 1 ? "" : "s"}
                           </div>
                         </>
                       )}
@@ -723,7 +723,8 @@ export function Timeline(props: Props) {
                         })}
                         {ptoPreview && entries.some((en) => ptoKey({ personId: en.person.id, index: en.index }) === ptoPreview.key) && (
                           <div className="drag-dates" style={{ left: scale.x(ptoPreview.start), top: -18 }}>
-                            {prettyDay(ptoPreview.start)} – {prettyDay(ptoPreview.end)} · {workdays(ptoPreview.start, ptoPreview.end)} working days
+                            {prettyDay(ptoPreview.start)} – {prettyDay(ptoPreview.end)} · {workdays(ptoPreview.start, ptoPreview.end)} working day
+                            {workdays(ptoPreview.start, ptoPreview.end) === 1 ? "" : "s"}
                           </div>
                         )}
                       </div>

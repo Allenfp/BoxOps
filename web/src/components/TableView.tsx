@@ -66,12 +66,12 @@ const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: "lane", label: "Department / lane", className: "col-lane" },
   { key: "start", label: "Start", className: "col-date" },
   { key: "end", label: "End", className: "col-date" },
-  { key: "days", label: "Work days", className: "col-days" },
+  { key: "days", label: "Working days", className: "col-days" },
   { key: "fte", label: "FTE", className: "col-fte" },
   { key: "scale", label: "Scale", className: "col-scale" },
   { key: "engineers", label: "Engineers", className: "col-engineers" },
   { key: "type", label: "Type", className: "col-type" },
-  { key: "status", label: "Status", className: "col-status" },
+  { key: "status", label: "Flag", className: "col-status" },
   { key: null, label: "Epic link", className: "col-epic" },
   { key: null, label: "Tags", className: "col-tags" },
   { key: null, label: "Description", className: "col-desc" },
@@ -286,11 +286,12 @@ export function TableView(props: Props) {
               checked={!!props.hideFinished}
               onChange={(e) => props.onHideFinished!(e.target.checked)}
             />
-            <span>Hide completed</span>
+            <span>Hide finished boxes</span>
           </label>
         )}
         <span className="hint">
-          {rows.length === boxes.length ? `${boxes.length} boxes` : `${rows.length} of ${boxes.length} boxes`}
+          {rows.length === boxes.length ? "" : `${rows.length} of `}
+          {boxes.length} box{boxes.length === 1 ? "" : "es"}
         </span>
         {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
         {!readOnly && !hasLanes && <span className="hint">Add a department first: boxes go in its lanes.</span>}
@@ -534,7 +535,7 @@ export function TableView(props: Props) {
                       className={`status-select${b.status ? " flagged" : ""}`}
                       value={b.status ?? ""}
                       disabled={readOnly}
-                      aria-label="Status"
+                      aria-label="Flag"
                       onChange={(e) => update(b.id, { status: e.target.value || undefined })}
                     >
                       <option value="">{NO_FLAG}</option>

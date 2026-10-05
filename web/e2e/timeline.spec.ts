@@ -86,10 +86,10 @@ test("clicking a box opens the editor; edits apply live", async ({ page, github:
   await editor.getByPlaceholder("https://…").fill("https://example.atlassian.net/browse/DATA-42");
   await expect(editor.getByRole("link", { name: "Open" })).toBeVisible();
   await expect(box(page, DAGSTER).locator(".box-flag")).toHaveText("At risk");
-  await editor.getByLabel("Status", { exact: true }).selectOption("blocked");
+  await editor.getByLabel("Flag", { exact: true }).selectOption("blocked");
   await expect(boxTitle(page, DAGSTER)).toHaveText("Dagster upgrade, phase 1");
   await expect(box(page, DAGSTER).locator(".box-flag")).toHaveText("Blocked");
-  await editor.getByLabel("Status", { exact: true }).selectOption(""); // On track: no flag
+  await editor.getByLabel("Flag", { exact: true }).selectOption(""); // On track: no flag
   await expect(box(page, DAGSTER).locator(".box-flag")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(editor).toBeHidden();
@@ -161,7 +161,7 @@ test("engineers are picked from the roster, and new ones can be added", async ({
   await scale.hover();
   const pop = page.getByRole("tooltip");
   await expect(pop).toContainText("Scale 30");
-  await expect(pop).toContainText("= 1 FTE × 30 Eng Days");
+  await expect(pop).toContainText("= 1 FTE × 30 working days");
   await expect(pop).toContainText("≈ 6 weeks · 1.5 months · 0.5 quarters");
   await expect(pop).toContainText("FTE per Month = ~20");
   await expect(pop).toContainText("29% of Data Engineering while it runs");
