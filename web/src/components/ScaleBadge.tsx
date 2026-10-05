@@ -5,7 +5,7 @@
 // move onto the card without it going, Escape puts it away (and nothing
 // else), and it stays until then or until the pointer or focus leaves.
 
-import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { amount, boxScale, percent, scaleStats } from "../model/scale";
 import type { Box, Department } from "../model/types";
@@ -22,7 +22,6 @@ interface Props {
 
 export function ScaleBadge({ box, departments, className }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
-  const id = useId();
   const [hovered, setHovered] = useState(false);
   /** The box it's in has keyboard focus. */
   const [focused, setFocused] = useState(false);
@@ -109,7 +108,7 @@ export function ScaleBadge({ box, departments, className }: Props) {
       </span>
       {stats &&
         createPortal(
-          <div id={id} className="scale-pop" role="tooltip" style={{ ...style, width: WIDTH }} onMouseEnter={enter} onMouseLeave={leave}>
+          <div className="scale-pop" role="tooltip" style={{ ...style, width: WIDTH }} onMouseEnter={enter} onMouseLeave={leave}>
             <strong>Scale {stats.scale}</strong>
             <span className="hint">
               {" "}
