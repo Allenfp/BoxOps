@@ -1,4 +1,5 @@
 import { type Route } from "@playwright/test";
+import { EXECUTABLE } from "../src/model/paths";
 import { type FakeGitHub, OTHER_OWNER_TOKEN, REPO, TOKEN } from "./fake-github";
 import { DAGSTER, REVENUE, box, boxTitle, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
@@ -85,6 +86,19 @@ test("newer saves in a folder that breaks the build's rules: the deployed copy s
   await pollNow(page);
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
   await expect(page.locator(".banner.notice-warning")).toHaveCount(0);
+});
+
+test("a newer save that makes a roadmap file executable is read all the same, with a warning in the console", async ({ page, github }) => {
+  github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }, "Sam Lee", "Revenue mart: v3");
+  github.modes = { [`roadmap/${boxFile(REVENUE)}`]: "100755" };
+  const warnings: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "warning") warnings.push(m.text());
+  });
+  await page.reload();
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  await expect(page.locator(".banner.notice-warning")).toHaveCount(0);
+  expect(warnings).toContain(`roadmap/${boxFile(REVENUE)} ${EXECUTABLE}`);
 });
 
 test.describe("branch previews (?ref=)", () => {
