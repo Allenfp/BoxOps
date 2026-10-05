@@ -10,13 +10,14 @@
 import { Document, isMap, isScalar, isSeq, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
 import { formatDay } from "./dates";
 import { diffDraft, normalize, type DraftState } from "./draft";
+import { FORMAT } from "./format";
 import { DEFAULT_DEPT_COLOR, type LoadResult, loadRoadmap } from "./load";
 import type { Box, Department, Person, RoadmapFiles } from "./types";
 
 /** path → new file text, or null to delete the file. */
 export type FileChanges = Record<string, string | null>;
 
-/** A save would write files the loader couldn't fully read. */
+/** A save would write files the loader couldn't fully read (or a roadmap in another data format). */
 export class UnsafeWrite extends Error {
   constructor(readonly files: { path: string; problems: string[] }[]) {
     super(
@@ -49,7 +50,7 @@ const BOX_KEYS = [
 const DEPT_KEYS = ["id", "code", "name", "color", "order", "collapsed", "lanes"];
 const LANE_KEYS = ["id", "name", "fte", "start", "end"];
 const PERSON_KEYS = ["id", "name", "department", "role", "email", "manager", "notes", "pto"];
-const SETTINGS_KEYS = ["title", "fiscal_year_start_month", "default_zoom", "types", "statuses"];
+const SETTINGS_KEYS = ["format", "title", "fiscal_year_start_month", "default_zoom", "types", "statuses"];
 
 /** How a list of mappings is merged: entries matched by `id`, or (PTO, rules) by what they say. */
 interface ListSpec {
@@ -231,13 +232,13 @@ function writeFile(
  * The file changes that turn `base`, loaded from `baseFiles`, into `draft`.
  * Each department and box is written to the file it was loaded from. Throws
  * UnsafeWrite when that would mean writing a file the loader couldn't fully
- * read.
+ * read, or when the roadmap isn't in this BoxOps's data format.
  */
 export function serializeChanges(
   baseFiles: RoadmapFiles,
   base: DraftState,
   draft: DraftState,
-  loaded: Pick<LoadResult, "lossy" | "sources"> = loadRoadmap(baseFiles),
+  loaded: Pick<LoadResult, "issues" | "lossy" | "sources" | "formatStatus"> = loadRoadmap(baseFiles),
 ): FileChanges {
   const changes = diffDraft(base, draft);
   const writes = new Map<string, () => string | null>();
@@ -267,11 +268,17 @@ export function serializeChanges(
   }
 
   // Team settings: no implied defaults (a type's colour is always written out).
+  // A settings.yaml written from scratch starts with this BoxOps's format.
   if (changes.settings) {
     const path = "settings.yaml";
-    writes.set(path, () => writeFile(path, baseFiles[path], { ...draft.settings }, { ...base.settings }, SETTINGS_KEYS, SETTINGS_LISTS, {}));
+    const value = { format: FORMAT, ...draft.settings };
+    writes.set(path, () => writeFile(path, baseFiles[path], value, { format: FORMAT, ...base.settings }, SETTINGS_KEYS, SETTINGS_LISTS, {}));
   }
 
+  if (writes.size && loaded.formatStatus !== "current") {
+    const problems = loaded.issues.filter((i) => i.path === "settings.yaml" && (/^(format|missing):/.test(i.message) || i.lossy));
+    throw new UnsafeWrite([{ path: "settings.yaml", problems: problems.map((i) => i.message) }]);
+  }
   const unsafe = [...writes.keys()].filter((path) => loaded.lossy.has(path)).sort();
   if (unsafe.length) throw new UnsafeWrite(unsafe.map((path) => ({ path, problems: loaded.lossy.get(path)! })));
 

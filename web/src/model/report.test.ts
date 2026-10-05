@@ -44,6 +44,7 @@ describe("formatReport", () => {
     const { buildReport, formatReport } = await import("./report");
     const text = formatReport(
       buildReport({
+        format: 1,
         settings: { title: "t", fiscal_year_start_month: 1, default_zoom: "months", types: [], statuses: [] },
         departments: [{ id: "eng", code: "EN", name: "Eng", color: "#000", order: 1, collapsed: false, lanes: [{ id: "e1", fte: 1 }] }],
         people: [

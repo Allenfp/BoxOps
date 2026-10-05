@@ -1,4 +1,5 @@
 # Global roadmap settings. Edited by hand or from the app.
+format: 1 # BoxOps data format; don't change it by hand
 title: BoxOps Roadmap
 fiscal_year_start_month: 1 # 1 = calendar quarters; 2 = FY starts in February, etc.
 default_zoom: months # weeks | months | quarters

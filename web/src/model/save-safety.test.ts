@@ -1,6 +1,6 @@
 // What a save writes, and what it refuses to write: files the loader couldn't
-// fully read, and files other than the one an item came from. Also that
-// untouched lines stay byte for byte as written.
+// fully read, roadmaps in another data format, and files other than the one
+// an item came from. Also that untouched lines stay byte for byte as written.
 
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -81,6 +81,23 @@ describe("files the loader couldn't fully read", () => {
     const files = { ...ROADMAP, "departments/ops.yaml": "id: ops\ncode: OP\nname: Ops\nlanes:\n  - id: e2\n  - id: o1\n" };
     const out = refused(files, (s) => ({ ...s, departments: s.departments.map((x) => (x.id === "ops" ? { ...x, name: "Operations" } : x)) }));
     expect(out).toEqual([{ path: "departments/ops.yaml", problems: ['lane "e2" is already used in department "eng", so it\'s left out here'] }]);
+  });
+});
+
+describe("the data format", () => {
+  it("must be this BoxOps's to save anything", () => {
+    for (const settings of [SETTINGS.replace("format: 1\n", ""), SETTINGS.replace("format: 1", "format: 2")]) {
+      const out = refused({ ...ROADMAP, "settings.yaml": settings }, (s) => editBox(s, "b1", { title: "Renamed" }));
+      expect(out.map((f) => f.path)).toEqual(["settings.yaml"]);
+    }
+  });
+
+  it("starts a settings.yaml written from scratch", () => {
+    const { "settings.yaml": _, ...files } = ROADMAP;
+    const base = loaded(files);
+    const draft = { ...base, settings: { ...base.settings, title: "Ours" } };
+    const current = { ...loadRoadmap(files), formatStatus: "current" as const };
+    expect(serializeChanges(files, base, draft, current)["settings.yaml"]).toMatch(/^format: 1\ntitle: Ours\n/);
   });
 });
 

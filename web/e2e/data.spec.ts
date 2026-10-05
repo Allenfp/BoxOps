@@ -36,3 +36,17 @@ test("a file the app couldn't fully read is never written; other edits still sav
   await dialog.getByRole("button", { name: "Back to editing" }).click();
   await expect(toolbar(page)).toContainText("Save · 1 change");
 });
+
+test("a roadmap in another data format opens read-only", async ({ page, github }) => {
+  await handEdit(page, github, "settings.yaml", (t) => t.replace("format: 1", "format: 2"));
+  await expect(page.locator(".banner", { hasText: "Read-only" })).toContainText("uses data format 2");
+  await expect(page.locator(".draft-status")).toHaveCount(0);
+
+  await handEdit(page, github, "settings.yaml", (t) => t.replace(/^format: .*\n/m, ""));
+  await expect(page.locator(".banner", { hasText: "Read-only" })).toContainText("doesn’t say which data format");
+  await expect(page.locator(".draft-status")).toHaveCount(0);
+
+  await handEdit(page, github, "settings.yaml", (t) => `format: 1\n${t}`);
+  await expect(page.locator(".banner", { hasText: "Read-only" })).toHaveCount(0);
+  await expect(toolbar(page)).toContainText("No changes");
+});

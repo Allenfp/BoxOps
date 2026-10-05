@@ -67,7 +67,7 @@ describe("timeline", () => {
 });
 
 describe("loadRoadmap", () => {
-  const settings = "types: [{id: project, name: Project, color: '#000000'}]\nstatuses: [{id: planned, name: Planned}]\n";
+  const settings = "format: 1\ntypes: [{id: project, name: Project, color: '#000000'}]\nstatuses: [{id: planned, name: Planned}]\n";
   const dept = "id: eng\ncode: EN\nname: Eng\nlanes: [{id: e1}, {id: e2, fte: 0.5}]\n";
 
   it("loads a valid roadmap", () => {

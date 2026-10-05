@@ -60,7 +60,7 @@ describe("serializeChanges", () => {
     const dept = { id: "eng", code: "EN", name: "Eng", color: "#8a94a6", order: 0, collapsed: false, lanes: [{ id: "e1", fte: 1 }, { id: "e2", fte: 0.5 }] };
     const b: DraftState = { boxes: [], departments: [dept], people: [], settings: DEFAULT_SETTINGS };
     const d: DraftState = { boxes: [], departments: [{ ...dept, lanes: [{ id: "e1", fte: 1, name: "Platform" }, dept.lanes[1]] }], people: [], settings: DEFAULT_SETTINGS };
-    const out = serializeChanges({ "departments/eng.yaml": original }, b, d);
+    const out = serializeChanges({ "settings.yaml": "format: 1\n", "departments/eng.yaml": original }, b, d);
     expect(out["departments/eng.yaml"]).toBe(
       "# Data team lanes\nid: eng\ncode: EN\nname: Eng\nlanes:\n  - id: e1 # first hire\n    name: Platform\n    fte: 1\n  - id: e2\n    fte: 0.5\n",
     );
@@ -182,6 +182,7 @@ describe("weekday dates", () => {
 
 describe("team settings", () => {
   const settingsFile = `# Global roadmap settings.
+format: 1
 title: BoxOps
 fiscal_year_start_month: 1   # calendar quarters
 default_zoom: months

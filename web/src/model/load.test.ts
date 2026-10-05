@@ -47,7 +47,10 @@ const ROWS: Row[] = [
   ["an unexpected file", { "notes.md": "# Notes\n" }, [["notes.md", "unexpected file; roadmap files live in departments/ or boxes/"]]],
   ["people.yml instead of people.yaml", { "people.yml": "people: []\n" }, [["people.yml", "rename this file to people.yaml"]]],
   // settings.yaml
-  ["settings.yaml missing", { "settings.yaml": null }, [["settings.yaml", "missing; using defaults"]]],
+  ["settings.yaml missing", { "settings.yaml": null }, [["settings.yaml", 'missing: every roadmap needs a settings.yaml with at least "format: 1"']]],
+  ["format missing", { "settings.yaml": settings({ format: null }) }, [["settings.yaml", 'format: missing; add "format: 1" at the top of this file']]],
+  ["format newer than this BoxOps reads", { "settings.yaml": settings({ format: "2" }) }, [["settings.yaml", "format: 2 needs a newer BoxOps (this one reads format 1)"]]],
+  ["format not a whole number", { "settings.yaml": settings({ format: '"1"' }) }, [["settings.yaml", 'format: expected a whole number, like "format: 1"']]],
   ["fiscal_year_start_month outside 1-12", { "settings.yaml": settings({ fiscal_year_start_month: "13" }) }, [["settings.yaml", "fiscal_year_start_month: expected a month number from 1 to 12", "lossy"]]],
   ["default_zoom not weeks, months or quarters", { "settings.yaml": settings({ default_zoom: "days" }) }, [["settings.yaml", "default_zoom: expected one of weeks, months, quarters", "lossy"]]],
   ["a type without a colour", { "settings.yaml": settings({ types: "[{id: project, name: Project}]" }) }, [["settings.yaml", 'type "project", color: required text is missing', "lossy"]]],
@@ -161,6 +164,22 @@ describe("what the loader makes of it", () => {
   it("gives problems a line number", () => {
     const { issues } = load({ "people.yaml": "people:\n  - id: sam\n    name: Sam\n    email: nope\n" });
     expect(issues.map((i) => [i.message, i.line])).toEqual([['person "sam", email: "nope" doesn\'t look like an email address', 4]]);
+  });
+});
+
+describe("data format", () => {
+  const status = (over: Record<string, string | null>) => {
+    const { roadmap, formatStatus } = load(over);
+    return [roadmap.format, formatStatus];
+  };
+
+  it("is read from settings.yaml: missing means 0, a newer one is reported", () => {
+    expect(status({})).toEqual([1, "current"]);
+    expect(status({ "settings.yaml": settings({ format: null }) })).toEqual([0, "older"]);
+    expect(status({ "settings.yaml": null })).toEqual([0, "older"]);
+    expect(status({ "settings.yaml": settings({ format: "2" }) })).toEqual([2, "newer"]);
+    expect(status({ "settings.yaml": settings({ format: "one" }) })).toEqual([null, "unknown"]);
+    expect(status({ "settings.yaml": "format: [1\n" })).toEqual([null, "unknown"]);
   });
 });
 

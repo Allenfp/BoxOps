@@ -115,6 +115,8 @@ export interface Box {
 }
 
 export interface Roadmap {
+  /** Data format of the files (`format` in settings.yaml): 0 when they don't say, null when it can't be read. */
+  format: number | null;
   settings: Settings;
   /** Sorted by `order`, then name. */
   departments: Department[];

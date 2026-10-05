@@ -6,6 +6,7 @@
 
 import { type Document, isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
 import { type Day, dayParts, formatDay, isWeekend, parseDay } from "./dates";
+import { FORMAT, type FormatStatus, formatStatus } from "./format";
 import type {
   Box,
   BoxStatus,
@@ -69,6 +70,8 @@ export interface LoadResult {
   /** Files the loader couldn't fully read, with the reasons: the app must not write them. */
   lossy: Map<string, string[]>;
   sources: Sources;
+  /** How `roadmap.format` compares with the format this BoxOps reads; anything but "current" is read-only. */
+  formatStatus: FormatStatus;
 }
 
 type Obj = Record<string, unknown>;
@@ -319,7 +322,7 @@ export function loadRoadmap(files: RoadmapFiles): LoadResult {
   };
   const sources: Sources = { departments: new Map(), boxes: new Map() };
 
-  const settings = loadSettings(files["settings.yaml"], reader("settings.yaml"));
+  const { settings, format } = loadSettings(files["settings.yaml"], reader("settings.yaml"));
 
   const departments: Department[] = [];
   const laneOwner = new Map<string, string>();
@@ -408,7 +411,7 @@ export function loadRoadmap(files: RoadmapFiles): LoadResult {
   for (const issue of issues) {
     if (issue.lossy) lossy.set(issue.path, [...(lossy.get(issue.path) ?? []), issue.message]);
   }
-  return { roadmap: { settings, departments, boxes, people }, issues, lossy, sources };
+  return { roadmap: { format, settings, departments, boxes, people }, issues, lossy, sources, formatStatus: formatStatus(format) };
 }
 
 function loadPeople(text: string | undefined, r: Reader, departmentIds: Set<string>): Person[] {
@@ -464,13 +467,15 @@ function readPto(r: Reader, person: At): TimeOff[] | undefined {
   return out;
 }
 
-function loadSettings(text: string | undefined, r: Reader): Settings {
+function loadSettings(text: string | undefined, r: Reader): { settings: Settings; format: number | null } {
   if (text === undefined) {
-    r.fail("missing; using defaults");
-    return DEFAULT_SETTINGS;
+    r.fail(`missing: every roadmap needs a settings.yaml with at least "format: ${FORMAT}"`);
+    return { settings: DEFAULT_SETTINGS, format: 0 };
   }
   const top = r.doc(text);
-  if (!top) return DEFAULT_SETTINGS;
+  if (!top) return { settings: DEFAULT_SETTINGS, format: null };
+
+  const format = readFormat(r, top);
 
   let fiscalStart = DEFAULT_SETTINGS.fiscal_year_start_month;
   const fy = top.obj.fiscal_year_start_month;
@@ -504,12 +509,30 @@ function loadSettings(text: string | undefined, r: Reader): Settings {
   }
 
   return {
-    title: r.optStr(top, "title") ?? DEFAULT_SETTINGS.title,
-    fiscal_year_start_month: fiscalStart,
-    default_zoom: zoom,
-    types: types.length ? types : DEFAULT_SETTINGS.types,
-    statuses: statuses.length ? statuses : DEFAULT_SETTINGS.statuses,
+    format,
+    settings: {
+      title: r.optStr(top, "title") ?? DEFAULT_SETTINGS.title,
+      fiscal_year_start_month: fiscalStart,
+      default_zoom: zoom,
+      types: types.length ? types : DEFAULT_SETTINGS.types,
+      statuses: statuses.length ? statuses : DEFAULT_SETTINGS.statuses,
+    },
   };
+}
+
+/** `format:` in settings.yaml: 0 when missing, null when it isn't a whole number. */
+function readFormat(r: Reader, top: At): number | null {
+  const v = top.obj.format;
+  if (unset(v)) {
+    r.fail(`format: missing; add "format: ${FORMAT}" at the top of this file`, top.obj);
+    return 0;
+  }
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 1) {
+    r.fail(`format: expected a whole number, like "format: ${FORMAT}"`, top.obj, "format");
+    return null;
+  }
+  if (v > FORMAT) r.fail(`format: ${v} needs a newer BoxOps (this one reads format ${FORMAT})`, top.obj, "format");
+  return v;
 }
 
 function loadDepartment(r: Reader, path: string, text: string): Department | null {

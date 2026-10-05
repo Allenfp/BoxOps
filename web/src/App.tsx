@@ -30,6 +30,7 @@ import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
+import { FORMAT } from "./model/format";
 import { type LoadResult, loadRoadmap } from "./model/load";
 import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
@@ -213,7 +214,9 @@ interface ViewProps extends Loaded {
 const issueText = (i: Issue) => `roadmap/${i.path}${i.line ? `, line ${i.line}` : ""}: ${i.message}`;
 
 function RoadmapView(props: ViewProps) {
-  const { roadmap: base, issues, files, source, preview, lastSave, remote } = props;
+  const { roadmap: base, issues, files, source, lastSave, remote } = props;
+  // A roadmap in another data format is shown read-only, like a branch preview.
+  const preview = props.preview || props.formatStatus !== "current";
   const { onDismissSave, onDismissRemote, onSavingChange, onReload, onSaved } = props;
   const initial = useMemo(readUrlState, []);
   const prefs = usePrefs();
@@ -327,8 +330,8 @@ function RoadmapView(props: ViewProps) {
   }, [view, zoom, collapsed]);
 
   useEffect(() => {
-    document.title = preview ? `${draft.settings.title} (${source.branch})` : draft.settings.title;
-  }, [draft.settings.title, preview, source.branch]);
+    document.title = props.preview ? `${draft.settings.title} (${source.branch})` : draft.settings.title;
+  }, [draft.settings.title, props.preview, source.branch]);
 
   const selectedPtoRef = useRef(selectedPto);
   selectedPtoRef.current = selectedPto;
@@ -754,9 +757,29 @@ function RoadmapView(props: ViewProps) {
         </div>
       </header>
 
-      {preview && (
+      {props.preview && (
         <div className="banner">
           Previewing branch <code>{source.branch}</code> (read-only). <a href={mainUrl()}>Back to the live roadmap</a>
+        </div>
+      )}
+      {props.formatStatus !== "current" && (
+        <div className="banner">
+          {props.formatStatus === "older" ? (
+            <>
+              Read-only: <code>roadmap/settings.yaml</code> doesn’t say which data format the files use. Add{" "}
+              <code>format: {FORMAT}</code> to it to edit the roadmap here.
+            </>
+          ) : props.formatStatus === "newer" ? (
+            <>
+              Read-only: this roadmap uses data format {base.format}, and this version of BoxOps reads format {FORMAT}.
+              Upgrade BoxOps to edit it here.
+            </>
+          ) : (
+            <>
+              Read-only: the data format in <code>roadmap/settings.yaml</code> can’t be read. Fix the file (see the
+              problems list) to edit the roadmap here.
+            </>
+          )}
         </div>
       )}
       {lastSave && (
