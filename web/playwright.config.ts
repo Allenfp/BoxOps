@@ -5,6 +5,8 @@ import { defineConfig, devices } from "@playwright/test";
 // test (see e2e/fake-github.ts), so no network access is needed.
 export default defineConfig({
   testDir: "e2e",
+  // Timing a big roadmap is `npm run perf` (playwright.perf.config.ts).
+  testIgnore: "perf.spec.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

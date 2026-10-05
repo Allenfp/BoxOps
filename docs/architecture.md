@@ -413,6 +413,15 @@ against data the new code wrote.
   drafts open a second tab in the same browser context (so the same
   `localStorage`), with a clock of its own. Any
   Content-Security-Policy violation fails a test.
+- **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
+  config) serves the production build with a generated 2,000-box roadmap
+  (`scripts/gen-roadmap.ts`; and a 500-box one) as its `roadmap.json`,
+  gzipped, and opens it in WebKit without a token. It checks exactly that the
+  main JavaScript file stays under 400 kB and that no file with the `yaml`
+  library is fetched before the timeline shows, and prints the time from
+  navigation to the timeline painted (median of 3), failing only above
+  2,500 ms; the same roadmap without the build's parsing is timed for
+  comparison. CI runs it after the browser tests.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
   the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
   doesn't support TypeScript 7 yet.) A deliberate exception is a
@@ -421,10 +430,10 @@ against data the new code wrote.
 - **CI.** `CI` (`ci.yml`) runs lint, the type check, the unit tests (again
   with `TZ=America/Los_Angeles` and with `TZ=Pacific/Kiritimati`, UTC−8/−7
   and UTC+14, so nothing depends on the runner's time zone), validation, the
-  build and the browser tests on every pull request and every push to a branch
-  other than `main`, whatever it changes. A pull request from a branch of this
-  repo is covered by that branch's push run, so only pull requests from forks
-  run it again.
+  build, the browser tests and the performance checks on every pull request
+  and every push to a branch other than `main`, whatever it changes. A pull
+  request from a branch of this repo is covered by that branch's push run, so
+  only pull requests from forks run it again.
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
   validation, unit tests and the build on every push to `main`. It runs the
   browser tests too, before deploying, unless nothing outside `roadmap/` has

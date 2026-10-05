@@ -1,6 +1,7 @@
 # Checks pull requests and every branch except main (which pages.yml checks
 # before deploying): lint, types, unit tests (also in two far-apart time zones),
-# roadmap validation, a production build and the browser tests (WebKit).
+# roadmap validation, a production build, the browser tests (WebKit) and the
+# performance checks.
 name: CI
 
 on:
@@ -63,6 +64,14 @@ jobs:
       - name: Browser tests
         timeout-minutes: 10
         run: npx playwright test
+      # npm run perf, on the build above: the first load of a generated
+      # 2,000-box roadmap in WebKit. Blocking: its exact checks (the main
+      # JavaScript file's size, no YAML parser before the timeline shows)
+      # catch real regressions, and its timing fails only far above what a
+      # runner takes (it's printed in the log either way).
+      - name: Performance
+        timeout-minutes: 5
+        run: npx playwright test -c playwright.perf.config.ts
       - name: Upload browser test report
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
