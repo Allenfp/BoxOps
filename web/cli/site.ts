@@ -23,11 +23,14 @@ const posix = (path: string) => path.split(sep).join("/");
 
 /**
  * Plain git in the checkout this app is built from, for what plumbing can't
- * tell: the origin's URL and whether web/ has changes. Never used on roadmap data.
+ * tell: the origin's URL and whether web/ has changes. Never used on roadmap
+ * data. The user's and the repository's configuration apply, but not the
+ * system's, and `status` never starts an fsmonitor.
  */
 function localGit(cwd: string, args: string[]): string {
+  const env = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" };
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }, stdio: "pipe" }).trim();
+    return execFileSync("git", ["-c", "core.fsmonitor=false", ...args], { cwd, encoding: "utf8", env, stdio: "pipe" }).trim();
   } catch {
     return "";
   }
