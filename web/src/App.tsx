@@ -1,4 +1,4 @@
-import { Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { DepartmentEditorTarget } from "./components/DepartmentEditor";
 import type { Resume, SaveProblem } from "./components/SaveDialog";
 import { lazyPart } from "./components/lazyPart";
@@ -80,6 +80,8 @@ type Saving = typeof import("./saving");
 /** Saving's code, once loaded. */
 let saving: Saving | undefined;
 let savingLoad: Promise<Saving> | undefined;
+/** Fetches of saving's code that failed in a row: after the first, this browser may keep the failure until a reload (lazyPart.tsx). */
+let savingFailures = 0;
 
 /**
  * Fetch saving's code and the parser, which bring the yaml library: started
@@ -88,9 +90,13 @@ let savingLoad: Promise<Saving> | undefined;
  */
 function loadSaving(): Promise<Saving> {
   savingLoad ??= Promise.all([import("./saving"), loadParser()]).then(
-    ([m]) => (saving = m),
+    ([m]) => {
+      savingFailures = 0;
+      return (saving = m);
+    },
     (e: unknown) => {
       savingLoad = undefined;
+      savingFailures++;
       throw e;
     },
   );
@@ -635,6 +641,9 @@ function RoadmapView(props: ViewProps) {
   const prefs = usePrefs();
   // A link's view and zoom win; then your preference; then the team default.
   const [view, setView] = useState<ViewMode>(initial.view ?? getPrefs().openOn);
+  /** A view whose tab was clicked, shown as loading (`viewPending`) until its code is here. */
+  const [nextView, setNextView] = useState<ViewMode>(view);
+  const [viewPending, startView] = useTransition();
   const [zoom, setZoom] = useState<ZoomLevel>(initial.zoom ?? getPrefs().zoom ?? base.settings.default_zoom);
   const [modal, setModal] = useState<"key" | "shortcuts" | "team" | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(
@@ -952,11 +961,22 @@ function RoadmapView(props: ViewProps) {
       try {
         await loadSaving();
       } catch (e) {
-        return setProblem({
-          kind: "error",
-          message: `Part of BoxOps couldn’t load, so nothing was saved (${(e as Error).message}). The site may have been updated since this page opened: reload it, then save.`,
-          resume,
-        });
+        const why = (e as Error).message;
+        return setProblem(
+          // Again: this browser may keep the failure until the page reloads (lazyPart.tsx).
+          savingFailures > 1
+            ? {
+                kind: "error",
+                message: `Part of BoxOps couldn’t load, so nothing was saved (${why}). Once you’re connected, reload the page, then save.`,
+                reload: "instead",
+              }
+            : {
+                kind: "error",
+                message: `Part of BoxOps couldn’t load, so nothing was saved (${why}). Check your connection and try again; if the site was updated since this page opened, reload, then save.`,
+                resume,
+                reload: "also",
+              },
+        );
       } finally {
         fetchingSaving.current = false;
       }
@@ -1214,12 +1234,14 @@ function RoadmapView(props: ViewProps) {
               <button
                 key={v.id}
                 aria-pressed={view === v.id}
+                aria-busy={viewPending && nextView === v.id ? true : undefined}
                 onPointerEnter={VIEW_PARTS[v.id]?.preload}
                 onFocus={VIEW_PARTS[v.id]?.preload}
                 onClick={() => {
                   if (v.id !== "timeline") select(null);
-                  // The view on screen stays until the new one's code is here.
-                  startTransition(() => setView(v.id));
+                  setNextView(v.id);
+                  // The view on screen stays until the new one's code is here; its tab says it's coming.
+                  startView(() => setView(v.id));
                 }}
               >
                 {v.label}

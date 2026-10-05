@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { DAGSTER, dragDays, expect, save, test, toolbar } from "./helpers";
 
 // Code fetched when it's first needed: what saving needs (with the yaml
@@ -47,16 +47,47 @@ test("a save made before saving's code arrives waits for it, and saves once", as
   expect(github.calls("graphql")).toBe(1);
 });
 
-test("saving's code that can't load (a deploy replaced it): the save says so, and the changes stay", async ({ page, github }) => {
-  await page.route(/\/assets\/saving-[\w-]+\.js$/, (route) => route.abort("connectionreset"));
+/** Route `url` to fail, once `drop()` is called: so a fetch started ahead and the one that shows the part fail as one. */
+async function failLater(page: Page, url: RegExp) {
+  let drop!: () => void;
+  const dropped = new Promise<void>((resolve) => (drop = resolve));
+  const fail = async (route: Route) => {
+    await dropped;
+    await route.abort("connectionreset");
+  };
+  await page.route(url, fail);
+  return { drop, restore: () => page.unroute(url, fail) };
+}
+
+test("saving's code that can't load (offline, or a deploy replaced it): the save says so, the changes stay; then Try again or Reload", async ({ page, github, browserName }) => {
+  const saving = await failLater(page, /\/assets\/saving-[\w-]+\.js$/);
   await dragDays(page, DAGSTER, 10);
   await save(page);
+  saving.drop();
   const dialog = page.locator(".save-dialog[open]");
-  await expect(dialog).toContainText("Part of BoxOps couldn’t load, so nothing was saved");
-  await expect(dialog).toContainText("reload it, then save");
-  await dialog.locator(".dialog-foot").getByRole("button", { name: "Close" }).click();
-  await expect(toolbar(page)).toContainText("Save · 1 change");
+  const foot = dialog.locator(".dialog-foot");
+  await expect(dialog.locator(".callout.error")).toContainText("Part of BoxOps couldn’t load, so nothing was saved");
+  await expect(dialog.locator(".callout.error")).toContainText(
+    "Check your connection and try again; if the site was updated since this page opened, reload, then save.",
+  );
+  await expect(foot.getByRole("button", { name: "Reload" })).toBeVisible();
   expect(github.calls("graphql")).toBe(0);
+
+  await saving.restore();
+  await foot.getByRole("button", { name: "Try again" }).click();
+  if (browserName === "firefox") {
+    // Fetched again.
+    await expect(toolbar(page)).toContainText("No changes");
+    expect(github.calls("graphql")).toBe(1);
+  } else {
+    // WebKit and Chromium keep a module file that failed to load until the page reloads: so the dialog says.
+    await expect(dialog.locator(".callout.error")).toContainText("Once you’re connected, reload the page, then save.");
+    await expect(foot.getByRole("button", { name: "Try again" })).toHaveCount(0);
+    await expect(foot.getByRole("button", { name: "Reload" })).toHaveClass(/primary/);
+    await foot.getByRole("button", { name: "Close" }).click();
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    expect(github.calls("graphql")).toBe(0);
+  }
 });
 
 test("a view's code is fetched when the pointer reaches its tab", async ({ page, github: _ }) => {
@@ -70,13 +101,66 @@ test("a view's code is fetched when the pointer reaches its tab", async ({ page,
   await expect(page.locator(".box-table")).toBeVisible();
 });
 
-test("a view whose code can't load (a deploy replaced it) says so, with Reload", async ({ page, github: _ }) => {
-  await page.route(/\/assets\/TableView-[\w-]+\.js$/, (route) => route.abort("connectionreset"));
-  await page.getByRole("button", { name: "Table", exact: true }).click();
+/** What a part that couldn't load says, the first time, and once trying again in this page may not help. */
+const FIRST = "This part of BoxOps couldn’t load. Check your connection and try again; if the site was updated since this page opened, reload.";
+const AGAIN = "This part of BoxOps couldn’t load. Once you’re connected, reload the page.";
+
+test("a view whose code can't load (offline, or a deploy replaced it) says so; Try again fetches it again, or says to reload", async ({ page, github: _, browserName }) => {
+  const table = await failLater(page, /\/assets\/TableView-[\w-]+\.js$/);
+  const tab = page.getByRole("button", { name: "Table", exact: true });
+  await tab.click();
+  table.drop();
   const alert = page.getByRole("alert");
-  await expect(alert).toContainText("This part of BoxOps couldn’t load");
+  await expect(alert).toContainText(FIRST);
   await expect(alert.getByRole("button", { name: "Reload" })).toBeVisible();
-  // The other views still work.
+
+  await table.restore();
+  await alert.getByRole("button", { name: "Try again" }).click();
+  if (browserName === "firefox") {
+    await expect(page.locator(".box-table")).toBeVisible();
+    await expect(alert).toHaveCount(0);
+  } else {
+    // WebKit and Chromium keep a module file that failed to load until the page reloads.
+    await expect(alert).toContainText(AGAIN);
+    await expect(alert.getByRole("button", { name: "Try again" })).toHaveCount(0);
+    await expect(alert.getByRole("button", { name: "Reload" })).toBeVisible();
+  }
+  // The other views work either way.
   await page.getByRole("button", { name: "Timeline", exact: true }).click();
   await expect(page.locator(".box").first()).toBeVisible();
+});
+
+test("a view fetched ahead while offline: showing it fetches it again where the browser can, or says to reload", async ({ page, github: _, browserName }) => {
+  const asked = scripts(page);
+  const table = await failLater(page, /\/assets\/TableView-[\w-]+\.js$/);
+  await page.getByRole("button", { name: "Table", exact: true }).hover();
+  await expect.poll(() => asked).toContain("TableView");
+  table.drop();
+  await page.waitForTimeout(100);
+  await table.restore();
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  if (browserName === "firefox") {
+    await expect(page.locator(".box-table")).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  } else {
+    // WebKit and Chromium keep the failure until the page reloads: so it says.
+    await expect(page.getByRole("alert")).toContainText(AGAIN);
+  }
+});
+
+test("a view's tab says it's loading until its code is here, the view on screen staying meanwhile", async ({ page, github: _ }) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/assets\/PeopleView-[\w-]+\.js$/, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  const people = page.getByRole("button", { name: "People", exact: true });
+  await people.click();
+  await expect(people).toHaveAttribute("aria-busy", "true");
+  await expect(people).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".box").first()).toBeVisible();
+  release();
+  await expect(people).toHaveAttribute("aria-pressed", "true");
+  await expect(people).not.toHaveAttribute("aria-busy", /./);
 });

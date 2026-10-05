@@ -432,14 +432,18 @@ against data the new code wrote.
   115 kB gzipped): React, the timeline and the loader. The rest is fetched
   on first use (`components/lazyPart.tsx`, `React.lazy`): Table and People
   when the pointer or focus reaches their tab (the view on screen stays until
-  the new one is ready); the box, PTO and department editors and team
-  settings a second after the roadmap shows, unless it's read-only; the
-  settings menu's contents when the pointer reaches the gear; the save
-  dialog, saving's code and the YAML parser once someone starts editing.
+  the new one is ready, its tab marked busy); the box, PTO and department
+  editors and team settings a second after the roadmap shows, unless it's
+  read-only; the settings menu's contents when the pointer reaches the gear;
+  the save dialog, saving's code and the YAML parser once someone starts
+  editing.
   File names change only with the app's code (the build time is in
   `index.html`), so a tab left open across roadmap saves can still fetch
-  them. After an app deploy, a part that can't be fetched says so, with
-  Reload, and so does a save.
+  them. A part that can't be fetched (the connection dropped, or an app
+  deploy replaced its file) says so, with Try again and Reload, and so does
+  a save. The app keeps no failure, but WebKit and Chromium keep a module
+  file that failed to load until the page reloads, so a second failure
+  offers Reload only.
 - **Title.** `document.title` follows the team title in `settings.yaml`
   (plus the branch for a preview); `index.html` says "BoxOps" until then.
 - **Errors.** An error boundary around the app shows a recovery screen with
