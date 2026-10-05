@@ -23,6 +23,7 @@ web/
   src/
     App.tsx                 loading, polling, saving, toolbar, views
     site.ts                 the site's roadmap.json, app updates, reloading
+    saving.ts               what saving needs, fetched once editing starts
     components/             Timeline, TableView, PeopleView, BoxEditor,
                             DepartmentEditor, EngineerPicker, SaveDialog,
                             TokenForm, TextCell, LoadScreen (load failures),
@@ -163,7 +164,12 @@ both.
 - **Parsing.** Each roadmap file is parsed on its own (`model/parse.ts`), then
   the files are checked together (`model/load.ts`). The app keeps what each
   file parsed to for the session, by blob SHA, so a poll or a save that brings
-  one changed file parses just that file.
+  one changed file parses just that file. The parser and the `yaml` library
+  are a file of their own, fetched only when a file must be parsed in the
+  browser (one the build didn't parse) or once someone starts editing (an
+  edit, or an editor opened), with the rest of what saving needs
+  (`saving.ts`): so viewers of a deploy never download them, and a save
+  doesn't wait for them.
 
 ## Editing
 

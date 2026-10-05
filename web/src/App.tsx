@@ -10,7 +10,7 @@ import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
 import { TOKEN_KINDS, failureMessage } from "./github/messages";
 import { type Snapshot, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
-import { NewerFormat, NewerSaves, SaveConflict, type SaveResult, type SaveStep, saveRoadmap } from "./github/save";
+import type { SaveResult, SaveStep } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyMenu";
 import { Modal } from "./components/Modal";
@@ -27,8 +27,7 @@ import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
 import { type LoadResult, loadFolder, loadFolderNow, loadParser, rememberParsed } from "./model/load";
-import { loadRoadmap } from "./model/parse";
-import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
+import type { FileChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
 import { type ChangeLine, commitMessage, describeChanges } from "./model/summary";
 import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types";
@@ -63,6 +62,27 @@ const MAX_BACKOFF_MS = 15 * 60_000;
 const FRESHNESS_MS = 4000;
 /** How long saving waits for the site's roadmap.json (a check for a newer BoxOps) before going on without it. */
 const SITE_CHECK_MS = 5000;
+
+type Saving = typeof import("./saving");
+/** Saving's code, once loaded. */
+let saving: Saving | undefined;
+let savingLoad: Promise<Saving> | undefined;
+
+/**
+ * Fetch saving's code and the parser, which bring the yaml library: started
+ * as soon as someone begins editing, so a save never waits for it. A failure
+ * (the app's files replaced by a deploy, say) is tried again next time.
+ */
+function loadSaving(): Promise<Saving> {
+  savingLoad ??= Promise.all([import("./saving"), loadParser()]).then(
+    ([m]) => (saving = m),
+    (e: unknown) => {
+      savingLoad = undefined;
+      throw e;
+    },
+  );
+  return savingLoad;
+}
 
 /** A save by someone else that just arrived in this tab. */
 interface RemoteUpdate {
@@ -746,16 +766,13 @@ function RoadmapView(props: ViewProps) {
     [problem, draftBase, draftState, draft.changes],
   );
 
-  /** Problems these files have that the loaded roadmap didn't (pre-existing ones don't block saving). */
-  const newProblems = useCallback(
-    (next: RoadmapFiles) => {
-      const known = new Set(issues.map((i) => i.key));
-      return loadRoadmap(next)
-        .issues.filter((i) => !known.has(i.key))
-        .map(issueText);
-    },
-    [issues],
-  );
+  // Someone is editing: fetch what saving needs now, so a save doesn't wait for it.
+  const editing = !preview && (count > 0 || !!selected || !!selectedPto || !!deptEditor || modal === "team");
+  useEffect(() => {
+    if (editing) loadSaving().catch(() => {}); // a save tries again, and says if it can't
+  }, [editing]);
+  /** A save waiting for saving's code: another doesn't start meanwhile. */
+  const fetchingSaving = useRef(false);
 
   /** A conflict key (`box:<id>`, `dept:<id>`, `person:<id>` or team settings) in words, for the conflict dialog. */
   const describeItem = (key: string) => {
@@ -773,7 +790,7 @@ function RoadmapView(props: ViewProps) {
   };
 
   /** `keep`: the user chose whose version of clashing items to keep (so no review first). `token`: just pasted. */
-  const save = async (opts: Resume & { token?: string } = {}) => {
+  const save = async (opts: Resume & { token?: string } = {}): Promise<void> => {
     // A pasted token is kept straight away, before anything below can stop
     // the save (a clash that came in while the token form was open, say), so
     // retries and the re-save after a choice never ask for it again; only a
@@ -788,16 +805,43 @@ function RoadmapView(props: ViewProps) {
     const clashes = draft.conflicts;
     if (clashes.length) return setProblem({ kind: "conflict", keys: clashes, items: clashes.map(describeItem) });
     const resume: Resume = opts.keep ? { keep: opts.keep } : {};
+    const s = saving;
+    if (!s) {
+      // Saving's code isn't here yet (a save straight after the first edit): fetch
+      // it, then start again with the draft as it is by then.
+      if (fetchingSaving.current) return;
+      fetchingSaving.current = true;
+      try {
+        await loadSaving();
+      } catch (e) {
+        return setProblem({
+          kind: "error",
+          message: `Part of BoxOps couldn’t load, so nothing was saved (${(e as Error).message}). The site may have been updated since this page opened: reload it, then save.`,
+          resume,
+        });
+      } finally {
+        fetchingSaving.current = false;
+      }
+      return saveRef.current(opts);
+    }
+    /** Problems these files have that the loaded roadmap didn't (pre-existing ones don't block saving). */
+    const newProblems = (next: RoadmapFiles) => {
+      const known = new Set(issues.map((i) => i.key));
+      return s
+        .loadRoadmap(next)
+        .issues.filter((i) => !known.has(i.key))
+        .map(issueText);
+    };
     const target = draftState;
     let changes: FileChanges;
     try {
-      changes = serializeChanges(files, draftBase, target, props);
+      changes = s.serializeChanges(files, draftBase, target, props);
       if (Object.keys(changes).length === 0) return;
-      const invalid = newProblems(applyChanges(files, changes));
+      const invalid = newProblems(s.applyChanges(files, changes));
       if (invalid.length) return setProblem({ kind: "invalid", issues: invalid });
     } catch (e) {
       // A file the app couldn't fully read is never written: it would lose what was left out.
-      if (e instanceof UnsafeWrite) return setProblem({ kind: "unwritable", files: e.files });
+      if (e instanceof s.UnsafeWrite) return setProblem({ kind: "unwritable", files: e.files });
       return setProblem({ kind: "error", message: (e as Error).message });
     }
     const token = opts.token ?? getToken(source.repo);
@@ -809,8 +853,6 @@ function RoadmapView(props: ViewProps) {
     draft.flush();
     setBusy(true);
     try {
-      // What the save brings back (its commit, or newer saves) is shown at once, parsed.
-      await loadParser();
       // A new BoxOps deployed that the poll hasn't seen yet: this tab's code
       // mustn't write. A roadmap.json that can't be fetched (or stalls: a
       // captive portal, a flaky network) says nothing.
@@ -822,7 +864,7 @@ function RoadmapView(props: ViewProps) {
       // The pre-save check (unless the user already chose whose version to
       // keep): if anyone saved roadmap changes since this tab loaded, bring
       // them in and let the user review before anything is written.
-      const result = await saveRoadmap({
+      const result = await s.saveRoadmap({
         gh,
         base: { source, files, blobs: props.blobs, ignored: props.ignored },
         changes,
@@ -840,10 +882,10 @@ function RoadmapView(props: ViewProps) {
       draft.saved(target);
       onSaved(result);
     } catch (e) {
-      if (e instanceof NewerSaves) {
+      if (e instanceof s.NewerSaves) {
         const head = e.head;
         const saves = await gh.compare(source.repo, source.commit, head.source.commit).catch(() => []);
-        const { roadmap: latest } = loadRoadmap(head.files, head.ignored);
+        const { roadmap: latest } = s.loadRoadmap(head.files, head.ignored);
         const latestState = { boxes: latest.boxes, departments: latest.departments, people: latest.people, settings: latest.settings };
         const theirs = describeChanges(draftBase, latestState);
         const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
@@ -852,9 +894,9 @@ function RoadmapView(props: ViewProps) {
         setProblem({ kind: "updated", saves, changes: theirs, keys: clashes, clashes: clashes.map(describeItem) });
         return;
       }
-      if (e instanceof NewerFormat) {
+      if (e instanceof s.NewerFormat) {
         setProblem({ kind: "upgrading", format: e.format });
-      } else if (e instanceof SaveConflict) {
+      } else if (e instanceof s.SaveConflict) {
         // Someone saved the same items since we loaded: move onto their version,
         // then ask (see the effect below) once the clashes are known.
         askAfterRebase.current = true;
