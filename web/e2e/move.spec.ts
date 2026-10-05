@@ -84,8 +84,19 @@ test("Option or Alt with ← → moves the end date, never before the start; Esc
   await expect(box(page, DAGSTER)).toBeFocused();
 });
 
-test("Alt+← and Alt+→ are the move's, never the browser's Back and Forward", async ({ page, github: _ }) => {
+test("Alt+← and Alt+→ are the move's, never the browser's Back and Forward, nor before it's picked up", async ({ page, github: _ }) => {
   await box(page, DAGSTER).focus();
+  // Not picked up yet: they say how, and move nothing.
+  await page.evaluate(() => {
+    const w = window as unknown as { early: boolean[] };
+    w.early = [];
+    window.addEventListener("keydown", (e) => e.key.startsWith("Arrow") && w.early.push(e.defaultPrevented));
+  });
+  await press(page, "Alt+ArrowLeft", "Alt+ArrowRight");
+  expect(await page.evaluate(() => (window as unknown as { early: boolean[] }).early)).toEqual([true, true]);
+  await expect.poll(() => lastSaid(page)).toMatch(/^Press Space to pick it up first; then (Option|Alt) with Left or Right changes the end date\.$/);
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
+  expect(page.url()).toContain("zoom=months");
   await page.keyboard.press("Space");
   await page.evaluate(() => {
     const w = window as unknown as { kept: boolean[] };

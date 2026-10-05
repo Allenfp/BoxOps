@@ -575,9 +575,10 @@ when a focused element is removed.
   a department over capacity or back within it, a rule broken or kept, an
   engineer on PTO then), only the last of a key held down; others' saves
   wait meanwhile, and Alt+← and Alt+→ are never the browser's Back and
-  Forward. While the timeline is read-only (a preview, or saving), its
-  cells stay, as text or `aria-disabled` buttons, and keys that would
-  change something say why they don't. The dates along the top, grid
+  Forward (on a box not picked up, they say to pick it up first). While
+  the timeline is read-only (a preview, or saving), its cells stay, as
+  text or `aria-disabled` buttons, and keys that would change something
+  say why they don't. The dates along the top, grid
   lines, hatching and drag labels are hidden from screen readers. A box's
   scale card shows on hover and while the box has keyboard focus; the
   pointer can move onto it and Escape puts it away (WCAG 1.4.13).

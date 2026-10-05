@@ -329,6 +329,10 @@ export function Timeline(props: Props) {
       // The extra area: in the focused box's own lane.
       else if (kind === "box") createBoxIn(boxes.find((b) => b.id === id)!.lane, after);
       else say("N adds a box in a lane, or PTO in a PTO row.");
+    } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && e.altKey && !e.metaKey && !e.ctrlKey && (kind === "box" || kind === "pto")) {
+      // A move's key with nothing picked up: not the browser's Back or Forward (Alt+← on Windows).
+      e.preventDefault();
+      if (!e.repeat) say(readOnly ? readOnlyWhy : `Press Space to pick it up first; then ${ALT_KEY} with Left or Right changes the end date.`);
     } else if (kind === "dept" && e.altKey) {
       // Alt+↑ or Alt+↓ on a heading moves the department; focus stays on it.
       const order = latest.current.props.roadmap.departments;
