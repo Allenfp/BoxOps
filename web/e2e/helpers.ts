@@ -9,11 +9,15 @@ export const CDC = "bx-d4e1-cdc-pipeline";
 export const REVENUE = "bx-1b8d-revenue-mart";
 export const boxFile = (id: string) => `boxes/${id}.yaml`;
 
-/** `page` comes with the clock pinned, the fake GitHub installed, and the app open. */
-export const test = base.extend<{ github: FakeGitHub; signedIn: boolean }>({
+/**
+ * `page` comes with the clock pinned, the fake GitHub installed, and the app
+ * open. `visibility` makes the repository public (the default) or private.
+ */
+export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibility: "public" | "private" }>({
   signedIn: [true, { option: true }],
-  github: async ({ page, signedIn }, use) => {
-    const github = await FakeGitHub.create();
+  visibility: ["public", { option: true }],
+  github: async ({ page, signedIn, visibility }, use) => {
+    const github = await FakeGitHub.create(undefined, { visibility });
     await page.clock.install({ time: TODAY });
     await github.install(page);
     if (signedIn) {
@@ -32,6 +36,7 @@ export const test = base.extend<{ github: FakeGitHub; signedIn: boolean }>({
     await expect(page.locator(".box").first()).toBeVisible();
     await use(github);
     expect(errors, "uncaught page errors").toEqual([]);
+    expect(github.forbidden, "calls GitHub would refuse, or a correct app never makes").toEqual([]);
   },
 });
 export { expect };

@@ -1,72 +1,94 @@
 import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
-test("other people's saves appear without a refresh", async ({ page, github }) => {
-  const scroll = await page.locator(".timeline").evaluate((e) => e.scrollLeft);
+for (const visibility of ["public", "private"] as const) {
+  test.describe(`${visibility} repository`, () => {
+    test.use({ visibility });
 
-  // Nothing new: no notice.
-  await pollNow(page);
-  await expect(page.locator(".banner")).toHaveCount(0);
+    test("other people's saves appear without a refresh", async ({ page, github }) => {
+      const scroll = await page.locator(".timeline").evaluate((e) => e.scrollLeft);
 
-  // Sam saves and the site redeploys.
-  github.deploy(
-    github.otherSave(
-      { [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline (orders + payments)") },
-      "Sam Lee",
-      "CDC pipeline: renamed",
-    ),
-  );
-  await pollNow(page);
-  await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline (orders + payments)");
-  await expect(page.locator(".banner")).toContainText("Sam Lee saved “CDC pipeline: renamed”");
-  await expect(box(page, CDC)).toHaveClass(/updated/);
-  expect(await page.locator(".timeline").evaluate((e) => e.scrollLeft)).toBe(scroll);
-});
+      // Nothing new: no notice.
+      await pollNow(page);
+      await expect(page.locator(".banner")).toHaveCount(0);
 
-test("incoming saves merge with unsaved edits and flag clashes", async ({ page, github }) => {
-  await dragDays(page, DAGSTER, 10);
-  github.deploy(
-    github.otherSave({
-      [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked"),
-      [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3"),
-    }),
-  );
-  await pollNow(page);
-  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
-  await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
-  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
-  await expect(page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: "Clashes" }).locator("li")).toHaveCount(1);
-  await page.keyboard.press("Escape");
-  await expect(page.locator(".banner")).toContainText("your unsaved changes were kept");
+      // Sam saves and the site redeploys.
+      github.deploy(
+        github.otherSave(
+          { [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline (orders + payments)") },
+          "Sam Lee",
+          "CDC pipeline: renamed",
+        ),
+      );
+      await pollNow(page);
+      await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline (orders + payments)");
+      await expect(page.locator(".banner")).toContainText("Sam Lee saved “CDC pipeline: renamed”");
+      await expect(box(page, CDC)).toHaveClass(/updated/);
+      expect(await page.locator(".timeline").evaluate((e) => e.scrollLeft)).toBe(scroll);
+    });
 
-  await save(page);
-  await page.locator(".save-dialog[open]").getByRole("button", { name: "Keep mine" }).click();
-  await expect(toolbar(page)).toContainText("No changes");
+    test("incoming saves merge with unsaved edits and flag clashes", async ({ page, github }) => {
+      await dragDays(page, DAGSTER, 10);
+      github.deploy(
+        github.otherSave({
+          [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked"),
+          [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3"),
+        }),
+      );
+      await pollNow(page);
+      await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+      await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+      await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
+      await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+      await expect(page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: "Clashes" }).locator("li")).toHaveCount(1);
+      await page.keyboard.press("Escape");
+      await expect(page.locator(".banner")).toContainText("your unsaved changes were kept");
 
-  // The site still serves the older deploy: that must not roll this tab back.
-  await pollNow(page);
-  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
-  await expect(toolbar(page)).toContainText("No changes");
-});
+      await save(page);
+      await page.locator(".save-dialog[open]").getByRole("button", { name: "Keep mine" }).click();
+      await expect(toolbar(page)).toContainText("No changes");
 
-test("hidden tabs don't poll, and check as soon as they're visible", async ({ page, github }) => {
-  let fetches = 0;
-  page.on("request", (r) => r.url().includes("roadmap.json") && fetches++);
-  await page.evaluate(() => Object.defineProperty(document, "hidden", { configurable: true, get: () => true }));
-  await pollNow(page);
-  expect(fetches).toBe(0);
+      // The site still serves the older deploy: that must not roll this tab back.
+      await pollNow(page);
+      await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+      await expect(toolbar(page)).toContainText("No changes");
+    });
 
-  github.deploy(github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }));
-  await page.evaluate(() => {
-    Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
-    document.dispatchEvent(new Event("visibilitychange"));
+    test("hidden tabs don't poll, and check as soon as they're visible", async ({ page, github }) => {
+      let fetches = 0;
+      page.on("request", (r) => r.url().includes("roadmap.json") && fetches++);
+      await page.evaluate(() => Object.defineProperty(document, "hidden", { configurable: true, get: () => true }));
+      await pollNow(page);
+      expect(fetches).toBe(0);
+
+      github.deploy(github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }));
+      await page.evaluate(() => {
+        Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+      expect(fetches).toBe(1);
+    });
+
+    test("a reload shows saves the site hasn't redeployed yet", async ({ page, github }) => {
+      github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") });
+      await page.reload();
+      await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+      expect(github.calls("blob")).toBe(1); // only the file that changed
+    });
   });
-  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
-  expect(fetches).toBe(1);
-});
+}
 
-test("a reload shows saves the site hasn't redeployed yet", async ({ page, github }) => {
-  github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") });
-  await page.reload();
-  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+test.describe("private repository, signed out", () => {
+  test.use({ visibility: "private", signedIn: false });
+
+  test("loading and polling ask GitHub nothing", async ({ page, github }) => {
+    github.deploy(github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }));
+    await pollNow(page);
+    await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+    github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline (orders + payments)") });
+    await page.reload();
+    await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+    await expect(boxTitle(page, CDC)).toHaveText("CDC pipeline for orders DB"); // not deployed yet, and not asked for
+    expect(github.calls()).toBe(0);
+  });
 });
