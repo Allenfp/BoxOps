@@ -178,7 +178,7 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
       return { status: "saved", commit: c.oid, parent: head.source.commit, url: c.url, signed: c.signed, snapshot };
     } catch (e) {
       if (!(e instanceof GitHubFailure)) throw e;
-      if (e.kind === "read-only" || e.kind === "no-access") throw await explain(gh, repo, e);
+      if (!e.ambiguous && (e.kind === "read-only" || e.kind === "no-access")) throw await explain(gh, repo, e);
       if (e.kind !== "stale" && !e.ambiguous) throw e;
       unclear ||= e.ambiguous;
       let fresh: Snapshot;

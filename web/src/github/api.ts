@@ -93,7 +93,12 @@ const RULES_TEXT =
   /rule violation|repository rule|protected branch|required status check|signed commit|verified signature|changes must be made through a pull request|pull request is required|commit message|author email|committer email|GH006|GH013/i;
 const READ_ONLY_TEXT = /not accessible by|must have (?:push|write|admin) access|permission to \S+ denied/i;
 
-/** One reading of a failure for both transports: status, GraphQL type, the headers GitHub exposes, then the message. */
+/**
+ * One reading of a failure for both transports: status, GraphQL type, the
+ * headers GitHub exposes, then the message. A spent allowance
+ * (x-ratelimit-remaining: 0) is the last clue: a refusal for another reason
+ * (a ruleset, a token policy) can come with the hour's last request.
+ */
 export function classify(a: FailedAnswer): { kind: FailureKind; detail: FailureDetail } {
   const h = a.headers;
   const num = (name: string) => {
@@ -115,18 +120,24 @@ export function classify(a: FailedAnswer): { kind: FailureKind; detail: FailureD
   }
   const retryAfter = num("retry-after");
   const spent = h.get("x-ratelimit-remaining") === "0";
-  if (a.type === "RATE_LIMITED" || a.status === 429 || ((a.status === 403 || a.status === 200) && (retryAfter !== undefined || spent || RATE_TEXT.test(m)))) {
+  const refusal = a.status === 403 || a.status === 200;
+  // Said outright: GraphQL's type, 429, a retry-after (sent with secondary limits), or the words.
+  const limited = a.type === "RATE_LIMITED" || a.status === 429 || (refusal && (retryAfter !== undefined || RATE_TEXT.test(m)));
+  if (!limited) {
+    if (IP_TEXT.test(m)) return { kind: "ip-blocked", detail };
+    if (POLICY_TEXT.test(m)) return { kind: "token-policy", detail };
+    if (RULES_TEXT.test(m)) return { kind: "rules", detail };
+    if (a.type === "FORBIDDEN" || (a.status === 403 && READ_ONLY_TEXT.test(m))) return { kind: "read-only", detail };
+    if (a.status === 404 || a.type === "NOT_FOUND" || /could not resolve to a repository/i.test(m)) return { kind: "no-access", detail };
+  }
+  // A GraphQL error of another type says what it is; an untyped refusal with the allowance spent is the limit.
+  if (limited || (refusal && spent && !a.type)) {
     const primary = spent && retryAfter === undefined && !/secondary/i.test(m);
     const reset = num("x-ratelimit-reset");
     if (primary) return { kind: "rate-limited", detail: { ...detail, secondary: false, ...(reset ? { resetAt: reset * 1000 } : {}) } };
     // GitHub: without retry-after, wait at least a minute.
     return { kind: "rate-limited", detail: { ...detail, secondary: true, retryAfter: retryAfter ?? 60 } };
   }
-  if (IP_TEXT.test(m)) return { kind: "ip-blocked", detail };
-  if (POLICY_TEXT.test(m)) return { kind: "token-policy", detail };
-  if (RULES_TEXT.test(m)) return { kind: "rules", detail };
-  if (a.type === "FORBIDDEN" || (a.status === 403 && READ_ONLY_TEXT.test(m))) return { kind: "read-only", detail };
-  if (a.status === 404 || a.type === "NOT_FOUND" || /could not resolve to a repository/i.test(m)) return { kind: "no-access", detail };
   if (a.status >= 500 || /something went wrong|timed? ?out/i.test(m)) return { kind: "server", detail };
   return { kind: "unknown", detail };
 }
@@ -249,7 +260,7 @@ function parseJson(bytes: Uint8Array): unknown {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
-export const SAVE_MUTATION = `mutation BoxOpsSave($input: CreateCommitOnBranchInput!) {
+const SAVE_MUTATION = `mutation BoxOpsSave($input: CreateCommitOnBranchInput!) {
   createCommitOnBranch(input: $input) {
     commit { oid url committedDate signature { isValid wasSignedByGitHub } }
   }
@@ -448,10 +459,14 @@ export class GitHubClient {
         signed: sig ? sig.isValid === true && sig.wasSignedByGitHub === true : null,
       };
     }
-    const first = (Array.isArray(body.errors) ? body.errors : []).find(isRecord);
+    const errors = (Array.isArray(body.errors) ? body.errors : []).filter(isRecord);
+    const first = errors[0];
     if (!first) throw new GitHubFailure("unknown", "GitHub sent no commit and no error.", { status: r.status }, true);
     const message = str(first.message) || "GitHub refused the save.";
     const { kind, detail } = classify({ status: r.status, headers: r.headers, message, type: str(first.type) || undefined });
-    throw new GitHubFailure(kind, message, detail, kind === "server");
+    // An error in a field of the commit (path ["createCommitOnBranch", "commit", …]),
+    // which GraphQL then reports as null, came after the mutation ran: it may have been made.
+    const nested = errors.some((e) => Array.isArray(e.path) && e.path.length > 1);
+    throw new GitHubFailure(kind, message, detail, nested || kind === "server");
   }
 }

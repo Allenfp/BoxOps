@@ -174,6 +174,14 @@ describe("saveRoadmap", () => {
     expect(g.calls("graphql")).toBe(1);
   });
 
+  it("treats an error in the commit GitHub sends back as unclear, then finds the commit", async () => {
+    const { g, save } = await setup();
+    g.inject("graphql", "field-error");
+    expect(await save()).toMatchObject({ status: "alreadySaved", commit: g.head });
+    expect(g.headCommit().parent).toBe(g.root);
+    expect(g.calls("graphql")).toBe(1);
+  });
+
   it("finds its own commit under someone else's saved after it (lost answer)", async () => {
     let ours = "";
     const { g, save } = await setup({

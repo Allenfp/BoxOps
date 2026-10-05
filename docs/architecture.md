@@ -301,15 +301,17 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    changed, checks clashes and validates again, then retries on top of their
    commit, at most twice. A same-file clash at that point shows the keep-mine
    / keep-theirs choice. After a failure that leaves unclear whether the
-   commit was made (a timeout, a dropped connection, a 5xx), the app reads the
-   head again: if every changed file there is ours, the save landed and is
-   reported as saved; otherwise retrying is safe, since each attempt names
-   the head it goes on. Every call has a timeout that also covers reading the
-   answer (15 s for reads, 30 s for the save). There's no permission check
-   first: GitHub's refusals are sorted into kinds (`github/api.ts`, for REST
-   and GraphQL alike) and worded in `github/messages.ts`; the save dialog is
-   titled for the kind and says what to do (the token's resource owner,
-   repository and approval; Contents: Read and write; single sign-on, with
+   commit was made (a timeout, a dropped connection, a 5xx, an error in a
+   field of the commit GitHub sends back), the app reads the head again: if
+   every changed file there is ours, the save landed and is reported as
+   saved; otherwise retrying is safe, since each attempt names the head it
+   goes on. Every call has a timeout that also covers reading the answer
+   (15 s for reads, 30 s for the save). There's no permission check first:
+   GitHub's refusals are sorted into kinds (`github/api.ts`, for REST and
+   GraphQL alike: what the error says first, a spent hourly allowance last)
+   and worded in `github/messages.ts`; the save dialog is titled for the kind
+   and says what to do (the token's resource owner, repository and approval;
+   Contents: Read and write; single sign-on, with
    GitHub's authorize link; an organization's token policy; an IP allow
    list; when a rate limit lifts; being offline; a ruleset, whose bypass
    list takes teams, roles and apps, never people). Failures a different

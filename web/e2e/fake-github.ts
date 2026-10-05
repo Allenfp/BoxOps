@@ -71,7 +71,9 @@ export type Injected =
   /** Send the headers, then a body that never ends (unit tests; a browser test sees a hang). */
   | "stall-body"
   /** GraphQL: make the commit, then drop the connection before answering. */
-  | "lost-response";
+  | "lost-response"
+  /** GraphQL: make the commit, then answer with an error in one of its fields (so `commit: null`). */
+  | "field-error";
 export type Endpoint = "graphql" | "ref" | "commit" | "tree" | "blob" | "raw" | "compare" | "repo";
 
 interface TreeItem {
@@ -475,7 +477,7 @@ export class FakeGitHub {
     if (i < 0) return undefined;
     const { as } = this.injections[i];
     if (--this.injections[i].times <= 0) this.injections.splice(i, 1);
-    if (as === "lost-response") return undefined; // handled by graphql()
+    if (as === "lost-response" || as === "field-error") return undefined; // handled by graphql()
     return this.failure(on, as);
   }
 
@@ -519,6 +521,7 @@ export class FakeGitHub {
       case "stall-body":
         return { status: 200, headers: { "content-type": "application/json; charset=utf-8", ...CORS }, stall: true };
       case "lost-response":
+      case "field-error":
         return { abort: true };
     }
   }
@@ -532,7 +535,7 @@ export class FakeGitHub {
     });
     const error = (type: string, message: string) => json(200, { data: { createCommitOnBranch: null }, errors: [{ type, path: ["createCommitOnBranch"], message }] });
     if (!token) return json(401, { message: "This endpoint requires you to be authenticated." });
-    const lost = this.injections.find((x) => x.on === "graphql")?.as === "lost-response";
+    const after = this.injections.find((x) => x.on === "graphql")?.as;
     const injected = this.injected("graphql");
     if (injected) return injected;
 
@@ -594,7 +597,13 @@ export class FakeGitHub {
     const { headline, body } = input.message;
     const id = this.add({ parent: this.head, files, outside, message: body ? `${headline}\n\n${body}` : headline, author: "Me", date: date(this.n + 1), signed: this.signCommits });
     this.head = id;
-    if (lost) return { abort: true };
+    if (after === "lost-response") return { abort: true };
+    if (after === "field-error") {
+      return json(200, {
+        data: { createCommitOnBranch: { commit: null } },
+        errors: [{ type: "INTERNAL", path: ["createCommitOnBranch", "commit", "signature"], message: "The signature couldn’t be loaded." }],
+      });
+    }
     return json(200, {
       data: {
         createCommitOnBranch: {

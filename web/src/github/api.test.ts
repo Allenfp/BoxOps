@@ -117,6 +117,20 @@ describe("requests", () => {
     expect(f.calls).toHaveLength(1);
   });
 
+  it("fail at once, sending nothing, while the browser says it's offline", async () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    try {
+      const f = fake(() => json(200, { object: { sha: SHA } }));
+      const gh = new GitHubClient({ token: "t", fetch: f.fetchImpl });
+      await expect(gh.head("acme/roadmap", "main")).rejects.toMatchObject({ kind: "offline", ambiguous: false });
+      // Nothing was sent, so a save that fails this way certainly wasn't made.
+      await expect(gh.createCommitOnBranch(commitInput)).rejects.toMatchObject({ kind: "offline", ambiguous: false });
+      expect(f.calls).toHaveLength(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("report a network failure as offline; after a mutation, as ambiguous", async () => {
     const gh = new GitHubClient({ token: "t", fetch: fake(() => Promise.reject(new TypeError("Load failed"))).fetchImpl });
     await expect(gh.head("acme/roadmap", "main")).rejects.toMatchObject({ kind: "offline", ambiguous: false });
@@ -167,12 +181,32 @@ describe("createCommitOnBranch", () => {
       [{ type: "FORBIDDEN", message: "The 'acme' organization forbids access via a fine-grained personal access tokens if the token's lifetime is greater than 366 days." }, {}, { kind: "token-policy" }],
       [{ type: "FORBIDDEN", message: "Although you appear to have the correct authorization credentials, the `acme` organization has enabled OIDC Conditional Access Policies." }, {}, { kind: "ip-blocked" }],
       [{ message: "Something went wrong while executing your query. This may be the result of a timeout." }, {}, { kind: "server", ambiguous: true }],
+      // With the hour's allowance spent: what the error says comes first.
+      [{ type: "UNPROCESSABLE", message: "Repository rule violations found\n\nCommit author email must match a specified pattern." }, { "x-ratelimit-remaining": "0" }, { kind: "rules" }],
+      [{ type: "FORBIDDEN", message: "Resource protected by organization SAML enforcement." }, { "x-ratelimit-remaining": "0" }, { kind: "sso" }],
+      [{ type: "FORBIDDEN", message: "`acme` forbids access via a personal access token (classic)." }, { "x-ratelimit-remaining": "0" }, { kind: "token-policy" }],
+      [{ type: "FORBIDDEN", message: "Resource not accessible by personal access token" }, { "x-ratelimit-remaining": "0" }, { kind: "read-only" }],
+      [{ type: "NOT_FOUND", message: "Could not resolve to a Repository with the name 'acme/roadmap'." }, { "x-ratelimit-remaining": "0" }, { kind: "no-access" }],
+      // The mutation's own field refused: nothing was made.
+      [{ type: "FORBIDDEN", path: ["createCommitOnBranch"], message: "Resource not accessible by personal access token" }, {}, { kind: "read-only" }],
     ];
     for (const [error, headers, want] of cases) {
       const gh = new GitHubClient({ token: "t", fetch: fake(() => json(200, { data: { createCommitOnBranch: null }, errors: [error] }, headers)).fetchImpl });
       const e = await gh.createCommitOnBranch(commitInput).catch((x) => x);
       expect(e, JSON.stringify(error)).toBeInstanceOf(GitHubFailure);
       expect(e, JSON.stringify(error)).toMatchObject({ ambiguous: false, ...want });
+    }
+  });
+
+  it("treats an error in the commit's own fields as unclear: the commit may have been made", async () => {
+    for (const error of [
+      { type: "INTERNAL", path: ["createCommitOnBranch", "commit", "signature"], message: "Couldn’t load the signature." },
+      { type: "FORBIDDEN", path: ["createCommitOnBranch", "commit"], message: "Resource not accessible by personal access token" },
+    ]) {
+      const body = { data: { createCommitOnBranch: { commit: null } }, errors: [error] };
+      const e = await new GitHubClient({ token: "t", fetch: fake(() => json(200, body)).fetchImpl }).createCommitOnBranch(commitInput).catch((x) => x);
+      expect(e, error.type).toBeInstanceOf(GitHubFailure);
+      expect(e, error.type).toMatchObject({ ambiguous: true });
     }
   });
 
@@ -203,6 +237,8 @@ describe("classify (REST)", () => {
     expect(of(403, "API rate limit exceeded", { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "100" })).toMatchObject({ kind: "rate-limited", detail: { secondary: false, resetAt: 100_000 } });
     expect(of(429, "Too many requests", { "retry-after": "12" })).toMatchObject({ kind: "rate-limited", detail: { secondary: true, retryAfter: 12 } });
     expect(of(403, "Resource not accessible by personal access token").kind).toBe("read-only");
+    expect(of(403, "Resource not accessible by personal access token", { "x-ratelimit-remaining": "0" }).kind).toBe("read-only");
+    expect(of(403, "Forbidden", { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "100" })).toMatchObject({ kind: "rate-limited", detail: { secondary: false, resetAt: 100_000 } });
     expect(of(422, "Repository rule violations found").kind).toBe("rules");
     expect(of(503, "Unavailable", { "x-github-request-id": "ABC:1" })).toEqual({ kind: "server", detail: { status: 503, requestId: "ABC:1" } });
     expect(of(418, "I'm a teapot").kind).toBe("unknown");
