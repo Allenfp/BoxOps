@@ -43,7 +43,7 @@ describe("gitTreeSha", () => {
       chmodSync(join(work.dir, "roadmap/run.sh"), 0o755);
       symlinkSync("settings.yaml", join(work.dir, "roadmap/link.yaml"));
       work.git(["add", "-A"]);
-      work.git(["-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "-m", "x"]);
+      work.git(["commit", "-q", "-m", "x"]);
 
       const entries: GitTreeEntry[] = [
         { path: "settings.yaml", mode: "100644", sha: await gitBlobSha(utf8.encode(files["roadmap/settings.yaml"])) },

@@ -1,7 +1,9 @@
 // Throwaway git repositories for unit tests, made with the git CLI in the
 // system's temp folder. Commits are built from exact tree entries (so a test
 // can commit a symlink, an executable, a submodule or bytes that aren't UTF-8
-// without touching the disk), with fixed authors and dates.
+// without touching the disk), with fixed authors and dates. Every git call
+// gets a fixed identity, so no test depends on what git guesses from the host
+// (a runner whose hostname has no domain makes git refuse to commit).
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -16,6 +18,16 @@ export type Entry = string | Uint8Array | { mode: "100644" | "100755" | "120000"
 /** 2026-10-01T00:00:00Z: commit n is made n minutes later. */
 const T0 = Date.UTC(2026, 9, 1) / 1000;
 
+/** Who and when, for a commit made without commit()'s own. */
+const IDENTITY = {
+  GIT_AUTHOR_NAME: "Test",
+  GIT_AUTHOR_EMAIL: "test@example.com",
+  GIT_AUTHOR_DATE: `${T0} +0000`,
+  GIT_COMMITTER_NAME: "Test",
+  GIT_COMMITTER_EMAIL: "test@example.com",
+  GIT_COMMITTER_DATE: `${T0} +0000`,
+};
+
 export class TestRepo {
   readonly dir: string;
   /** main's commit, once there is one. */
@@ -27,9 +39,9 @@ export class TestRepo {
     this.git(["init", "-q", "-b", "main"]);
   }
 
-  /** git in the repo, with no system or global configuration; stdout, trimmed. */
+  /** git in the repo, with no system or global configuration and a fixed identity; stdout, trimmed. */
   git(args: string[], o: { input?: string | Uint8Array; env?: Record<string, string> } = {}): string {
-    const env = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", ...o.env };
+    const env = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", ...IDENTITY, ...o.env };
     return execFileSync("git", args, { cwd: this.dir, env, input: o.input, stdio: "pipe" }).toString().trim();
   }
 

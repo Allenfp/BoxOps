@@ -133,7 +133,7 @@ describe("readRoadmapGit", () => {
       input: Buffer.concat([Buffer.from(`100644 ${sha}\troadmap/caf`), Buffer.from([0xe9]), Buffer.from(".yaml\0")]),
     });
     const tree = repo.git(["write-tree"]);
-    const commit = repo.git(["commit-tree", tree, "-m", "x"], { env: { GIT_AUTHOR_NAME: "a", GIT_AUTHOR_EMAIL: "a@b", GIT_COMMITTER_NAME: "a", GIT_COMMITTER_EMAIL: "a@b" } });
+    const commit = repo.git(["commit-tree", tree, "-m", "x"]);
     expect(await problems(readRoadmapGit(repo.dir, commit))).toEqual(["caf\uFFFD.yaml: has a name that isn't UTF-8"]);
   });
 
