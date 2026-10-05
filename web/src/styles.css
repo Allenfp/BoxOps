@@ -112,6 +112,16 @@ button:hover {
   flex-direction: column;
 }
 
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Toolbar */
 
 /* Three zones: what you're looking at (left), how (middle), and your
