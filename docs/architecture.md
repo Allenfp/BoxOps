@@ -179,10 +179,15 @@ both.
 - **Data format.** `format` in `settings.yaml` must be the one this build reads
   (`model/format.ts`); a roadmap in any other format opens read-only, with a
   banner saying why.
-- **Problems.** Loading is lenient: a bad entry or value is reported (with its
-  line) and left out, and the file is marked lossy. Problems are compared by
-  a key without list positions or line numbers, so one that was already there
-  never counts as new.
+- **Problems.** Loading is lenient: every problem is reported (with its
+  line). A bad entry or value the app can't use is left out and its file is
+  marked lossy, as is a file with a YAML alias, so the app won't write that
+  file (the rules starred in [What the validator
+  checks](data-format.md#what-the-validator-checks)); the rest, such as
+  weekend dates, an unknown type, flag or engineer, or a code two files
+  share, are only flagged. Problems are compared by a key without list
+  positions or line numbers, so one that was already there never counts as
+  new.
 - **Parsing.** Each roadmap file is parsed on its own (`model/parse.ts`), then
   the files are checked together (`model/load.ts`). The app keeps what each
   file parsed to for the session, by blob SHA, so a poll or a save that brings
