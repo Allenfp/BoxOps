@@ -573,9 +573,10 @@ export function restoreRecord(record: StoredDraft, base: DraftState): { draft: D
 /**
  * The draft every tab shared before drafts were per tab (the whole roadmap as
  * loaded, `base`, and as edited) as a record; null if it can't be (one too old
- * to say what it was made against). Fields added since get their defaults.
+ * to say what it was made against). Fields added since get their defaults; it
+ * never said when it was written, so that's unknown ("").
  */
-export function fromSharedDraft(value: unknown, current: DraftState, now: Date): StoredDraft | null {
+export function fromSharedDraft(value: unknown, current: DraftState): StoredDraft | null {
   type Shared = { base?: Partial<DraftState>; boxes?: Box[] } & Partial<Omit<DraftState, "boxes">>;
   const v = value as Shared | null;
   if (typeof v !== "object" || v === null || !Array.isArray(v.boxes) || typeof v.base !== "object" || v.base === null || !Array.isArray(v.base.boxes)) {
@@ -596,7 +597,7 @@ export function fromSharedDraft(value: unknown, current: DraftState, now: Date):
       settings: v.settings ?? oldBase.settings,
     };
     const items = changedItems(oldBase, draft, diffDraft(oldBase, draft));
-    return { v: RECORD, format: FORMAT, build: "", baseCommit: "", savedAt: now.toISOString(), alive: 0, items, conflicts: [] };
+    return { v: RECORD, format: FORMAT, build: "", baseCommit: "", savedAt: "", alive: 0, items, conflicts: [] };
   } catch {
     return null;
   }
@@ -665,7 +666,7 @@ export interface DraftOptions {
  */
 export function openDraft(base: DraftState, scope: string, stores: Stores, reloaded = false) {
   const now = Date.now();
-  const opened = openTab(scope, now, stores, (value) => fromSharedDraft(value, base, new Date(now)), reloaded);
+  const opened = openTab(scope, now, stores, (value) => fromSharedDraft(value, base), reloaded);
   let { key } = opened;
   let restored: { draft: DraftState; conflicts: string[] } | undefined;
   let adopted: string | undefined;

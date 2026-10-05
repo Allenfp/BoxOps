@@ -360,14 +360,15 @@ describe("stored drafts", () => {
   it("the old shared draft (the whole roadmap twice) becomes a record of its changes", () => {
     const base = loaded();
     const shared = { baseHash: "abc", base, ...edited(base) };
-    const record = fromSharedDraft(JSON.parse(JSON.stringify(shared)), base, new Date(0))!;
+    const record = fromSharedDraft(JSON.parse(JSON.stringify(shared)), base)!;
     expect(record.format).toBe(1);
+    expect(record.savedAt).toBe(""); // it never said when: the offer gives no time
     expect(Object.keys(record.items)).toHaveLength(8);
     expect(diffDraft(edited(base), restoreRecord(record, base).draft).count).toBe(0);
     // Without what it was made against, it can't be carried onto anything.
-    expect(fromSharedDraft({ baseHash: "abc", boxes: [] }, base, new Date(0))).toBeNull();
+    expect(fromSharedDraft({ baseHash: "abc", boxes: [] }, base)).toBeNull();
     // Nor with something that isn't a box in it: kept as it was, to download, rather than crashing every load.
-    expect(fromSharedDraft({ base: { boxes: [null] }, boxes: [] }, base, new Date(0))).toBeNull();
+    expect(fromSharedDraft({ base: { boxes: [null] }, boxes: [] }, base)).toBeNull();
   });
 
   describe("opening a tab", () => {
@@ -426,6 +427,7 @@ describe("stored drafts", () => {
       expect(o.offers).toEqual([{ key: at("aaaa0001"), value: newer, restorable: false, count: 0, savedAt: "2026-10-03T08:00:00.000Z" }]);
       expect(JSON.parse(stores.local.getItem(at("aaaa0001"))!)).toEqual(newer);
     });
+
   });
 });
 
