@@ -178,7 +178,7 @@ describe("buildBundle locally", () => {
 });
 
 describe("appInfo", () => {
-  it("is compiled into the app: the package version plus web/'s tree", () => {
+  it("is defined for the app: the package version plus web/'s tree", () => {
     const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
     expect(__BOXOPS_BUILD__.startsWith(`${version}+`)).toBe(true);
     expect(__BOXOPS_BUILD__).toMatch(/^\d+\.\d+\.\d+\+([0-9a-f]{12}|unknown)(\.dirty)?$/);

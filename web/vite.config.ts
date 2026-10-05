@@ -11,7 +11,7 @@ const REPO_DIR = resolve(WEB_DIR, "..");
 const DEV_ROADMAP = process.env.BOXOPS_ROADMAP
   ? resolve(process.env.INIT_CWD ?? process.cwd(), process.env.BOXOPS_ROADMAP)
   : resolve(REPO_DIR, "roadmap");
-/** The build id and time, in the JS, in index.html and in roadmap.json. */
+/** The build id and time: defined for the app, in index.html and in roadmap.json. */
 const APP = appInfo(WEB_DIR, REPO_DIR);
 
 /**

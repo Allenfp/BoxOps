@@ -14,10 +14,10 @@ export interface AppInfo {
   /**
    * Changes when the app's code changes, never on roadmap-only saves:
    * "<version>+<12 hex>" (".dirty" added when built with uncommitted app
-   * changes). The same id is compiled into the JS as __BOXOPS_BUILD__. "" when unknown.
+   * changes). vite.config.ts also defines it for the app as __BOXOPS_BUILD__. "" when unknown.
    */
   build: string;
-  /** Committer date of the app's commit (ISO 8601, UTC), as __BOXOPS_BUILD_TIME__. "" when unknown. */
+  /** Committer date of the app's commit (ISO 8601, UTC); __BOXOPS_BUILD_TIME__ for the app. "" when unknown. */
   time: string;
 }
 

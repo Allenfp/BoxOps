@@ -64,8 +64,10 @@ both.
     from the Actions event; when unknown the site counts as private;
   - `app`: version, build id and time. The build id is the version plus
     `web/`'s tree at HEAD, so roadmap-only saves keep it (`.dirty` with
-    uncommitted app changes). It's also compiled into the JS
-    (`__BOXOPS_BUILD__`) and put in `<meta name="boxops-build">`;
+    uncommitted app changes). It's put in `<meta name="boxops-build">`, and
+    defined for the app as `__BOXOPS_BUILD__` and `__BOXOPS_BUILD_TIME__`
+    (Vite inlines them where code uses them; nothing does yet, until the
+    coming build check);
   - `schema` (1), `format` and `notices`.
 
   A local build whose `roadmap/` has uncommitted changes reads the files on
