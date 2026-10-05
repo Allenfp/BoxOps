@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { DAGSTER, box, expect, save, test, toolbar } from "./helpers";
+import { DAGSTER, box, expect, openTab, save, test, toolbar } from "./helpers";
 
 const menu = (page: Page) => page.getByRole("dialog", { name: "Settings" });
 const openMenu = async (page: Page) => {
@@ -30,11 +30,29 @@ test("what boxes show is a personal preference, remembered in this browser", asy
   expect(github.head).toBe(github.root);
 
   await openMenu(page);
+  await menu(page).getByLabel("Open at zoom").selectOption("quarters");
   await menu(page).getByRole("button", { name: "Reset" }).click();
-  // The app's defaults: flags on; codes, scale and initials off.
+  // The app's defaults: flags on; codes, scale and initials off; the team's zoom. Nothing is stored.
   await expect(box(page, DAGSTER).locator(".box-flag")).toHaveText("At risk");
   await expect(box(page, DAGSTER).locator(".box-code")).toHaveCount(0);
   await expect(box(page, DAGSTER).locator(".box-scale")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("boxops-prefs"))).toBeNull();
+  await expect(menu(page).getByLabel("Open at zoom")).toHaveValue("");
+});
+
+test("only what you chose is stored, and a choice in another tab comes through", async ({ page, github }) => {
+  await openMenu(page);
+  await toggle(page, "Engineer initials").click();
+  // The test setup chose codes, scale and initials; initials are off again, the default, so only two are stored.
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("boxops-prefs")))!)).toEqual({ version: 1, showCodes: true, showScale: true });
+
+  // Another tab turns flags off: this one follows, and keeps its own choices when it next changes one.
+  const other = await openTab(page.context(), github);
+  await other.getByRole("button", { name: "Settings" }).click();
+  await other.getByRole("dialog", { name: "Settings" }).getByRole("switch", { name: "Flags" }).click();
+  await expect(box(page, DAGSTER).locator(".box-flag")).toHaveCount(0);
+  await toggle(page, "Scale").click();
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("boxops-prefs")))!)).toEqual({ version: 1, showCodes: true, showFlags: false });
 });
 
 test("density, PTO rows, finished boxes, zoom and the opening view", async ({ page, github: _ }) => {
