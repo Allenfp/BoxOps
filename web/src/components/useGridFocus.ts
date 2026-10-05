@@ -61,7 +61,7 @@ export interface GridFocus {
   keep(key: string): void;
   /** A navigation key pressed on a cell: moves focus, and returns true, if it's one. */
   onKey(e: KeyboardEvent): boolean;
-  /** The key of the cell after `cell` in its row, else the one before, else the row's first: where focus goes once it's deleted. */
+  /** The key of the cell after `cell` in its row, else the one before, else the row's first, else the nearest in the row above: where focus goes once it's deleted. */
   neighbour(cell: HTMLElement): string | null;
   /** Scroll the timeline so `cell` isn't hidden; for a box wider than the view, its start (or its end) shows. */
   reveal(cell: HTMLElement, edge?: "start" | "end"): void;
@@ -120,10 +120,38 @@ export function useGridFocus(
   };
 
   const rowCells = (row: Element | null) => [...(row?.querySelectorAll<HTMLElement>("[data-cell]") ?? [])];
+  /** A row as navigation sees it: its cells, and those with dates. */
+  const navRow = (row: Element) => {
+    const els = rowCells(row);
+    return {
+      els,
+      heading: row.classList.contains("dept-row"),
+      cells: els.map((c) => (c.dataset.start === undefined ? {} : { start: Number(c.dataset.start), end: Number(c.dataset.end) })),
+    };
+  };
+  /** The day a cell is looked at by: a box's start, or the first day on screen while it runs; the middle of the screen for a label. */
+  const dayOf = (el: HTMLElement) => {
+    const { from, to } = o.current.visible();
+    return el.dataset.start === undefined ? Math.round((from + to) / 2) : Math.max(Number(el.dataset.start), Math.min(from, Number(el.dataset.end)));
+  };
+  /**
+   * Where focus goes if `el` goes: the cell after it in its row, else the one before, else the
+   * row's first. Alone in its row (a box in a department's extra area), the cell nearest it in
+   * the row above, which is in the same department: never the grid's first cell.
+   */
   const keysBeside = (el: HTMLElement) => {
-    const cells = rowCells(el.closest('[role="row"]'));
+    const row = el.closest('[role="row"]');
+    const cells = rowCells(row);
     const i = cells.indexOf(el);
-    return [cells[i + 1], cells[i - 1], cells[0]].filter((c) => c && c !== el).map((c) => c!.dataset.cell!);
+    const beside = [cells[i + 1], cells[i - 1], cells[0]].filter((c) => c && c !== el).map((c) => c!.dataset.cell!);
+    const rows = beside.length || !row ? [] : [...(grid.current?.querySelectorAll('[role="row"]') ?? [])];
+    for (let r = rows.indexOf(row!) - 1; r >= 0; r--) {
+      const above = navRow(rows[r]);
+      if (!above.els.length) continue;
+      const at = navigate([above, navRow(row!)], { row: 1, col: i }, "up", dayOf(el));
+      return at ? [above.els[at.col].dataset.cell!] : [];
+    }
+    return beside;
   };
 
   const reveal = (el: HTMLElement, edge: "start" | "end" = "start") => {
@@ -171,10 +199,7 @@ export function useGridFocus(
       fallbacks.current = keysBeside(el);
       // Focused by Tab or a click: said with its details too.
       if (!el.hasAttribute("aria-describedby")) describe(el);
-      if (el.dataset.start !== undefined && !vertical.current) {
-        const { from } = o.current.visible();
-        anchor.current = Math.max(Number(el.dataset.start), Math.min(from, Number(el.dataset.end)));
-      }
+      if (el.dataset.start !== undefined && !vertical.current) anchor.current = dayOf(el);
       if (!pressed.current) reveal(el);
     };
     const onOut = (e: FocusEvent) => {
@@ -238,14 +263,7 @@ export function useGridFocus(
       if (!key || !g || !el) return false;
       e.preventDefault();
       const rowEls = [...g.querySelectorAll('[role="row"]')];
-      const rows = rowEls.map((r) => {
-        const cells = rowCells(r);
-        return {
-          els: cells,
-          heading: r.classList.contains("dept-row"),
-          cells: cells.map((c) => (c.dataset.start === undefined ? {} : { start: Number(c.dataset.start), end: Number(c.dataset.end) })),
-        };
-      });
+      const rows = rowEls.map(navRow);
       const row = rowEls.indexOf(el.closest('[role="row"]')!);
       if (row < 0) return true;
       const { from, to } = o.current.visible();

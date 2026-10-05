@@ -283,6 +283,21 @@ test("Delete deletes the focused box or PTO block, once however long it's held, 
   await expect.poll(() => heard(page)).toMatch(/Deleted PTO for Morgan Chen, 2026-10-05 – 2026-10-09\. Undo with/);
 });
 
+test("Delete on the only box in a department's extra area keeps focus in that department, wherever it is", async ({ page, github: _ }) => {
+  // Data Engineering second: its extra area's one box has no cell beside it in its row.
+  await cell(page, "dept:data-eng").focus();
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(page.locator(".dept-label .dept-name")).toHaveText(["Analytics", "Data Engineering", "ML Platform"]);
+  const oncall = box(page, "bx-e5a2-on-call-q4");
+  await expect(oncall.locator("xpath=ancestor::*[@role='row'][1]")).toHaveClass(/overflow-row/);
+  await oncall.focus();
+  await page.keyboard.press("Delete");
+  await expect(oncall).toHaveCount(0);
+  // The nearest cell in the row above: the Contractor lane, empty then, so its name. Not Analytics' heading.
+  await expect(cell(page, "lane:de-4")).toBeFocused();
+  await expect.poll(() => heard(page)).toMatch(/Deleted “On-call rotation Q4”\. Undo with/);
+});
+
 test.describe("a branch preview", () => {
   test("can be looked around, and what would change something says it can't", async ({ page, github }) => {
     const main = github.head;

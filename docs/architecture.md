@@ -563,7 +563,9 @@ when a focused element is removed.
   one hidden element written before focus moves. The timeline scrolls a
   focused cell clear of the sticky header and label column, and of the
   broken-rule popup (which leaves room to scroll for that), as WCAG 2.4.11
-  asks. Enter, a click or a screen reader's press opens a box or PTO block.
+  asks. Enter, a click or a screen reader's press opens a box or PTO block;
+  Delete deletes it, focus going to the cell beside it (or, alone in its
+  row, the nearest in the row above: never out of its department).
   Space picks one up: the arrow keys then move what's drawn, as a pointer
   drag does (nothing laid out again, nothing else moving), and Enter or
   Space drops it as one change; Escape or ⌘Z puts it back; Tab, a click,
