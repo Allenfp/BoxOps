@@ -381,6 +381,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    saved banner says so: "The site picks it up in about a minute."
 
 ⌘S while typing in a table or people cell commits the cell first, then saves.
+In a read-only tab ⌘S saves nothing, and never opens the browser's Save Page
+dialog; in one gone read-only for a newer BoxOps it moves to the banner's
+Reload.
 
 ## Tabs left open
 

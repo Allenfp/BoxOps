@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import type { Bundle } from "../src/model/bundle";
-import { DAGSTER, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
+import { DAGSTER, boxFile, dragDays, expect, pollNow, save, saveKeyTaken, test, toolbar } from "./helpers";
 
 // A tab left open while BoxOps itself is upgraded: older code never writes.
 
@@ -43,6 +43,10 @@ test("a new BoxOps makes the tab read-only; Reload loads it from a fresh URL and
   await expect(toolbar(page)).toHaveCount(0);
   // Read-only, but not a preview of another branch.
   await expect(page.locator(".tl-corner > span")).toHaveText("Read-only");
+  // ⌘S out of habit saves nothing, never opens the browser's Save Page dialog, and goes to Reload.
+  expect(await saveKeyTaken(page)).toBe(true);
+  await expect(banner.getByRole("button", { name: "Reload" })).toBeFocused();
+  expect(github.calls("graphql")).toBe(0);
 
   const navigations: string[] = [];
   page.on("request", (r) => r.isNavigationRequest() && navigations.push(r.url()));

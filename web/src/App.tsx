@@ -790,14 +790,18 @@ function RoadmapView(props: ViewProps) {
   const removePtoRef = useRef(removePto);
   removePtoRef.current = removePto;
 
-  // Undo/redo and delete. Text fields keep their own native undo.
+  /** The update banner's Reload: where ⌘S goes in a tab gone read-only for a newer BoxOps. */
+  const updateReload = useRef<HTMLButtonElement>(null);
+
+  // ⌘S, undo/redo and delete. Text fields keep their own native undo.
   useEffect(() => {
-    if (preview) return;
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "s") {
-        // Like saving a file — and never the browser's "save page" dialog.
+        // Like saving a file — and never the browser's "save page" dialog, read-only too.
         e.preventDefault();
+        // Read-only: nothing to save; for a newer BoxOps, what to do is reload.
+        if (preview) return updateReload.current?.focus();
         if (busy || problem) return;
         // A table or people cell keeps what's typed until it loses focus: commit
         // it, then save on the next tick, once the draft has it.
@@ -807,7 +811,7 @@ function RoadmapView(props: ViewProps) {
         } else saveRef.current();
         return;
       }
-      if (isTyping(e.target) || busy) return;
+      if (preview || isTyping(e.target) || busy) return;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) draft.redo();
@@ -1434,7 +1438,7 @@ function RoadmapView(props: ViewProps) {
             {keptOnReload}
           </span>
           {count > 0 && (!draft.kept || stranded) && <button onClick={downloadDraft}>Download unsaved changes</button>}
-          <button className="primary" onClick={() => reloadApp(props.update!.build)}>
+          <button className="primary" ref={updateReload} onClick={() => reloadApp(props.update!.build)}>
             Reload
           </button>
         </div>

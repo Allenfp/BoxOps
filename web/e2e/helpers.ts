@@ -119,6 +119,19 @@ export async function save(page: Page) {
   await page.keyboard.press("ControlOrMeta+s");
 }
 
+/** Press ⌘S (Ctrl+S) as save() does; whether the app kept it from the browser, whose Save Page dialog it would open. */
+export async function saveKeyTaken(page: Page): Promise<boolean> {
+  type Seen = { saveKeyTaken?: boolean };
+  await page.evaluate(() =>
+    // After the app's own listener, on the same target: it has had its say.
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "s") (window as Seen).saveKeyTaken = e.defaultPrevented;
+    }),
+  );
+  await save(page);
+  return page.evaluate(() => (window as Seen).saveKeyTaken === true);
+}
+
 /**
  * Counts this page's fetches of roadmap.json under way, body included
  * (`__boxopsSiteFetches`): the clock mustn't jump past one's deadline (20 s)

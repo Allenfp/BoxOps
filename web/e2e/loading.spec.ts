@@ -1,7 +1,7 @@
 import { type Route } from "@playwright/test";
 import { EXECUTABLE } from "../src/model/paths";
 import { type FakeGitHub, OTHER_OWNER_TOKEN, REPO, TOKEN } from "./fake-github";
-import { DAGSTER, REVENUE, box, boxTitle, boxFile, dragDays, expect, looseBannerText, pollNow, save, test, toolbar } from "./helpers";
+import { DAGSTER, REVENUE, box, boxTitle, boxFile, dragDays, expect, looseBannerText, pollNow, save, saveKeyTaken, test, toolbar } from "./helpers";
 
 // Opening the site: the deployed copy at once, then any newer saves from
 // GitHub; branch previews; and what happens when loading fails.
@@ -110,6 +110,8 @@ test.describe("branch previews (?ref=)", () => {
     await expect(toolbar(page)).toHaveCount(0);
     await expect(page.locator(".tl-corner > span")).toHaveText("Read-only preview");
     expect(await looseBannerText(page)).toEqual([]);
+    // ⌘S never opens the browser's Save Page dialog.
+    expect(await saveKeyTaken(page)).toBe(true);
     await page.getByRole("link", { name: "Back to the live roadmap" }).click();
     await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
     expect(new URL(page.url()).searchParams.has("ref")).toBe(false);
