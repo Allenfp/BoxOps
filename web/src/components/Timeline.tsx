@@ -21,19 +21,18 @@ import {
   type Day,
   addMonths,
   addWorkdays,
-  dayOfWorkIndex,
   dayParts,
   nextWorkday,
   prettyDay,
   prevWorkday,
   startOfMonth,
   startOfWeek,
-  workIndex,
   workdays,
 } from "../model/dates";
 import type { Box, Department, Lane, Roadmap, TimeOff, ZoomLevel } from "../model/types";
 import { type DepartmentLayout, type Placed, laneAtSlot, layoutDepartment } from "../timeline/layout";
 import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
+import { type DragMode, dragDays, movedDates } from "../timeline/drag";
 import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
 import { UseChart } from "./UseChart";
@@ -45,8 +44,6 @@ const LABEL_W = 240;
 const BOX_PAD = 3;
 /** Pointer travel (px) before a press on a box becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 4;
-/** Drags move in whole multiples of this many working days. */
-const SNAP_DAYS: Record<ZoomLevel, number> = { weeks: 1, months: 1, quarters: 5 };
 
 export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
 
@@ -97,8 +94,6 @@ interface Props {
   /** Double-click a department's PTO row. */
   onCreatePto?(departmentId: string, dates: Pick<TimeOff, "start" | "end">): void;
 }
-
-type DragMode = "move" | "start" | "end";
 
 /** A new box's dates around `day`, sized to the zoom: a working week, two from that Monday, or the rest of the month. */
 function defaultSpan(day: Day, zoom: ZoomLevel): { start: Day; end: Day } {
@@ -222,9 +217,6 @@ export function Timeline(props: Props) {
     const x0 = e.clientX;
     const y0 = e.clientY;
     let moved = false;
-    const startIdx = workIndex(nextWorkday(box.start));
-    const endIdx = workIndex(box.end + 1) - 1; // last working day
-    const length = Math.max(1, endIdx - startIdx + 1);
     let placement: BoxPlacement = { lane: box.lane, start: box.start, end: box.end };
 
     const onMove = (ev: PointerEvent) => {
@@ -235,20 +227,8 @@ export function Timeline(props: Props) {
         document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
       }
       const { props: p, scale: s, layouts: l } = latest.current;
-      const snap = SNAP_DAYS[p.zoom];
-      const delta = Math.round(dx / s.pxPerDay / snap) * snap;
-      if (mode === "move") {
-        const start = dayOfWorkIndex(startIdx + delta);
-        placement = {
-          lane: laneAt(ev.clientX, ev.clientY, l) ?? placement.lane,
-          start,
-          end: dayOfWorkIndex(startIdx + delta + length - 1),
-        };
-      } else if (mode === "start") {
-        placement = { ...placement, start: dayOfWorkIndex(Math.min(startIdx + delta, endIdx)) };
-      } else {
-        placement = { ...placement, end: dayOfWorkIndex(Math.max(endIdx + delta, startIdx)) };
-      }
+      const dates = movedDates(box, mode, dragDays(dx, s.pxPerDay, p.zoom));
+      placement = { lane: mode === "move" ? (laneAt(ev.clientX, ev.clientY, l) ?? placement.lane) : box.lane, ...dates };
       setPreview({ id: box.id, ...placement });
     };
 
@@ -297,8 +277,6 @@ export function Timeline(props: Props) {
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
     let moved = false;
-    const startIdx = workIndex(nextWorkday(pto.start));
-    const endIdx = workIndex(pto.end + 1) - 1;
     let dates = { start: pto.start, end: pto.end };
 
     const onMove = (ev: PointerEvent) => {
@@ -309,11 +287,7 @@ export function Timeline(props: Props) {
         document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
       }
       const { props: p, scale: s } = latest.current;
-      const snap = SNAP_DAYS[p.zoom];
-      const delta = Math.round(dx / s.pxPerDay / snap) * snap;
-      if (mode === "move") dates = { start: dayOfWorkIndex(startIdx + delta), end: dayOfWorkIndex(endIdx + delta) };
-      else if (mode === "start") dates = { ...dates, start: dayOfWorkIndex(Math.min(startIdx + delta, endIdx)) };
-      else dates = { ...dates, end: dayOfWorkIndex(Math.max(endIdx + delta, startIdx)) };
+      dates = movedDates(pto, mode, dragDays(dx, s.pxPerDay, p.zoom));
       setPtoPreview({ key: ptoKey(ref), ...dates });
     };
     const finish = (commit: boolean) => {
