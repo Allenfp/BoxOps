@@ -23,7 +23,10 @@ export type SaveProblem =
   | { kind: "conflict"; keys: string[]; items: string[] }
   /** GitHub refused, or couldn't be reached (kinds and words in github/api.ts and messages.ts). */
   | { kind: "github"; failure: GitHubFailure; resume?: Resume }
-  | { kind: "error"; message: string; resume?: Resume }
+  /** The roadmap folder on GitHub breaks the rules the build holds it to (a symlink, a file that isn't UTF-8…): fixed there, not here. */
+  | { kind: "folder"; problems: string[] }
+  /** `reload`: reloading the page helps too ("also"), or is what helps ("instead" of trying again). */
+  | { kind: "error"; message: string; resume?: Resume; reload?: "also" | "instead" }
   /** The roadmap on GitHub is in a newer data format: an upgrade is deploying. */
   | { kind: "upgrading"; format: number }
   | {
@@ -53,7 +56,7 @@ interface Props {
   onRetry(): void;
   /** Ask for another token (the one kept doesn't do). */
   onNewToken(): void;
-  /** Load the page again, for a newer BoxOps. */
+  /** Load the page again: for a newer BoxOps, or a newer deploy. */
   onReloadApp(): void;
   /** Download the unsaved changes as JSON. */
   onDownload(): void;
@@ -137,6 +140,7 @@ export function SaveDialog({
           invalid: "Can’t save yet",
           unwritable: "Can’t save yet",
           conflict: "Someone else changed the same items",
+          folder: "The roadmap folder on GitHub needs fixing",
           error: "Save failed",
           upgrading: "BoxOps is being upgraded",
           updated: "The roadmap changed since you opened it",
@@ -295,6 +299,28 @@ export function SaveDialog({
         </>
       )}
 
+      {problem.kind === "folder" && (
+        <>
+          <p className="lead">
+            Nothing was saved: the roadmap folder on GitHub breaks the rules BoxOps holds it to. Fix it on GitHub or in
+            the repository (or ask whoever looks after it), then save again:
+          </p>
+          <div className="callout error">
+            <ul>
+              {problem.problems.map((p, n) => (
+                <li key={n}>{p}</li>
+              ))}
+            </ul>
+          </div>
+          <Kept kept={kept} />
+          <footer className="dialog-foot">
+            <button className="primary" onClick={onClose}>
+              Close
+            </button>
+          </footer>
+        </>
+      )}
+
       {problem.kind === "error" && (
         <>
           <div className="callout error">{problem.message}</div>
@@ -303,9 +329,16 @@ export function SaveDialog({
             <button onClick={onClose} disabled={busy}>
               Close
             </button>
-            <button className="primary" onClick={onRetry} disabled={busy}>
-              {busy ? "Saving…" : "Try again"}
-            </button>
+            {problem.reload && (
+              <button className={problem.reload === "instead" ? "primary" : undefined} onClick={onReloadApp} disabled={busy}>
+                Reload
+              </button>
+            )}
+            {problem.reload !== "instead" && (
+              <button className="primary" onClick={onRetry} disabled={busy}>
+                {busy ? "Saving…" : "Try again"}
+              </button>
+            )}
           </footer>
         </>
       )}

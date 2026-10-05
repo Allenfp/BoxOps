@@ -352,6 +352,37 @@ test("a box with no title can't be saved: the problem is shown, and nothing is w
   expect(github.head).toBe(github.root);
 });
 
+test("a roadmap folder on GitHub that breaks the build's rules stops the save: each problem listed, to fix there", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  github.otherSave({ "boxes/link.yaml": () => "../../.git/config", "boxes/link2.yaml": () => "../people.yaml" }, "Sam Lee", "Links");
+  github.modes = { "roadmap/boxes/link.yaml": "120000", "roadmap/boxes/link2.yaml": "120000" };
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("The roadmap folder on GitHub needs fixing");
+  await expect(dialog.locator(".callout.error li")).toHaveText([
+    "roadmap/boxes/link.yaml: is a symlink; a roadmap folder holds plain files only",
+    "roadmap/boxes/link2.yaml: is a symlink; a roadmap folder holds plain files only",
+  ]);
+  // Trying again fails the same way until someone fixes the folder.
+  await expect(dialog.getByRole("button", { name: "Try again" })).toHaveCount(0);
+  await dialog.locator(".dialog-foot").getByRole("button", { name: "Close" }).click();
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  expect(github.calls("graphql")).toBe(0);
+});
+
+test("newer saves too many to read stop the save, with Reload rather than Try again", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  github.otherSave(Object.fromEntries(Array.from({ length: 301 }, (_, i) => [`boxes/bx-${i}.yaml`, () => `id: bx-${i}\n`])), "Sam Lee", "Import");
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator(".callout.error")).toHaveText(
+    "301 roadmap files changed since this copy was loaded, more than BoxOps reads at once (300). Reload once the site has redeployed.",
+  );
+  await expect(dialog.getByRole("button", { name: "Try again" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Reload" })).toHaveClass(/primary/);
+  expect(github.calls("graphql")).toBe(0);
+});
+
 /** Someone removes the Contractor lane (de-4), moving its boxes to the lane above. */
 const removeContractor = (github: FakeGitHub) =>
   github.otherSave(

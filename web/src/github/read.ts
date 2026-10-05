@@ -66,11 +66,15 @@ export class TooManyChanges extends Error {
 
 /** The roadmap folder on GitHub breaks the rules the build holds it to; nothing is read until it's fixed. */
 export class FolderProblems extends Error {
+  /** Each problem in words, after its path: "roadmap/boxes/a.yaml: is a symlink; …". */
+  readonly lines: string[];
   constructor(
     readonly dir: string,
     readonly problems: { path: string; message: string }[],
   ) {
-    super(problems.map((p) => `${p.path ? `${dir}/${p.path}` : dir}: ${p.message}`).join("\n"));
+    const lines = problems.map((p) => `${p.path ? `${dir}/${p.path}` : dir}: ${p.message}`);
+    super(lines.join("\n"));
+    this.lines = lines;
   }
 }
 

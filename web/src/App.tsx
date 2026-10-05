@@ -152,8 +152,8 @@ function siteProblem(e: unknown): Extract<LoadState, { status: "error" }> {
 function newerProblem(e: unknown): string | null {
   if (e instanceof TooManyChanges) return `Newer saves aren’t shown: ${e.message}`;
   if (!(e instanceof FolderProblems)) return null;
-  const shown = e.problems.slice(0, 3).map((p) => `${p.path ? `${e.dir}/${p.path}` : e.dir}: ${p.message}`);
-  const more = e.problems.length - shown.length;
+  const shown = e.lines.slice(0, 3);
+  const more = e.lines.length - shown.length;
   return (
     `Newer saves aren’t shown, and saving won’t work, until the roadmap folder on GitHub is fixed: ${shown.join("; ")}` +
     `${more ? `; and ${more} more` : ""}.`
@@ -1050,6 +1050,12 @@ function RoadmapView(props: ViewProps) {
         setProblem({ kind: "token", rejected: true, resume });
       } else if (e instanceof GitHubFailure) {
         setProblem({ kind: "github", failure: e, resume });
+      } else if (e instanceof FolderProblems) {
+        // Not this tab's to fix: trying again fails the same way until someone fixes the folder.
+        setProblem({ kind: "folder", problems: e.lines });
+      } else if (e instanceof TooManyChanges) {
+        // The same read fails until this tab reloads onto a newer deploy.
+        setProblem({ kind: "error", message: e.message, reload: "instead" });
       } else {
         setProblem({ kind: "error", message: (e as Error).message, resume });
       }

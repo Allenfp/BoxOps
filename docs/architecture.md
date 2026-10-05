@@ -127,7 +127,10 @@ both.
   check catches up anyway), and a token GitHub rejects (401) is forgotten.
   Newer saves it won't read past (more than 300 changed files, or a folder
   that breaks the build's rules, which also stops saving) keep the bundled
-  copy too, with a notice saying why, until the tab moves on.
+  copy too, with a notice saying why, until the tab moves on. A save they
+  stop says so as well: the folder's problems, one per line, to fix on
+  GitHub (Close only), or too many changes, with Reload rather than Try
+  again.
   With a token every call goes through the API, which is how a private
   repository is read. Without one the app reads only a repository the build
   says is public, taking file contents from `raw.githubusercontent.com` to
