@@ -22,7 +22,7 @@
   background: var(--bg);
 }
 
-/* Dark theme, chosen with the toolbar toggle (data-theme on <html>, set in theme.tsx). Light is the default. */
+/* Dark theme: data-theme on <html>, from the theme preference (prefs.ts; light, dark or the system's), set by index.html before the first paint. */
 :root[data-theme="dark"] {
   --bg: #0f1218;
   --surface: #161a22;

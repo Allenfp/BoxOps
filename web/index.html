@@ -3,11 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <title>BoxOps</title>
+    <script>
+      // The theme before the first paint, so a dark-mode visitor never sees a light flash:
+      // the stored choice (prefs.ts), else the system's. prefs.ts takes over once the app runs.
+      (function () {
+        var theme = "system";
+        try {
+          var prefs = JSON.parse(localStorage.getItem("boxops-prefs") || "null");
+          if (prefs && (prefs.theme === "light" || prefs.theme === "dark")) theme = prefs.theme;
+          else if (!prefs && localStorage.getItem("boxops-theme") === "dark") theme = "dark";
+        } catch (e) {}
+        if (theme === "system") theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
