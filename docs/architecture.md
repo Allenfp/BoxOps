@@ -46,8 +46,9 @@ web/
                             and in dev
 ```
 
-`model/` also holds `paths.ts` (which files are roadmap files) and `bundle.ts`
-(the `roadmap.json` fields). Browser code (`src/`) is type-checked without
+`model/` also holds `paths.ts` (which files are roadmap files), `bundle.ts`
+(the `roadmap.json` fields) and `draftStore.ts` (unsaved drafts in
+`localStorage`). Browser code (`src/`) is type-checked without
 Node's types (`tsconfig.app.json`); `cli/`, `scripts/`, `e2e/`, the unit tests
 and the configs have them (`tsconfig.node.json`). `npm run typecheck` checks
 both.
@@ -153,10 +154,8 @@ both.
 All edits go into a **draft**: the boxes, departments and people as changed,
 with undo and redo. Department and lane changes (`model/structure.ts`) are plain
 functions over the draft. Removing a lane or department that still has boxes
-requires a lane to move them to, so work is never dropped. The draft is kept in
-`localStorage` together with the version it was made from, so a refresh doesn't
-lose work, even if someone saved in between. When a newer version arrives, the
-draft is **rebased** onto it item by item. Items only someone else changed take
+requires a lane to move them to, so work is never dropped. When a newer version
+arrives, the draft is **rebased** onto it item by item. Items only someone else changed take
 their version, items only you changed keep yours, and items both changed keep
 yours but are flagged as clashes. A clash lasts until the item matches the
 saved version (you took theirs, put it back by hand, discarded, or saved it),
@@ -168,6 +167,39 @@ draft is rebased from what that save wrote, so anything edited (or undone)
 while it ran stays an unsaved change of yours, never a clash with your own
 commit. The clash bookkeeping is a pure reducer over the draft and its undo
 history (`reduceHistory` in `model/draft.ts`).
+
+**Unsaved drafts are kept per tab** in `localStorage` (`model/draftStore.ts`),
+so a reload or a crash doesn't lose work, even if someone saved in between:
+
+- **Where.** Each tab writes, and removes, only its own key,
+  `boxops-draft:<owner>/<repo>@<branch>:<tab id>`. The tab id is kept in
+  `sessionStorage`, so a reload of the tab finds its own draft; a duplicated
+  tab (which copies `sessionStorage`) sees the original's draft still alive
+  and takes a new id. Another tab polling, saving or discarding never touches
+  this one's draft. A tab shows "This roadmap has unsaved changes in another
+  tab" while another open tab has some (`storage` events keep it current).
+- **What.** Only the changed items, each with the version it was changed from
+  (`{ old, now }` by item key), and the clashes, stamped with the data
+  `format`, the `build`, the `baseCommit` it was made against and `savedAt`.
+  One edit at 2,000 boxes is a few hundred bytes, not the whole roadmap. It's
+  rebuilt on whatever roadmap is loaded and rebased like a newer save, so
+  items nobody touched are read fresh, whichever build stored the draft.
+- **When.** Once editing pauses for 0.4 s (at least every 2 s while it goes
+  on), never on every keystroke; at once when nothing is left to keep, and
+  before a save starts, when the tab is hidden or closed.
+- **Tabs that are gone.** A draft also carries a heartbeat: marked alive every
+  minute while its tab is open, and closed when the tab closes (`pagehide`).
+  When a tab opens the roadmap, drafts left by tabs that are gone (closed, or
+  not alive for 5 minutes: browsers slow down hidden tabs' timers) are
+  offered, newest first: "Restore unsaved changes from another tab?" with
+  Restore (its items over this tab's, one undo step) or Discard. Never taken
+  silently. One whose changes have all been saved since is just removed. The
+  single key every tab shared before 0.1.0 moves over once.
+- **Other versions.** A draft in another data format (or one that can't be
+  read) is never opened: "Download my unsaved edits (JSON)" or Discard.
+- **Limits.** Safari deletes a site's storage after 7 days of use without a
+  visit to it, drafts included; and project sites on `<owner>.github.io`
+  share one origin, so one storage quota.
 
 ## Saving
 
@@ -286,8 +318,8 @@ against data the new code wrote.
 - **Errors.** An error boundary around the app shows a recovery screen with
   Reload instead of a blank page. A second crash in a row (a stored draft can
   make every reload crash) also offers to download the unsaved changes as
-  JSON and discard them: only the roadmap on screen's, since project sites on
-  `<owner>.github.io` share one `localStorage`. A crash counts as the same one
+  JSON and discard them: only this tab's draft of the roadmap on screen, since
+  project sites on `<owner>.github.io` share one `localStorage`. A crash counts as the same one
   again within 5 minutes, unless the app ran for a few seconds in between.
 
 ## Timeline layout

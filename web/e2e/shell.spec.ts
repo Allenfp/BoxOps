@@ -6,15 +6,17 @@ import { DAGSTER, dragDays, expect, test, toolbar } from "./helpers";
 test("a stored draft that crashes the app can be downloaded and discarded", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 10);
   await expect(toolbar(page)).toContainText("Save · 1 change");
+  // Stored once editing pauses.
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("boxops-draft:")).length)).toBe(1);
   // A stored draft the app can't render (a bug, or a draft from another version), and
   // another roadmap's draft on the same origin (project sites on <owner>.github.io share one).
-  await page.evaluate(() => {
+  await page.evaluate((id) => {
     const key = Object.keys(localStorage).find((k) => k.startsWith("boxops-draft:"))!;
     const draft = JSON.parse(localStorage.getItem(key)!);
-    draft.boxes[0].engineers = 5;
+    draft.items[`box:${id}`].now.engineers = 5;
     localStorage.setItem(key, JSON.stringify(draft));
-    localStorage.setItem("boxops-draft:acme/other@main", JSON.stringify({ baseHash: "0", boxes: [] }));
-  });
+    localStorage.setItem("boxops-draft:acme/other@main:0000abcd", JSON.stringify({ v: 2, format: 1, items: {} }));
+  }, DAGSTER);
   await page.reload();
   const crash = page.locator(".crash");
   await expect(crash).toContainText("Something went wrong");
@@ -29,13 +31,14 @@ test("a stored draft that crashes the app can be downloaded and discarded", asyn
   const download = await downloading;
   expect(download.suggestedFilename()).toBe("boxops-unsaved-changes-2026-10-03.json");
   const saved = JSON.parse(await readFile(await download.path(), "utf8"));
-  expect(Object.keys(saved)).toEqual(["boxops-draft:acme/roadmap@main"]);
-  expect(saved["boxops-draft:acme/roadmap@main"].boxes[0].engineers).toBe(5);
+  // This tab's draft only: `boxops-draft:<repo>@<branch>:<tab id>`.
+  expect(Object.keys(saved)).toEqual([expect.stringMatching(/^boxops-draft:acme\/roadmap@main:[0-9a-f]{8}$/)]);
+  expect(Object.values<{ items: Record<string, { now: { engineers: unknown } }> }>(saved)[0].items[`box:${DAGSTER}`].now.engineers).toBe(5);
 
   await crash.getByRole("button", { name: "Discard unsaved changes and reload" }).click();
   await expect(page.locator(".box").first()).toBeVisible();
   await expect(toolbar(page)).toContainText("No changes");
-  expect(await page.evaluate(() => localStorage.getItem("boxops-draft:acme/other@main"))).not.toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("boxops-draft:acme/other@main:0000abcd"))).not.toBeNull();
 });
 
 test("once the app has run a few seconds, an earlier crash is forgotten: a later one isn't \"again\"", async ({ page, github: _ }) => {

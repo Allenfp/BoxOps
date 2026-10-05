@@ -1,4 +1,4 @@
-import { type Page, test as base, expect } from "@playwright/test";
+import { type BrowserContext, type Page, test as base, expect } from "@playwright/test";
 import { FakeGitHub, REPO, TOKEN } from "./fake-github";
 
 /** Every test runs on 2026-10-03 so "today" and the sample boxes line up. */
@@ -104,3 +104,28 @@ export async function save(page: Page) {
 export async function pollNow(page: Page) {
   await page.clock.fastForward(2 * 60_000 + 1000);
 }
+
+/**
+ * Another tab on the roadmap in the same browser (the same localStorage, its
+ * own sessionStorage), with its own clock starting at `at`, the fake GitHub
+ * and a token.
+ */
+export async function openTab(context: BrowserContext, github: FakeGitHub, at = TODAY): Promise<Page> {
+  const tab = await context.newPage();
+  await tab.clock.install({ time: at });
+  await github.install(tab);
+  await tab.addInitScript(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, TOKEN]);
+  await tab.goto("./?zoom=months");
+  await expect(tab.locator(".box").first()).toBeVisible();
+  return tab;
+}
+
+/** The unsaved drafts stored in this browser: key → what's stored. */
+export const storedDrafts = (page: Page): Promise<Record<string, { items: Record<string, unknown>; alive: number }>> =>
+  page.evaluate(() =>
+    Object.fromEntries(
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("boxops-draft:"))
+        .map((k) => [k, JSON.parse(localStorage.getItem(k)!)]),
+    ),
+  );

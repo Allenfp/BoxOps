@@ -21,7 +21,8 @@ import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
-import { type DraftState, diffBoxes, draftKey, hashText, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
+import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
+import { downloadJson } from "./model/draftStore";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
@@ -439,6 +440,47 @@ function stamp(iso: string): string {
 
 const NO_LINES: ChangeLine[] = [];
 
+/**
+ * A stored draft this tab didn't make: one a tab that's gone left behind
+ * (restore it, or discard it), or one only another version of BoxOps can open
+ * (download it, or discard it). Never taken without asking.
+ */
+function OfferBanner({ offer, busy, onRestore, onDiscard }: { offer: DraftOffer; busy: boolean; onRestore(): void; onDiscard(): void }) {
+  const changes = `${offer.count} change${offer.count === 1 ? "" : "s"}`;
+  const when = offer.savedAt ? stamp(offer.savedAt) : "";
+  const discard = () => {
+    if (confirm(`Discard ${offer.restorable ? `these ${changes}` : "these unsaved edits"} for good? This can’t be undone.`)) onDiscard();
+  };
+  if (offer.restorable) {
+    return (
+      <div className="banner" role="status">
+        <span>
+          <strong>Restore unsaved changes from another tab?</strong> {changes}
+          {when ? `, last changed ${when},` : ""} in a tab that’s no longer open.
+        </span>
+        <button className="primary" onClick={onRestore} disabled={busy}>
+          Restore
+        </button>
+        <button onClick={discard} disabled={busy}>
+          Discard…
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="banner notice-warning" role="status">
+      <span>
+        <strong>Unsaved edits made with another version of BoxOps</strong>
+        {when ? ` (last changed ${when})` : ""} can’t be opened here.
+      </span>
+      <button className="primary" onClick={() => downloadJson({ [offer.key]: offer.value })}>
+        Download my unsaved edits (JSON)
+      </button>
+      <button onClick={discard}>Discard…</button>
+    </div>
+  );
+}
+
 /** `roadmap/people.yaml, line 12: …` */
 const issueText = (i: Issue) => `roadmap/${i.path}${i.line ? `, line ${i.line}` : ""}: ${i.message}`;
 
@@ -488,15 +530,13 @@ function RoadmapView(props: ViewProps) {
   /** The next roadmap change is our own save, not someone else's. */
   const ownSave = useRef(false);
 
-  const baseHash = useMemo(() => hashText(JSON.stringify(files)), [files]);
   const draftBase = useMemo(
     () => ({ boxes: base.boxes, departments: base.departments, people: base.people, settings: base.settings }),
     [base],
   );
-  const scope = `${source.repo}@${source.branch}`;
-  // Should anything below crash, the recovery screen offers this draft (and no other roadmap's).
-  noteDraft(draftKey(scope));
-  const draft = useDraft(draftBase, scope, baseHash);
+  const draft = useDraft(draftBase, { scope: `${source.repo}@${source.branch}`, commit: source.commit, build: __BOXOPS_BUILD__ });
+  // Should anything below crash, the recovery screen offers this tab's draft (and no other's).
+  noteDraft(draft.storageKey);
   // Up and running a few seconds: a crash after this isn't "the same one again" (ErrorBoundary).
   useEffect(() => {
     const t = setTimeout(runningFine, 5000);
@@ -655,6 +695,11 @@ function RoadmapView(props: ViewProps) {
   };
 
   const { count } = draft.changes;
+  // Other tabs' unsaved changes: a notice until put away, or until there are none.
+  const [othersDismissed, setOthersDismissed] = useState(false);
+  useEffect(() => {
+    if (!draft.others) setOthersDismissed(false);
+  }, [draft.others]);
   const discardAll = () => {
     if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
       setSelected(null);
@@ -727,6 +772,7 @@ function RoadmapView(props: ViewProps) {
     const gh = new GitHubClient({ token });
 
     select(null);
+    draft.flush();
     setBusy(true);
     try {
       // A new BoxOps deployed that the poll hasn't seen yet: this tab's code
@@ -1130,6 +1176,22 @@ function RoadmapView(props: ViewProps) {
             {count > 0 ? "; your unsaved changes are kept in this browser" : ""}.
           </span>
           <button onClick={() => reloadApp("")}>Reload</button>
+        </div>
+      )}
+      {!preview && draft.offers.length > 0 && (
+        <OfferBanner
+          offer={draft.offers[0]}
+          busy={busy}
+          onRestore={() => draft.restoreOffer(draft.offers[0].key)}
+          onDiscard={() => draft.discardOffer(draft.offers[0].key)}
+        />
+      )}
+      {draft.others > 0 && !othersDismissed && (
+        <div className="banner" role="status">
+          <span>This roadmap has unsaved changes in another tab. Each tab keeps and saves its own.</span>
+          <button className="icon-button" onClick={() => setOthersDismissed(true)} aria-label="Dismiss">
+            <Icon name="x" size={16} />
+          </button>
         </div>
       )}
       {remote && (

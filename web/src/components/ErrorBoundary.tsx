@@ -2,21 +2,21 @@
 // blank page. Unsaved changes are restored from localStorage before the first
 // render, so if they're what trips the app up, every reload crashes again; the
 // second time in a row, the screen offers to download them and discard them.
-// Only the draft of the roadmap on screen: every project site on
-// <owner>.github.io shares one origin, and so one localStorage.
+// Only this tab's draft of the roadmap on screen: every project site on
+// <owner>.github.io shares one origin, and so one localStorage, and other
+// tabs keep drafts of their own (model/draftStore.ts).
 
 import { Component, type ReactNode } from "react";
-
-const DRAFT_PREFIX = "boxops-draft:";
+import { DRAFT_PREFIX, downloadJson } from "../model/draftStore";
 /** When this tab last crashed (ms since 1970), in sessionStorage; removed once the app has run a while. */
 const CRASH_KEY = "boxops-crashed-at";
 /** A crash this soon after the last one counts as the same crash again. */
 const AGAIN_MS = 5 * 60_000;
 
-/** The localStorage key of the draft of the roadmap on screen, once the app has one. */
+/** The localStorage key of this tab's draft of the roadmap on screen, once the app has one. */
 let shownDraft: string | null = null;
 
-/** The roadmap on screen keeps its draft under `key` (model/draft.ts): the one a crash offers. */
+/** This tab keeps its draft of the roadmap on screen under `key` (model/draftStore.ts): the one a crash offers. */
 export function noteDraft(key: string): void {
   shownDraft = key;
 }
@@ -58,7 +58,7 @@ function storedDraft(): Record<string, unknown> | null {
   }
 }
 
-/** "acme/roadmap" from `boxops-draft:acme/roadmap@main`. */
+/** "acme/roadmap" from `boxops-draft:acme/roadmap@main:<tab id>`. */
 const draftRepo = (key: string) => key.slice(DRAFT_PREFIX.length).split("@")[0];
 
 function crashedRecently(): boolean {
@@ -69,17 +69,8 @@ function crashedRecently(): boolean {
   }
 }
 
-const two = (n: number) => String(n).padStart(2, "0");
-
 function downloadDraft(): void {
-  const json = JSON.stringify(storedDraft() ?? {}, null, 2);
-  const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-  const d = new Date();
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `boxops-unsaved-changes-${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadJson(storedDraft() ?? {});
 }
 
 function discardDraft(): void {

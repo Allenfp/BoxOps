@@ -1,6 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
-import { type History, boxId, diffBoxes, diffDraft, reduceHistory, slugify, startHistory } from "./draft";
-import type { Box } from "./types";
+import {
+  type DraftState,
+  type History,
+  boxId,
+  changedItems,
+  diffBoxes,
+  diffDraft,
+  fromSharedDraft,
+  openDraft,
+  reduceHistory,
+  restoreDelta,
+  restoreRecord,
+  slugify,
+  startHistory,
+} from "./draft";
+import type { DeltaItem } from "./draftStore";
+import type { Box, Department } from "./types";
 import { DEFAULT_SETTINGS } from "./load";
 import { describeChanges } from "./summary";
 
@@ -226,5 +241,166 @@ describe("clashes", () => {
     const base = state([box("a"), box("b")]);
     const draft = state([box("a", { title: "A mine" }), box("b")]);
     expect(startHistory(base, { draft, conflicts: ["box:a", "box:b", "box:a"] }).conflicts).toEqual(["box:a"]);
+  });
+});
+
+describe("stored drafts", () => {
+  const dept = (id: string, extra: Partial<Department> = {}): Department => ({
+    id,
+    code: id.toUpperCase(),
+    name: id,
+    color: "#000000",
+    order: 1,
+    collapsed: false,
+    lanes: [{ id: `${id}-1`, fte: 1 }],
+    ...extra,
+  });
+  const loaded = (): DraftState => ({
+    boxes: [box("a"), box("b"), box("c")],
+    departments: [dept("de"), dept("an", { order: 2 })],
+    people: [
+      { id: "ann", name: "Ann" },
+      { id: "bob", name: "Bob", pto: [{ start: 200, end: 204 }] },
+      { id: "cy", name: "Cy" },
+    ],
+    settings: DEFAULT_SETTINGS,
+  });
+  /** One of each kind of change. */
+  const edited = (base: DraftState): DraftState => ({
+    boxes: [box("a", { title: "A mine" }), box("c"), box("new")],
+    departments: [dept("de", { name: "Data" }), dept("an", { order: 2 })],
+    people: [{ id: "ann", name: "Ann K" }, { id: "cy", name: "Cy" }, { id: "dee", name: "Dee" }],
+    settings: { ...base.settings, title: "Our roadmap" },
+  });
+  /** Stored, and read back. */
+  const stored = (base: DraftState, draft: DraftState) =>
+    JSON.parse(JSON.stringify(changedItems(base, draft, diffDraft(base, draft)))) as Record<string, DeltaItem>;
+
+  it("keeps only the changed items, and comes back as it was, untouched items the loaded roadmap's own", () => {
+    const base = loaded();
+    const draft = edited(base);
+    const items = stored(base, draft);
+    expect(Object.keys(items).sort()).toEqual(["box:a", "box:b", "box:new", "dept:de", "person:ann", "person:bob", "person:dee", "settings:settings"]);
+    expect(items["box:b"]).toEqual({ old: box("b") });
+    expect(items["box:new"]).toEqual({ now: box("new") });
+
+    const r = restoreDelta(items, base);
+    expect(r.conflicts).toEqual([]);
+    expect(diffDraft(draft, r.draft).count).toBe(0);
+    expect(r.draft.people.map((p) => p.id)).toEqual(["ann", "cy", "dee"]);
+    expect(r.draft.boxes.find((b) => b.id === "c")).toBe(base.boxes[2]);
+    expect(r.draft.departments[1]).toBe(base.departments[1]);
+  });
+
+  it("restored onto a newer roadmap: their changes come in, ours stay, and items both changed clash", () => {
+    const old = loaded();
+    const items = stored(old, edited(old));
+    const newer = loaded();
+    newer.boxes = [box("a", { title: "A Sam" }), box("b"), box("c", { status: "done" })];
+    newer.people[2] = { id: "cy", name: "Cy Sam" };
+    const r = restoreDelta(items, newer);
+    expect(r.conflicts).toEqual(["box:a"]);
+    expect(r.draft.boxes.map((b) => [b.id, b.title, b.status])).toEqual([
+      ["a", "A mine", "planned"],
+      ["c", "c", "done"],
+      ["new", "new", "planned"],
+    ]);
+    expect(r.draft.people.map((p) => p.name)).toEqual(["Ann K", "Cy Sam", "Dee"]);
+  });
+
+  it("restored by another build of the same data format: untouched items are read as this build reads them", () => {
+    // The stored draft edited a box only; Bob's PTO, which an older build might not have read, comes from what's loaded.
+    const base = loaded();
+    const asOldBuildRead = { ...base, people: base.people.map(({ pto: _, ...p }) => p) };
+    const items = stored(asOldBuildRead, { ...asOldBuildRead, boxes: [box("a", { end: 300 }), ...base.boxes.slice(1)] });
+    expect(Object.keys(items)).toEqual(["box:a"]);
+    const r = restoreRecord({ v: 2, format: 1, build: "0.0.9+old", baseCommit: "c0", savedAt: "", alive: 0, items, conflicts: [] }, base);
+    expect(r.draft.people[1]).toBe(base.people[1]);
+    expect(r.draft.people[1].pto).toHaveLength(1);
+    expect(r.draft.boxes[0].end).toBe(300);
+  });
+
+  it("one edit at 2,000 boxes stores well under 4 KB", () => {
+    const boxes = Array.from({ length: 2000 }, (_, i) => box(`bx-${String(i).padStart(4, "0")}-some-longer-title-here`, { description: "x".repeat(200) }));
+    const base = { boxes, departments: [dept("de")], people: [], settings: DEFAULT_SETTINGS };
+    const draft = { ...base, boxes: boxes.map((b, i) => (i === 1234 ? { ...b, title: "Renamed" } : b)) };
+    expect(JSON.stringify(changedItems(base, draft, diffDraft(base, draft))).length).toBeLessThan(4096);
+  });
+
+  it("a delta this BoxOps didn't store isn't restored", () => {
+    const base = loaded();
+    expect(() => restoreDelta({ "box:a": { now: { id: "b" } } }, base)).toThrow();
+    expect(() => restoreDelta({ "box:a": { now: "a" } }, base)).toThrow();
+    expect(() => restoreDelta({ "lane:x": { now: { id: "x" } } }, base)).toThrow();
+    expect(() => restoreDelta({ "box:a": null as unknown as DeltaItem }, base)).toThrow();
+  });
+
+  it("the old shared draft (the whole roadmap twice) becomes a record of its changes", () => {
+    const base = loaded();
+    const shared = { baseHash: "abc", base, ...edited(base) };
+    const record = fromSharedDraft(JSON.parse(JSON.stringify(shared)), base, new Date(0))!;
+    expect(record.format).toBe(1);
+    expect(Object.keys(record.items)).toHaveLength(8);
+    expect(diffDraft(edited(base), restoreRecord(record, base).draft).count).toBe(0);
+    // Without what it was made against, it can't be carried onto anything.
+    expect(fromSharedDraft({ baseHash: "abc", boxes: [] }, base, new Date(0))).toBeNull();
+  });
+
+  describe("opening a tab", () => {
+    const memory = () => {
+      const data = new Map<string, string>();
+      return {
+        data,
+        get length() {
+          return data.size;
+        },
+        key: (i: number) => [...data.keys()][i] ?? null,
+        getItem: (k: string) => data.get(k) ?? null,
+        setItem: (k: string, v: string) => void data.set(k, v),
+        removeItem: (k: string) => void data.delete(k),
+      };
+    };
+    const SCOPE = "acme/roadmap@main";
+    const at = (tab: string) => `boxops-draft:${SCOPE}:${tab}`;
+    const recordOf = (base: DraftState, draft: DraftState, extra: object = {}) => ({
+      v: 2,
+      format: 1,
+      build: "0.1.0+0123456789ab",
+      baseCommit: "c1",
+      savedAt: "2026-10-03T08:00:00.000Z",
+      alive: 0,
+      items: stored(base, draft),
+      conflicts: [],
+      ...extra,
+    });
+
+    it("restores its own draft, and offers ones from tabs that are gone without taking them", () => {
+      const base = loaded();
+      const stores = { local: memory(), session: memory() };
+      stores.session.setItem("boxops-tab", "aaaa0001");
+      stores.local.setItem(at("aaaa0001"), JSON.stringify(recordOf(base, { ...base, boxes: [box("a", { end: 300 }), box("b"), box("c")] })));
+      stores.local.setItem(at("bbbb0002"), JSON.stringify(recordOf(base, edited(base))));
+      // All of it saved since: nothing to restore, so it's tidied away.
+      stores.local.setItem(at("cccc0003"), JSON.stringify(recordOf(loaded(), base)));
+      const o = openDraft(base, SCOPE, stores);
+      expect(o.key).toBe(at("aaaa0001"));
+      expect(o.restored?.draft.boxes[0].end).toBe(300);
+      expect(o.offers.map((x) => [x.key, x.restorable, x.count])).toEqual([[at("bbbb0002"), true, 8]]);
+      expect(stores.local.data.has(at("cccc0003"))).toBe(false);
+      expect(stores.local.data.has(at("bbbb0002"))).toBe(true);
+    });
+
+    it("a draft in another data format is offered to download, never written over: the tab takes a fresh key", () => {
+      const base = loaded();
+      const stores = { local: memory(), session: memory() };
+      stores.session.setItem("boxops-tab", "aaaa0001");
+      const newer = recordOf(base, edited(base), { format: 2 });
+      stores.local.setItem(at("aaaa0001"), JSON.stringify(newer));
+      const o = openDraft(base, SCOPE, stores);
+      expect(o.restored).toBeUndefined();
+      expect(o.key).not.toBe(at("aaaa0001"));
+      expect(o.offers).toEqual([{ key: at("aaaa0001"), value: newer, restorable: false, count: 0, savedAt: "2026-10-03T08:00:00.000Z" }]);
+      expect(JSON.parse(stores.local.getItem(at("aaaa0001"))!)).toEqual(newer);
+    });
   });
 });

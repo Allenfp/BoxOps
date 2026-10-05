@@ -29,7 +29,10 @@ straight to `main`, and the site updates within a minute.
 - **People.** The engineer roster: name, department, role, email, manager and
   notes, plus their PTO (read-only; edit it on the timeline or table). Boxes
   are assigned engineers from this list.
-- **Saving.** Edits stay in your browser until you press **Save** (⌘S). The
+- **Saving.** Edits stay in your browser until you press **Save** (⌘S), each
+  tab's on its own; edits left in a tab you closed are offered back the next
+  time you open the roadmap. Safari forgets them after 7 days of use without
+  a visit to the site, so save before then. The
   first save asks for a GitHub token; its link opens GitHub's new-token page
   filled in for this repo. Check there that *Resource owner* is the repo's
   owner (the organization, not your own account), that *Repository access* is

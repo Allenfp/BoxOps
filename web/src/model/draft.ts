@@ -1,8 +1,29 @@
 // The editing draft: boxes and departments as the user has changed them, with
-// undo/redo, a diff against what was loaded, and a copy in localStorage so a
-// refresh never loses work. Nothing here touches git; committing is a later step.
+// undo/redo, a diff against what was loaded, and a copy in localStorage (one
+// per tab, draftStore.ts) so a refresh never loses work. Nothing here touches
+// git; committing is a later step.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  DRAFT_PREFIX,
+  type DeltaItem,
+  DraftWriter,
+  type FoundDraft,
+  HEARTBEAT_MS,
+  RECORD,
+  type StoredDraft,
+  type Stores,
+  asRecord,
+  browserStores,
+  isLeft,
+  newTabKey,
+  openTab,
+  otherTabs,
+  readValue,
+  removeDraft,
+  savedAtOf,
+} from "./draftStore";
+import { FORMAT } from "./format";
 import { newBoxCode } from "./relations";
 import * as structure from "./structure";
 import type { Box, Department, Lane, Person, Settings } from "./types";
@@ -224,7 +245,9 @@ export type HistoryAction =
   /** The user chose whose version to keep for these clashes, and only these (the ones they were shown). */
   | { type: "resolve"; keys: string[]; keep: "mine" | "theirs" }
   /** Our save went through, writing `draft`. */
-  | { type: "saved"; draft: DraftState };
+  | { type: "saved"; draft: DraftState }
+  /** Items restored from a draft another tab left (by key; undefined: removed), and its clashes. */
+  | { type: "adopt"; values: ReadonlyMap<string, unknown>; conflicts: string[] };
 
 const UNDO_STEPS = 200;
 
@@ -298,6 +321,17 @@ export function reduceHistory(h: History, a: HistoryAction): History {
     }
     case "saved":
       return { ...h, saved: a.draft };
+    case "adopt": {
+      const next = setItems(h.present, a.values);
+      return {
+        ...h,
+        past: [...h.past, step()].slice(-UNDO_STEPS),
+        present: next,
+        future: [],
+        lastKey: undefined,
+        conflicts: liveConflicts([...h.conflicts, ...a.conflicts], h.base, next),
+      };
+    }
   }
 }
 
@@ -331,68 +365,202 @@ function tagOf(id: string): string {
   return /^bx-([0-9a-f]{4})-/.exec(id)?.[1] ?? randomTag();
 }
 
-/** Where a roadmap's draft is kept in localStorage; `scope` is `owner/repo@branch`. */
-export const draftKey = (scope: string) => `boxops-draft:${scope}`;
+// Storing a draft (draftStore.ts keeps it): only the changed items, each with
+// the version it was changed from, so it can be rebuilt on whatever roadmap
+// is loaded then and rebased like any newer save.
 
-interface Stored {
-  baseHash: string;
-  /** The roadmap the draft was made against, so it can be carried onto a newer one. */
-  base?: DraftState;
-  boxes: Box[];
-  departments?: Department[];
-  people?: Person[];
-  settings?: Settings;
+/** The items `present` changes from `base` (`changes` is diffDraft's), with their versions in `base`. */
+export function changedItems(base: DraftState, present: DraftState, changes: Changes): Record<string, DeltaItem> {
+  const items: Record<string, DeltaItem> = {};
+  const was = <T extends { id: string }>(list: T[]) => {
+    const byId = new Map(list.map((x) => [x.id, x]));
+    return (id: string) => byId.get(id);
+  };
+  const box = was(base.boxes);
+  for (const b of changes.added) items[`box:${b.id}`] = { now: b };
+  for (const b of changes.modified) items[`box:${b.id}`] = { old: box(b.id), now: b };
+  for (const b of changes.removed) items[`box:${b.id}`] = { old: b };
+  const dept = was(base.departments);
+  for (const d of changes.departments) items[`dept:${d.id}`] = { old: dept(d.id), now: d };
+  for (const d of changes.removedDepartments) items[`dept:${d.id}`] = { old: d };
+  const person = was(base.people);
+  for (const p of changes.people.added) items[`person:${p.id}`] = { now: p };
+  for (const p of changes.people.changed) items[`person:${p.id}`] = { old: person(p.id), now: p };
+  for (const p of changes.people.removed) items[`person:${p.id}`] = { old: p };
+  if (changes.settings) items[SETTINGS_KEY] = { old: base.settings, now: present.settings };
+  return items;
 }
 
-/** The saved draft, carried onto `base` if someone saved since it was written. */
-function readStored(scope: string, baseHash: string, base: DraftState): { draft: DraftState; conflicts: string[] } | null {
+/**
+ * `state` with the items named by key set to these values (undefined
+ * removes one): each in its place in its list, new ones at the end.
+ */
+export function setItems(state: DraftState, values: ReadonlyMap<string, unknown>): DraftState {
+  const set = <T extends { id: string }>(items: T[], kind: string): T[] => {
+    const byId = new Map<string, unknown>();
+    for (const [k, v] of values) if (k.startsWith(`${kind}:`)) byId.set(k.slice(kind.length + 1), v);
+    if (!byId.size) return items;
+    const out = items.flatMap((x) => (!byId.has(x.id) ? [x] : byId.get(x.id) === undefined ? [] : [byId.get(x.id) as T]));
+    const had = new Set(items.map((x) => x.id));
+    for (const [id, v] of byId) if (!had.has(id) && v !== undefined) out.push(v as T);
+    return out;
+  };
+  const settings = values.get(SETTINGS_KEY);
+  return {
+    boxes: set(state.boxes, "box"),
+    departments: set(state.departments, "dept"),
+    people: set(state.people, "person"),
+    settings: settings === undefined ? state.settings : (settings as Settings),
+  };
+}
+
+/** Throws unless `value` can be the item `key` (or its absence). */
+function checkItem(key: string, value: unknown): void {
+  if (value === undefined) return;
+  const kind = /^(box|dept|person):(.+)$/.exec(key);
+  const ok =
+    typeof value === "object" && value !== null && !Array.isArray(value) && (kind ? (value as { id?: unknown }).id === kind[2] : key === SETTINGS_KEY);
+  if (!ok) throw new Error(`Not an item this BoxOps stores: ${key}`);
+}
+
+/**
+ * A stored delta, restored onto `base` (the roadmap loaded now): the roadmap
+ * it was made against is `base` with each item's old version, and the draft is
+ * that with ours; then it's rebased like any newer save. Items nobody touched
+ * are `base`'s own (as `base` reads them, whatever build stored the delta),
+ * ours stay, and ones someone else changed meanwhile too are clashes. Throws
+ * if the delta isn't one this BoxOps stores.
+ */
+export function restoreDelta(items: Record<string, DeltaItem>, base: DraftState): { draft: DraftState; conflicts: string[] } {
+  const old = new Map<string, unknown>();
+  const now = new Map<string, unknown>();
+  for (const [key, item] of Object.entries(items)) {
+    if (typeof item !== "object" || item === null) throw new Error(`Not an item this BoxOps stores: ${key}`);
+    checkItem(key, item.old);
+    checkItem(key, item.now);
+    old.set(key, item.old);
+    now.set(key, item.now);
+  }
+  const oldBase = setItems(base, old);
+  return rebaseDraft(oldBase, setItems(oldBase, now), base);
+}
+
+/** A stored draft restored onto `base`, with the clashes it had and any new ones. */
+export function restoreRecord(record: StoredDraft, base: DraftState): { draft: DraftState; conflicts: string[] } {
+  const r = restoreDelta(record.items, base);
+  return { draft: r.draft, conflicts: [...record.conflicts, ...r.conflicts] };
+}
+
+/**
+ * The draft every tab shared before drafts were per tab (the whole roadmap as
+ * loaded, `base`, and as edited) as a record; null if it can't be (one too old
+ * to say what it was made against). Fields added since get their defaults.
+ */
+export function fromSharedDraft(value: unknown, current: DraftState, now: Date): StoredDraft | null {
+  type Shared = { base?: Partial<DraftState>; boxes?: Box[] } & Partial<Omit<DraftState, "boxes">>;
+  const v = value as Shared | null;
+  if (typeof v !== "object" || v === null || !Array.isArray(v.boxes) || typeof v.base !== "object" || v.base === null || !Array.isArray(v.base.boxes)) {
+    return null;
+  }
+  const fte = (boxes: Box[]) => boxes.map((b) => ({ ...b, fte: b.fte ?? 1 }));
+  const oldBase: DraftState = {
+    boxes: fte(v.base.boxes),
+    departments: v.base.departments ?? current.departments,
+    people: v.base.people ?? [],
+    settings: v.base.settings ?? current.settings,
+  };
+  const draft: DraftState = {
+    boxes: fte(v.boxes),
+    departments: v.departments ?? oldBase.departments,
+    people: v.people ?? oldBase.people,
+    settings: v.settings ?? oldBase.settings,
+  };
   try {
-    const raw = localStorage.getItem(draftKey(scope));
-    if (!raw) return null;
-    const saved = JSON.parse(raw) as Stored;
-    if (!Array.isArray(saved.boxes)) return null;
-    // Drafts saved before a field existed get its default.
-    const draft = {
-      boxes: saved.boxes.map((b) => ({ ...b, fte: b.fte ?? 1 })),
-      departments: saved.departments ?? base.departments,
-      people: saved.people ?? base.people,
-      settings: saved.settings ?? base.settings,
-    };
-    if (saved.baseHash === baseHash) return { draft, conflicts: [] };
-    if (!saved.base) return null;
-    const oldBase = {
-      boxes: saved.base.boxes.map((b) => ({ ...b, fte: b.fte ?? 1 })),
-      departments: saved.base.departments,
-      people: saved.base.people ?? [],
-      settings: saved.base.settings ?? base.settings,
-    };
-    return rebaseDraft(oldBase, draft, base);
+    const items = changedItems(oldBase, draft, diffDraft(oldBase, draft));
+    return { v: RECORD, format: FORMAT, build: "", baseCommit: "", savedAt: now.toISOString(), alive: 0, items, conflicts: [] };
   } catch {
     return null;
   }
 }
 
-function writeStored(scope: string, baseHash: string, base: DraftState, draft: DraftState | null): void {
+/** A stored draft this tab didn't make: left by a tab that's gone, or one this BoxOps can't restore. */
+export interface DraftOffer {
+  key: string;
+  /** As stored: what "Download my unsaved edits" saves. */
+  value: unknown;
+  /** Restorable here, as `count` changes; otherwise (another version of BoxOps wrote it) only to download or discard. */
+  restorable: boolean;
+  count: number;
+  /** When it was last written (ISO 8601); "" if unknown. */
+  savedAt: string;
+}
+
+function offerOf(found: FoundDraft, base: DraftState): DraftOffer {
+  const offer = { key: found.key, value: found.value, restorable: false, count: 0, savedAt: savedAtOf(found.value) };
+  if (!found.record) return offer;
   try {
-    if (draft === null) localStorage.removeItem(draftKey(scope));
-    else localStorage.setItem(draftKey(scope), JSON.stringify({ baseHash, base, ...draft } satisfies Stored));
+    return { ...offer, restorable: true, count: diffDraft(base, restoreRecord(found.record, base).draft).count };
   } catch {
-    // Private browsing or full storage: the draft just won't survive a refresh.
+    return offer;
   }
 }
 
-/** Short stable hash of the loaded files, so a draft is only restored onto the version it was made from. */
-export function hashText(text: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(16);
+/** What to store for a draft: its changed items, with what they were changed from; null when there's nothing to keep. */
+function recordOf(
+  { base, present, conflicts, changes, commit }: { base: DraftState; present: DraftState; conflicts: string[]; changes: Changes; commit: string },
+  build: string,
+): StoredDraft | null {
+  if (!changes.count) return null;
+  const now = new Date();
+  const items = changedItems(base, present, changes);
+  return { v: RECORD, format: FORMAT, build, baseCommit: commit, savedAt: now.toISOString(), alive: now.getTime(), items, conflicts };
 }
 
-export function useDraft(base: DraftState, scope: string, baseHash: string) {
-  const [history, setHistory] = useState<History>(() => startHistory(base, readStored(scope, baseHash, base) ?? undefined));
+/** Where this roadmap's draft is kept, and what to put in the record. */
+export interface DraftOptions {
+  /** `owner/repo@branch`. */
+  scope: string;
+  /** The commit `base` was read from. */
+  commit: string;
+  /** This BoxOps build (__BOXOPS_BUILD__). */
+  build: string;
+}
+
+/**
+ * Open this tab's drafts: its own (from before a reload) restored onto
+ * `base`, and the others to offer. Its own draft, if it can't be restored,
+ * stays as it is to download, and this tab takes a fresh key. Drafts left by
+ * gone tabs with nothing left to restore (all of it saved since) are removed.
+ */
+export function openDraft(base: DraftState, scope: string, stores: Stores) {
+  const now = Date.now();
+  const opened = openTab(scope, now, stores, (value) => fromSharedDraft(value, base, new Date(now)));
+  let { key } = opened;
+  let restored: { draft: DraftState; conflicts: string[] } | undefined;
+  const offers: DraftOffer[] = [];
+  if (opened.own) {
+    try {
+      if (opened.own.record) restored = restoreRecord(opened.own.record, base);
+    } catch {
+      // Offered to download below.
+    }
+    if (!restored) {
+      key = newTabKey(scope, stores);
+      offers.push(offerOf(opened.own, base));
+    }
+  }
+  for (const found of opened.orphans) {
+    const offer = offerOf(found, base);
+    if (offer.restorable && !offer.count) removeDraft(found.key, stores.local);
+    else offers.push(offer);
+  }
+  return { key, restored, offers };
+}
+
+export function useDraft(base: DraftState, { scope, commit, build }: DraftOptions) {
+  const [stores] = useState(browserStores);
+  const [opened] = useState(() => openDraft(base, scope, stores));
+  const [history, setHistory] = useState<History>(() => startHistory(base, opened.restored));
   const dispatch = useCallback((a: HistoryAction) => setHistory((h) => reduceHistory(h, a)), []);
 
   // A newer roadmap arrived (our own save, or someone else's): carry the draft
@@ -402,9 +570,93 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
 
   const changes = useMemo(() => diffDraft(base, present), [base, present]);
 
+  // Kept in storage: this tab's draft, as a delta (draftStore.ts).
+  /** Whether the last write to storage worked (a full or blocked storage refuses them). */
+  const [kept, setKept] = useState(true);
+  const [writer] = useState(() => new DraftWriter(opened.key, stores.local, setKept));
+  // A pause after the last change writes it; nothing left to keep removes it at once.
   useEffect(() => {
-    writeStored(scope, baseHash, base, changes.count ? present : null);
-  }, [scope, baseHash, base, present, changes.count]);
+    writer.track(() => recordOf({ base, present, conflicts, changes, commit }, build));
+    if (changes.count) writer.changed();
+    else writer.write();
+  }, [writer, base, present, conflicts, changes, commit, build]);
+
+  /** Other open tabs with unsaved changes to this roadmap. */
+  const [others, setOthers] = useState(0);
+  /** Drafts this tab didn't make: left by tabs that are gone, or that this BoxOps can't restore. */
+  const [offers, setOffers] = useState(opened.offers);
+  // While the tab is open its draft is marked alive (a heartbeat); once it
+  // closes (or goes into the back/forward cache), closed. Another tab's
+  // draft coming or going updates the notice, and one on offer that its tab
+  // took back (or another tab restored) stops being offered.
+  useEffect(() => {
+    const { local } = stores;
+    const count = () => setOthers(otherTabs(scope, writer.key, Date.now(), local));
+    const beat = () => {
+      if (writer.pending) writer.flush();
+      else writer.mark(Date.now());
+      count();
+    };
+    const close = () => {
+      writer.flush();
+      writer.mark(0);
+    };
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) beat();
+    };
+    const onVisibility = () => (document.hidden ? writer.flush() : beat());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== null && (!e.key.startsWith(DRAFT_PREFIX) || e.key === writer.key)) return;
+      count();
+      setOffers((cur) => {
+        const now = Date.now();
+        const left = cur.filter((o) => isLeft(o.key, now, local));
+        return left.length === cur.length ? cur : left;
+      });
+    };
+    writer.mark(Date.now());
+    count();
+    const timer = setInterval(beat, HEARTBEAT_MS);
+    window.addEventListener("pagehide", close);
+    window.addEventListener("pageshow", onShow);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("pagehide", close);
+      window.removeEventListener("pageshow", onShow);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisibility);
+      close();
+    };
+  }, [stores, scope, writer]);
+
+  /** Bring in a draft left by a tab that's gone: its items over ours, as one undo step. */
+  const restoreOffer = useCallback(
+    (key: string) => {
+      const found = asRecord(readValue(stores.local, key));
+      setOffers((cur) => cur.filter((o) => o.key !== key));
+      if (!found) return; // gone meanwhile: another tab restored or discarded it
+      let r: { draft: DraftState; conflicts: string[] };
+      try {
+        r = restoreRecord(found, base);
+      } catch {
+        return;
+      }
+      const values = new Map(Object.keys(found.items).map((k) => [k, entityOf(r.draft, k)]));
+      dispatch({ type: "adopt", values, conflicts: r.conflicts });
+      removeDraft(key, stores.local);
+    },
+    [stores, base, dispatch],
+  );
+  /** Throw away a draft on offer, for good. */
+  const discardOffer = useCallback(
+    (key: string) => {
+      setOffers((cur) => cur.filter((o) => o.key !== key));
+      removeDraft(key, stores.local);
+    },
+    [stores],
+  );
 
   const apply = useCallback(
     (update: (draft: DraftState) => DraftState, key?: string) => dispatch({ type: "edit", update, key }),
@@ -617,5 +869,14 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     resolve,
     saved,
     checkpoint,
+    /** Where this tab keeps its draft (the crash screen offers it). */
+    storageKey: writer.key,
+    kept,
+    /** Write any change still waiting now (before saving). */
+    flush: useCallback(() => writer.flush(), [writer]),
+    others,
+    offers,
+    restoreOffer,
+    discardOffer,
   };
 }
