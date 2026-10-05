@@ -32,7 +32,7 @@ import { FORMAT } from "./format";
 import { newBoxCode } from "./relations";
 import * as structure from "./structure";
 import { describeChanges } from "./summary";
-import type { Box, Department, Lane, Person, Reserved, Settings } from "./types";
+import type { Box, Department, Lane, Person, Reserved, ReservedDepartments, Settings } from "./types";
 
 export interface DraftState {
   boxes: Box[];
@@ -930,9 +930,9 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
   // Departments and lanes: each is one undo step. Removing never drops work:
   // boxes in a removed lane or department move to `moveTo`.
   const addDepartment = useCallback(
-    (name: string, color?: string, code?: string, skipped?: readonly string[]): string => {
-      const { id } = structure.addDepartment(present, name, color, code, skipped);
-      apply((d) => structure.addDepartment(d, name, color, code, skipped).state);
+    (name: string, color?: string, code?: string, reserved?: ReservedDepartments): string => {
+      const { id } = structure.addDepartment(present, name, color, code, reserved);
+      apply((d) => structure.addDepartment(d, name, color, code, reserved).state);
       return id;
     },
     [apply, present],
@@ -949,9 +949,9 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     [apply],
   );
   const addLane = useCallback(
-    (deptId: string, fte = 1): string => {
-      const { laneId } = structure.addLane(present, deptId, fte);
-      apply((d) => structure.addLane(d, deptId, fte).state);
+    (deptId: string, fte = 1, reserved?: ReadonlySet<string>): string => {
+      const { laneId } = structure.addLane(present, deptId, fte, reserved);
+      apply((d) => structure.addLane(d, deptId, fte, reserved).state);
       return laneId;
     },
     [apply, present],

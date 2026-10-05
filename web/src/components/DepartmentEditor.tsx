@@ -14,6 +14,8 @@ interface Props {
   departments: Department[];
   boxes: Box[];
   people: Person[];
+  /** Codes in department files the app couldn't read: no department may take them. */
+  reservedCodes: ReadonlySet<string>;
   onCreate(name: string, color: string, code: string): string;
   /** `key` groups typing in one field into one undo step. */
   onUpdate(id: string, patch: Partial<Pick<Department, "name" | "color" | "code">>, key?: string): void;
@@ -88,13 +90,15 @@ export function DepartmentEditor(props: Props) {
   }, []);
 
   const id = target.kind === "edit" ? target.id : created;
-  const codesTakenExcept = (deptId?: string) => new Set(departments.filter((d) => d.id !== deptId).map((d) => d.code));
+  const codesTakenExcept = (deptId?: string) => new Set([...departments.filter((d) => d.id !== deptId).map((d) => d.code), ...props.reservedCodes]);
   const codeProblem = (code: string, deptId?: string) =>
     !DEPT_CODE.test(code)
       ? "2–4 capital letters or digits, starting with a letter."
-      : codesTakenExcept(deptId).has(code)
-        ? "Another department already uses this code."
-        : null;
+      : props.reservedCodes.has(code)
+        ? "A department file the app couldn’t read uses this code."
+        : codesTakenExcept(deptId).has(code)
+          ? "Another department already uses this code."
+          : null;
   const sorted = [...departments].sort((a, b) => a.order - b.order);
   const dept = id ? departments.find((d) => d.id === id) : undefined;
   const index = dept ? sorted.findIndex((d) => d.id === dept.id) : -1;

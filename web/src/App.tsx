@@ -23,7 +23,7 @@ import { addWorkdays, prettyDay, startOfWeek } from "./model/dates";
 import { useToday } from "./components/useToday";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
-import { type LoadResult, loadFolder, loadFolderNow, loadParser, rememberParsed, reservedBoxes } from "./model/load";
+import { type LoadResult, loadFolder, loadFolderNow, loadParser, rememberParsed, reservedBoxes, reservedDepartments } from "./model/load";
 import type { FileChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
 import { type ChangeLine, commitMessage, describeChanges } from "./model/summary";
@@ -702,6 +702,8 @@ function RoadmapView(props: ViewProps) {
   );
   /** Box files the loader couldn't fully read: new boxes never take their codes or ids (saving over one is refused). */
   const reserved = useMemo(() => reservedBoxes(props.lossy, files), [props.lossy, files]);
+  /** And department files: new departments and lanes never take the ids or codes in them, or a lane such a box is in. */
+  const reservedDepts = useMemo(() => reservedDepartments(props.lossy, files, props.sources), [props.lossy, files, props.sources]);
 
   // `session` makes each opening of the editor its own run of undo steps.
   const [selected, setSelected] = useState<{ id: string; session: number } | null>(null);
@@ -1604,10 +1606,9 @@ function RoadmapView(props: ViewProps) {
             departments={draft.departments}
             boxes={draft.boxes}
             people={draft.people}
+            reservedCodes={reservedDepts.codes}
             onCreate={(name, color, code) => {
-              // Not the id of a department file the app couldn't read: saving it would be refused.
-              const skipped = [...props.lossy.keys()].flatMap((p) => /^departments\/([^/]+)\.ya?ml$/.exec(p)?.[1] ?? []);
-              const id = draft.addDepartment(name, color, code, skipped);
+              const id = draft.addDepartment(name, color, code, reservedDepts);
               setCollapsed((prev) => {
                 const next = new Set(prev);
                 next.delete(id);
@@ -1618,7 +1619,7 @@ function RoadmapView(props: ViewProps) {
             onUpdate={draft.updateDepartment}
             onMove={draft.moveDepartment}
             onRemove={draft.removeDepartment}
-            onAddLane={(id) => draft.addLane(id)}
+            onAddLane={(id) => draft.addLane(id, 1, reservedDepts.lanes)}
             onUpdateLane={draft.updateLane}
             onMoveLane={draft.moveLane}
             onRemoveLane={draft.removeLane}

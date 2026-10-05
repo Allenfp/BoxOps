@@ -15,8 +15,9 @@ import {
   workIndex,
   workdays,
 } from "./dates";
-import { reservedBoxes } from "./load";
+import { reservedBoxes, reservedDepartments } from "./load";
 import { loadRoadmap } from "./parse";
+import { addDepartment, addLane } from "./structure";
 
 describe("dates", () => {
   it("round-trips ISO days and rejects impossible ones", () => {
@@ -131,5 +132,40 @@ describe("reservedBoxes", () => {
     };
     const lossy = new Map(["boxes/bx-0001-a.yaml", "boxes/bx-0002-b.yaml", "departments/d.yaml"].map((p) => [p, ["…"]]));
     expect(reservedBoxes(lossy, files)).toEqual({ codes: new Set(["K7P"]), ids: new Set(["bx-0001-a", "bx-0002-b"]) });
+  });
+});
+
+describe("reservedDepartments", () => {
+  // A department file with a tab in it doesn't load, nor the box in one of its lanes.
+  const files = {
+    "settings.yaml": "format: 1\n",
+    "departments/ops.yaml": "id: ops\ncode: OP\nname: Ops\nlanes:\n  - id: ops-1\n  - id: ops-2\n",
+    "departments/ops-contract.yaml": "id: ops-contract\ncode: OC\nname: Ops contractors\nlanes:\n\t- id: ops-3\n  - {id: 'ops-7', fte: 0.5}\n",
+    "boxes/bx-0001-vendor-audit.yaml": "id: bx-0001-vendor-audit\ncode: VAU\ntitle: Vendor audit\nlane: ops-3\nstart: 2026-10-05\nend: 2026-10-09\ntype: project\n",
+    "boxes/bx-0002-gone.yaml": "id: bx-0002-gone\ncode: GON\ntitle: Gone\nlane: \"ops-4\" # deleted by hand\nstart: 2026-10-05\nend: 2026-10-09\ntype: project\n",
+  };
+  const loaded = loadRoadmap(files);
+  const base = { boxes: loaded.roadmap.boxes, departments: loaded.roadmap.departments, people: [], settings: loaded.roadmap.settings };
+  const reserved = reservedDepartments(loaded.lossy, files, loaded.sources);
+
+  it("names the ids, codes and lanes in files the loader couldn't fully read", () => {
+    expect([...loaded.lossy.keys()]).toEqual(["departments/ops-contract.yaml", "boxes/bx-0001-vendor-audit.yaml", "boxes/bx-0002-gone.yaml"]);
+    expect(reserved).toEqual({ ids: new Set(["ops-contract"]), codes: new Set(["OC"]), lanes: new Set(["ops-3", "ops-7", "ops-4"]) });
+  });
+
+  it("so a new lane or department doesn't take them", () => {
+    expect(addLane(base, "ops").laneId).toBe("ops-3"); // what happened before
+    const { state, laneId } = addLane(base, "ops", 1, reserved.lanes);
+    expect(laneId).toBe("ops-5");
+    expect(addLane(state, "ops", 1, reserved.lanes).laneId).toBe("ops-6");
+    const { state: added, id } = addDepartment(base, "Ops contract", undefined, undefined, reserved);
+    expect(added.departments.find((d) => d.id === id)).toMatchObject({ id: "ops-contract-2", code: "OC2" });
+  });
+
+  it("but not the code of a department that loaded, though its file is lossy", () => {
+    const bad = { ...files, "departments/ops.yaml": files["departments/ops.yaml"].replace("name: Ops", "name: Ops\ncolor: red") };
+    const l = loadRoadmap(bad);
+    expect(l.lossy.has("departments/ops.yaml")).toBe(true);
+    expect(reservedDepartments(l.lossy, bad, l.sources).codes).toEqual(new Set(["OC"]));
   });
 });

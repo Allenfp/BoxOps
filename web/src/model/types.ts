@@ -151,3 +151,14 @@ export interface Reserved {
   codes: ReadonlySet<string>;
   ids: ReadonlySet<string>;
 }
+
+/**
+ * Department ids and codes and lane ids new departments and lanes mustn't
+ * take: those in files the loader couldn't fully read, which a save never
+ * writes, and which hold a department, or a box's lane, it doesn't show.
+ */
+export interface ReservedDepartments {
+  ids: ReadonlySet<string>;
+  codes: ReadonlySet<string>;
+  lanes: ReadonlySet<string>;
+}

@@ -8,7 +8,7 @@ import { slugify } from "./draft";
 import type { DraftState } from "./draft";
 import { WINDOWS_RESERVED } from "./load";
 import { deriveDeptCode } from "./relations";
-import type { Department, Lane } from "./types";
+import type { Department, Lane, ReservedDepartments } from "./types";
 
 /** Colours for new departments, in the order they're handed out. */
 export const DEPARTMENT_COLORS = ["#4f7cff", "#21a67a", "#a35cf0", "#e8913a", "#0d9488", "#d6457a", "#c2a100", "#8a94a6"];
@@ -16,12 +16,13 @@ export const DEPARTMENT_COLORS = ["#4f7cff", "#21a67a", "#a35cf0", "#e8913a", "#
 const allLaneIds = (s: DraftState) => new Set(s.departments.flatMap((d) => d.lanes.map((l) => l.id)));
 
 /**
- * A new lane id, unique across all departments. Follows the department's
+ * A new lane id, unique across all departments and not `reserved` (lane ids
+ * in files the loader couldn't fully read). Follows the department's
  * existing pattern when there is one (`de-1`, `de-2` → `de-3`), else
  * `<department id>-<n>`.
  */
-export function newLaneId(dept: Department, state: DraftState): string {
-  const taken = allLaneIds(state);
+export function newLaneId(dept: Department, state: DraftState, reserved: ReadonlySet<string> = new Set()): string {
+  const taken = new Set([...allLaneIds(state), ...reserved]);
   const pattern = dept.lanes.map((l) => /^(.*)-(\d+)$/.exec(l.id)).filter((m): m is RegExpExecArray => !!m);
   const prefix = pattern.length && pattern.every((m) => m[1] === pattern[0][1]) ? pattern[0][1] : dept.id;
   let n = Math.max(0, ...pattern.filter((m) => m[1] === prefix).map((m) => Number(m[2]))) + 1;
@@ -38,15 +39,17 @@ function renumber(departments: Department[]): Department[] {
   return [...departments].sort((a, b) => a.order - b.order).map((d, i) => (d.order === i + 1 ? d : { ...d, order: i + 1 }));
 }
 
-/** A new department; `skipped` are the ids of department files the loader couldn't fully read, which it mustn't take. */
+const NOTHING_RESERVED: ReservedDepartments = { ids: new Set(), codes: new Set(), lanes: new Set() };
+
+/** A new department; `reserved`: ids, codes and lane ids in files the loader couldn't fully read, which it mustn't take. */
 export function addDepartment(
   state: DraftState,
   name: string,
   color?: string,
   code?: string,
-  skipped: readonly string[] = [],
+  reserved: ReservedDepartments = NOTHING_RESERVED,
 ): { state: DraftState; id: string } {
-  const taken = new Set([...state.departments.map((d) => d.id), ...skipped]);
+  const taken = new Set([...state.departments.map((d) => d.id), ...reserved.ids]);
   // The id names the file, which Windows wouldn't allow for "aux", "con" and the like.
   const slug = slugify(name).replace(/^box$/, "department").replace(WINDOWS_RESERVED, "$&-dept");
   let id = slug;
@@ -54,14 +57,14 @@ export function addDepartment(
   const used = new Set(state.departments.map((d) => d.color));
   const dept: Department = {
     id,
-    code: code ?? deriveDeptCode(name, new Set(state.departments.map((d) => d.code))),
+    code: code ?? deriveDeptCode(name, new Set([...state.departments.map((d) => d.code), ...reserved.codes])),
     name: name.trim(),
     color: color ?? DEPARTMENT_COLORS.find((c) => !used.has(c)) ?? DEPARTMENT_COLORS[0],
     order: Math.max(0, ...state.departments.map((d) => d.order)) + 1,
     collapsed: false,
     lanes: [],
   };
-  dept.lanes = [{ id: newLaneId(dept, state), fte: 1 }];
+  dept.lanes = [{ id: newLaneId(dept, state, reserved.lanes), fte: 1 }];
   return { state: { ...state, departments: [...state.departments, dept] }, id };
 }
 
@@ -89,10 +92,11 @@ export function placeDepartment(state: DraftState, id: string, index: number): D
   return { ...state, departments: sorted.map((d, k) => (d.order === k + 1 ? d : { ...d, order: k + 1 })) };
 }
 
-export function addLane(state: DraftState, deptId: string, fte = 1): { state: DraftState; laneId: string } {
+/** A new lane at the end of a department; `reserved`: lane ids in files the loader couldn't fully read. */
+export function addLane(state: DraftState, deptId: string, fte = 1, reserved?: ReadonlySet<string>): { state: DraftState; laneId: string } {
   const dept = state.departments.find((d) => d.id === deptId);
   if (!dept) return { state, laneId: "" };
-  const lane: Lane = { id: newLaneId(dept, state), fte };
+  const lane: Lane = { id: newLaneId(dept, state, reserved), fte };
   return {
     state: { ...state, departments: state.departments.map((d) => (d.id === deptId ? { ...d, lanes: [...d.lanes, lane] } : d)) },
     laneId: lane.id,

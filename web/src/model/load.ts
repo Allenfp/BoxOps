@@ -14,7 +14,7 @@
 
 import { FORMAT, type FormatStatus, formatStatus } from "./format.ts"; // with .ts: vite.config.ts imports this file
 import { BOX_PATH, DEPARTMENT_PATH, isRoadmapPath } from "./paths.ts";
-import type { Box, Department, Issue, Person, Reserved, Roadmap, RoadmapFiles, Settings } from "./types.ts";
+import type { Box, Department, Issue, Person, Reserved, ReservedDepartments, Roadmap, RoadmapFiles, Settings } from "./types.ts";
 
 /** Department codes: 2–4 capital letters/digits, starting with a letter. */
 export const DEPT_CODE = /^[A-Z][A-Z0-9]{1,3}$/;
@@ -246,6 +246,36 @@ export function reservedBoxes(lossy: ReadonlyMap<string, unknown>, files: Roadma
     if (code) codes.add(code);
   }
   return { codes, ids };
+}
+
+/**
+ * What new departments and lanes mustn't take from files the loader couldn't
+ * fully read (`lossy`), read as for reservedBoxes: the id of each such
+ * department file (its name), the code of one whose department didn't load,
+ * its lanes' ids (whether or not they loaded), and the lane each such box
+ * file names (it may be in a department file that didn't load). A lane given
+ * one of those ids would take in boxes that aren't its, or clash with that
+ * file once it's fixed.
+ */
+export function reservedDepartments(lossy: ReadonlyMap<string, unknown>, files: RoadmapFiles, sources: Pick<Sources, "departments">): ReservedDepartments {
+  const ids = new Set<string>();
+  const codes = new Set<string>();
+  const lanes = new Set<string>();
+  const loaded = new Set(sources.departments.values());
+  for (const path of lossy.keys()) {
+    const text = files[path] ?? "";
+    if (DEPARTMENT_PATH.test(path)) {
+      ids.add(path.replace(/^.*\//, "").replace(/\.ya?ml$/, ""));
+      const code = /^code:[ \t]*(["']?)([A-Z][A-Z0-9]{1,3})\1[ \t]*(?:#.*)?\r?$/m.exec(text)?.[2];
+      if (code && !loaded.has(path)) codes.add(code);
+      // A lane's id: indented, in a list entry or in braces (the department's own is at the start of a line).
+      for (const m of text.matchAll(/(?:^[ \t]*-[ \t]*|^[ \t]+|[{,][ \t]*)id:[ \t]*(["']?)([a-z0-9][\w-]*)\1/gim)) lanes.add(m[2]);
+    } else if (BOX_PATH.test(path)) {
+      const lane = /^lane:[ \t]*(["']?)([a-z0-9][\w-]*)\1[ \t]*(?:#.*)?\r?$/im.exec(text)?.[2];
+      if (lane) lanes.add(lane);
+    }
+  }
+  return { ids, codes, lanes };
 }
 
 // ---- In the app --------------------------------------------------------------

@@ -46,8 +46,10 @@ describe("departments", () => {
     expect(addDepartment(state, "Auxiliary").id).toBe("auxiliary");
   });
 
-  it("never gets the id of a department file the app couldn't read", () => {
-    expect(addDepartment(state, "Data Platform", undefined, undefined, ["data-platform"]).id).toBe("data-platform-2");
+  it("never gets an id, code or lane id in a department file the app couldn't read", () => {
+    const reserved = { ids: new Set(["data-platform"]), codes: new Set(["DP"]), lanes: new Set(["data-platform-2-1"]) };
+    const { state: s, id } = addDepartment(state, "Data Platform", undefined, undefined, reserved);
+    expect(s.departments.find((d) => d.id === id)).toMatchObject({ id: "data-platform-2", code: "DP2", lanes: [{ id: "data-platform-2-2" }] });
   });
 
   it("moves up and down by swapping neighbours", () => {
