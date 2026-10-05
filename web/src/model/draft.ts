@@ -3,7 +3,7 @@
 // per tab, draftStore.ts) so a refresh never loses work. Nothing here touches
 // git; committing is a later step.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DRAFT_PREFIX,
   type DeltaItem,
@@ -11,11 +11,13 @@ import {
   type FoundDraft,
   HEARTBEAT_MS,
   RECORD,
+  type Store,
   type StoredDraft,
   type Stores,
   asRecord,
   browserStores,
   isLeft,
+  leftBehind,
   newTabKey,
   openTab,
   otherTabs,
@@ -506,6 +508,16 @@ function offerOf(found: FoundDraft, base: DraftState): DraftOffer {
   }
 }
 
+/** Offers for drafts left by tabs that are gone; ones with nothing left to restore (all of it saved since) are removed. */
+function offersFor(left: FoundDraft[], base: DraftState, local: Store): DraftOffer[] {
+  return left.flatMap((found) => {
+    const offer = offerOf(found, base);
+    if (!offer.restorable || offer.count) return [offer];
+    removeDraft(found.key, local);
+    return [];
+  });
+}
+
 /** What to store for a draft: its changed items, with what they were changed from; null when there's nothing to keep. */
 function recordOf(
   { base, present, conflicts, changes, commit }: { base: DraftState; present: DraftState; conflicts: string[]; changes: Changes; commit: string },
@@ -556,11 +568,7 @@ export function openDraft(base: DraftState, scope: string, stores: Stores, reloa
       offers.push(offerOf(opened.own, base));
     }
   }
-  for (const found of opened.orphans) {
-    const offer = offerOf(found, base);
-    if (offer.restorable && !offer.count) removeDraft(found.key, stores.local);
-    else offers.push(offer);
-  }
+  offers.push(...offersFor(opened.orphans, base, stores.local));
   return { key, adopted, restored, offers };
 }
 
@@ -596,16 +604,31 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
   const [others, setOthers] = useState(0);
   /** Drafts this tab didn't make: left by tabs that are gone, or that this BoxOps can't restore. */
   const [offers, setOffers] = useState(opened.offers);
+  // For the heartbeat, which looks for drafts left since by tabs that have gone.
+  const latest = useRef({ base, offers });
+  useEffect(() => {
+    latest.current = { base, offers };
+  }, [base, offers]);
   // While the tab is open its draft is marked alive (a heartbeat); once it
   // closes (or goes into the back/forward cache), closed. Another tab's
   // draft coming or going updates the notice, and one on offer that its tab
-  // took back (or another tab restored) stops being offered.
+  // took back (or another tab restored) stops being offered. While the tab is
+  // in view, each heartbeat also offers drafts left since by tabs that have
+  // gone (closed, or crashed: not marked alive for STALE_MS).
   useEffect(() => {
     const { local } = stores;
     const count = () => setOthers(otherTabs(scope, writer.key, Date.now(), local));
+    const lookAround = () => {
+      if (document.hidden) return;
+      const known = new Set(latest.current.offers.map((o) => o.key));
+      const left = leftBehind(scope, writer.key, Date.now(), local).filter((f) => !known.has(f.key));
+      const more = offersFor(left, latest.current.base, local);
+      if (more.length) setOffers((cur) => [...cur, ...more.filter((o) => !cur.some((c) => c.key === o.key))]);
+    };
     const beat = () => {
       writer.beat(Date.now());
       count();
+      lookAround();
     };
     const close = () => {
       writer.flush();

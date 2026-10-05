@@ -243,12 +243,16 @@ export function openTab(
     if (put(local, into, record ? JSON.stringify({ ...record, alive: 0 }) : JSON.stringify(shared.value))) put(local, sharedKey(scope), null);
   }
 
-  const orphans = scopeKeys(local, scope)
+  return { key, own: read(local, key), orphans: leftBehind(scope, key, now, local) };
+}
+
+/** Drafts of the roadmap `scope` left by tabs that are gone (not alive), newest first; `key` (this tab's) aside. */
+export function leftBehind(scope: string, key: string, now: number, local: Store): FoundDraft[] {
+  return scopeKeys(local, scope)
     .filter((k) => k !== key)
     .flatMap((k) => read(local, k) ?? [])
     .filter((f) => aliveAt(f.value) <= now - STALE_MS)
     .sort((a, b) => savedAtOf(b.value).localeCompare(savedAtOf(a.value)));
-  return { key, own: read(local, key), orphans };
 }
 
 /** A new id for this tab, kept for its session; returns it. */

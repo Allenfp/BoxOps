@@ -97,6 +97,16 @@ test("a duplicated tab, opened before the original had changes, never touches th
   await pollNow(duplicate);
   await expect(boxTitle(duplicate, REVENUE)).toHaveText("Revenue mart v3");
   expect(Object.keys(await storedDrafts(duplicate))).toEqual([key]);
+
+  // Once the original has been gone a while, the duplicate offers its changes, without a reload.
+  await duplicate.clock.fastForward(5 * MINUTE);
+  const offer = duplicate.locator(".banner", { hasText: "Restore unsaved changes from another tab?" });
+  await expect(offer).toContainText("1 change, last changed 2026-10-03 09:00, in a tab that’s no longer open.");
+  await offer.getByRole("button", { name: "Restore" }).click();
+  await expect(toolbar(duplicate)).toContainText("Save · 1 change");
+  await expect.poll(() => boxDates(duplicate, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+  // Moved into the duplicate's own draft: the one left behind goes once that's written.
+  await expect.poll(async () => Object.keys(await storedDrafts(duplicate))).toEqual([expect.not.stringMatching(key)]);
 });
 
 test("a reload the page didn't see coming (after a crash) restores the tab's own draft", async ({ page, github: _ }) => {

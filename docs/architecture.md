@@ -199,15 +199,15 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
   minute while its tab is open, and closed when the tab closes (`pagehide`).
   A page that crashed never marked its draft closed, so a reload (navigation
   timing says which page is one) keeps the tab's id and finds the draft even
-  though it looks alive. When a tab opens the roadmap, drafts left by tabs
-  that are gone (closed, or not alive for 5 minutes: browsers slow down
-  hidden tabs' timers) are offered, newest first: "Restore unsaved changes
-  from another tab?" with Restore (its items over this tab's, one undo step)
-  or Discard. Never taken silently. One whose changes have all been saved
-  since is just removed. A tab that was only asleep keeps its changes: when
-  it wakes it writes its draft again, and whichever tab saves first makes the
-  other's the same as the saved roadmap. The single key every tab shared
-  before 0.1.0 moves over once.
+  though it looks alive. When a tab opens the roadmap, and on each heartbeat
+  while it's in view, drafts left by tabs that are gone (closed, or not alive
+  for 5 minutes: browsers slow down hidden tabs' timers) are offered, newest
+  first: "Restore unsaved changes from another tab?" with Restore (its items
+  over this tab's, one undo step) or Discard. Never taken silently. One whose
+  changes have all been saved since is just removed. A tab that was only
+  asleep keeps its changes: when it wakes it writes its draft again, and
+  whichever tab saves first makes the other's the same as the saved roadmap.
+  The single key every tab shared before 0.1.0 moves over once.
 - **Other versions.** A draft in another data format (or one that can't be
   read) is never opened: "Download my unsaved edits (JSON)" or Discard.
 - **Limits.** Safari deletes a site's storage after 7 days of use without a
