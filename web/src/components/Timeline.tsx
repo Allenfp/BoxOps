@@ -854,7 +854,8 @@ export function Timeline(props: Props) {
           updated: !!props.updatedIds?.has(b.id),
         })}
         aria-haspopup={readOnly ? undefined : "dialog"}
-        aria-expanded={readOnly ? undefined : b.id === selectedId}
+        // Only while its editor is open: false on every other box would be said, "collapsed", on each.
+        aria-expanded={!readOnly && b.id === selectedId ? true : undefined}
         // The grid's Tab stop when it's the active cell (useGridFocus.ts); else reached with the arrow keys.
         tabIndex={-1}
         className={classes.filter(Boolean).join(" ")}
@@ -1186,7 +1187,7 @@ export function Timeline(props: Props) {
                                 data-end={entry.pto.end}
                                 aria-label={ptoName(entry.person.name, live)}
                                 aria-haspopup={readOnly ? undefined : "dialog"}
-                                aria-expanded={readOnly ? undefined : props.selectedPto === key}
+                                aria-expanded={!readOnly && props.selectedPto === key ? true : undefined}
                                 tabIndex={-1}
                                 className={`pto-block${props.selectedPto === key ? " selected" : ""}${ptoPreview?.key === key ? " dragging" : ""}`}
                                 style={style}

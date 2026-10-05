@@ -593,8 +593,8 @@ when a focused element is removed.
   with full-size targets. The **+** buttons are 24 px.
 - **Not yet checked by a person.** What a test can't hear needs a person
   with VoiceOver and Safari, NVDA with Firefox or Chrome, and JAWS with
-  Edge: how the timeline grid's rows and cells are spoken (and whether
-  every box is said to be "collapsed"), a move's announcements, Alt+← and
+  Edge: how the timeline grid's rows and cells are spoken (a box is
+  "expanded" while its editor is open), a move's announcements, Alt+← and
   Alt+→ on Windows, and ⌘← and ⌘→ (Home and End on the grid) never going
   Back or Forward in a Mac browser with history. And a finger dragging a
   box on a real touch screen (iPad Safari, Android Chrome): the tests send

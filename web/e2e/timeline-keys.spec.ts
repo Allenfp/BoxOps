@@ -124,9 +124,12 @@ test("Enter opens a box or PTO block, and closing puts focus back on it; so does
   const editor = page.getByRole("dialog", { name: "Edit Dagster 2.x upgrade" });
   await expect(editor.getByRole("textbox", { name: "Title" })).toBeFocused();
   await expect(box(page, DAGSTER)).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator('.box[aria-expanded], .pto-block[aria-expanded]')).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(editor).toHaveCount(0);
   await expect(box(page, DAGSTER)).toBeFocused();
+  // Closed, it's said to be nothing: not "collapsed", like every other box.
+  await expect(page.locator('.box[aria-expanded], .pto-block[aria-expanded]')).toHaveCount(0);
   expect(await isFocusVisible(box(page, DAGSTER))).toBe(true);
 
   // A screen reader's "press" sends a click, not the pointer's press and release.
