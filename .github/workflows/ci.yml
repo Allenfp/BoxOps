@@ -1,7 +1,7 @@
 # Checks pull requests and every branch except main (which pages.yml checks
 # before deploying): lint, types, unit tests (also in two far-apart time zones),
-# roadmap validation, a production build, the browser tests (WebKit) and the
-# performance checks.
+# roadmap validation, a production build, the browser tests (WebKit, then
+# Chromium and Firefox) and the performance checks.
 name: CI
 
 on:
@@ -24,7 +24,7 @@ jobs:
     # Pinned on purpose: ubuntu-latest moves to Ubuntu 26.04 between 2026-10-19
     # and 2026-11-19. Move to ubuntu-26.04 in its own pull request.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read # check out the repo
     defaults:
@@ -57,13 +57,22 @@ jobs:
       - run: npm run validate
       - run: npm run build
 
-      # No browser cache: the WebKit download is a few seconds of this step,
-      # and a cache keyed only on runner.os restores the wrong Ubuntu's build.
-      - name: Install WebKit
-        run: npx playwright install --with-deps webkit
-      - name: Browser tests
+      # No browser cache: the downloads are a few seconds of this step, and a
+      # cache keyed only on runner.os restores the wrong Ubuntu's build.
+      - name: Install the browsers
+        run: npx playwright install --with-deps webkit chromium firefox
+      # WebKit (Safari's engine) first, with the specs about dates in two more
+      # time zones: Safari is the browser BoxOps is made for. Then the whole
+      # suite in Chromium (Chrome, Edge) and in Firefox, which must work too.
+      - name: Browser tests (WebKit)
         timeout-minutes: 10
-        run: npx playwright test
+        run: npx playwright test --project='webkit*'
+      - name: Browser tests (Chromium)
+        timeout-minutes: 10
+        run: npx playwright test --project=chromium
+      - name: Browser tests (Firefox)
+        timeout-minutes: 10
+        run: npx playwright test --project=firefox
       # npm run perf, on the build above: the first load of a generated
       # 2,000-box roadmap in WebKit. Blocking: its exact checks (the main
       # JavaScript file's size, no YAML parser before the timeline shows)

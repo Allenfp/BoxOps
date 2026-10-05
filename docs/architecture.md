@@ -441,22 +441,23 @@ against data the new code wrote.
   reader and save logic against the browser tests' fake GitHub, and the
   roadmap readers, git SHAs and `roadmap.json` against real git repositories
   made in the temp folder.
-- **Browser tests** (Playwright with WebKit, `web/e2e/`) run the production
-  build. GitHub is faked by a stateful stand-in (`web/e2e/fake-github.ts`:
-  commits with real git trees and blobs, GraphQL saves that check the
-  expected head, a private mode, injected failures) and the roadmap is a
-  fixed copy in `web/e2e/fixtures/roadmap/`. The save and polling tests run
-  on a public and on a private repository, and every test checks the
-  stand-in saw no call a correct app never makes. It makes each deploy's
-  `roadmap.json` with the build's own code, so its blob and tree SHAs are
-  real. The clock is pinned to 09:00 on 2026-10-03 in the browser's time
-  zone, so tests never depend on live data, the date or the network. The
-  browser runs in UTC (`timezoneId`; WebKit ignores `TZ`), and the specs about
-  dates (timeline, table, PTO, saving) run again in America/Los_Angeles and
-  Pacific/Kiritimati, where the day starts 7 hours after UTC's and 14 hours
-  before it. Tests of unsaved drafts open a second tab in the same browser
-  context (so the same `localStorage`), with a clock of its own. Any
-  Content-Security-Policy violation fails a test.
+- **Browser tests** (Playwright, `web/e2e/`) run the production build in
+  WebKit, Safari's engine, and all of them again in Chromium (Chrome, Edge)
+  and Firefox. GitHub is faked by a stateful stand-in
+  (`web/e2e/fake-github.ts`: commits with real git trees and blobs, GraphQL
+  saves that check the expected head, a private mode, injected failures) and
+  the roadmap is a fixed copy in `web/e2e/fixtures/roadmap/`. The save and
+  polling tests run on a public and on a private repository, and every test
+  checks the stand-in saw no call a correct app never makes. It makes each
+  deploy's `roadmap.json` with the build's own code, so its blob and tree
+  SHAs are real. The clock is pinned to 09:00 on 2026-10-03 in the browser's
+  time zone, so tests never depend on live data, the date or the network.
+  The browser runs in UTC (`timezoneId`; WebKit ignores `TZ`), and in WebKit
+  the specs about dates (timeline, table, PTO, saving) run again in
+  America/Los_Angeles and Pacific/Kiritimati, where the day starts 7 hours
+  after UTC's and 14 hours before it. Tests of unsaved drafts open a second
+  tab in the same browser context (so the same `localStorage`), with a clock
+  of its own. Any Content-Security-Policy violation fails a test.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build with a generated 2,000-box roadmap
   (`scripts/gen-roadmap.ts`; and a 500-box one) as its `roadmap.json`,
@@ -474,17 +475,19 @@ against data the new code wrote.
 - **CI.** `CI` (`ci.yml`) runs lint, the type check, the unit tests (again
   with `TZ=America/Los_Angeles` and with `TZ=Pacific/Kiritimati`, UTC−8/−7
   and UTC+14, so nothing depends on the runner's time zone), validation, the
-  build, the browser tests and the performance checks on every pull request
-  and every push to a branch other than `main`, whatever it changes. A pull
-  request from a branch of this repo is covered by that branch's push run, so
-  only pull requests from forks run it again.
+  build, the browser tests (WebKit first, then Chromium, then Firefox) and
+  the performance checks on every pull request and every push to a branch
+  other than `main`, whatever it changes. A pull request from a branch of
+  this repo is covered by that branch's push run, so only pull requests from
+  forks run it again.
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
   validation, unit tests and the build on every push to `main`. It runs the
-  browser tests too, before deploying, unless nothing outside `roadmap/` has
-  changed since the commit the live site was built from (its `roadmap.json` says
-  which), so saves from the app go live quickly and an app change whose run
-  failed or was cancelled is still tested before it goes out. If that commit
-  can't be read, the browser tests run. Deploys run one at a time and are never
+  browser tests too, in WebKit alone (CI has run them in all three), before
+  deploying, unless nothing outside `roadmap/` has changed since the commit
+  the live site was built from (its `roadmap.json` says which), so saves from
+  the app go live quickly and an app change whose run failed or was cancelled
+  is still tested before it goes out. If that commit can't be read, the
+  browser tests run. Deploys run one at a time and are never
   cancelled midway; a burst of saves deploys at most twice. Jobs get only the
   permissions they need, and actions are pinned to commits.
 - **Upgrades.** Dependabot (`.github/dependabot.yml`) opens pull requests

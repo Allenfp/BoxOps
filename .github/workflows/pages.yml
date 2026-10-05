@@ -106,10 +106,12 @@ jobs:
       - name: Install WebKit
         if: steps.changes.outputs.app == 'true'
         run: npx playwright install --with-deps webkit
+      # In WebKit only: CI (ci.yml) runs them in Chromium and Firefox too, before
+      # a merge. Here every minute holds up the saves deploying behind this run.
       - name: Browser tests
         if: steps.changes.outputs.app == 'true'
         timeout-minutes: 10
-        run: npx playwright test
+        run: npx playwright test --project='webkit*'
       - name: Upload browser test report
         if: failure() && steps.changes.outputs.app == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

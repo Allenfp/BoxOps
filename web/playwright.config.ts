@@ -1,10 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // Browser tests run against the production build (`vite preview`) in WebKit,
-// the engine behind Safari. GitHub and the site's roadmap.json are faked per
-// test (see e2e/fake-github.ts), so no network access is needed.
+// the engine behind Safari, the browser BoxOps is made for; then the whole
+// suite again in Chromium (Chrome, Edge) and Firefox, which must work too.
+// GitHub and the site's roadmap.json are faked per test (see
+// e2e/fake-github.ts), so no network access is needed.
 
-const webkit = { ...devices["Desktop Safari"], viewport: { width: 1440, height: 900 } };
+const viewport = { width: 1440, height: 900 };
+const webkit = { ...devices["Desktop Safari"], viewport };
 
 export default defineConfig({
   testDir: "e2e",
@@ -31,6 +34,8 @@ export default defineConfig({
       grepInvert: /private repository/,
       use: { ...webkit, timezoneId },
     })),
+    { name: "chromium", use: { ...devices["Desktop Chrome"], viewport, timezoneId: "UTC" } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"], viewport, timezoneId: "UTC" } },
   ],
   webServer: {
     command: "npx vite preview --port 4173 --strictPort",

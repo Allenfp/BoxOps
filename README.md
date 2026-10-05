@@ -88,7 +88,8 @@ npm run dev        # http://localhost:5173; shows ../roadmap (or $BOXOPS_ROADMAP
 npm run lint       # oxlint, including the React hooks rules; a warning fails it
 npm run typecheck  # TypeScript, browser and Node code apart (npm run build checks types too)
 npm test           # unit tests
-npm run e2e        # browser tests (Playwright, WebKit)
+npx playwright install webkit chromium firefox  # once: the browsers the browser tests use
+npm run e2e        # browser tests (Playwright: WebKit, Chromium and Firefox)
 npm run perf       # first load of a 2,000-box roadmap in WebKit: sizes checked, times printed
 npm run validate   # check the roadmap files
 npm run report     # capacity and staffing summary
@@ -97,12 +98,13 @@ npm run gen-roadmap -- 2000 2026-10-03 <folder>  # a synthetic roadmap (boxes, "
 
 Every pull request, and every push to a branch other than `main` (docs-only
 too), runs CI: lint, type check, the unit tests (also in two time zones far
-apart), validation, a build, the browser tests and the performance checks. On
-`main`, the deploy lints, type-checks, validates, runs the unit tests and
-builds, and skips the browser tests only when nothing outside `roadmap/` has
-changed since the version that is live. So a save from the app usually goes
-live within a minute (a few minutes if an app change is deploying at the same
-time), and anything else must pass the browser tests before it deploys.
+apart), validation, a build, the browser tests (in WebKit, then Chromium and
+Firefox) and the performance checks. On `main`, the deploy lints,
+type-checks, validates, runs the unit tests and builds, and runs the browser
+tests in WebKit unless nothing outside `roadmap/` has changed since the
+version that is live. So a save from the app usually goes live within a
+minute (a few minutes if an app change is deploying at the same time), and
+anything else must pass the browser tests before it deploys.
 
 - [docs/architecture.md](docs/architecture.md): how loading, saving, conflicts,
   polling, layout and CI work.
