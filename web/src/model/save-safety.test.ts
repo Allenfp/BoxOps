@@ -234,6 +234,12 @@ describe("an empty roster", () => {
     }
   });
 
+  it("keeps a comment beside `people:`, at the top of the list", () => {
+    expect(save({ ...ROADMAP, "people.yaml": "people: # the whole team\n" }, add)["people.yaml"]).toBe(
+      "people:\n  # the whole team\n  - id: ana\n    name: Ana\n",
+    );
+  });
+
   it("is written `people: []` when the last engineer goes", () => {
     expect(save(ROADMAP, (s) => ({ ...s, people: [] }))["people.yaml"]).toBe("people: []\n");
   });

@@ -157,7 +157,12 @@ function mergeMap(doc: Document, map: YAMLMap, value: Plain, base: Plain | undef
     if (map.has(key)) {
       // A plain value is changed in place, so a comment beside it survives.
       if (isScalar(node) && (typeof v !== "object" || v === null)) node.value = v;
-      else map.set(key, doc.createNode(orderedList(v, list, defaults)));
+      else {
+        const fresh = doc.createNode(orderedList(v, list, defaults));
+        // `people: # note` with nobody listed yet: the note moves to the top of the new list.
+        if (isScalar(node) && node.comment) fresh.commentBefore = node.comment;
+        map.set(key, fresh);
+      }
       continue;
     }
     // A new field goes after the nearest field that comes before it in the usual order.
