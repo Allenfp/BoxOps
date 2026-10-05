@@ -1226,7 +1226,8 @@ button.primary:hover:not(:disabled) {
 .token-help .hint {
   margin: 4px 0 0;
 }
-.broad-token {
+.broad-token,
+.not-token {
   color: var(--warn);
   font-weight: 400;
 }

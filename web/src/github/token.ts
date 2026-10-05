@@ -40,5 +40,16 @@ export function setToken(repo: string, token: string | null): void {
   }
 }
 
+/**
+ * A token as pasted, without what can come with it from a document or a chat:
+ * spaces, invisible characters (zero-width spaces and joiners, a byte order
+ * mark) anywhere, and quotes around it.
+ */
+export const pastedToken = (text: string) =>
+  text.replace(/[\s​-‍⁠﻿]/g, "").replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "");
+
+/** Whether text can be a GitHub token: letters, digits and underscores, as in github_pat_…, ghp_… and the old 40-digit ones. */
+export const isTokenText = (text: string) => /^[A-Za-z0-9_]+$/.test(text);
+
 /** A classic personal access token, or one from an OAuth app or the GitHub CLI: it can reach every repository its owner can. */
 export const isBroadToken = (token: string) => /^gh[pousr]_/.test(token);

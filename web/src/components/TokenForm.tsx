@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { isBroadToken } from "../github/token";
+import { isBroadToken, isTokenText, pastedToken } from "../github/token";
 import { Icon } from "./Icon";
 
 /** What a token is for: saving needs Contents: Read and write; previewing a branch, Read-only. */
@@ -75,13 +75,14 @@ export function TokenForm({
   children?: ReactNode;
 }) {
   const [token, setToken] = useState("");
-  const value = token.trim();
+  const value = pastedToken(token);
+  const valid = isTokenText(value);
   return (
     <form
       className="form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (value) onSubmit(value);
+        if (valid) onSubmit(value);
       }}
     >
       {rejected && <div className="callout error">GitHub rejected that token. Check it was copied fully and hasn’t expired.</div>}
@@ -98,6 +99,7 @@ export function TokenForm({
           autoFocus
           disabled={busy}
         />
+        {value && !valid && <span className="hint warn-text not-token">That isn’t a GitHub token: copy it again from GitHub.</span>}
         {isBroadToken(value) && (
           <span className="hint warn-text broad-token">
             That’s a classic token (or one from the GitHub CLI), which can write to every repository you can. It works,
@@ -111,7 +113,7 @@ export function TokenForm({
         <button type="button" onClick={onCancel} disabled={busy}>
           Cancel
         </button>
-        <button type="submit" className="primary" disabled={busy || !value}>
+        <button type="submit" className="primary" disabled={busy || !valid}>
           {busy ? "Saving…" : submitLabel}
         </button>
       </footer>

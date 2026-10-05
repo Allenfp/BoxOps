@@ -274,7 +274,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    org's approval if it requires one, and an expiration within the org's
    maximum token lifetime if it sets one. A classic token (or one from the
    GitHub CLI) is accepted, with a note that a fine-grained one is safer;
-   outside collaborators need one. The token is kept as soon as it's
+   outside collaborators need one. Spaces, invisible characters and quotes
+   pasted with a token are dropped, and text that can't be a token (letters,
+   digits and underscores) isn't taken. The token is kept as soon as it's
    submitted, in `sessionStorage` under `boxops-github-token:<owner>/<repo>`
    (the old tab-wide key moves over once) and in memory, and it's forgotten
    only on a 401 or Forget token, so Try again and the automatic re-save

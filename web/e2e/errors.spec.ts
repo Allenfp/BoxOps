@@ -63,6 +63,22 @@ test.describe("signed out", () => {
     await expect(toolbar(page)).toContainText("No changes");
     expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
   });
+
+  test("a token pasted with quotes and an invisible character is cleaned up; text that isn't one can't be sent", async ({ page, github }) => {
+    await dragDays(page, DAGSTER, 10);
+    await save(page);
+    const input = dialog(page).locator('input[type="password"]');
+    const submit = dialog(page).getByRole("button", { name: "Save" });
+    await input.fill(`Your token: ${TOKEN}`);
+    await expect(dialog(page).locator(".not-token")).toHaveText("That isn’t a GitHub token: copy it again from GitHub.");
+    await expect(submit).toBeDisabled();
+    await input.fill(` “${TOKEN}”​ `);
+    await expect(dialog(page).locator(".not-token")).toHaveCount(0);
+    await submit.click();
+    await expect(toolbar(page)).toContainText("No changes");
+    expect(await page.evaluate((key) => sessionStorage.getItem(key), `boxops-github-token:${REPO}`)).toBe(TOKEN);
+    expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+  });
 });
 
 const CASES: { on: Endpoint; as: Injected; title: string; says: string | RegExp }[] = [
