@@ -134,6 +134,24 @@ test("only the pointer that pressed drags, and a drag whose release is missed is
   await expect(toolbar(page)).toContainText("Save · 1 change");
 });
 
+test("a drag lost with no release to come leaves the keyboard's next click alone", async ({ page, github: _ }) => {
+  // Pressed and dragged, then the window left (⌘Tab): the button comes up in another app, so no click follows.
+  await box(page, DAGSTER).evaluate((el) => {
+    const at = el.getBoundingClientRect();
+    const down = { pointerId: 7, isPrimary: true, button: 0, buttons: 1, clientX: at.x + 30, clientY: at.y + 10, bubbles: true };
+    el.dispatchEvent(new PointerEvent("pointerdown", down));
+    window.dispatchEvent(new PointerEvent("pointermove", { ...down, clientX: down.clientX + 100 }));
+  });
+  await expect(page.locator(".box.dragging")).toHaveCount(1);
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(page.locator(".box.dragging")).toHaveCount(0);
+  // Enter on a button still presses it.
+  await page.getByRole("button", { name: "Weeks" }).focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => page.url()).toContain("zoom=weeks");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
+});
+
 test("Escape cancels a drag, and doesn't also close an editor open beside it", async ({ page, github: _ }) => {
   await box(page, CDC).click({ position: { x: 20, y: 10 } });
   const editor = page.getByRole("dialog", { name: /^Edit CDC/ });

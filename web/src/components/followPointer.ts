@@ -71,7 +71,9 @@ export function followPointer(down: { pointerId: number }, capture: HTMLElement 
  * The click the pointer's release makes once a drag is over (on what was
  * dragged, or where it was let go) does nothing: a drag isn't a click, and a
  * drag cancelled with Escape doesn't open or collapse anything when the
- * button comes up later. Until the next press, at the latest.
+ * button comes up later. Until the next press, at the latest, or a key that
+ * clicks (Enter or Space on a button): a drag lost with no release to come
+ * (the window left) leaves the keyboard's next click alone.
  */
 export function swallowNextClick(): void {
   const swallow = (e: Event) => {
@@ -79,10 +81,13 @@ export function swallowNextClick(): void {
     e.preventDefault();
     done();
   };
+  const key = (e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && done();
   const done = () => {
     window.removeEventListener("click", swallow, true);
     window.removeEventListener("pointerdown", done, true);
+    window.removeEventListener("keydown", key, true);
   };
   window.addEventListener("click", swallow, true);
   window.addEventListener("pointerdown", done, true);
+  window.addEventListener("keydown", key, true);
 }
