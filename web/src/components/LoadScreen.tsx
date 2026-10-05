@@ -80,8 +80,8 @@ export function PreviewToken({
         lead={
           <>
             <code>{branch}</code> is a branch of <strong>{repo}</strong>, a private repository: previewing it reads it from
-            GitHub, which needs a token (Contents: Read-only is enough). It’s kept for this tab’s session and sent only to
-            GitHub.
+            GitHub, which needs a token (Contents: Read-only is enough). It’s kept for this tab’s session (Forget token in
+            the gear menu removes it) and sent only to GitHub.
           </>
         }
         onSubmit={onSubmit}

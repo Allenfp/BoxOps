@@ -140,7 +140,7 @@ test.describe("branch previews (?ref=)", () => {
 test.describe("private repository, signed out", () => {
   test.use({ visibility: "private", signedIn: false });
 
-  test("a branch preview asks for a token, then shows the branch", async ({ page, github }) => {
+  test("a branch preview asks for a token, then shows the branch; the gear menu can forget the token", async ({ page, github }) => {
     featureBranch(github);
     await page.goto("./?ref=feature&zoom=months");
     const form = page.locator(".load-token");
@@ -151,6 +151,18 @@ test.describe("private repository, signed out", () => {
     await form.getByRole("button", { name: "Preview" }).click();
     await expect(page.locator(".banner")).toContainText("Previewing branch feature (read-only).");
     await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+
+    // The tab can't save, but the token it keeps can be forgotten here, as the form said.
+    await expect(form).toHaveCount(0);
+    const menu = page.getByRole("dialog", { name: "Settings" });
+    await page.getByRole("button", { name: "Settings" }).click();
+    await expect(menu.getByRole("heading", { name: "GitHub" })).toBeVisible();
+    await expect(menu.getByRole("button", { name: /unsaved change|Team settings/ })).toHaveCount(0);
+    await menu.getByRole("button", { name: "Forget token" }).click();
+    expect(await page.evaluate((key) => sessionStorage.getItem(key), `boxops-github-token:${REPO}`)).toBeNull();
+    // With none kept, a read-only tab has nothing to say about tokens.
+    await page.getByRole("button", { name: "Settings" }).click();
+    await expect(menu.getByText("GitHub token")).toHaveCount(0);
   });
 
   test("a branch preview whose kept token no header can carry asks for another, sending nothing", async ({ page, github }) => {

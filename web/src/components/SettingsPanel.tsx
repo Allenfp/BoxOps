@@ -37,7 +37,7 @@ export interface SettingsProps {
   historyUrl: string;
   /** "owner/repo": whose token "Forget token" forgets. */
   repo: string;
-  /** Read-only preview: no saving or team settings. */
+  /** Read-only: no saving or team settings, but a token kept (a private branch preview's) can still be forgotten. */
   readOnly?: boolean;
   onOpenKey(): void;
   onOpenShortcuts(): void;
@@ -192,9 +192,9 @@ export function SettingsPanel({ close, ...props }: SettingsProps & { close(): vo
         <Toggle label="Hide finished boxes" pref="hideFinished" />
       </section>
 
-      {!props.readOnly && (
+      {(!props.readOnly || token) && (
         <section>
-          <h3>Saving</h3>
+          <h3>{props.readOnly ? "GitHub" : "Saving"}</h3>
           <div className="setting-row">
             <span>GitHub token</span>
             {token ? (
@@ -211,22 +211,26 @@ export function SettingsPanel({ close, ...props }: SettingsProps & { close(): vo
               <span className="hint">Asked for when you save</span>
             )}
           </div>
-          {item(
-            props.changes
-              ? `Discard ${props.changes} unsaved change${props.changes === 1 ? "" : "s"}…`
-              : "No unsaved changes",
-            props.onDiscard,
-            { disabled: !props.changes, danger: true },
+          {!props.readOnly && (
+            <>
+              {item(
+                props.changes
+                  ? `Discard ${props.changes} unsaved change${props.changes === 1 ? "" : "s"}…`
+                  : "No unsaved changes",
+                props.onDiscard,
+                { disabled: !props.changes, danger: true },
+              )}
+              <a
+                className="menu-item"
+                href={props.historyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={close}
+              >
+                View history on GitHub <Icon name="external" size={12} />
+              </a>
+            </>
           )}
-          <a
-            className="menu-item"
-            href={props.historyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={close}
-          >
-            View history on GitHub <Icon name="external" size={12} />
-          </a>
         </section>
       )}
 
