@@ -396,8 +396,9 @@ export function TableView(props: Props) {
                           className="group-toggle"
                           onClick={() => onToggleDepartment(dept.id)}
                           // Alt+↑ or Alt+↓ moves the department, as dragging its heading does; focus stays on it.
+                          // (While searching, it's disabled: nothing to say about that.)
                           onKeyDown={(e) => {
-                            const why = readOnly ? (props.readOnlyReason ?? "Read-only: changes can’t be made here.") : "Clear the search to reorder departments.";
+                            const why = props.readOnlyReason ?? "Read-only: changes can’t be made here.";
                             if (reorderByKey(e, departments, dept.id, canReorder ? props.onMoveDepartment : undefined, why) === null) return;
                             const button = e.currentTarget;
                             focusLater([() => document.querySelector(`.box-table [data-dept-id="${CSS.escape(dept.id)}"] .group-toggle`)], button);
