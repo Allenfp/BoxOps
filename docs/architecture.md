@@ -401,7 +401,8 @@ against data the new code wrote.
   edits, not someone else's save merged in). Nothing is blocked.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
-  don't fit are drawn in an area under the lanes. A department heading and
+  don't fit are drawn in an area under the lanes, which says over capacity
+  only when that sweep finds an overload. A department heading and
   the warnings say the same (`overCapacity` in `model/report.ts`): the worst
   stretch from today on, against the lanes open on those days; past overloads
   are history. "Today" moves on at midnight in a tab left open.

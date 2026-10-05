@@ -491,8 +491,9 @@ export function Timeline(props: Props) {
             const isCollapsed = collapsed.has(dept.id);
             // Over capacity is FTE arithmetic; the extra area is where boxes that couldn't be drawn in the lanes go.
             // Only an overload from today on is a warning, as in the app's warnings; past ones are history.
-            const over = layout.overCapacity;
+            // The layout counts in half slots: where the warnings' arithmetic finds no overload, it's none.
             const stretches = overloads.get(dept.id) ?? [];
+            const over = layout.overCapacity && stretches.length > 0;
             const ahead = stretches.filter((x) => x.to >= now);
             const extra = layout.height > layout.capacity;
             const deptBoxes = boxes.filter((b) => b.id !== draggingId && laneDept.get(b.lane) === dept.id);
@@ -564,12 +565,12 @@ export function Timeline(props: Props) {
                           className={`lane-label overflow-label${over ? "" : " squeezed"}`}
                           style={{ height: (layout.height - layout.capacity) * SLOT_H }}
                         >
-                          {over && !ahead.length && stretches.length ? (
+                          {over && !ahead.length ? (
                             <span className="overflow-note" title={`Over capacity before today: ${overloadText(stretches)}`}>
                               Over capacity in the past
                             </span>
                           ) : over ? (
-                            <span className="overflow-note warn-text" title={ahead.length ? `Over capacity: ${overloadText(ahead)}` : undefined}>
+                            <span className="overflow-note warn-text" title={`Over capacity: ${overloadText(ahead)}`}>
                               Over capacity
                             </span>
                           ) : (
