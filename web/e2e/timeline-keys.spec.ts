@@ -81,8 +81,12 @@ test("arrows go along a row and to the nearest box in time above and below; Home
   await expect(cell(page, "dept:ml-platform")).toBeFocused();
   await press(page, "PageUp", "PageUp");
   await expect(cell(page, "dept:data-eng")).toBeFocused();
+  const across = await page.evaluate(() => document.querySelector(".timeline")!.scrollLeft);
   await press(page, "ControlOrMeta+ArrowDown");
   await expect(cell(page, "chart:ml-platform")).toBeFocused();
+  // The chart is as wide as the timeline: it's shown without scrolling back to its start.
+  expect(across).toBeGreaterThan(500);
+  expect(await page.evaluate(() => document.querySelector(".timeline")!.scrollLeft)).toBe(across);
   await press(page, "ControlOrMeta+ArrowUp");
   await expect(cell(page, "dept:data-eng")).toBeFocused();
   await press(page, "ArrowDown", "ControlOrMeta+ArrowRight");

@@ -165,8 +165,8 @@ export function useGridFocus(
     const left = view.left + o.current.labelWidth;
     const right = view.left + sc.clientWidth;
     let dx = 0;
-    // Labels stay in the sticky column: only up and down for them.
-    if (!el.closest(".label")) {
+    // Labels stay in the sticky column, and a collapsed department's chart is as wide as the timeline: only up and down for them.
+    if (!el.closest(".label") && !el.classList.contains("use-cell")) {
       const width = right - left - 2 * MARGIN;
       if (edge === "end" && r.width > width) dx = r.right - right + MARGIN;
       else if (r.left < left + MARGIN) dx = r.left - left - MARGIN;
