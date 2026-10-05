@@ -8,9 +8,8 @@ import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
 import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
-import { failureMessage } from "./github/messages";
 import { type Snapshot, canRead, fromBundle, readSnapshot, remember } from "./github/read";
-import { NewerSaves, SaveConflict, type SaveResult, saveRoadmap } from "./github/save";
+import { NewerSaves, SaveConflict, type SaveResult, type SaveStep, saveRoadmap } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyMenu";
 import { Modal } from "./components/Modal";
@@ -116,19 +115,19 @@ export function App() {
    * Every commit this tab has already shown or moved past. The deployed bundle
    * lags behind saves, so a bundle we've seen is old news, never an update.
    */
-  const seen = useRef(new Set<string>());
+  const [seen] = useState(() => new Set<string>());
   const saving = useRef(false);
 
   useEffect(() => {
     fetchBundle()
       .then(async (bundle) => {
-        seen.current.add(bundle.source.commit);
-        const loaded = await load(bundle, seen.current);
-        seen.current.add(loaded.source.commit);
+        seen.add(bundle.source.commit);
+        const loaded = await load(bundle, seen);
+        seen.add(loaded.source.commit);
         setState({ status: "ready", ...loaded });
       })
       .catch((e: Error) => setState({ status: "error", message: e.message }));
-  }, []);
+  }, [seen]);
 
   // Look for other people's saves every couple of minutes while the tab is visible.
   const pollable = state.status === "ready" && !state.preview && !state.source.local;
@@ -141,8 +140,8 @@ export function App() {
       try {
         const bundle = await fetchBundle();
         const commit = bundle.source.commit;
-        if (seen.current.has(commit) || saving.current) return;
-        seen.current.add(commit);
+        if (seen.has(commit) || saving.current) return;
+        seen.add(commit);
         setState({ status: "ready", ...fromSnapshot(remember(await fromBundle(bundle))) });
         setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
@@ -158,25 +157,26 @@ export function App() {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [pollable]);
+  }, [pollable, seen]);
 
   if (state.status === "loading") return <div className="splash">Loading roadmap…</div>;
   if (state.status === "error") return <div className="splash error">Couldn’t load the roadmap: {state.message}</div>;
   return (
     <RoadmapView
       {...state}
+      seen={seen}
       lastSave={lastSave}
       remote={remote}
       onDismissSave={() => setLastSave(null)}
       onDismissRemote={() => setRemote(null)}
       onSavingChange={(busy) => (saving.current = busy)}
       onReload={(snapshot) => {
-        seen.current.add(snapshot.source.commit);
+        seen.add(snapshot.source.commit);
         setState({ status: "ready", ...fromSnapshot(snapshot) });
       }}
       onSaved={(result: SaveResult) => {
-        if (result.status === "saved") seen.current.add(result.parent);
-        seen.current.add(result.snapshot.source.commit);
+        if (result.status === "saved") seen.add(result.parent);
+        seen.add(result.snapshot.source.commit);
         setState({ status: "ready", ...fromSnapshot(result.snapshot) });
         if (result.status !== "noop") setLastSave({ commit: result.commit, url: result.url });
         setRemote(null);
@@ -185,7 +185,33 @@ export function App() {
   );
 }
 
+const STEP_TEXT: Record<SaveStep, string> = {
+  checking: "Checking for newer saves…",
+  writing: "Saving…",
+  verifying: "Checking whether it went through…",
+  retrying: "Trying again…",
+};
+
+/** What a save is doing, with the seconds so far once it's slow: a save can wait on GitHub for a minute or two. */
+function SaveProgress({ step }: { step: SaveStep }) {
+  const [start] = useState(() => Date.now());
+  const [now, setNow] = useState(start);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const seconds = Math.floor((now - start) / 1000);
+  return (
+    <span className="hint save-progress" role="status">
+      {STEP_TEXT[step]}
+      {seconds >= 5 ? ` ${seconds} s` : ""}
+    </span>
+  );
+}
+
 interface ViewProps extends Loaded {
+  /** Commits the tab has already shown or moved past (see App). */
+  seen: ReadonlySet<string>;
   lastSave: { commit: string; url: string } | null;
   remote: RemoteUpdate | null;
   onDismissSave(): void;
@@ -226,8 +252,10 @@ function RoadmapView(props: ViewProps) {
     setDeptEditor({ kind: "new" });
   };
   const [busy, setBusyState] = useState(false);
+  const [step, setStep] = useState<SaveStep>("checking");
   const setBusy = (b: boolean) => {
     setBusyState(b);
+    if (b) setStep("checking");
     onSavingChange(b);
   };
   const [problem, setProblem] = useState<SaveProblem | null>(null);
@@ -470,7 +498,9 @@ function RoadmapView(props: ViewProps) {
         changes,
         message: commitMessage(describeChanges(draftBase, target)),
         review: !opts.keep,
+        seen: props.seen,
         validate: newProblems,
+        onProgress: setStep,
       });
       setBusy(false);
       ownSave.current = true;
@@ -498,9 +528,9 @@ function RoadmapView(props: ViewProps) {
         setToken(source.repo, null);
         setProblem({ kind: "token", rejected: true, resume });
       } else if (e instanceof GitHubFailure) {
-        setProblem({ kind: "error", message: failureMessage(e, source) });
+        setProblem({ kind: "github", failure: e, resume });
       } else {
-        setProblem({ kind: "error", message: (e as Error).message });
+        setProblem({ kind: "error", message: (e as Error).message, resume });
       }
       setBusy(false);
     }
@@ -696,6 +726,7 @@ function RoadmapView(props: ViewProps) {
               <button className="icon-only" onClick={draft.redo} disabled={!draft.canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
                 <Icon name="redo" size={16} />
               </button>
+              {busy && <SaveProgress step={step} />}
               {count > 0 ? (
                 <div className="split-button">
                   <button
@@ -779,7 +810,7 @@ function RoadmapView(props: ViewProps) {
           <a href={lastSave.url} target="_blank" rel="noopener noreferrer">
             {lastSave.commit.slice(0, 7)}
           </a>
-          . The public site picks it up in about a minute.
+          . The site picks it up in about a minute.
           <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
             <Icon name="x" size={16} />
           </button>
@@ -1022,8 +1053,9 @@ function RoadmapView(props: ViewProps) {
           }}
           onRetry={() => {
             setProblem(null);
-            void save();
+            void save(problem.kind === "github" || problem.kind === "error" ? problem.resume : {});
           }}
+          onNewToken={() => setProblem({ kind: "token", resume: problem.kind === "github" ? problem.resume : undefined })}
           onClose={() => setProblem(null)}
         />
       )}

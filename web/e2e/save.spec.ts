@@ -25,6 +25,7 @@ for (const visibility of ["public", "private"] as const) {
         await page.locator('.save-dialog[open] input[type="password"]').fill(TOKEN);
         await page.locator(".save-dialog[open]").getByRole("button", { name: "Save" }).click();
         await expect(page.locator(".banner.success")).toContainText("Saved to main");
+        await expect(page.locator(".banner.success")).toContainText("The site picks it up in about a minute.");
         await expect(toolbar(page)).toContainText("No changes");
 
         const head = github.headCommit();
@@ -189,6 +190,7 @@ for (const visibility of ["public", "private"] as const) {
       github.inject("graphql", "hang");
       await save(page);
       await expect.poll(() => github.calls("graphql")).toBe(1);
+      await expect(page.locator(".save-progress")).toHaveText("Saving…");
       await page.clock.fastForward(31_000);
       await expect(page.locator(".banner.success")).toContainText("Saved to main");
       expect(github.headCommit().parent).toBe(github.root);

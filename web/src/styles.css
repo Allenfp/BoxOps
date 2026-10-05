@@ -780,6 +780,12 @@ button.collapse-all:hover {
   color: var(--text);
 }
 
+/* What a save is doing, beside the Save button while it runs. */
+.save-progress {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Save · N changes ▾ */
 .split-button {
   display: inline-flex;

@@ -60,7 +60,12 @@ export interface SaveRequest {
   seen?: ReadonlySet<string>;
   /** Problems with the files as they would be after this save; any problem stops the save. */
   validate?(files: RoadmapFiles): string[];
+  /** Told what the save is doing, for a progress line: a save can wait on GitHub for a minute or two. */
+  onProgress?(step: SaveStep): void;
 }
+
+/** Reading the head; making the commit; reading the head after an unclear failure; waiting to try again. */
+export type SaveStep = "checking" | "writing" | "verifying" | "retrying";
 
 export type SaveResult =
   /** Committed. `parent` is the head it went on (ours, or someone else's newer one). */
@@ -109,6 +114,8 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
   /** Every changed file at this head is exactly ours. */
   const landed = (s: Snapshot) => paths.every((p) => (s.blobs[p] ?? null) === mine[p]);
 
+  const progress = (step: SaveStep) => req.onProgress?.(step);
+  progress("checking");
   let head = await readSnapshot(gh, base, { seen: req.seen });
   // An earlier save whose answer never arrived may be there already, even under later saves.
   if (head !== base && landed(head)) return { status: "alreadySaved", commit: head.source.commit, url: commitUrl(repo, head.source.commit), snapshot: head };
@@ -130,6 +137,7 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
     if (!additions.length && !deletions.length) return { status: "noop", snapshot: head };
 
     try {
+      progress("writing");
       const c = await gh.createCommitOnBranch({ repo, branch, expectedHeadOid: head.source.commit, headline, body, additions, deletions });
       const blobs = { ...head.blobs };
       for (const p of paths) {
@@ -154,6 +162,7 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
       if (e.kind !== "stale" && !e.ambiguous) throw e;
       unclear ||= e.ambiguous;
       let fresh: Snapshot;
+      progress("verifying");
       try {
         fresh = await readSnapshot(gh, head, { seen: req.seen }); // fetches only blobs changed since `head`
       } catch {
@@ -175,6 +184,7 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
           : new GitHubFailure(e.kind, e.message, e.detail, false);
       }
       head = fresh;
+      progress("retrying");
       await gh.sleep(1000 * (attempt + 1)); // GitHub asks for a second or more between writes
     }
   }

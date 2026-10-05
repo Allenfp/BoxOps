@@ -64,8 +64,9 @@ export function failureMessage(f: GitHubFailure, { repo, branch }: FailurePlace,
     case "rules": {
       let text =
         `GitHub’s rules for ${branch} blocked this save: “${f.message.trim()}” BoxOps saves straight to ${branch}, so an ` +
-        `admin has to let editors through: add a team you’re in (or a role you hold) to the rule’s bypass list as Always ` +
-        `allow, or as Exempt (not For pull requests only), or turn the rule off for this repository.`;
+        `admin has to let editors through: add a team you’re in, a role you hold, or an app to the rule’s bypass list as ` +
+        `Always allow or Exempt (not For pull requests only), or turn the rule off for this repository. (A bypass list ` +
+        `takes teams, roles and apps, not individual people.)`;
       if (/sign/i.test(f.message)) text += ` ${branch} only accepts signed commits, and GitHub didn’t sign this one.`;
       if (/email|commit message/i.test(f.message)) {
         text +=
@@ -83,7 +84,7 @@ export function failureMessage(f: GitHubFailure, { repo, branch }: FailurePlace,
     case "offline":
       return f.ambiguous
         ? "Couldn’t reach GitHub, so BoxOps can’t tell whether this save went through. Your changes are kept in this browser; trying again checks first, so nothing is saved twice."
-        : "Couldn’t reach GitHub. Your changes are kept in this browser.";
+        : "Couldn’t reach GitHub: you may be offline, or a network filter may be blocking api.github.com. Your changes are kept in this browser; save again once you’re connected.";
     case "timeout":
       return f.ambiguous
         ? "GitHub didn’t answer in time, so BoxOps can’t tell whether this save went through. Your changes are kept in this browser; trying again checks first, so nothing is saved twice."

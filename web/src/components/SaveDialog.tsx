@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
+import type { FailureKind, GitHubFailure } from "../github/api";
+import { failureMessage } from "../github/messages";
 import type { Source } from "../github/read";
 import type { ChangeLine } from "../model/summary";
 import { Icon } from "./Icon";
-import { TokenForm } from "./TokenForm";
+import { TokenForm, TokenHelp } from "./TokenForm";
 
 /** A choice the user already made for this save, carried through a dialog that interrupts it (so it isn't asked again). */
 export interface Resume {
@@ -16,7 +18,9 @@ export type SaveProblem =
   /** The save would write files the app couldn't fully read; fixing them is a hand edit. */
   | { kind: "unwritable"; files: { path: string; problems: string[] }[] }
   | { kind: "conflict"; items: string[] }
-  | { kind: "error"; message: string }
+  /** GitHub refused, or couldn't be reached (kinds and words in github/api.ts and messages.ts). */
+  | { kind: "github"; failure: GitHubFailure; resume?: Resume }
+  | { kind: "error"; message: string; resume?: Resume }
   | {
       /** Pre-save check: others saved since this tab loaded. Their changes are now on screen. */
       kind: "updated";
@@ -36,8 +40,29 @@ interface Props {
   /** Save after reviewing others' changes (no clashes). */
   onSaveNow(): void;
   onRetry(): void;
+  /** Ask for another token (the one kept doesn't do). */
+  onNewToken(): void;
   onClose(): void;
 }
+
+const GITHUB_TITLE: Record<FailureKind, string> = {
+  unauthorized: "GitHub rejected the token",
+  "no-access": "This token can’t see the repository",
+  missing: "The branch isn’t there",
+  sso: "Authorize the token for single sign-on",
+  "token-policy": "The organization doesn’t accept this token",
+  "ip-blocked": "GitHub refused this network",
+  "rate-limited": "GitHub asked BoxOps to wait",
+  rules: "GitHub’s rules blocked this save",
+  "read-only": "This token can’t write to the repository",
+  stale: "Others kept saving",
+  offline: "Couldn’t reach GitHub",
+  timeout: "GitHub didn’t answer",
+  server: "GitHub had a problem",
+  unknown: "Save failed",
+};
+/** Failures a different token fixes: the dialog offers one, and how to make it. */
+const TOKEN_KINDS: FailureKind[] = ["no-access", "read-only", "token-policy", "sso"];
 
 const KIND_LABEL: Record<ChangeLine["kind"], string> = { added: "Added", changed: "Changed", deleted: "Deleted" };
 
@@ -50,7 +75,7 @@ function Bolded({ text }: { text: string }) {
   );
 }
 
-export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onResolve, onSaveNow, onRetry, onClose }: Props) {
+export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onResolve, onSaveNow, onRetry, onNewToken, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = dialogRef.current;
@@ -61,14 +86,17 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
     }
   }, []);
 
-  const title = {
-    token: "Connect to GitHub to save",
-    invalid: "Can’t save yet",
-    unwritable: "Can’t save yet",
-    conflict: "Someone else changed the same items",
-    error: "Save failed",
-    updated: "The roadmap changed since you opened it",
-  }[problem.kind];
+  const title =
+    problem.kind === "github"
+      ? GITHUB_TITLE[problem.failure.kind]
+      : {
+          token: "Connect to GitHub to save",
+          invalid: "Can’t save yet",
+          unwritable: "Can’t save yet",
+          conflict: "Someone else changed the same items",
+          error: "Save failed",
+          updated: "The roadmap changed since you opened it",
+        }[problem.kind];
 
   return (
     <dialog
@@ -182,6 +210,10 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
 
       {problem.kind === "updated" && <Updated problem={problem} busy={busy} onResolve={onResolve} onSaveNow={onSaveNow} onClose={onClose} />}
 
+      {problem.kind === "github" && (
+        <Failure failure={problem.failure} source={source} busy={busy} onRetry={onRetry} onNewToken={onNewToken} onClose={onClose} />
+      )}
+
       {problem.kind === "error" && (
         <>
           <div className="callout error">{problem.message}</div>
@@ -197,6 +229,66 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
         </>
       )}
     </dialog>
+  );
+}
+
+/** A GitHub failure in words, what to do about it, and GitHub's own answer for whoever helps. */
+function Failure({
+  failure: f,
+  source,
+  busy,
+  onRetry,
+  onNewToken,
+  onClose,
+}: {
+  failure: GitHubFailure;
+  source: Source;
+  busy: boolean;
+  onRetry(): void;
+  onNewToken(): void;
+  onClose(): void;
+}) {
+  const owner = source.repo.split("/")[0];
+  const sso = f.kind === "sso" && f.detail.ssoUrl?.startsWith("https://github.com/") ? f.detail.ssoUrl : undefined;
+  const newToken = TOKEN_KINDS.includes(f.kind);
+  const said = [
+    f.message && `GitHub said: “${f.message.trim()}”`,
+    f.detail.status && f.detail.status !== 200 && `HTTP ${f.detail.status}`,
+    f.detail.type,
+    f.detail.requestId && `request id ${f.detail.requestId}`,
+  ].filter(Boolean);
+  return (
+    <>
+      <div className="callout error">{failureMessage(f, source)}</div>
+      {sso && (
+        <p className="lead">
+          <a href={sso} target="_blank" rel="noopener noreferrer">
+            Authorize this token for {owner} <Icon name="external" size={12} />
+          </a>
+        </p>
+      )}
+      {newToken && f.kind !== "sso" && <TokenHelp repo={source.repo} />}
+      <p className="hint">Your changes are still here and still saved in this browser.</p>
+      {said.length > 0 && (
+        <details className="files">
+          <summary>Details</summary>
+          <p>{said.join(" · ")}</p>
+        </details>
+      )}
+      <footer className="dialog-foot">
+        <button onClick={onClose} disabled={busy}>
+          Close
+        </button>
+        {newToken && (
+          <button onClick={onNewToken} disabled={busy}>
+            Use a different token
+          </button>
+        )}
+        <button className="primary" onClick={onRetry} disabled={busy}>
+          {busy ? "Saving…" : "Try again"}
+        </button>
+      </footer>
+    </>
   );
 }
 

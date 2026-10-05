@@ -124,10 +124,12 @@ describe("saveRoadmap", () => {
     const { g, slept, save } = await setup();
     let theirs = "";
     g.beforeRefUpdate = () => void (theirs = g.otherSave({ "boxes/c.yaml": () => "id: c\n" }));
-    expect(await save()).toMatchObject({ status: "saved", parent: theirs });
+    const steps: string[] = [];
+    expect(await save({ onProgress: (step) => steps.push(step) })).toMatchObject({ status: "saved", parent: theirs });
     expect(g.calls("graphql")).toBe(2);
     expect(g.calls("blob")).toBe(1);
     expect(slept).toEqual([1000]);
+    expect(steps).toEqual(["checking", "writing", "verifying", "retrying", "writing"]);
   });
 
   it("stops on a racing save to the same file", async () => {
