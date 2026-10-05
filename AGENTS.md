@@ -213,8 +213,8 @@ boxes that point at its code (`grep -l "box: <code>" roadmap/boxes/*`).
 
 ```yaml
 relations:
-  - type: before        # before, after, during, starts_with, ends_with, overlaps, apart
-    box: M8T            # the other box's code (example; use a real one)
+  - type: before # before, after, during, starts_with, ends_with, overlaps, apart
+    box: M8T # the other box's code (example; use a real one)
 ```
 
 Check with `npm run report` whether the rule holds today; a broken rule is

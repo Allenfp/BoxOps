@@ -42,7 +42,8 @@ files may also end in `.yml`.)
   "1.10"`. Unquoted, it's a validation error, never silently converted.
 - Fields the app doesn't know about are kept untouched when the app edits a
   file, and so are comments. (A comment at the end of a line that starts a
-  list, like `statuses: # flags`, moves to its own line above the list.)
+  list, like `statuses: # flags`, moves to its own line above the list, and
+  the spacing before an end-of-line comment becomes one space.)
 - `settings.yaml` says which version of this format the files use: see
   [Format versions](#format-versions).
 
@@ -96,7 +97,7 @@ lanes:
   - id: de-4
     name: Contractor
     fte: 0.5
-    end: 2027-03-31   # contract ends
+    end: 2027-03-31 # contract ends
 ```
 
 | Field | Required | Meaning |
@@ -128,13 +129,13 @@ timeline and no box is drawn in it.
 
 ```yaml
 id: bx-b27c-fivetran-cost-review
-code: H2B                      # example values throughout
+code: H2B # example values throughout
 title: Fivetran cost review
 lane: de-1
 start: 2026-12-07
 end: 2027-01-15
 type: maintenance
-status: blocked                # optional; leave out when on track
+status: blocked # optional; leave out when on track
 fte: 1.5
 engineers:
   - jordan-diaz
