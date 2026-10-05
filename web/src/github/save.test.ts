@@ -46,7 +46,7 @@ describe("saveRoadmap", () => {
         message: { headline: "Roadmap: 2 changes", body: "- Box a: renamed\n- Deleted box b\n\nSaved from the BoxOps web app." },
         fileChanges: { additions: [{ path: "roadmap/boxes/a.yaml", contents: btoa("id: a\ntitle: A2\n") }], deletions: [{ path: "roadmap/boxes/b.yaml" }] },
       });
-      expect(result).toMatchObject({ status: "saved", commit: g.head, parent: g.root, signed: true });
+      expect(result).toMatchObject({ status: "saved", commit: g.head, parent: g.root, parentAuthor: "Setup", parentSubject: "Initial roadmap", signed: true });
       expect(g.headCommit()).toMatchObject({ message: MESSAGE, signed: true, files: { "settings.yaml": "format: 1\n", "people.yaml": "people: []\n", "boxes/a.yaml": "id: a\ntitle: A2\n" } });
       const after = await g.bundle(g.head);
       expect(result.snapshot.files).toEqual(after.files);
@@ -136,7 +136,8 @@ describe("saveRoadmap", () => {
     let theirs = "";
     g.beforeRefUpdate = () => void (theirs = g.otherSave({ "boxes/c.yaml": () => "id: c\n" }));
     const steps: string[] = [];
-    expect(await save({ onProgress: (step) => steps.push(step) })).toMatchObject({ status: "saved", parent: theirs });
+    // Whose save it went on, for the notice that theirs came in.
+    expect(await save({ onProgress: (step) => steps.push(step) })).toMatchObject({ status: "saved", parent: theirs, parentAuthor: "Sam Lee", parentSubject: "Roadmap update" });
     expect(g.calls("graphql")).toBe(2);
     expect(g.calls("blob")).toBe(1);
     expect(slept).toEqual([1000]);

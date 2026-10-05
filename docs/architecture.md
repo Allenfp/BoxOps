@@ -325,7 +325,8 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    and an empty change never is. CI skip markers such as `[skip ci]` in titles
    are neutralised, so every save deploys. If someone saved in between, GitHub
    refuses (`STALE_DATA`): the app re-reads only what changed, checks clashes
-   and validates again, then retries on top of their commit, at most twice. A
+   and validates again, then retries on top of their commit, at most twice
+   (their changes then come in with the usual notice, outlined in teal). A
    same-file clash at that point shows the keep-mine / keep-theirs choice,
    and changes of theirs that leave ours invalid come in for review; a
    re-read that fails (too many changes, the folder's problems, a rate limit)

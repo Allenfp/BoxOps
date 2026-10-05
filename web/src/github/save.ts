@@ -94,8 +94,8 @@ export interface SaveRequest {
 export type SaveStep = "checking" | "writing" | "verifying" | "retrying";
 
 export type SaveResult =
-  /** Committed. `parent` is the head it went on (ours, or someone else's newer one). */
-  | { status: "saved"; commit: string; parent: string; url: string; signed: boolean | null; snapshot: Snapshot }
+  /** Committed. `parent` is the head it went on (ours, or someone else's newer one), made by `parentAuthor`. */
+  | { status: "saved"; commit: string; parent: string; parentAuthor: string; parentSubject: string; url: string; signed: boolean | null; snapshot: Snapshot }
   /** The head already holds these changes: an earlier attempt whose answer was lost landed. `snapshot` is that head. */
   | { status: "alreadySaved"; commit: string; url: string; snapshot: Snapshot }
   /** Nothing to write: the head already has every change. */
@@ -186,7 +186,8 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
         history: [c.oid, ...head.source.history].slice(0, 50),
       };
       const snapshot = remember({ source, files: next, blobs, ignored: head.ignored });
-      return { status: "saved", commit: c.oid, parent: head.source.commit, url: c.url, signed: c.signed, snapshot };
+      const { author: parentAuthor, subject: parentSubject } = head.source;
+      return { status: "saved", commit: c.oid, parent: head.source.commit, parentAuthor, parentSubject, url: c.url, signed: c.signed, snapshot };
     } catch (e) {
       if (!(e instanceof GitHubFailure)) throw e;
       if (!e.ambiguous && (e.kind === "read-only" || e.kind === "no-access")) throw await explain(gh, repo, e);

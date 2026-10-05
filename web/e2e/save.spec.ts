@@ -190,17 +190,22 @@ for (const visibility of ["public", "private"] as const) {
       });
     }
 
-    test("a save that races another goes on top of it", async ({ page, github }) => {
+    test("a save that races another goes on top of it, and says theirs came in", async ({ page, github }) => {
       await dragDays(page, DAGSTER, 10);
       let theirs = "";
       github.beforeRefUpdate = () => {
-        theirs = github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") });
+        theirs = github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }, "Priya Shah", "Revenue mart: v3");
       };
       await save(page);
       await expect(toolbar(page)).toContainText("No changes");
       expect(github.headCommit().parent).toBe(theirs);
       expect(github.file(boxFile(REVENUE))).toContain("Revenue mart v3");
       expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+      // Their save is on screen now: announced and outlined like a poll's. Ours isn't outlined.
+      await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+      await expect(page.locator(".banner", { hasText: "Priya Shah" })).toHaveText(/^Priya Shah saved “Revenue mart: v3”\. The roadmap has been updated\./);
+      await expect(box(page, REVENUE)).toHaveClass(/updated/);
+      await expect(box(page, DAGSTER)).not.toHaveClass(/updated/);
     });
 
     test("a racing save to the same box asks whose version to keep", async ({ page, github }) => {

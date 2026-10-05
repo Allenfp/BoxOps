@@ -466,11 +466,11 @@ export function App() {
       onDismissRemote={() => setRemote(null)}
       onSavingChange={(busy) => (saving.current = busy)}
       onReload={(snapshot) => show(fromSaveSnapshot(snapshot))}
-      onSaved={(result: SaveResult) => {
+      onSaved={(result, others) => {
         if (result.status === "saved") seen.add(result.parent);
         show(fromSaveSnapshot(result.snapshot));
         if (result.status !== "noop") setLastSave({ commit: result.commit, url: result.url });
-        setRemote(null);
+        setRemote(others);
       }}
     />
   );
@@ -525,7 +525,23 @@ interface ViewProps extends Loaded {
   onSavingChange(busy: boolean): void;
   /** Show this newer commit; the draft is carried over onto it. */
   onReload(snapshot: Snapshot): void;
-  onSaved(result: SaveResult): void;
+  /** `others`: someone else's saves that came in with it (it went on top of them, or found them on top of it). */
+  onSaved(result: SaveResult, others: RemoteUpdate | null): void;
+}
+
+/**
+ * Someone else's saves a save of ours brought in: a racing save it went on
+ * top of (or one already on top of an earlier attempt of ours). Roadmap files
+ * it didn't write that differ from the copy it was made on are theirs. Named
+ * by the newest of them when that's known.
+ */
+function othersIn(result: SaveResult, blobs: Record<string, string>, changes: FileChanges): RemoteUpdate | null {
+  const after = result.snapshot.blobs;
+  if (!Object.keys({ ...blobs, ...after }).some((p) => !(p in changes) && blobs[p] !== after[p])) return null;
+  if (result.status === "saved") return { author: result.parentAuthor, subject: result.parentSubject };
+  // The head is ours: whose saves are under it isn't known.
+  if (result.status === "alreadySaved" && result.snapshot.source.commit === result.commit) return {};
+  return { author: result.snapshot.source.author, subject: result.snapshot.source.subject };
 }
 
 /** "BoxOps was updated to 0.2.0 — Reload to keep editing." (no version when it's the same, or unknown) */
@@ -635,8 +651,11 @@ function RoadmapView(props: ViewProps) {
   const [dismissed, setDismissed] = useState<string[]>([]);
   /** A save found newer saves on GitHub; once the draft is carried over, ask about any clashes. */
   const askAfterRebase = useRef(false);
-  /** The next roadmap change is our own save, not someone else's. */
-  const ownSave = useRef(false);
+  /**
+   * The next roadmap change is our own save coming back: the boxes it changed.
+   * Any other box that changed is from someone else's save it went on top of.
+   */
+  const ownSave = useRef<Set<string> | null>(null);
 
   const draftBase = useMemo(
     () => ({ boxes: base.boxes, departments: base.departments, people: base.people, settings: base.settings }),
@@ -954,12 +973,13 @@ function RoadmapView(props: ViewProps) {
         onProgress: setStep,
       });
       setBusy(false);
-      ownSave.current = true;
+      const ours = diffBoxes(draftBase.boxes, target.boxes);
+      ownSave.current = new Set([...ours.added, ...ours.modified, ...ours.removed].map((b) => b.id));
       setUpdatedIds(new Set());
       // The roadmap that comes back is rebased from what this save wrote, so an
       // edit (or undo) made while it ran is ours, not a clash with our own commit.
       draft.saved(target);
-      onSaved(result);
+      onSaved(result, othersIn(result, props.blobs, changes));
     } catch (e) {
       if (e instanceof s.NewerSaves) {
         const head = e.head;
@@ -1025,12 +1045,10 @@ function RoadmapView(props: ViewProps) {
     const prev = prevBase.current;
     prevBase.current = draftBase;
     if (prev === draftBase) return;
-    if (ownSave.current) {
-      ownSave.current = false;
-      return;
-    }
+    const ours = ownSave.current;
+    ownSave.current = null;
     const d = diffBoxes(prev.boxes, draftBase.boxes);
-    const ids = [...d.added, ...d.modified].map((b) => b.id);
+    const ids = [...d.added, ...d.modified].map((b) => b.id).filter((id) => !ours?.has(id));
     if (ids.length) setUpdatedIds((cur) => new Set([...cur, ...ids]));
   }, [draftBase]);
 
