@@ -6,7 +6,7 @@ import { readBundle } from "../src/model/bundle";
 import { parseFile } from "../src/model/parse";
 import { EXECUTABLE } from "../src/model/paths";
 import { RoadmapReadError } from "./git";
-import { appInfo, buildBundle, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
+import { appInfo, assembleBundle, buildBundle, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
 import { TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -188,6 +188,18 @@ describe("buildBundle locally", () => {
     const parsed = (app: typeof APP) => buildBundle({ repoDir: r.dir, app, env: {}, warn: () => {} }).then((b) => b.parsed);
     expect(Object.values((await parsed(APP))!.files).map((f) => f.path)).toEqual(["boxes/b1.yaml", "people.yaml", "settings.yaml"]);
     expect(await parsed({ ...APP, build: "" })).toBeUndefined();
+  });
+
+  it("parses them only under a build id that names the app's code: not a dirty build's, nor one outside git", async () => {
+    const folder = await hashFolder({ "settings.yaml": "format: 1\n" });
+    const source = { repo: "", branch: "", commit: "", dir: "roadmap", tree: folder.tree, visibility: null, private: true, readonly: false, author: "", subject: "", date: "", history: [] };
+    const parsed = (build: string, o?: { parsed?: boolean }) => assembleBundle({ ...APP, build }, source, folder, o).parsed?.parser;
+    expect(parsed("0.1.0+0123456789ab")).toBe("0.1.0+0123456789ab");
+    expect(parsed("0.1.0+0123456789ab.dirty")).toBeUndefined();
+    expect(parsed("0.1.0+unknown")).toBeUndefined();
+    // Unless told to (the browser tests, whose app was just built), or told not to.
+    expect(parsed("0.1.0+0123456789ab.dirty", { parsed: true })).toBe("0.1.0+0123456789ab.dirty");
+    expect(parsed("0.1.0+0123456789ab", { parsed: false })).toBeUndefined();
   });
 
   it("warns when origin names no repository, without the credentials its URL holds", async () => {

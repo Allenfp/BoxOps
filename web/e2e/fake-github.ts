@@ -252,6 +252,8 @@ export class FakeGitHub {
         history,
       },
       folder,
+      // Parsed as by the app just built, even from uncommitted changes (a ".dirty" id).
+      { parsed: true },
     );
     return this.patchBundle ? this.patchBundle(bundle) : bundle;
   }

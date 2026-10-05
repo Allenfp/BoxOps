@@ -76,10 +76,10 @@ both.
     from the Actions event; when unknown the site counts as private;
   - `app`: version, build id and time. The build id is the version plus
     `web/`'s tree at HEAD, so roadmap-only saves keep it (`.dirty` with
-    uncommitted app changes). Both are put in `index.html`
-    (`<meta name="boxops-build">` and `"boxops-build-time"`), and the id is
-    defined for the app as `__BOXOPS_BUILD__`; the app compares them with
-    every `roadmap.json` it fetches (see [Tabs left
+    uncommitted app changes, `+unknown` outside a git checkout). Both are put
+    in `index.html` (`<meta name="boxops-build">` and `"boxops-build-time"`),
+    and the id is defined for the app as `__BOXOPS_BUILD__`; the app compares
+    them with every `roadmap.json` it fetches (see [Tabs left
     open](#tabs-left-open)). The time, HEAD's committer date, is kept out of
     the JavaScript, so roadmap-only saves leave every app file as it was and
     a tab left open can still fetch the parts it loads on first use;
@@ -87,10 +87,10 @@ both.
   - `parsed` (optional): each roadmap file as the build's parser makes of it
     (`model/parse.ts`), by blob SHA, stamped with the build id. The app takes
     them only from its own build, so showing a deploy needs no YAML parsing;
-    files from GitHub, and bundles from another build or from the dev server
-    (which leaves them out, as its app changes under one build id), are
-    parsed in the browser. They about double the file: at 2,000 boxes, 180 KB
-    gzipped becomes 361 KB.
+    files from GitHub and bundles from another build are parsed in the
+    browser. The dev server and `.dirty` or `+unknown` builds leave them out,
+    as their app can change under one build id. They about double the file:
+    at 2,000 boxes, 180 KB gzipped becomes 361 KB.
 
   A local build whose `roadmap/` has uncommitted changes reads the files on
   disk instead: `tree` is null and the bundle is marked `local`. The dev server

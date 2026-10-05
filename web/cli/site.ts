@@ -149,14 +149,21 @@ export async function hashFolder(all: RoadmapFiles): Promise<RoadmapFolder> {
   return folder;
 }
 
+/** A build id that names the app's code exactly: web/'s tree at a commit, not ".dirty" or "+unknown". */
+const CLEAN_BUILD = /^[^+\s]+\+[0-9a-f]{12}$/;
+
 /**
  * The bundle for these files from this source: what buildBundle writes. With
- * `parsed` (unless it's false, or the app has no build id to stamp it with),
- * each file as this build's parser makes of it, by blob SHA.
+ * `parsed`, each file as this build's parser makes of it, by blob SHA,
+ * stamped with the build id. By default only under an id that names the
+ * app's code exactly: two builds with uncommitted changes, or from outside a
+ * git checkout, can share an id but not a parser, and a tab of one would take
+ * the other's. `parsed: true` stamps any id (the browser tests, whose app is
+ * the one just built here), `false` none.
  */
 export function assembleBundle(app: AppInfo, source: BundleSource, folder: RoadmapFolder, o: { parsed?: boolean } = {}): Bundle {
   let parsed: ParsedFiles | undefined;
-  if (o.parsed !== false && app.build) {
+  if (app.build && (o.parsed ?? CLEAN_BUILD.test(app.build))) {
     parsed = { parser: app.build, files: {} };
     for (const [path, sha] of Object.entries(folder.blobs)) parsed.files[sha] = parseFile(path, folder.files[path]);
   }
@@ -186,7 +193,8 @@ export interface BuildOptions {
   /** Told about a local build from uncommitted files, a remote that names no repository, or an executable roadmap file. */
   warn?(message: string): void;
   /**
-   * Put the files in parsed (the default). The dev server doesn't: its app
+   * Put the files in parsed (the default, under a build id that names a
+   * clean tree; see assembleBundle). The dev server doesn't: its app
    * changes under the same build id as you edit it.
    */
   parsed?: boolean;

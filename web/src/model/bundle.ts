@@ -15,7 +15,9 @@ export interface AppInfo {
   /**
    * Changes when the app's code changes, never on roadmap-only saves:
    * "<version>+<12 hex>" (".dirty" added when built with uncommitted app
-   * changes). vite.config.ts also defines it for the app as __BOXOPS_BUILD__. "" when unknown.
+   * changes; "<version>+unknown" when built outside a git checkout).
+   * vite.config.ts also defines it for the app as __BOXOPS_BUILD__. "" in a
+   * bundle from before schema 1.
    */
   build: string;
   /** Committer date of the app's commit (ISO 8601, UTC); `<meta name="boxops-build-time">` for the app. "" when unknown. */
@@ -85,7 +87,7 @@ export interface Bundle {
   /** Other files in the roadmap folder, not read: the loader reports them as unexpected. */
   ignored: string[];
   notices: Notice[];
-  /** Left out by the dev server, by builds that can't name their app, and by bundles from before it was added. */
+  /** Left out by the dev server, by builds whose id doesn't name their app's code exactly (".dirty", "+unknown"), and by bundles from before it was added. */
   parsed?: ParsedFiles;
 }
 
