@@ -608,20 +608,29 @@ export interface DraftOffer {
   key: string;
   /** As stored: what "Download my unsaved edits" saves. */
   value: unknown;
-  /** Restorable here, as `count` changes (lines of a save, as the toolbar counts them); otherwise (another version of BoxOps wrote it) only to download or discard. */
+  /**
+   * Restorable here, as `count` changes (lines of a save, as the toolbar
+   * counts them); otherwise only to download or discard: written by another
+   * version of BoxOps, or `unreadable` (not JSON, or broken).
+   */
   restorable: boolean;
+  unreadable: boolean;
   count: number;
   /** When it was last written (ISO 8601); "" if unknown. */
   savedAt: string;
 }
 
+/** Whether a stored draft is laid out by another version of BoxOps: another record layout or data format, or the old shared draft. */
+const otherVersion = (value: unknown) =>
+  typeof value === "object" && value !== null && !Array.isArray(value) && ((value as StoredDraft).v !== RECORD || (value as StoredDraft).format !== FORMAT);
+
 function offerOf(found: FoundDraft, base: DraftState): DraftOffer {
-  const offer = { key: found.key, value: found.value, restorable: false, count: 0, savedAt: savedAtOf(found.value) };
+  const offer = { key: found.key, value: found.value, restorable: false, unreadable: !otherVersion(found.value), count: 0, savedAt: savedAtOf(found.value) };
   if (!found.record) return offer;
   try {
-    return { ...offer, restorable: true, count: describeChanges(base, restoreRecord(found.record, base).draft).length };
+    return { ...offer, restorable: true, unreadable: false, count: describeChanges(base, restoreRecord(found.record, base).draft).length };
   } catch {
-    return offer;
+    return { ...offer, unreadable: true };
   }
 }
 

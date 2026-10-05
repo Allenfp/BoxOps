@@ -546,8 +546,8 @@ const NO_LINES: ChangeLine[] = [];
 
 /**
  * A stored draft this tab didn't make: one a tab that's gone left behind
- * (restore it, or discard it), or one only another version of BoxOps can open
- * (download it, or discard it). Never taken without asking.
+ * (restore it, or discard it), or one only another version of BoxOps can open,
+ * or none can (download it, or discard it). Never taken without asking.
  */
 function OfferBanner({ offer, busy, onRestore, onDiscard }: { offer: DraftOffer; busy: boolean; onRestore(): void; onDiscard(): void }) {
   const changes = `${offer.count} change${offer.count === 1 ? "" : "s"}`;
@@ -574,8 +574,9 @@ function OfferBanner({ offer, busy, onRestore, onDiscard }: { offer: DraftOffer;
   return (
     <div className="banner notice-warning" role="status">
       <span>
-        <strong>Unsaved edits made with another version of BoxOps</strong>
-        {when ? ` (last changed ${when})` : ""} can’t be opened here.
+        <strong>{offer.unreadable ? "Unsaved edits kept in this browser can’t be read" : "Unsaved edits made with another version of BoxOps"}</strong>
+        {when ? ` (last changed ${when})` : ""}
+        {offer.unreadable ? ", so they can’t be opened." : " can’t be opened here."}
       </span>
       <button className="primary" onClick={() => downloadJson({ [offer.key]: offer.value })}>
         Download my unsaved edits (JSON)

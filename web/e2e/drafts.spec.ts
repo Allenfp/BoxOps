@@ -79,6 +79,17 @@ test("a draft left by a tab that's no longer open is offered to restore, never t
   await expect(offer).toHaveCount(0);
 });
 
+test("unsaved edits that can't be read are said to be unreadable, to download or discard", async ({ page, github: _ }) => {
+  await page.evaluate(() => localStorage.setItem("boxops-draft:acme/roadmap@main:0000abcd", "{ not JSON"));
+  await page.reload();
+  const offer = page.locator(".banner", { hasText: "Unsaved edits kept in this browser can’t be read" });
+  await expect(offer).toHaveText("Unsaved edits kept in this browser can’t be read, so they can’t be opened.Download my unsaved edits (JSON)Discard…");
+  page.once("dialog", (d) => d.accept());
+  await offer.getByRole("button", { name: "Discard…" }).click();
+  await expect(offer).toHaveCount(0);
+  expect(await storedDrafts(page)).toEqual({});
+});
+
 test("a duplicated tab, opened before the original had changes, never touches the original's draft", async ({ page, github }) => {
   // Duplicating a tab copies its sessionStorage, tab id and all: both start with one key.
   const id = (tab: Page) => tab.evaluate(() => sessionStorage.getItem("boxops-tab"));

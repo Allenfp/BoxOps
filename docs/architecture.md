@@ -250,8 +250,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
   The single key every tab shared before 0.1.0 moves over once, and is
   offered like one left by a tab that's gone (a tab still running the older
   BoxOps may have it open), with no time: it never said when it was written.
-- **Other versions.** A draft in another data format (or one that can't be
-  read) is never opened: "Download my unsaved edits (JSON)" or Discard.
+- **Other versions.** A draft in another data format, or one that can't be
+  read (said so: not JSON, or broken), is never opened: "Download my unsaved
+  edits (JSON)" or Discard.
 - **Limits.** Safari deletes a site's storage after 7 days of use without a
   visit to it, drafts included; and project sites on `<owner>.github.io`
   share one origin, so one storage quota.

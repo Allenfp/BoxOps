@@ -424,8 +424,23 @@ describe("stored drafts", () => {
       const o = openDraft(base, SCOPE, stores);
       expect(o.restored).toBeUndefined();
       expect(o.key).not.toBe(at("aaaa0001"));
-      expect(o.offers).toEqual([{ key: at("aaaa0001"), value: newer, restorable: false, count: 0, savedAt: "2026-10-03T08:00:00.000Z" }]);
+      expect(o.offers).toEqual([{ key: at("aaaa0001"), value: newer, restorable: false, unreadable: false, count: 0, savedAt: "2026-10-03T08:00:00.000Z" }]);
       expect(JSON.parse(stores.local.getItem(at("aaaa0001"))!)).toEqual(newer);
+    });
+
+    it("tells a draft it can't read (not JSON, or broken) from one another version wrote", () => {
+      const base = loaded();
+      const stores = { local: memory(), session: memory() };
+      stores.local.setItem(at("aaaa0001"), "{ not JSON");
+      stores.local.setItem(at("bbbb0002"), JSON.stringify(recordOf(base, edited(base), { items: { "box:a": { now: "not a box" } } })));
+      stores.local.setItem(at("cccc0003"), JSON.stringify(recordOf(base, edited(base), { v: 3 })));
+      const o = openDraft(base, SCOPE, stores);
+      // Newest first; one that isn't JSON says no time, so last.
+      expect(o.offers.map((x) => [x.key, x.restorable, x.unreadable])).toEqual([
+        [at("bbbb0002"), false, true],
+        [at("cccc0003"), false, false],
+        [at("aaaa0001"), false, true],
+      ]);
     });
 
   });
