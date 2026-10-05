@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { PX_PER_DAY } from "../src/timeline/scale";
 import type { FakeGitHub } from "./fake-github";
 import { CDC, DAGSTER, MONTH_PX, box, boxDates, boxFile, expect, pollNow, save, test, toolbar } from "./helpers";
@@ -134,6 +134,52 @@ test("only the pointer that pressed drags, and a drag whose release is missed is
   await expect(toolbar(page)).toContainText("Save · 1 change");
 });
 
+test("a finger drags a box or a PTO block, though what it pressed loses the pointer to the timeline", async ({ page, github: _, browserName }) => {
+  if (browserName === "chromium") {
+    // Real touches, which only Chromium takes from Playwright (through its DevTools protocol).
+    // The browser captures a touch to what it pressed; once the drag starts, the timeline takes it.
+    await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+    await expect(page.getByRole("dialog", { name: /Edit PTO/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const block = page.locator(".pto-block").first();
+    await expect(block).toHaveAttribute("title", /2026-10-05 – 2026-10-09/);
+    const cdp = await page.context().newCDPSession(page);
+    const swipe = async (el: Locator, dx: number) => {
+      const b = (await el.boundingBox())!;
+      const left = Math.max(b.x, 340); // clear of the labels
+      const x = left + Math.min((b.x + b.width - left) / 2, 40);
+      const y = b.y + b.height / 2;
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, id: 1 }] });
+      for (let i = 1; i <= 10; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x + (dx * i) / 10, y, id: 1 }] });
+      await expect(page.locator(".dragging")).toHaveCount(1);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    };
+    await swipe(box(page, DAGSTER), MONTH_PX * 5);
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-21 – 2026-10-30");
+    await swipe(block, MONTH_PX * 5);
+    await expect(block).toHaveAttribute("title", /2026-10-12 – 2026-10-16/);
+    await expect(toolbar(page)).toContainText("Save · 2 changes");
+    return;
+  }
+  // Elsewhere, a mouse drag told that what it pressed lost the pointer, as a touch's would be,
+  // carries on. The timeline itself losing it ends the drag, cancelled.
+  await watchPointer(page);
+  await hold(page, DAGSTER, MONTH_PX * 5, 0);
+  const id = await pointerId(page);
+  const lose = (el: Locator) => el.evaluate((t, pointerId) => t.dispatchEvent(new PointerEvent("lostpointercapture", { pointerId, bubbles: true })), id);
+  await lose(box(page, DAGSTER).locator(".box-name"));
+  await expect(page.locator(".box.dragging")).toHaveCount(1);
+  await page.mouse.up();
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-21 – 2026-10-30");
+  await hold(page, DAGSTER, MONTH_PX * 5, 0);
+  await lose(page.locator(".timeline"));
+  await expect(page.locator(".box.dragging")).toHaveCount(0);
+  await page.mouse.up();
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-21 – 2026-10-30");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+});
+
 test("a drag lost with no release to come leaves the keyboard's next click alone", async ({ page, github: _ }) => {
   // Pressed and dragged, then the window left (⌘Tab): the button comes up in another app, so no click follows.
   await box(page, DAGSTER).evaluate((el) => {
@@ -195,7 +241,9 @@ test("scrolling mid-drag carries the box along, and near an edge the timeline sc
 test("a PTO block dragged at quarters zoom moves whole weeks", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: "Quarters" }).click();
   await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+  await expect(page.getByRole("dialog", { name: /Edit PTO/ })).toBeVisible();
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   const block = page.locator(".pto-block").first();
   await expect(block).toHaveAttribute("title", /2026-10-05 – 2026-10-09/);
   const b = (await block.boundingBox())!;

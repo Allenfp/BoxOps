@@ -596,7 +596,9 @@ when a focused element is removed.
   Edge: how the timeline grid's rows and cells are spoken (and whether
   every box is said to be "collapsed"), a move's announcements, Alt+← and
   Alt+→ on Windows, and ⌘← and ⌘→ (Home and End on the grid) never going
-  Back or Forward in a Mac browser with history.
+  Back or Forward in a Mac browser with history. And a finger dragging a
+  box on a real touch screen (iPad Safari, Android Chrome): the tests send
+  touches to Chromium alone.
 
 ## Timeline layout
 
@@ -615,10 +617,12 @@ when a focused element is removed.
   edits, not someone else's save merged in). Nothing is blocked.
 - **Dragging** (`timeline/drag.ts`, `components/followPointer.ts`). Only the
   pointer that pressed moves a box, PTO block or department heading; once
-  dragging it's captured, and a release the page never hears (no button
-  held, the window left) cancels the drag, as Escape does, which cancels
-  nothing else. The click a release makes after a drag, or after a
-  cancelled one, does nothing. A box's lane is the one under its top, and
+  dragging it's captured by the scroller it's in (a touch or pen press,
+  which the browser captured to what it pressed, moves over: that isn't
+  the drag lost), and a release the page never hears (no button held, the
+  window left) cancels the drag, as Escape does, which cancels nothing
+  else. The click a release makes after a drag, or after a cancelled one,
+  does nothing. A box's lane is the one under its top, and
   changes only once it's dragged half a slot up or down: a sideways drag
   keeps it, whichever part of a tall box was held. The layout stays as it
   was until the drop (nothing moves under the pointer, no department

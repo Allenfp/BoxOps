@@ -3,9 +3,10 @@
 // pointer that pressed counts (a second finger on a touch screen is ignored).
 // Once a drag has started, the pointer is captured by `capture` (a scroller,
 // which never re-mounts), so a release outside the window still arrives; a
-// press is left uncaptured until then, so a plain click still goes to what
-// was pressed. A release the page never hears (the window lost focus
-// mid-press, a context menu opened) ends the drag as Escape does: cancelled.
+// mouse press is left uncaptured until then, so a plain click still goes to
+// what was pressed (a touch or pen press the browser captures to it). A
+// release the page never hears (the window lost focus mid-press, a context
+// menu opened) ends the drag as Escape does: cancelled.
 
 export interface PointerFollower {
   /** The pressed pointer moved; true once it's a drag (rather than a click still). */
@@ -36,7 +37,9 @@ export function followPointer(down: { pointerId: number }, capture: HTMLElement 
     }
   };
   const up = (e: PointerEvent) => e.pointerId === id && stop(true);
-  const lost = (e: PointerEvent) => e.pointerId === id && stop(false);
+  // Only `capture` losing the pointer counts: what a touch or pen pressed (inside `capture`) loses
+  // it as the drag starts and `capture` takes it, and that bubbles up to here too.
+  const lost = (e: PointerEvent) => e.pointerId === id && (e.type !== "lostpointercapture" || e.target === capture) && stop(false);
   const key = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
     // Escape cancels a drag under way, and nothing else (not an editor open beside it).
