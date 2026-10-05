@@ -270,6 +270,27 @@ describe("DraftWriter", () => {
     w.mark(NOW);
     expect(local.data.size).toBe(0);
   });
+
+  it("a draft restored from a tab that's gone is removed only once this tab's draft, with it in, is written", () => {
+    const { local, w } = setup();
+    const left = draftKey(SCOPE, "cccc0003");
+    local.setItem(left, JSON.stringify(record({ alive: 0 })));
+    w.changed(); // an edit before the restore, waiting to be written
+    w.removeOnceWritten(left);
+    vi.advanceTimersByTime(1000); // written, but without what was restored
+    expect(local.data.has(left)).toBe(true);
+    expect(w.removing).toEqual([left]);
+
+    w.track(() => record({ savedAt: "restored" })); // the draft with it in
+    local.fail = true;
+    w.write();
+    expect(local.data.has(left)).toBe(true); // this tab's copy wasn't kept: neither goes
+    local.fail = false;
+    w.flush();
+    expect(local.data.has(left)).toBe(false);
+    expect(JSON.parse(local.getItem(w.key)!).savedAt).toBe("restored");
+    expect(w.removing).toEqual([]);
+  });
 });
 
 describe("tabs that start with one id (a duplicated tab copies sessionStorage)", () => {

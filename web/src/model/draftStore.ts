@@ -313,6 +313,9 @@ export class DraftWriter {
   /** The last write was refused: what's stored, if anything, is older than the draft. */
   private failed = false;
   private record: () => StoredDraft | null = () => null;
+  /** Drafts restored from tabs that are gone: removed once a write of this tab's holds them (`armed`). */
+  private restored: string[] = [];
+  private armed: string[] = [];
 
   constructor(
     private current: string,
@@ -331,6 +334,21 @@ export class DraftWriter {
   /** What to store from now on: the draft as it is now. */
   track(record: () => StoredDraft | null): void {
     this.record = record;
+    this.armed.push(...this.restored.splice(0));
+  }
+
+  /**
+   * The draft left by a gone tab under `key` was restored into this one:
+   * remove it once this tab's draft, as tracked from now on, is written, so
+   * there's never a moment with neither.
+   */
+  removeOnceWritten(key: string): void {
+    this.restored.push(key);
+  }
+
+  /** Drafts restored from gone tabs and not yet removed. */
+  get removing(): readonly string[] {
+    return [...this.restored, ...this.armed];
   }
 
   /** The draft changed: write it soon. */
@@ -352,6 +370,7 @@ export class DraftWriter {
     this.claim();
     const ok = put(this.stores.local, this.current, r === null ? null : JSON.stringify({ ...r, page: this.page }));
     this.failed = !ok;
+    if (ok) for (const key of this.armed.splice(0)) put(this.stores.local, key, null);
     this.on.result(ok);
   }
 

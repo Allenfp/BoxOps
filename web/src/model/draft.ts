@@ -620,7 +620,7 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     const count = () => setOthers(otherTabs(scope, writer.key, Date.now(), local));
     const lookAround = () => {
       if (document.hidden) return;
-      const known = new Set(latest.current.offers.map((o) => o.key));
+      const known = new Set([...latest.current.offers.map((o) => o.key), ...writer.removing]);
       const left = leftBehind(scope, writer.key, Date.now(), local).filter((f) => !known.has(f.key));
       const more = offersFor(left, latest.current.base, local);
       if (more.length) setOffers((cur) => [...cur, ...more.filter((o) => !cur.some((c) => c.key === o.key))]);
@@ -670,7 +670,10 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     };
   }, [stores, scope, writer]);
 
-  /** Bring in a draft left by a tab that's gone: its items over ours, as one undo step. */
+  /**
+   * Bring in a draft left by a tab that's gone: its items over ours, as one
+   * undo step. It's removed once this tab's draft, with them in, is written.
+   */
   const restoreOffer = useCallback(
     (key: string) => {
       const found = asRecord(readValue(stores.local, key));
@@ -684,9 +687,9 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
       }
       const values = new Map(Object.keys(found.items).map((k) => [k, entityOf(r.draft, k)]));
       dispatch({ type: "adopt", values, conflicts: r.conflicts });
-      removeDraft(key, stores.local);
+      writer.removeOnceWritten(key);
     },
-    [stores, base, dispatch],
+    [stores, base, dispatch, writer],
   );
   /** Throw away a draft on offer, for good. */
   const discardOffer = useCallback(
