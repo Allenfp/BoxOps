@@ -19,7 +19,7 @@ import {
   startHistory,
 } from "./draft";
 import type { DeltaItem } from "./draftStore";
-import { addDepartment, moveDepartment, removeDepartment } from "./structure";
+import { addDepartment, moveDepartment, removeDepartment, updateDepartment } from "./structure";
 import type { Box, Department, Person } from "./types";
 import { DEFAULT_SETTINGS } from "./load";
 import { describeChanges } from "./summary";
@@ -497,6 +497,19 @@ describe("departments added, removed and reordered", () => {
     expect(back.departments.map((d) => d.order)).toEqual([1, 2, 3]);
     expect(diffDraft(base, back).count).toBe(0);
     expect(describeChanges(base, back)).toEqual([]);
+  });
+
+  it("a rename among departments with the same `order` isn't a reorder, though it sorts them anew", () => {
+    // Hand-made departments without `order` (0): shown by name.
+    const base = state([{ ...dept("aa", 0), name: "Alpha" }, { ...dept("bb", 0), name: "Beta" }, { ...dept("cc", 0), name: "Gamma" }]);
+    const renamed = updateDepartment(base, "aa", { name: "Zeta" });
+    expect(diffDraft(base, renamed).count).toBe(1);
+    expect(describeChanges(base, renamed).map((l) => l.text)).toEqual(["Renamed department **Alpha** to **Zeta**"]);
+    // A move then renumbers them all, in the order they're shown.
+    const moved = moveDepartment(renamed, "bb", 1);
+    expect(moved.departments.map((d) => [d.id, d.order])).toEqual([["aa", 1], ["cc", 2], ["bb", 3]]);
+    expect(describeChanges(base, moved).map((l) => l.text)).toEqual(["Renamed department **Alpha** to **Zeta**", "Reordered departments"]);
+    expect(diffDraft(base, moved).count).toBe(2);
   });
 
   it("a change with no words of its own still gets a line", () => {

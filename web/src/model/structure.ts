@@ -32,8 +32,10 @@ export function newLaneId(dept: Department, state: DraftState, reserved: Readonl
 
 /**
  * Departments sorted by their `order`, renumbered 1, 2, 3…: only for a
- * reorder the user asked for. Adding or removing one leaves the others' files
- * alone (only the order matters, so gaps and repeats are fine).
+ * reorder the user asked for. Ties keep their place in the list, which is the
+ * order the views show (by name when loaded; a rename doesn't move one on
+ * screen). Adding or removing one leaves the others' files alone (only the
+ * order matters, so gaps and repeats are fine).
  */
 function renumber(departments: Department[]): Department[] {
   return [...departments].sort((a, b) => a.order - b.order).map((d, i) => (d.order === i + 1 ? d : { ...d, order: i + 1 }));

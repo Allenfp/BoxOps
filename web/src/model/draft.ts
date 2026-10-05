@@ -79,9 +79,13 @@ export function departmentOrder(departments: Department[]): Department[] {
 /**
  * Whether the departments both lists have stand in a different order. Only
  * the order matters, not the numbers: a department added or deleted, or ones
- * renumbered without moving, isn't a reorder.
+ * renumbered without moving, isn't a reorder. Nor is a rename, though it may
+ * sort a department elsewhere among others with the same `order`: some
+ * department's number must have changed.
  */
 export function departmentsReordered(base: Department[], current: Department[]): boolean {
+  const was = new Map(base.map((d) => [d.id, d.order]));
+  if (!current.some((d) => was.has(d.id) && was.get(d.id) !== d.order)) return false;
   const ids = (list: Department[], keep: Set<string>) =>
     departmentOrder(list)
       .filter((d) => keep.has(d.id))
