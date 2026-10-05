@@ -63,9 +63,10 @@ describe("readRoadmapGit", () => {
 
   it("keeps a BOM and CRLF line ends, so the text hashes to the blob SHA", async () => {
     const text = "\uFEFFformat: 1\r\n";
-    const folder = await read(repoWith({ "settings.yaml": text }));
+    const r = repoWith({ "settings.yaml": text });
+    const folder = await read(r);
     expect(folder.files["settings.yaml"]).toBe(text);
-    expect(folder.blobs["settings.yaml"]).toBe(new TestRepo().blob(text));
+    expect(folder.blobs["settings.yaml"]).toBe(r.repo.blob(text));
   });
 
   it("refuses symlinks and submodules anywhere but hidden paths, naming each", async () => {
