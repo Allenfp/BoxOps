@@ -578,10 +578,10 @@ when a focused element is removed.
   Forward (on a box not picked up, they say to pick it up first). While
   the timeline is read-only (a preview, or saving), its cells stay, as
   text or `aria-disabled` buttons, and keys that would change something
-  say why they don't. The dates along the top, grid
-  lines, hatching and drag labels are hidden from screen readers. A box's
-  scale card shows on hover and while the box has keyboard focus; the
-  pointer can move onto it and Escape puts it away (WCAG 1.4.13).
+  say why they don't. The dates along the top, grid lines, hatching and
+  drag labels are hidden from screen readers. A box's scale card shows on
+  hover and while the box has keyboard focus; the pointer can move onto it
+  and Escape puts it away (WCAG 1.4.13).
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to
@@ -593,8 +593,10 @@ when a focused element is removed.
   with full-size targets. The **+** buttons are 24 px.
 - **Not yet checked by a person.** What a test can't hear needs a person
   with VoiceOver and Safari, NVDA with Firefox or Chrome, and JAWS with
-  Edge: how the timeline grid's rows and cells are spoken, a move's
-  announcements, and Alt+← and Alt+→ while moving on Windows.
+  Edge: how the timeline grid's rows and cells are spoken (and whether
+  every box is said to be "collapsed"), a move's announcements, Alt+← and
+  Alt+→ on Windows, and ⌘← and ⌘→ (Home and End on the grid) never going
+  Back or Forward in a Mac browser with history.
 
 ## Timeline layout
 
@@ -669,8 +671,9 @@ when a focused element is removed.
   what's announced (an init script records every message the live regions
   are given); `e2e/keyboard.spec.ts` checks where focus goes and what keys
   do, `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's
-  keyboard grid and moves, and `e2e/drag.spec.ts` dragging. WebKit's Tab skips buttons, as Safari's does by default, so those
-  tests focus a control and check where focus lands.
+  keyboard grid and moves, and `e2e/drag.spec.ts` dragging. WebKit's Tab
+  skips buttons, as Safari's does by default, so those tests focus a
+  control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build with a generated 2,000-box roadmap
   (`scripts/gen-roadmap.ts`; and a 500-box one) as its `roadmap.json`,
