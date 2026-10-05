@@ -8,7 +8,7 @@
 
 import { type PointerEvent as ReactPointerEvent, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { announce } from "../a11y/announce";
-import { followPointer } from "./followPointer";
+import { followPointer, swallowNextClick } from "./followPointer";
 
 const THRESHOLD = 4;
 /** Distance (px) from the scroller's top or bottom edge that scrolls it. */
@@ -107,12 +107,7 @@ export function useReorder(
           setLine(null);
           if (!p?.active) return;
           // The release would also click whatever is under it (e.g. collapse the department): swallow that.
-          const swallow = (c: Event) => {
-            c.stopPropagation();
-            c.preventDefault();
-          };
-          window.addEventListener("click", swallow, { capture: true, once: true });
-          setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
+          swallowNextClick();
           if (released && p.target !== null) onMoveRef.current(p.id, p.target);
         },
       });

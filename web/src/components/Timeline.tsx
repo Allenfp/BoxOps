@@ -40,7 +40,7 @@ import { DEFAULT_PREFS, type Prefs } from "../prefs";
 import { UseChart } from "./UseChart";
 import { reorderByKey, useReorder } from "./useReorder";
 import { focusLater } from "../a11y/focus";
-import { followPointer } from "./followPointer";
+import { followPointer, swallowNextClick } from "./followPointer";
 import { cellOf, useGridFocus } from "./useGridFocus";
 import { announce } from "../a11y/announce";
 import { APPLE, letter, undoHint } from "../a11y/keys";
@@ -475,7 +475,8 @@ export function Timeline(props: Props) {
         scrolling?.stop();
         document.body.classList.remove("dragging-move", "dragging-resize");
         setPreview(null);
-        // A press that didn't drag is a click: the box's onClick opens it.
+        // A press that didn't drag is a click: the box's onClick opens it. Not after a drag, nor once cancelled.
+        if (!released || scrolling) swallowNextClick();
         if (!released || !scrolling) return;
         const changed = placement.lane !== box.lane || placement.start !== box.start || placement.end !== box.end;
         if (changed) latest.current.props.onPlaceBox(box.id, placement);
@@ -529,6 +530,7 @@ export function Timeline(props: Props) {
         scrolling?.stop();
         document.body.classList.remove("dragging-move", "dragging-resize");
         setPtoPreview(null);
+        if (!released || scrolling) swallowNextClick();
         if (!released || !scrolling) return;
         if (dates.start !== pto.start || dates.end !== pto.end) latest.current.props.onPlacePto?.(ref, dates);
       },

@@ -8,11 +8,17 @@ import { CDC, DAGSTER, MONTH_PX, box, boxDates, boxFile, expect, pollNow, save, 
 
 const DASHBOARDS = "bx-2c9e-exec-dashboards";
 
-/** Exec dashboards (an-1, from 2026-10-19) needs 2 FTE, with the lane below it free (someone else's save). */
+const REVENUE = "bx-1b8d-revenue-mart";
+
+/**
+ * Exec dashboards (an-1, from 2026-10-19) needs 2 FTE, and Revenue mart (an-1, until 2026-10-09)
+ * 1.5, with the lane below them free (someone else's save).
+ */
 async function twoFteDashboards(page: Page, github: FakeGitHub) {
   github.deploy(
     github.otherSave({
       [boxFile(DASHBOARDS)]: (t) => t.replace("type: project\n", "type: project\nfte: 2\n"),
+      [boxFile(REVENUE)]: (t) => t.replace("type: project\n", "type: project\nfte: 1.5\n"),
       [boxFile("bx-3d0f-attribution-model")]: (t) => t.replace("start: 2026-09-07\nend: 2027-03-26", "start: 2027-04-05\nend: 2027-06-25"),
     }),
   );
@@ -20,10 +26,11 @@ async function twoFteDashboards(page: Page, github: FakeGitHub) {
   await expect.poll(async () => (await box(page, DASHBOARDS).boundingBox())!.height).toBeGreaterThan(80);
 }
 
-/** Press on a box at `fy` of its height (and 60 px in), and move by dx, dy, holding on. */
+/** Press on a box at `fy` of its height (and up to 60 px into what's on screen of it, clear of the labels), and move by dx, dy, holding on. */
 async function hold(page: Page, id: string, dx: number, dy: number, fy = 0.5) {
   const b = (await box(page, id).boundingBox())!;
-  const x = b.x + Math.min(b.width / 2, 60);
+  const left = Math.max(b.x, 340); // clear of the labels, and of the edge where a drag scrolls
+  const x = left + Math.min((b.x + b.width - left) / 2, 60);
   const y = b.y + b.height * fy;
   await page.mouse.move(x, y);
   await page.mouse.down();
@@ -31,7 +38,7 @@ async function hold(page: Page, id: string, dx: number, dy: number, fy = 0.5) {
   await page.mouse.move(x + dx, y + dy, { steps: 4 });
 }
 
-test("a 2-FTE box dragged sideways keeps its lane, held by either half; dragged down, its top picks the lane", async ({ page, github }) => {
+test("a 2- or 1.5-FTE box dragged sideways keeps its lane, wherever it's held; dragged down, its top picks the lane", async ({ page, github }) => {
   await twoFteDashboards(page, github);
   // Held in the middle, which is the lane below its top.
   await hold(page, DASHBOARDS, MONTH_PX * 5, 0);
@@ -41,9 +48,15 @@ test("a 2-FTE box dragged sideways keeps its lane, held by either half; dragged 
   await hold(page, DASHBOARDS, MONTH_PX * 5, 5, 0.85);
   await page.mouse.up();
   await expect.poll(() => boxDates(page, DASHBOARDS)).toBe("2026-11-02 – 2027-02-12");
+  // A 1.5-FTE box held in its bottom third, which is over the lane below.
+  await hold(page, REVENUE, -MONTH_PX * 5, 0, 0.9);
+  await expect(page.locator('.lane-row.drop-target [data-lane="an-1"]')).toHaveCount(1);
+  await page.mouse.up();
+  await expect.poll(() => boxDates(page, REVENUE)).toBe("2026-07-06 – 2026-10-02");
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
   expect(github.file(boxFile(DASHBOARDS))).toContain("lane: an-1\n");
+  expect(github.file(boxFile(REVENUE))).toContain("lane: an-1\n");
   expect(github.headCommit().message).not.toContain("moved from");
 
   // One lane down: its top is in the second lane. Further down, it's drawn inside the department still.

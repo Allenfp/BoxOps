@@ -66,3 +66,23 @@ export function followPointer(down: { pointerId: number }, capture: HTMLElement 
   capture?.addEventListener("lostpointercapture", lost);
   return () => stop(false);
 }
+
+/**
+ * The click the pointer's release makes once a drag is over (on what was
+ * dragged, or where it was let go) does nothing: a drag isn't a click, and a
+ * drag cancelled with Escape doesn't open or collapse anything when the
+ * button comes up later. Until the next press, at the latest.
+ */
+export function swallowNextClick(): void {
+  const swallow = (e: Event) => {
+    e.stopPropagation();
+    e.preventDefault();
+    done();
+  };
+  const done = () => {
+    window.removeEventListener("click", swallow, true);
+    window.removeEventListener("pointerdown", done, true);
+  };
+  window.addEventListener("click", swallow, true);
+  window.addEventListener("pointerdown", done, true);
+}
