@@ -92,14 +92,18 @@ test("a save while an upgrade to a newer data format deploys is refused, nothing
 
 test("the site's notices show as plain text, and can be put away", async ({ page, github }) => {
   const text = "BoxOps v0.1.1 fixes a security problem; this site runs v0.1.0. <b>Ask an admin</b> to merge the upgrade.";
-  github.patchBundle = (b) => ({ ...b, notices: [{ level: "security", text }] });
+  const info = "The roadmap moves to a new repository on 2026-10-09.";
+  // The same notice twice (a site's notices file, say, and its default) is shown once.
+  github.patchBundle = (b) => ({ ...b, notices: [{ level: "security", text }, { level: "info", text: info }, { level: "security", text }] });
   await page.reload();
   const notice = page.locator(".banner.notice-security");
   await expect(notice).toHaveText(text);
   await expect(notice.locator("b")).toHaveCount(0);
+  await expect(page.locator(".banner.notice-info")).toHaveText(info);
   await notice.getByRole("button", { name: "Dismiss" }).click();
   await expect(notice).toHaveCount(0);
   await pollNow(page);
   await expect(page.locator(".box").first()).toBeVisible();
   await expect(notice).toHaveCount(0);
+  await expect(page.locator(".banner.notice-info")).toHaveText(info);
 });

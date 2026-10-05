@@ -585,6 +585,9 @@ function OfferBanner({ offer, busy, onRestore, onDiscard }: { offer: DraftOffer;
   );
 }
 
+/** A site notice's key, by what it says: the same notice twice is shown once. */
+const noticeKey = (n: Notice) => `${n.level}:${n.text}`;
+
 /** `roadmap/people.yaml, line 12: …` */
 const issueText = (i: Issue) => `roadmap/${i.path}${i.line ? `, line ${i.line}` : ""}: ${i.message}`;
 
@@ -1255,9 +1258,9 @@ function RoadmapView(props: ViewProps) {
       </header>
 
       {props.notices
-        .filter((n) => !dismissed.includes(n.text))
+        .filter((n, i, all) => all.findIndex((m) => noticeKey(m) === noticeKey(n)) === i && !dismissed.includes(n.text))
         .map((n) => (
-          <div key={n.text} className={`banner notice-${n.level}`} role={n.level === "info" ? "status" : "alert"}>
+          <div key={noticeKey(n)} className={`banner notice-${n.level}`} role={n.level === "info" ? "status" : "alert"}>
             <span>{n.text}</span>
             <button className="icon-button" onClick={() => setDismissed((d) => [...d, n.text])} aria-label="Dismiss">
               <Icon name="x" size={16} />

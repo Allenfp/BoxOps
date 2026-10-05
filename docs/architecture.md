@@ -152,8 +152,8 @@ both.
   a row show a calm notice, "Lost the connection to the site", with Reload,
   until a check succeeds. Coming back online checks at once. A failed check
   never counts as an app update. Every `roadmap.json` fetched also brings
-  the site's `notices`, shown as plain-text banners (never HTML) that can be
-  put away.
+  the site's `notices`, shown as plain-text banners (never HTML; the same
+  one once) that can be put away.
 - **Previews.** `?ref=<branch>` shows another branch read-only, read the same
   way (only files that differ from `main`'s are fetched). The name is checked
   against git's rules before any call. A private repository without a token
