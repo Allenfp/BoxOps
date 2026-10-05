@@ -77,8 +77,8 @@ a commit on `main`. So:
 Don't open pull requests or create branches for roadmap edits unless asked:
 the team's convention is that saves go straight to `main`. Changes to the app
 itself (`web/`) are different: do those on a branch, run `npm run lint`,
-`npm test` and `npm run e2e`, and merge only when the user says to (merging
-deploys).
+`npm run typecheck`, `npm test`, `npm run validate` and `npm run e2e`, and
+merge only when the user says to (merging deploys).
 
 ## Commit messages
 
