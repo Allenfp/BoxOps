@@ -88,6 +88,9 @@ export function fileIssue(path: string, message: string, line?: number, lossy = 
   return { path, message, ...(line !== undefined && { line }), key: `${path}|${same}`, ...(lossy && { lossy: true as const }) };
 }
 
+/** The problem of a file skipped because one that sorts before it (x.yaml beside x.yml) has its id. */
+export const alreadyUsed = (id: string, other: string) => `id: "${id}" is already used by ${other}, so this file is skipped`;
+
 /** A file that isn't a roadmap file: nothing in it is read. */
 export const otherFile = (path: string): ParsedFile => ({ path, kind: "other", issues: [] });
 
@@ -141,7 +144,7 @@ export function assemble(parsed: Record<string, ParsedFile>, ignored: string[] =
     const other = sources.departments.get(dept.id);
     if (other) {
       // departments/x.yaml and departments/x.yml
-      drop(path, `id: "${dept.id}" is already used by ${other}, so this file is skipped`, f.lines.id);
+      drop(path, alreadyUsed(dept.id, other), f.lines.id);
       continue;
     }
     sources.departments.set(dept.id, path);
@@ -185,7 +188,7 @@ export function assemble(parsed: Record<string, ParsedFile>, ignored: string[] =
     if (!box) continue;
     const other = sources.boxes.get(box.id);
     if (other) {
-      drop(path, `id: "${box.id}" is already used by ${other}, so this file is skipped`, f.lines.id);
+      drop(path, alreadyUsed(box.id, other), f.lines.id);
       continue;
     }
     if (!laneOwner.has(box.lane)) {

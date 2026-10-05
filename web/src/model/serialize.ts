@@ -13,7 +13,7 @@ import { Document, isMap, isScalar, isSeq, parseDocument, type Scalar, visit, ty
 import { formatDay } from "./dates";
 import { diffDraft, normalize, type DraftState } from "./draft";
 import { FORMAT } from "./format";
-import { DEFAULT_DEPT_COLOR, type LoadResult } from "./load";
+import { alreadyUsed, DEFAULT_DEPT_COLOR, type LoadResult } from "./load";
 import { loadRoadmap } from "./parse";
 import type { Box, Department, Person, RoadmapFiles, Settings } from "./types";
 
@@ -336,7 +336,9 @@ export function serializeChanges(
     writes.set(path, () => null);
     const twin = path.replace(/\.ya?ml$/, (ext) => (ext === ".yaml" ? ".yml" : ".yaml"));
     const problems = loaded.lossy.get(twin);
-    if (problems) twins.push({ path: twin, problems: [...problems, `deleting ${noun} "${id}" would bring this copy back in its place: delete or rename this file first`] });
+    if (problems?.includes(alreadyUsed(id, path))) {
+      twins.push({ path: twin, problems: [...problems, `deleting ${noun} "${id}" would bring this copy back in its place: delete or rename this file first`] });
+    }
   };
   for (const b of changes.removed) remove(boxPath(b.id), b.id, "box");
 

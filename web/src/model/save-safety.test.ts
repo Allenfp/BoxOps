@@ -147,8 +147,10 @@ describe("each item is written to the file it was loaded from", () => {
         ],
       },
     ]);
-    // Editing it is saved as ever.
+    // Editing it is saved as ever, and so is deleting it beside a copy that wouldn't load anyway.
     expect(Object.keys(save(boxes, (s) => editBox(s, "b1", { title: "Renamed" })))).toEqual(["boxes/b1.yaml"]);
+    const broken = { ...boxes, "boxes/b1.yml": "id: b1\ncode: [\n" };
+    expect(save(broken, (s) => ({ ...s, boxes: s.boxes.filter((b) => b.id !== "b1") }))).toEqual({ "boxes/b1.yaml": null });
 
     const depts = { ...ROADMAP, "departments/eng.yml": DEPT.replace("name: Eng", "name: Old copy") };
     const out = refused(depts, (s) => ({ ...s, boxes: [], departments: [] }));
