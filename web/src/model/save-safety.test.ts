@@ -23,6 +23,9 @@ const ROADMAP: RoadmapFiles = {
   "boxes/b2.yaml": box("b2", "B2X"),
 };
 
+const shipped = readRoadmapDir(resolve(__dirname, "../../../roadmap"));
+const fixture = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
+
 /** The roadmap loaded from these files, as the app's draft starts out. */
 function loaded(files: RoadmapFiles): DraftState {
   const { roadmap: r } = loadRoadmap(files);
@@ -124,8 +127,6 @@ describe("each item is written to the file it was loaded from", () => {
 });
 
 describe("untouched lines stay as written", () => {
-  const shipped = { ...readRoadmapDir(resolve(__dirname, "../../../roadmap")) };
-  const fixture = { ...readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap")) };
 
   for (const [name, files] of [["roadmap/", shipped], ["the e2e fixture", fixture]] as const) {
     it(`in every file of ${name} when one field changes`, () => {
@@ -177,6 +178,25 @@ describe("untouched lines stay as written", () => {
     expect(changedLines(files["boxes/b1.yaml"], out)).toEqual(["end: 2026-01-23"]);
     expect(out).toContain('code: "234"\ntitle: "1.10"\n');
   });
+});
+
+describe("a file rewritten with what it already says", () => {
+  const bomCrlf = (files: RoadmapFiles) => Object.fromEntries(Object.entries(files).map(([p, t]) => [p, `\uFEFF${t.replace(/\n/g, "\r\n")}`]));
+  /** Every item with one field changed, so a save from here back to the files rewrites every file. */
+  const stale = (s: DraftState): DraftState => ({
+    boxes: s.boxes.map((b) => ({ ...b, title: `${b.title} (old)` })),
+    departments: s.departments.map((x) => ({ ...x, name: `${x.name} (old)` })),
+    people: s.people.map((p) => ({ ...p, name: `${p.name} (old)` })),
+    settings: { ...s.settings, title: `${s.settings.title} (old)` },
+  });
+
+  for (const [name, files] of [["roadmap/ (and its settings.yaml template)", shipped], ["the e2e fixture", fixture], ["roadmap/ with a BOM and CRLF line endings", bomCrlf(shipped)]] as const) {
+    it(`comes out byte for byte the same, for every file of ${name}`, () => {
+      const draft = loaded(files);
+      expect(Object.keys(serializeChanges(files, draft, stale(draft))).sort()).toEqual(Object.keys(files).sort());
+      expect(serializeChanges(files, stale(draft), draft)).toEqual({});
+    });
+  }
 });
 
 describe("PTO and rules are merged entry by entry", () => {
