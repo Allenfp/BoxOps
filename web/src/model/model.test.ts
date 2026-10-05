@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { headerBands, makeScale, packRows } from "../timeline/scale";
+import { headerBands, makeScale } from "../timeline/scale";
 import { formatDay, makeDay, parseDay, quarterLabel, startOfQuarter, startOfWeek, today } from "./dates";
 import { loadRoadmap } from "./parse";
-import type { Box } from "./types";
 
 describe("dates", () => {
   it("round-trips ISO days and rejects impossible ones", () => {
@@ -32,30 +31,6 @@ describe("dates", () => {
 });
 
 describe("timeline", () => {
-  const box = (id: string, start: string, end: string): Box => ({
-    id,
-    code: id.toUpperCase().padEnd(3, "X"),
-    title: id,
-    lane: "l",
-    start: parseDay(start)!,
-    end: parseDay(end)!,
-    type: "project",
-    status: "planned",
-    fte: 1,
-  });
-
-  it("stacks only overlapping boxes", () => {
-    const { row, rows } = packRows([
-      box("a", "2026-01-01", "2026-01-31"),
-      box("b", "2026-02-01", "2026-02-28"), // touches a, no overlap
-      box("c", "2026-01-15", "2026-02-10"), // overlaps both
-    ]);
-    expect(rows).toBe(2);
-    expect(row.get("a")).toBe(0);
-    expect(row.get("c")).toBe(1);
-    expect(row.get("b")).toBe(0);
-  });
-
   it("builds header bands that tile the range", () => {
     const scale = makeScale(makeDay(2026, 10, 1), makeDay(2027, 1, 1), "quarters");
     const [quarters, months] = headerBands(scale, 1);

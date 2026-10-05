@@ -125,20 +125,3 @@ export function headerBands(scale: Scale, fyStartMonth: number): [Segment[], Seg
       ];
   }
 }
-
-/**
- * Assign overlapping boxes in one lane to stacked rows (first row that is free).
- * More than one row means the lane is over-allocated somewhere.
- */
-export function packRows(boxes: Box[]): { row: Map<string, number>; rows: number } {
-  const sorted = [...boxes].sort((a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id));
-  const rowEnds: Day[] = [];
-  const row = new Map<string, number>();
-  for (const b of sorted) {
-    let r = rowEnds.findIndex((end) => end < b.start);
-    if (r === -1) r = rowEnds.length;
-    rowEnds[r] = b.end;
-    row.set(b.id, r);
-  }
-  return { row, rows: Math.max(1, rowEnds.length) };
-}

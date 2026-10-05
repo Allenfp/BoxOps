@@ -13,12 +13,11 @@ interface Props {
   readOnly?: boolean;
   /** Shown when nobody is assigned; defaults to "Unassigned". */
   emptyLabel?: string;
-  /** Accessible name for the button. */
-  label?: string;
 }
 
 /** A dropdown of the roster with checkboxes, plus a field to add someone new. */
-export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, label = "Engineers", emptyLabel }: Props) {
+export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, emptyLabel }: Props) {
+  const label = "Engineers";
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const ref = useRef<HTMLDivElement>(null);

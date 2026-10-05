@@ -8,7 +8,6 @@ export function Popover(props: {
   label: string;
   button: ReactNode;
   buttonClass?: string;
-  align?: "left" | "right";
   /** The pointer or focus reached the button: about to open, maybe. */
   onIntent?(): void;
   children: (close: () => void) => ReactNode;
@@ -45,7 +44,7 @@ export function Popover(props: {
         {props.button}
       </button>
       {open && (
-        <div className={`popover-panel ${props.align === "left" ? "left" : ""}`} role="dialog" aria-label={props.label}>
+        <div className="popover-panel" role="dialog" aria-label={props.label}>
           {props.children(() => setOpen(false))}
         </div>
       )}

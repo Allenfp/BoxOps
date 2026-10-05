@@ -301,13 +301,13 @@ export function DepartmentEditor(props: Props) {
                           value={lane[field] === undefined ? "" : formatDay(lane[field])}
                           aria-label={`Lane ${i + 1} ${what}`}
                           onChange={(text) => {
-                            const picked = parseDay(text);
-                            // Weekends don't exist: opening moves to Monday, closing to Friday.
-                            const day = picked === null ? undefined : field === "start" ? nextWorkday(picked) : prevWorkday(picked);
+                            // A full, valid date (all DateInput gives). Weekends don't exist: opening moves to Monday, closing to Friday.
+                            const picked = parseDay(text)!;
+                            const day = field === "start" ? nextWorkday(picked) : prevWorkday(picked);
                             const patch: Partial<Lane> = { [field]: day };
                             // Keep start ≤ end: moving one past the other takes it along.
-                            if (day !== undefined && field === "start" && lane.end !== undefined && day > lane.end) patch.end = day;
-                            if (day !== undefined && field === "end" && lane.start !== undefined && day < lane.start) patch.start = day;
+                            if (field === "start" && lane.end !== undefined && day > lane.end) patch.end = day;
+                            if (field === "end" && lane.start !== undefined && day < lane.start) patch.start = day;
                             props.onUpdateLane(lane.id, patch, `${lane.id}:${field}`);
                           }}
                         />

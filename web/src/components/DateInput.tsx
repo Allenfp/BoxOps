@@ -20,11 +20,10 @@ interface Props {
   disabled?: boolean;
   autoFocus?: boolean;
   "aria-label"?: string;
-  className?: string;
   placeholder?: string;
 }
 
-export function DateInput({ value, onChange, onBlur, disabled, autoFocus, className, placeholder, ...rest }: Props) {
+export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeholder, ...rest }: Props) {
   const [draft, setDraft] = useState<string | null>(null);
   const [calendar, setCalendar] = useState<{ month: Day; style: CSSProperties } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
@@ -69,7 +68,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, classN
   return (
     <span
       ref={ref}
-      className={`date-input${invalid ? " invalid" : ""}${className ? ` ${className}` : ""}`}
+      className={`date-input${invalid ? " invalid" : ""}`}
       onKeyDown={(e) => {
         // Esc closes the calendar first, without also closing the editor around it.
         if (e.key === "Escape" && calendar) {
