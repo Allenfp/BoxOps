@@ -276,6 +276,11 @@ describe("PTO and rules are merged entry by entry", () => {
     expect(moved["people.yaml"]).toBe(roster.replace("start: 2026-07-06 # summer", "start: 2026-07-08 # summer").replace("end: 2026-07-10", "end: 2026-07-14"));
   });
 
+  it("and on one edited in a save that removes another before it", () => {
+    const out = save(files, (s) => editPerson(s, "sam", { pto: [{ ...pto(s, "sam")[1], end: d("2027-01-01") }] }))["people.yaml"];
+    expect(out).toBe(roster.replace(/      - start: 2026-07-06[^]*?dana # not an app field\n/, "").replace("end: 2026-12-31", "end: 2027-01-01"));
+  });
+
   it("never handing a removed entry's fields or comments to one added in the same save", () => {
     const wedding = { start: d("2027-05-03"), end: d("2027-05-07"), note: "Wedding" };
     const entry = "      - start: 2027-05-03\n        end: 2027-05-07\n        note: Wedding\n";

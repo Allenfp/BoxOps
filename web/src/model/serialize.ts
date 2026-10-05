@@ -59,7 +59,7 @@ const SETTINGS_KEYS = ["format", "title", "fiscal_year_start_month", "default_zo
 interface ListSpec {
   keys: string[];
   byId?: boolean;
-  /** Without ids: whether an entry edited in the place of one that's gone is still that entry (else it's a new one). */
+  /** Without ids: whether an edited entry is still the one that was loaded as `was` (else it's a new one). */
   same?(was: Plain, now: Plain): boolean;
   lists?: Lists;
 }
@@ -223,21 +223,20 @@ function mergeList(doc: Document, seq: YAMLSeq, items: Plain[], base: Plain[], s
     const baseById = new Map(base.map((b) => [String(b.id), b]));
     next = items.map((item) => merge(item, nodeById.get(String(item.id)), baseById.get(String(item.id))));
   } else {
-    // No ids: an entry that's unchanged keeps its node as it is, and one
-    // edited in its place (same position, still the same entry: spec.same)
-    // takes over the node of the one that was there. Any other is new, so
-    // hand-added fields and comments never pass to an entry that merely came
-    // in where a removed one was.
+    // No ids: an entry that's unchanged keeps its node as it is, and an
+    // edited one the node of the entry it still is (spec.same), at its own
+    // place if it can. Any other is new, so hand-added fields and comments
+    // never pass to an entry that merely came in where a removed one was.
     const used = new Set<number>();
-    const unchanged = items.map((item) => {
-      const j = base.findIndex((b, i) => !used.has(i) && same(b, item));
+    const take = (j: number) => {
       if (j >= 0) used.add(j);
       return j;
-    });
+    };
+    const unchanged = items.map((item) => take(base.findIndex((b, i) => !used.has(i) && same(b, item))));
     next = items.map((item, k) => {
-      const edited = k < base.length && !used.has(k) && !!spec.same?.(base[k], item);
-      const j = unchanged[k] >= 0 ? unchanged[k] : edited ? k : undefined;
-      return j === undefined ? merge(item, undefined, undefined) : merge(item, nodes[j], base[j]);
+      const still = (i: number) => i < base.length && !used.has(i) && !!spec.same?.(base[i], item);
+      const j = unchanged[k] >= 0 ? unchanged[k] : take(still(k) ? k : base.findIndex((_, i) => still(i)));
+      return j < 0 ? merge(item, undefined, undefined) : merge(item, nodes[j], base[j]);
     });
   }
   // New entries are written one per line, even into a `[]` or `[a, b]` list.
