@@ -1,7 +1,8 @@
 // A date field that reads as plain YYYY-MM-DD text, the same format as the
 // files, instead of the browser's locale format. Typing a full valid date
-// applies it; the calendar button opens a small month calendar of our own
-// (the browser's picker can't be closed reliably when its input is hidden).
+// applies it, and in an `optional` field clearing the text clears the date;
+// the calendar button opens a small month calendar of our own (the
+// browser's picker can't be closed reliably when its input is hidden).
 
 import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
 import { announce } from "../a11y/announce";
@@ -20,6 +21,8 @@ interface Props {
   onBlur?(): void;
   disabled?: boolean;
   autoFocus?: boolean;
+  /** The date can be left out: clearing the text clears it (onChange("")). */
+  optional?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
   /** Notes about the field (a weekend date moved to a weekday, say). */
@@ -27,7 +30,7 @@ interface Props {
   placeholder?: string;
 }
 
-export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeholder, ...rest }: Props) {
+export function DateInput({ value, onChange, onBlur, disabled, autoFocus, optional, placeholder, ...rest }: Props) {
   const [draft, setDraft] = useState<string | null>(null);
   const [calendar, setCalendar] = useState<{ month: Day; style: CSSProperties } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
@@ -113,7 +116,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
         onChange={(e) => {
           const text = e.target.value;
           setDraft(text);
-          if (ISO.test(text) && parseDay(text) !== null) {
+          if ((ISO.test(text) && parseDay(text) !== null) || (optional && text === "")) {
             onChange(text);
             setDraft(null);
           }

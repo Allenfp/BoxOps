@@ -284,9 +284,9 @@ export function TableView(props: Props) {
           onChange={(e) => setQuery(e.target.value)}
         />
         <span className="date-filter" role="group" aria-label="Dates">
-          <DateInput value={from} onChange={setFrom} aria-label="From date" placeholder="From" />
+          <DateInput value={from} onChange={setFrom} optional aria-label="From date" placeholder="From" />
           <span className="date-sep">–</span>
-          <DateInput value={to} onChange={setTo} aria-label="To date" placeholder="To" />
+          <DateInput value={to} onChange={setTo} optional aria-label="To date" placeholder="To" />
           {(from || to) && (
             <button
               className="icon-button"

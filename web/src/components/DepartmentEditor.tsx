@@ -339,10 +339,18 @@ export function DepartmentEditor(props: Props) {
                         {label}
                         <DateInput
                           autoFocus={lane[field] === undefined}
+                          optional
                           value={lane[field] === undefined ? "" : formatDay(lane[field])}
                           aria-label={`${label} (lane ${i + 1} ${what})`}
                           onChange={(text) => {
-                            // A full, valid date (all DateInput gives). Weekends don't exist: opening moves to Monday, closing to Friday.
+                            const key = `${lane.id}:${field}`;
+                            // Cleared (its text deleted): undated, the empty field staying put.
+                            if (text === "") {
+                              setShownDates((cur) => new Set([...cur, key]));
+                              props.onUpdateLane(lane.id, { [field]: undefined }, key);
+                              return;
+                            }
+                            // Else a full, valid date (all DateInput gives). Weekends don't exist: opening moves to Monday, closing to Friday.
                             const picked = parseDay(text)!;
                             const day = field === "start" ? nextWorkday(picked) : prevWorkday(picked);
                             if (day !== picked) announce(`Moved to ${prettyDay(day)}: a lane ${what} on a weekday.`);
@@ -350,7 +358,7 @@ export function DepartmentEditor(props: Props) {
                             // Keep start ≤ end: moving one past the other takes it along.
                             if (field === "start" && lane.end !== undefined && day > lane.end) patch.end = day;
                             if (field === "end" && lane.start !== undefined && day < lane.start) patch.start = day;
-                            props.onUpdateLane(lane.id, patch, `${lane.id}:${field}`);
+                            props.onUpdateLane(lane.id, patch, key);
                           }}
                         />
                         <button
