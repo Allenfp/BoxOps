@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
 import { LIMITS, RoadmapReadError, firstParents, readCommit, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git";
+import { EXECUTABLE } from "../src/model/paths";
 import { type Entry, TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -59,6 +60,7 @@ describe("readRoadmapGit", () => {
     for (const path of Object.keys(folder.files)) {
       expect(folder.blobs[path]).toBe(r.repo.git(["rev-parse", `${r.commit}:roadmap/${path}`]));
     }
+    expect(folder.warnings).toEqual([{ path: "boxes/run.yaml", message: EXECUTABLE }]);
   });
 
   it("keeps a BOM and CRLF line ends, so the text hashes to the blob SHA", async () => {

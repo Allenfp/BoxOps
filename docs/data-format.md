@@ -13,11 +13,14 @@ roadmap/
   boxes/<id>.yaml         one file per box (a piece of planned work)
 ```
 
-Any other file under `roadmap/` is reported as unexpected, except hidden ones
-(a name starting with `.`), which are skipped. (Department and box files may
-also end in `.yml`.) Everything under `roadmap/` must be a plain file: a
-symlink or a submodule is an error that stops validation and the build, and so
-is a roadmap file that isn't UTF-8 text or is over 1 MiB.
+Any other file under `roadmap/` is reported as unexpected. Hidden paths are
+skipped without a word, whatever they are: a path with any part starting with
+`.` (`.DS_Store`, `boxes/.#b1.yaml`, anything in `.cache/`), even a symlink or
+a submodule. (Department and box files may also end in `.yml`.) Everything
+else under `roadmap/` must be a plain file: a symlink or a submodule is an
+error that stops validation and the build, and so is a roadmap file that
+isn't UTF-8 text or is over 1 MiB. A roadmap file git has as executable (mode
+100755) is read like any other, with a warning in the build's log.
 
 ## Common rules
 

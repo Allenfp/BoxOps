@@ -9,19 +9,21 @@
 // - readRoadmapDir: from a folder on disk, with lstat, so a symlink is never
 //   followed. The dev server and `npm run validate`/`report` use it.
 //
-// Both apply one policy. Hidden paths (a part starting with ".") are skipped.
-// Every other entry must be a plain file (git modes 100644 and 100755): a
-// symlink, a submodule or anything else is an error naming it. Roadmap files
-// (model/paths.ts) are read; other files are listed as `ignored`. Limits:
-// 20,000 files, 1 MiB per roadmap file, 64 MiB in all. Text must be UTF-8; a
-// BOM is kept, so a file's text hashes to its git blob SHA.
+// Both apply one policy. Hidden paths (a part starting with ".") are skipped,
+// whatever they are, symlinks and submodules included. Every other entry must
+// be a plain file (git modes 100644 and 100755; an executable roadmap file is
+// read with a warning, as the app's reader does): a symlink, a submodule or
+// anything else is an error naming it. Roadmap files (model/paths.ts) are
+// read; other files are listed as `ignored`. Limits: 20,000 files, 1 MiB per
+// roadmap file, 64 MiB in all. Text must be UTF-8; a BOM is kept, so a file's
+// text hashes to its git blob SHA.
 
 import { execFileSync } from "node:child_process";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readdirSync, readSync } from "node:fs";
 import { join } from "node:path";
 import { gitBlobSha } from "../src/github/git-objects.ts";
 import type { RoadmapFolder } from "../src/model/bundle.ts";
-import { READ_LIMITS, isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
+import { EXECUTABLE, READ_LIMITS, isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
 import type { RoadmapFiles } from "../src/model/types.ts";
 
 /** READ_LIMITS, changeable only so tests can reach them. */
@@ -246,6 +248,7 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
   const listing = gitPlumbing(repo, "ls-tree", ["-r", "-z", "-l", tree], { maxBuffer: 64 * 1024 * 1024 });
   const triage = new Triage(dir);
   const wanted: { path: string; sha: string; size: number }[] = [];
+  const warnings: ReadProblem[] = [];
   for (const record of records(listing)) {
     const tab = record.indexOf(9); // the first tab: a path may hold tabs too
     if (tab < 0) throw new Error(`git ls-tree printed "${record.toString("latin1")}"`);
@@ -265,7 +268,10 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
           : mode === "160000"
             ? "submodule"
             : "other";
-    if (triage.take(path, entry, Number(size), ` (git mode ${mode})`)) wanted.push({ path, sha, size: Number(size) });
+    if (triage.take(path, entry, Number(size), ` (git mode ${mode})`)) {
+      wanted.push({ path, sha, size: Number(size) });
+      if (mode === "100755") warnings.push({ path, message: EXECUTABLE });
+    }
   }
 
   // One process for every blob: "<sha> blob <size>\n<bytes>\n" each.
@@ -296,7 +302,7 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
     }
   }
   triage.check();
-  return { files, blobs, ignored: triage.ignored, tree };
+  return { files, blobs, ignored: triage.ignored, tree, ...(warnings.length && { warnings }) };
 }
 
 // --- Disk --------------------------------------------------------------------

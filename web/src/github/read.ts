@@ -20,10 +20,11 @@
 //
 // The folder is held to the build's rules (cli/git.ts): plain files only, the
 // same limits, UTF-8 text with any BOM kept. The build stops on anything
-// else, and so does the reader (FolderProblems).
+// else, and so does the reader (FolderProblems). An executable roadmap file
+// is read like any other, with a warning in the console, as the build warns.
 
 import type { Bundle, BundleSource } from "../model/bundle";
-import { READ_LIMITS, isHiddenPath, isRoadmapPath } from "../model/paths";
+import { EXECUTABLE, READ_LIMITS, isHiddenPath, isRoadmapPath } from "../model/paths";
 import type { RoadmapFiles } from "../model/types";
 import { type GitHubClient, GitHubFailure, type TreeItem, isBranchName } from "./api";
 import { gitBlobSha, textBlobSha, utf8Text } from "./git-objects";
@@ -175,6 +176,7 @@ export async function readSnapshot(gh: GitHubClient, base: Snapshot, o: ReadOpti
       bytes += e.size ?? 0;
       if (bytes > READ_LIMITS.totalBytes) throw new FolderProblems(dir, [{ path: "", message: `holds more than ${amount(READ_LIMITS.totalBytes)} of roadmap files` }]);
       blobs[e.path] = e.sha;
+      if (e.mode === "100755") console.warn(`${dir}/${e.path} ${EXECUTABLE}`);
     }
   }
   if (problems.length) throw new FolderProblems(dir, problems);

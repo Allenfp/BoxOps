@@ -96,6 +96,8 @@ export interface RoadmapFolder {
   ignored: string[];
   /** The folder's tree SHA; null when it was read from disk. */
   tree: string | null;
+  /** Files read all the same that the reader warns about (paths.ts's EXECUTABLE). */
+  warnings?: { path: string; message: string }[];
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

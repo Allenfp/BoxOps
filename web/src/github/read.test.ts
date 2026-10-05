@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeGitHub, TOKEN } from "../../e2e/fake-github";
 import { readBundle } from "../model/bundle";
+import { EXECUTABLE } from "../model/paths";
 import { GitHubClient } from "./api";
 import { gitBlobSha, textBlobSha } from "./git-objects";
 import { FolderProblems, MAX_BLOB_FETCHES, NeedsToken, type Snapshot, TooManyChanges, forgetBlobs, fromBundle, readSnapshot } from "./read";
@@ -100,6 +101,21 @@ describe("readSnapshot", () => {
       "roadmap/boxes/link.yaml: is a symlink; a roadmap folder holds plain files only\nroadmap/boxes/sub.yaml: is a submodule; a roadmap folder holds plain files only",
     );
     expect(g.calls("blob")).toBe(0);
+  });
+
+  it("reads an executable roadmap file all the same, with a warning, as the build does", async () => {
+    const g = await FakeGitHub.create(FILES);
+    const base = await snapshot(g);
+    g.otherSave({ "boxes/run.yaml": () => "id: run\n" });
+    g.modes = { "roadmap/boxes/run.yaml": "100755" };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const head = await readSnapshot(client(g), base);
+      expect(head.files["boxes/run.yaml"]).toBe("id: run\n");
+      expect(warn).toHaveBeenCalledWith(`roadmap/boxes/run.yaml ${EXECUTABLE}`);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("keeps a BOM, so the text hashes back to its blob SHA", async () => {

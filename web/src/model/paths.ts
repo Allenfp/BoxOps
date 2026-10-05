@@ -21,6 +21,13 @@ export function isRoadmapPath(path: string): boolean {
 }
 
 /**
+ * What every reader says about a roadmap file that git has as executable (mode
+ * 100755): it's read as data all the same, with this warning (the build's log,
+ * the browser's console).
+ */
+export const EXECUTABLE = "is executable (git mode 100755): read as a plain file all the same; `git update-index --chmod=-x` makes it one";
+
+/**
  * A path with a part starting with "." (.DS_Store, .gitkeep, an editor's lock
  * file): readers skip it without a word. Every other file that isn't a roadmap
  * file is reported as unexpected.

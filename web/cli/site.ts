@@ -180,7 +180,7 @@ export interface BuildOptions {
   app: AppInfo;
   /** Default: process.env. */
   env?: Env;
-  /** Told about a local build from uncommitted files, or a remote that names no repository. */
+  /** Told about a local build from uncommitted files, a remote that names no repository, or an executable roadmap file. */
   warn?(message: string): void;
   /**
    * Put the files in parsed (the default). The dev server doesn't: its app
@@ -229,6 +229,7 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
     }
   }
 
+  for (const w of folder.warnings ?? []) warn(`${dir}/${w.path} ${w.message}`);
   const meta = commit ? readCommit(o.repoDir, commit) : undefined;
   let repo = env.GITHUB_REPOSITORY ?? "";
   let branch = env.GITHUB_REF_NAME ?? "";

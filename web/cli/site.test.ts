@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readBundle } from "../src/model/bundle";
 import { parseFile } from "../src/model/parse";
+import { EXECUTABLE } from "../src/model/paths";
 import { RoadmapReadError } from "./git";
 import { appInfo, buildBundle, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
 import { TestRepo } from "./test-repo";
@@ -109,6 +110,16 @@ describe("buildBundle in GitHub Actions", () => {
     expect(await seen({ action: "push" })).toEqual([null, true]);
     expect(await seen(undefined)).toEqual([null, true]); // no payload file
     expect(repoVisibility({})).toEqual({ visibility: null, private: true });
+  });
+
+  it("reads an executable roadmap file all the same, and says so", async () => {
+    const r = new TestRepo();
+    repos.push(r);
+    const sha = r.commit({ ...ROADMAP, "roadmap/boxes/b1.yaml": { mode: "100755", content: "id: b1\n" } });
+    const warnings: string[] = [];
+    const bundle = await buildBundle({ repoDir: r.dir, app: APP, env: actions(sha), warn: (m) => warnings.push(m) });
+    expect(bundle.files["boxes/b1.yaml"]).toBe("id: b1\n");
+    expect(warnings).toEqual([`roadmap/boxes/b1.yaml ${EXECUTABLE}`]);
   });
 
   it("stops on a symlink or submodule in the commit", async () => {
