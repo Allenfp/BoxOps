@@ -121,3 +121,22 @@ test("unsaved edits another data format wrote can be downloaded or discarded, ne
   await expect(offer).toHaveCount(0);
   expect(await storedDrafts(page)).toEqual({});
 });
+
+test("a browser that won't keep the draft (full or blocked storage) says so, once", async ({ page, github: _ }) => {
+  await page.evaluate(() => {
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith("boxops-draft:")) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      return setItem.call(this, key, value);
+    };
+  });
+  await dragDays(page, DAGSTER, 10);
+  const warning = page.locator(".banner", { hasText: "This browser isn’t keeping your unsaved changes" });
+  await expect(warning).toContainText("so they’d be lost if this tab closed. Save soon.");
+  await warning.getByRole("button", { name: "Dismiss" }).click();
+  await dragDays(page, DAGSTER, 5);
+  await page.waitForTimeout(600); // long enough to try to write it again
+  await expect(warning).toHaveCount(0);
+  await page.getByRole("button", { name: "More save options" }).click();
+  await expect(page.locator(".menu-note")).toHaveText("This browser isn’t keeping unsaved changes right now: save before you close the tab.");
+});

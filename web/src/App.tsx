@@ -695,11 +695,15 @@ function RoadmapView(props: ViewProps) {
   };
 
   const { count } = draft.changes;
-  // Other tabs' unsaved changes: a notice until put away, or until there are none.
+  // Notices about where unsaved changes are kept: other tabs' (until put away,
+  // or until there are none), and this browser refusing to keep this tab's
+  // (shown once).
   const [othersDismissed, setOthersDismissed] = useState(false);
   useEffect(() => {
     if (!draft.others) setOthersDismissed(false);
   }, [draft.others]);
+  const [storageWarned, setStorageWarned] = useState(false);
+  const keptHere = draft.kept ? " Your unsaved changes are kept in this browser." : "";
   const discardAll = () => {
     if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
       setSelected(null);
@@ -1058,7 +1062,11 @@ function RoadmapView(props: ViewProps) {
                     className="primary"
                     onClick={() => save()}
                     disabled={busy}
-                    title="Save to GitHub (⌘S). Until then, changes are kept in this browser."
+                    title={
+                      draft.kept
+                        ? "Save to GitHub (⌘S). Until then, changes are kept in this browser."
+                        : "Save to GitHub (⌘S). This browser isn’t keeping your changes, so save before closing the tab."
+                    }
                   >
                     {busy ? "Saving…" : `Save · ${count} change${count === 1 ? "" : "s"}`}
                   </button>
@@ -1075,7 +1083,11 @@ function RoadmapView(props: ViewProps) {
                         >
                           Discard {count === 1 ? "this change" : `all ${count} changes`}…
                         </button>
-                        <p className="menu-note">Unsaved changes are kept in this browser, even if you close the tab.</p>
+                        <p className="menu-note">
+                          {draft.kept
+                            ? "Unsaved changes are kept in this browser, even if you close the tab."
+                            : "This browser isn’t keeping unsaved changes right now: save before you close the tab."}
+                        </p>
                       </>
                     )}
                   </Popover>
@@ -1162,7 +1174,7 @@ function RoadmapView(props: ViewProps) {
         <div className="banner" role="status">
           <span>
             <strong>{updatedText(props.update)}</strong>
-            {count > 0 ? " Your unsaved changes are kept in this browser." : ""}
+            {count > 0 ? keptHere : ""}
           </span>
           <button className="primary" onClick={() => reloadApp(props.update!.build)}>
             Reload
@@ -1173,9 +1185,20 @@ function RoadmapView(props: ViewProps) {
         <div className="banner" role="status">
           <span>
             Lost the connection to the site, so others’ saves aren’t coming in. Reload to reconnect
-            {count > 0 ? "; your unsaved changes are kept in this browser" : ""}.
+            {count > 0 && draft.kept ? "; your unsaved changes are kept in this browser" : ""}.
           </span>
           <button onClick={() => reloadApp("")}>Reload</button>
+        </div>
+      )}
+      {!draft.kept && !storageWarned && (
+        <div className="banner notice-warning" role="alert">
+          <span>
+            This browser isn’t keeping your unsaved changes (its storage is full, or turned off for this site), so they’d
+            be lost if this tab closed. Save soon.
+          </span>
+          <button className="icon-button" onClick={() => setStorageWarned(true)} aria-label="Dismiss">
+            <Icon name="x" size={16} />
+          </button>
         </div>
       )}
       {!preview && draft.offers.length > 0 && (
