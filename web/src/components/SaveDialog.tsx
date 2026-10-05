@@ -17,7 +17,8 @@ export type SaveProblem =
   | { kind: "invalid"; issues: string[] }
   /** The save would write files the app couldn't fully read; fixing them is a hand edit. */
   | { kind: "unwritable"; files: { path: string; problems: string[] }[] }
-  | { kind: "conflict"; items: string[] }
+  /** `keys` are the clashes listed (`items`, in words): a choice settles those only. */
+  | { kind: "conflict"; keys: string[]; items: string[] }
   /** GitHub refused, or couldn't be reached (kinds and words in github/api.ts and messages.ts). */
   | { kind: "github"; failure: GitHubFailure; resume?: Resume }
   | { kind: "error"; message: string; resume?: Resume }
@@ -28,7 +29,8 @@ export type SaveProblem =
       kind: "updated";
       saves: { author: string; subject: string }[];
       changes: ChangeLine[];
-      /** Items both sides changed. */
+      /** Items both sides changed: their keys, and in words. */
+      keys: string[];
       clashes: string[];
     };
 
@@ -38,7 +40,8 @@ interface Props {
   lines: ChangeLine[];
   busy: boolean;
   onSubmitToken(token: string): void;
-  onResolve(keep: "mine" | "theirs"): void;
+  /** Keep this version of the clashes listed (`keys`), then save. */
+  onResolve(keep: "mine" | "theirs", keys: string[]): void;
   /** Save after reviewing others' changes (no clashes). */
   onSaveNow(): void;
   onRetry(): void;
@@ -201,10 +204,10 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
           </ul>
           <p className="hint">Their other changes, and your edits to anything else, are kept either way.</p>
           <footer className="dialog-foot">
-            <button onClick={() => onResolve("theirs")} disabled={busy}>
+            <button onClick={() => onResolve("theirs", problem.keys)} disabled={busy}>
               Keep theirs
             </button>
-            <button className="primary" onClick={() => onResolve("mine")} disabled={busy}>
+            <button className="primary" onClick={() => onResolve("mine", problem.keys)} disabled={busy}>
               {busy ? "Saving…" : "Keep mine"}
             </button>
           </footer>
@@ -322,11 +325,11 @@ function Updated({
 }: {
   problem: Extract<SaveProblem, { kind: "updated" }>;
   busy: boolean;
-  onResolve(keep: "mine" | "theirs"): void;
+  onResolve(keep: "mine" | "theirs", keys: string[]): void;
   onSaveNow(): void;
   onClose(): void;
 }) {
-  const { saves, changes, clashes } = problem;
+  const { saves, changes, keys, clashes } = problem;
   const shown = saves.slice(-MAX_SAVES);
   return (
     <>
@@ -373,10 +376,10 @@ function Updated({
             <button onClick={onClose} disabled={busy}>
               Review changes
             </button>
-            <button onClick={() => onResolve("theirs")} disabled={busy}>
+            <button onClick={() => onResolve("theirs", keys)} disabled={busy}>
               Keep theirs &amp; save
             </button>
-            <button className="primary" onClick={() => onResolve("mine")} disabled={busy}>
+            <button className="primary" onClick={() => onResolve("mine", keys)} disabled={busy}>
               Keep mine &amp; save
             </button>
           </>

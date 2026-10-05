@@ -21,7 +21,7 @@ import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
-import { type DraftState, diffBoxes, draftKey, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
+import { type DraftState, diffBoxes, draftKey, hashText, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
@@ -693,7 +693,7 @@ function RoadmapView(props: ViewProps) {
     return `Department “${draft.departments.find((d) => d.id === id)?.name ?? id}” (lanes)`;
   };
 
-  /** `keep`: whose version of clashing items to keep, once chosen. `token`: just pasted. */
+  /** `keep`: the user chose whose version of clashing items to keep (so no review first). `token`: just pasted. */
   const save = async (opts: Resume & { token?: string } = {}) => {
     // A pasted token is kept straight away, before anything below can stop
     // the save (a clash that came in while the token form was open, say), so
@@ -703,20 +703,17 @@ function RoadmapView(props: ViewProps) {
     // Read-only since the dialog that led here opened (a newer BoxOps was
     // deployed, say): this tab's code never writes.
     if (preview) return setProblem(null);
-    // Items someone else changed while we were editing them: the user picks first.
+    // Items someone else changed while we were editing them: the user picks
+    // first. A choice settles the clashes it was shown (the draft has it by
+    // now); any left came in since, from a poll while the dialog was open.
     const clashes = draft.conflicts;
-    if (clashes.length && !opts.keep) return setProblem({ kind: "conflict", items: clashes.map(describeItem) });
+    if (clashes.length) return setProblem({ kind: "conflict", keys: clashes, items: clashes.map(describeItem) });
     const resume: Resume = opts.keep ? { keep: opts.keep } : {};
-    const keepTheirs = opts.keep === "theirs" && clashes.length > 0;
-    let target = draftState;
+    const target = draftState;
     let changes: FileChanges;
     try {
-      if (keepTheirs) target = revertItems(draftState, draftBase, clashes);
       changes = serializeChanges(files, draftBase, target, props);
-      if (Object.keys(changes).length === 0) {
-        if (keepTheirs) draft.takeTheirs(clashes);
-        return;
-      }
+      if (Object.keys(changes).length === 0) return;
       const invalid = newProblems(applyChanges(files, changes));
       if (invalid.length) return setProblem({ kind: "invalid", issues: invalid });
     } catch (e) {
@@ -727,7 +724,6 @@ function RoadmapView(props: ViewProps) {
     const token = opts.token ?? getToken(source.repo);
     // The choice just made comes back with the token, so it isn't asked again.
     if (!token) return setProblem({ kind: "token", resume });
-    if (keepTheirs) draft.takeTheirs(clashes);
     const gh = new GitHubClient({ token });
 
     select(null);
@@ -748,7 +744,7 @@ function RoadmapView(props: ViewProps) {
         gh,
         base: { source, files, blobs: props.blobs, ignored: props.ignored },
         changes,
-        message: commitMessage(describeChanges(draftBase, target, target === draftState ? draft.changes : undefined)),
+        message: commitMessage(describeChanges(draftBase, target, draft.changes)),
         review: !opts.keep,
         seen: props.seen,
         validate: newProblems,
@@ -768,7 +764,7 @@ function RoadmapView(props: ViewProps) {
         const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
         setBusy(false);
         onReload(head);
-        setProblem({ kind: "updated", saves, changes: theirs, clashes: clashes.map(describeItem) });
+        setProblem({ kind: "updated", saves, changes: theirs, keys: clashes, clashes: clashes.map(describeItem) });
         return;
       }
       if (e instanceof NewerFormat) {
@@ -792,6 +788,14 @@ function RoadmapView(props: ViewProps) {
   const saveRef = useRef(save);
   saveRef.current = save;
 
+  /** A save to go on with once the draft has the user's choice for the clashes they were shown. */
+  const [resumeSave, setResumeSave] = useState<Resume | null>(null);
+  useEffect(() => {
+    if (!resumeSave) return;
+    setResumeSave(null);
+    void saveRef.current(resumeSave);
+  }, [resumeSave]);
+
   // A read-only tab shows no save dialog: one left open when a newer BoxOps
   // arrived closes (once a save under way is done), as old code never writes.
   useEffect(() => {
@@ -801,7 +805,7 @@ function RoadmapView(props: ViewProps) {
   useEffect(() => {
     if (!askAfterRebase.current) return;
     askAfterRebase.current = false;
-    if (draft.conflicts.length) setProblem({ kind: "conflict", items: draft.conflicts.map(describeItem) });
+    if (draft.conflicts.length) setProblem({ kind: "conflict", keys: draft.conflicts, items: draft.conflicts.map(describeItem) });
     else void saveRef.current(); // their changes didn't actually clash with ours
     // Only when the rebased files arrive, with the conflicts as they are then.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
@@ -1352,9 +1356,11 @@ function RoadmapView(props: ViewProps) {
             setProblem(null);
             void save({ ...(problem.kind === "token" ? problem.resume : {}), token });
           }}
-          onResolve={(keep) => {
+          onResolve={(keep, keys) => {
             setProblem(null);
-            void save({ keep });
+            // Only the clashes the dialog listed; then save, once the draft has the choice.
+            draft.resolve(keys, keep);
+            setResumeSave({ keep });
           }}
           onSaveNow={() => {
             setProblem(null);

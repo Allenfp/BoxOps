@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { boxId, diffBoxes, diffDraft, slugify } from "./draft";
+import { type History, boxId, diffBoxes, diffDraft, reduceHistory, slugify, startHistory } from "./draft";
 import type { Box } from "./types";
 import { DEFAULT_SETTINGS } from "./load";
 import { describeChanges } from "./summary";
@@ -143,5 +143,64 @@ describe("unchanged items", () => {
     const base = { boxes: [box("a"), box("b")], departments: [], people: [], settings: DEFAULT_SETTINGS };
     const draft = { ...base, boxes: [box("a", { title: "A2" }), box("c")] };
     expect(describeChanges(base, draft, diffDraft(base, draft))).toEqual(describeChanges(base, draft));
+  });
+});
+
+describe("clashes", () => {
+  const state = (boxes: Box[]) => ({ boxes, departments: [], people: [], settings: DEFAULT_SETTINGS });
+  const edit = (h: History, id: string, patch: Partial<Box>) =>
+    reduceHistory(h, { type: "edit", update: (d) => ({ ...d, boxes: d.boxes.map((b) => (b.id === id ? { ...b, ...patch } : b)) }) });
+  /** Loaded, edited (box a and b), then Sam's save of a and b came in. */
+  const clashing = () => {
+    const h = edit(edit(startHistory(state([box("a"), box("b"), box("c")])), "a", { title: "A mine" }), "b", { title: "B mine" });
+    return reduceHistory(h, { type: "rebase", base: state([box("a", { title: "A Sam" }), box("b", { title: "B Sam" }), box("c")]) });
+  };
+
+  it("a clash is over once our own save has the item: editing it again later isn't one", () => {
+    let h = clashing();
+    expect(h.conflicts).toEqual(["box:a", "box:b"]);
+    h = reduceHistory(h, { type: "resolve", keys: h.conflicts, keep: "mine" });
+    h = reduceHistory(h, { type: "rebase", base: state(h.present.boxes.map((b) => ({ ...b }))) }); // our save, loaded back
+    expect(h.conflicts).toEqual([]);
+    h = edit(h, "a", { end: 150 });
+    expect(h.conflicts).toEqual([]);
+  });
+
+  it("keep theirs, a manual fix or discarding ends a clash; a poll bringing the same version does too", () => {
+    expect(reduceHistory(clashing(), { type: "resolve", keys: ["box:a", "box:b"], keep: "theirs" }).conflicts).toEqual([]);
+    expect(edit(clashing(), "a", { title: "A Sam" }).conflicts).toEqual(["box:b"]);
+    const h = clashing();
+    expect(reduceHistory(h, { type: "edit", update: () => h.base }).conflicts).toEqual([]);
+    // Sam's next save happens to match ours.
+    expect(reduceHistory(h, { type: "rebase", base: state([box("a", { title: "A mine" }), box("b", { title: "B Sam" }), box("c")]) }).conflicts).toEqual(["box:b"]);
+  });
+
+  it("a choice settles only the clashes it was given, and never reverts an item that doesn't clash", () => {
+    let h = edit(clashing(), "c", { title: "C mine" });
+    h = reduceHistory(h, { type: "resolve", keys: ["box:a", "box:c"], keep: "theirs" });
+    expect(h.present.boxes.map((b) => b.title)).toEqual(["A Sam", "B mine", "C mine"]);
+    expect(h.conflicts).toEqual(["box:b"]);
+    h = reduceHistory(h, { type: "resolve", keys: ["box:b"], keep: "mine" });
+    expect(h.present.boxes.map((b) => b.title)).toEqual(["A Sam", "B mine", "C mine"]);
+    expect(h.conflicts).toEqual([]);
+  });
+
+  it("undoing keep theirs brings back our version and the clash; keep mine stays settled", () => {
+    let h = reduceHistory(clashing(), { type: "resolve", keys: ["box:a"], keep: "theirs" });
+    h = reduceHistory(h, { type: "undo" });
+    expect(h.present.boxes[0].title).toBe("A mine");
+    expect(h.conflicts).toEqual(["box:a", "box:b"]);
+    h = reduceHistory(h, { type: "redo" });
+    expect(h.conflicts).toEqual(["box:b"]);
+
+    h = edit(reduceHistory(clashing(), { type: "resolve", keys: ["box:a"], keep: "mine" }), "c", { end: 150 });
+    h = reduceHistory(h, { type: "undo" });
+    expect(h.conflicts).toEqual(["box:b"]);
+  });
+
+  it("restored clashes count only while the item still differs", () => {
+    const base = state([box("a"), box("b")]);
+    const draft = state([box("a", { title: "A mine" }), box("b")]);
+    expect(startHistory(base, { draft, conflicts: ["box:a", "box:b", "box:a"] }).conflicts).toEqual(["box:a"]);
   });
 });

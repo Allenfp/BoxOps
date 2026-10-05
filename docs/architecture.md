@@ -158,7 +158,13 @@ requires a lane to move them to, so work is never dropped. The draft is kept in
 lose work, even if someone saved in between. When a newer version arrives, the
 draft is **rebased** onto it item by item. Items only someone else changed take
 their version, items only you changed keep yours, and items both changed keep
-yours but are flagged as clashes.
+yours but are flagged as clashes. A clash lasts until the item matches the
+saved version (you took theirs, put it back by hand, discarded, or saved it),
+and the save dialog's Keep mine / Keep theirs settles only the clashes it
+lists: one that came in while it was open is asked about next. Keep theirs is
+an edit like any other (undo brings back yours, and the clash) and leaves the
+item where it was in its list. The clash bookkeeping is a pure reducer over
+the draft and its undo history (`reduceHistory` in `model/draft.ts`).
 
 ## Saving
 

@@ -15,17 +15,6 @@ export interface DraftState {
   settings: Settings;
 }
 
-interface History {
-  /** The loaded roadmap this draft is relative to. */
-  base: DraftState;
-  past: DraftState[];
-  present: DraftState;
-  future: DraftState[];
-  /** Consecutive edits with the same key (typing in one field) form one undo step. */
-  lastKey?: string;
-  /** Items (`box:<id>`, `dept:<id>`, `person:<id>`, SETTINGS_KEY) someone else changed while we were editing them too. */
-  conflicts: string[];
-}
 
 export interface Changes {
   added: Box[];
@@ -198,6 +187,112 @@ export function revertItems(draft: DraftState, base: DraftState, keys: string[])
   };
 }
 
+/** One undo step: the draft and its clashes as they were. */
+interface Step {
+  draft: DraftState;
+  conflicts: string[];
+}
+
+/** The draft with its undo history and clashes; changed only by reduceHistory. */
+export interface History {
+  /** The loaded roadmap this draft is relative to. */
+  base: DraftState;
+  past: Step[];
+  present: DraftState;
+  future: Step[];
+  /** Consecutive edits with the same key (typing in one field) form one undo step. */
+  lastKey?: string;
+  /**
+   * Items (`box:<id>`, `dept:<id>`, `person:<id>`, SETTINGS_KEY) someone else
+   * changed while we were editing them too, and that still differ from `base`:
+   * a clash is over once the item matches the saved version.
+   */
+  conflicts: string[];
+}
+
+export type HistoryAction =
+  /** A newer roadmap arrived: our own save, or someone else's. */
+  | { type: "rebase"; base: DraftState }
+  /** An edit; consecutive ones with the same `key` form one undo step. */
+  | { type: "edit"; update(draft: DraftState): DraftState; key?: string }
+  | { type: "undo" }
+  | { type: "redo" }
+  /** Ends typing coalescing, e.g. when the editor closes. */
+  | { type: "checkpoint" }
+  /** The user chose whose version to keep for these clashes, and only these (the ones they were shown). */
+  | { type: "resolve"; keys: string[]; keep: "mine" | "theirs" };
+
+const UNDO_STEPS = 200;
+
+/** The clashes among `keys` that still matter: the item differs from the latest saved version. */
+export function liveConflicts(keys: string[], base: DraftState, draft: DraftState): string[] {
+  return [...new Set(keys)].filter((k) => !sameOrBothMissing(entityOf(base, k), entityOf(draft, k)));
+}
+
+/** A draft of `base`: unchanged, or one restored from storage. */
+export function startHistory(base: DraftState, restored?: { draft: DraftState; conflicts: string[] }): History {
+  const present = restored?.draft ?? base;
+  return { base, past: [], present, future: [], conflicts: liveConflicts(restored?.conflicts ?? [], base, present) };
+}
+
+export function reduceHistory(h: History, a: HistoryAction): History {
+  const step = (): Step => ({ draft: h.present, conflicts: h.conflicts });
+  switch (a.type) {
+    case "rebase": {
+      if (a.base === h.base) return h;
+      // Undo history refers to the old roadmap, so it starts fresh.
+      const r = rebaseDraft(h.base, h.present, a.base);
+      return { base: a.base, past: [], present: r.draft, future: [], conflicts: liveConflicts([...h.conflicts, ...r.conflicts], a.base, r.draft) };
+    }
+    case "edit": {
+      const next = a.update(h.present);
+      if (next === h.present) return h;
+      const coalesce = a.key !== undefined && a.key === h.lastKey;
+      return {
+        ...h,
+        past: coalesce ? h.past : [...h.past, step()].slice(-UNDO_STEPS),
+        present: next,
+        future: [],
+        lastKey: a.key,
+        conflicts: liveConflicts(h.conflicts, h.base, next),
+      };
+    }
+    case "undo": {
+      const prev = h.past.at(-1);
+      if (!prev) return h;
+      return { ...h, past: h.past.slice(0, -1), present: prev.draft, conflicts: prev.conflicts, future: [step(), ...h.future] };
+    }
+    case "redo": {
+      const next = h.future[0];
+      if (!next) return h;
+      return { ...h, past: [...h.past, step()], present: next.draft, conflicts: next.conflicts, future: h.future.slice(1) };
+    }
+    case "checkpoint":
+      return h.lastKey ? { ...h, lastKey: undefined } : h;
+    case "resolve": {
+      // Only clashes still open: an item that has stopped clashing since is never reverted.
+      const keys = new Set(a.keys.filter((k) => h.conflicts.includes(k)));
+      if (!keys.size) return h;
+      const settle = (conflicts: string[]) => conflicts.filter((k) => !keys.has(k));
+      if (a.keep === "theirs") {
+        // An edit like any other: undoing it brings back our version, and the clash.
+        const next = revertItems(h.present, h.base, [...keys]);
+        return {
+          ...h,
+          past: [...h.past, step()].slice(-UNDO_STEPS),
+          present: next,
+          future: [],
+          lastKey: undefined,
+          conflicts: settle(liveConflicts(h.conflicts, h.base, next)),
+        };
+      }
+      // Ours stands. Settled for good: undo doesn't bring the clash back.
+      const steps = (s: Step[]) => s.map((x) => ({ ...x, conflicts: settle(x.conflicts) }));
+      return { ...h, past: steps(h.past), future: steps(h.future), conflicts: settle(h.conflicts) };
+    }
+  }
+}
+
 export function slugify(text: string): string {
   return (
     text
@@ -289,32 +384,13 @@ export function hashText(text: string): string {
 }
 
 export function useDraft(base: DraftState, scope: string, baseHash: string) {
-  const [history, setHistory] = useState<History>(() => {
-    const stored = readStored(scope, baseHash, base);
-    return { base, past: [], present: stored?.draft ?? base, future: [], conflicts: stored?.conflicts ?? [] };
-  });
+  const [history, setHistory] = useState<History>(() => startHistory(base, readStored(scope, baseHash, base) ?? undefined));
+  const dispatch = useCallback((a: HistoryAction) => setHistory((h) => reduceHistory(h, a)), []);
 
   // A newer roadmap arrived (our own save, or someone else's): carry the draft
-  // over. Undo history refers to the old roadmap, so it starts fresh.
-  if (history.base !== base) {
-    const r = rebaseDraft(history.base, history.present, base);
-    const next: History = {
-      base,
-      past: [],
-      present: r.draft,
-      future: [],
-      conflicts: [...new Set([...history.conflicts, ...r.conflicts])],
-    };
-    // Setting state while rendering makes React re-render straight away with it.
-    setHistory(next);
-  }
-  const { present } = history;
-
-  /** Conflicts that still matter: the item still differs from the latest roadmap. */
-  const conflicts = useMemo(
-    () => history.conflicts.filter((k) => !sameOrBothMissing(entityOf(base, k), entityOf(present, k))),
-    [history.conflicts, base, present],
-  );
+  // over. Setting state while rendering makes React re-render straight away with it.
+  if (history.base !== base) setHistory(reduceHistory(history, { type: "rebase", base }));
+  const { present, conflicts } = history;
 
   const changes = useMemo(() => diffDraft(base, present), [base, present]);
 
@@ -322,20 +398,10 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     writeStored(scope, baseHash, base, changes.count ? present : null);
   }, [scope, baseHash, base, present, changes.count]);
 
-  const apply = useCallback((update: (draft: DraftState) => DraftState, key?: string) => {
-    setHistory((h) => {
-      const next = update(h.present);
-      if (next === h.present) return h;
-      const coalesce = key !== undefined && key === h.lastKey;
-      return {
-        ...h,
-        past: coalesce ? h.past : [...h.past, h.present].slice(-200),
-        present: next,
-        future: [],
-        lastKey: key,
-      };
-    });
-  }, []);
+  const apply = useCallback(
+    (update: (draft: DraftState) => DraftState, key?: string) => dispatch({ type: "edit", update, key }),
+    [dispatch],
+  );
 
   const applyBoxes = useCallback(
     (update: (boxes: Box[]) => Box[], key?: string) => apply((d) => ({ ...d, boxes: update(d.boxes) }), key),
@@ -495,28 +561,14 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     [apply],
   );
 
-  const undo = useCallback(
-    () =>
-      setHistory((h) =>
-        h.past.length
-          ? { ...h, past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] }
-          : h,
-      ),
-    [],
-  );
-  const redo = useCallback(
-    () =>
-      setHistory((h) =>
-        h.future.length ? { ...h, past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h,
-      ),
-    [],
-  );
+  const undo = useCallback(() => dispatch({ type: "undo" }), [dispatch]);
+  const redo = useCallback(() => dispatch({ type: "redo" }), [dispatch]);
   /** Throw the whole draft away (undoable). */
   const discard = useCallback(() => apply(() => base), [apply, base]);
-  /** Resolve conflicts by taking the latest saved version of these items. */
-  const takeTheirs = useCallback((keys: string[]) => apply((d) => revertItems(d, base, keys)), [apply, base]);
+  /** Settle these clashes (the ones the user was shown): keep our version, or take the latest saved one. */
+  const resolve = useCallback((keys: string[], keep: "mine" | "theirs") => dispatch({ type: "resolve", keys, keep }), [dispatch]);
   /** Ends typing coalescing, e.g. when the editor closes. */
-  const checkpoint = useCallback(() => setHistory((h) => (h.lastKey ? { ...h, lastKey: undefined } : h)), []);
+  const checkpoint = useCallback(() => dispatch({ type: "checkpoint" }), [dispatch]);
 
   /** Change team settings; `key` groups keystrokes in one field into a single undo step. */
   const updateSettings = useCallback(
@@ -552,7 +604,7 @@ export function useDraft(base: DraftState, scope: string, baseHash: string) {
     undo,
     redo,
     discard,
-    takeTheirs,
+    resolve,
     checkpoint,
   };
 }
