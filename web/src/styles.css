@@ -946,7 +946,7 @@ button.collapse-all:hover {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
-.editor-section h4 {
+.editor-section h3 {
   margin: 0 0 8px;
   font-size: 11px;
   font-weight: 600;
@@ -954,7 +954,7 @@ button.collapse-all:hover {
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.editor-section h4 .hint {
+.editor-section h3 .hint {
   margin-left: 4px;
   font-weight: 400;
   letter-spacing: 0;

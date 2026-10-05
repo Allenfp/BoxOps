@@ -196,7 +196,7 @@ export function BoxEditor(props: Props) {
         {!box.title.trim() && <FieldError id={ids.titleError}>A title is required.</FieldError>}
 
         <section className="editor-section">
-          <h4>Schedule</h4>
+          <h3>Schedule</h3>
           <div className="editor-grid">
             {/* Not <label>s: one around the calendar would take its clicks, and its buttons' names. */}
             <div className="field">
@@ -244,7 +244,7 @@ export function BoxEditor(props: Props) {
         </section>
 
         <section className="editor-section">
-          <h4>Work</h4>
+          <h3>Work</h3>
           <div className="editor-grid">
             <label>
               Type
@@ -307,7 +307,7 @@ export function BoxEditor(props: Props) {
         </section>
 
         <section className="editor-section">
-          <h4>Links</h4>
+          <h3>Links</h3>
           <div className="editor-grid">
             <label className="span-2">
               Epic link
@@ -359,9 +359,9 @@ export function BoxEditor(props: Props) {
 
         {show.rules && (
           <section className="editor-section">
-            <h4>
+            <h3>
               Rules <span className="hint">warnings only; nothing is blocked</span>
-            </h4>
+            </h3>
             <div className="field">
               <ul className="rule-list">
                 {relations.map((r, i) => {
