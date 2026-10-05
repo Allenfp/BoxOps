@@ -663,6 +663,9 @@ function RoadmapView(props: ViewProps) {
     // retries and the re-save after a choice never ask for it again; only a
     // 401 forgets it.
     if (opts.token) setToken(source.repo, opts.token);
+    // Read-only since the dialog that led here opened (a newer BoxOps was
+    // deployed, say): this tab's code never writes.
+    if (preview) return setProblem(null);
     // Items someone else changed while we were editing them: the user picks first.
     const clashes = draft.conflicts;
     if (clashes.length && !opts.keep) return setProblem({ kind: "conflict", items: clashes.map(describeItem) });
@@ -751,6 +754,12 @@ function RoadmapView(props: ViewProps) {
   };
   const saveRef = useRef(save);
   saveRef.current = save;
+
+  // A read-only tab shows no save dialog: one left open when a newer BoxOps
+  // arrived closes (once a save under way is done), as old code never writes.
+  useEffect(() => {
+    if (preview && !busy) setProblem(null);
+  }, [preview, busy]);
 
   useEffect(() => {
     if (!askAfterRebase.current) return;

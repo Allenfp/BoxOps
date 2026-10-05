@@ -44,6 +44,20 @@ test("saving first checks for a new BoxOps the poll hasn't seen, and then writes
   expect(github.head).toBe(github.root);
 });
 
+test("a save dialog left open when a new BoxOps arrives closes, and nothing is written", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  github.inject("graphql", "rules");
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("GitHub’s rules blocked this save");
+  github.patchBundle = newerApp;
+  await pollNow(page);
+  await expect(page.locator(".banner", { hasText: "BoxOps was updated" })).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  expect(github.calls("graphql")).toBe(1);
+  expect(github.head).toBe(github.root);
+});
+
 test("a roadmap.json that stalls when saving holds the save up a few seconds at most", async ({ page, github }) => {
   await dragDays(page, DAGSTER, 10);
   await page.route("**/roadmap.json*", () => {}); // never answered

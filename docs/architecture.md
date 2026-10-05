@@ -241,7 +241,9 @@ against data the new code wrote.
   older `roadmap.json` with newer JavaScript flags nothing, and nor does an
   unknown build), the tab goes read-only with the banner "BoxOps was updated
   — Reload to keep editing". The draft is kept in `localStorage` (a field
-  being typed in is committed first). Old code never saves.
+  being typed in is committed first). Old code never saves: a save dialog
+  left open closes (once a save under way is done), and none of its buttons
+  would write.
 - **Reload** goes to `./?boxops-reload=<build>`, keeping the other parameters
   and the hash: a URL the browser has never cached, since Pages sends
   `index.html` with `max-age=600`. The app removes the parameter with
