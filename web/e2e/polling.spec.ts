@@ -1,5 +1,5 @@
 import type { Route } from "@playwright/test";
-import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, focusApp, pollNow, save, test, toolbar } from "./helpers";
 
 for (const visibility of ["public", "private"] as const) {
   test.describe(`${visibility} repository`, () => {
@@ -90,6 +90,9 @@ for (const visibility of ["public", "private"] as const) {
       page.on("request", (r) => r.url().includes("roadmap.json") && fetches++);
       await page.evaluate(() => Object.defineProperty(document, "hidden", { configurable: true, get: () => true }));
       await pollNow(page);
+      // A request would be reported a moment later: give it a frame or two before counting none.
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      await page.waitForTimeout(200);
       expect(fetches).toBe(0);
 
       github.deploy(github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }));
@@ -121,7 +124,8 @@ test.describe("private repository, signed out", () => {
   });
 });
 
-test("a deploy that changed nothing in the roadmap moves the tab on without a notice", async ({ page, github }) => {
+test("a deploy that changed nothing in the roadmap moves the tab on without a notice, and keeps undo", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
   const readme = github.outsideSave("README.md", "# Notes\n", "Sam Lee", "Notes");
   github.deploy(readme);
   const polled = page.waitForResponse((r) => r.url().includes("roadmap.json"));
@@ -129,6 +133,11 @@ test("a deploy that changed nothing in the roadmap moves the tab on without a no
   await polled;
   await page.waitForTimeout(300); // time to (wrongly) announce it
   await expect(page.locator(".banner")).toHaveCount(0);
+  // Nothing on screen changed, so the edit can still be undone.
+  await expect(toolbar(page).getByRole("button", { name: "Undo" })).toBeEnabled();
+  await focusApp(page);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("No changes");
 
   // The next save after it still says who saved what.
   github.deploy(github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }, "Priya Shah", "Revenue mart: v3"));

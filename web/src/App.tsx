@@ -249,7 +249,14 @@ export function App() {
     (loaded: Loaded) => {
       onScreen.current = { source: loaded.source, blobs: loaded.blobs, ignored: loaded.ignored };
       seen.add(loaded.source.commit);
-      setState({ status: "ready", ...loaded });
+      // A newer commit with the same roadmap files (a change to the app, say):
+      // only where it came from moves on. The roadmap stays the same object, so
+      // the draft isn't carried over and its undo history stays.
+      setState((cur) =>
+        cur.status === "ready" && cur.preview === loaded.preview && !changesScreen(loaded, cur)
+          ? { ...cur, source: loaded.source }
+          : { status: "ready", ...loaded },
+      );
     },
     [seen],
   );
