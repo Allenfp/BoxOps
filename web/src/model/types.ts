@@ -1,4 +1,4 @@
-import type { Day } from "./dates";
+import type { Day } from "./dates.ts"; // with .ts: vite.config.ts imports this file
 
 export type ZoomLevel = "weeks" | "months" | "quarters";
 export const ZOOM_LEVELS: ZoomLevel[] = ["weeks", "months", "quarters"];

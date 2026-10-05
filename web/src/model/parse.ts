@@ -7,8 +7,8 @@
 // write.
 
 import { type Document, isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
-import { type Day, dayParts, formatDay, isWeekend, parseDay } from "./dates";
-import { FORMAT } from "./format";
+import { type Day, dayParts, formatDay, isWeekend, parseDay } from "./dates.ts"; // with .ts: vite.config.ts imports this file
+import { FORMAT } from "./format.ts";
 import {
   BOX_CODE,
   COLOR,
@@ -25,10 +25,10 @@ import {
   assemble,
   fileIssue,
   otherFile,
-} from "./load";
-import { DEPARTMENT_PATH, isRoadmapPath } from "./paths";
-import type { Box, BoxStatus, BoxType, Department, Lane, Person, Relation, RelationType, RoadmapFiles, Settings, TimeOff } from "./types";
-import { BOX_FTE_OPTIONS, LANE_FTE_OPTIONS, ZOOM_LEVELS } from "./types";
+} from "./load.ts";
+import { DEPARTMENT_PATH, isRoadmapPath } from "./paths.ts";
+import type { Box, BoxStatus, BoxType, Department, Lane, Person, Relation, RelationType, RoadmapFiles, Settings, TimeOff } from "./types.ts";
+import { BOX_FTE_OPTIONS, LANE_FTE_OPTIONS, ZOOM_LEVELS } from "./types.ts";
 
 const ID = /^[a-z0-9][a-z0-9_-]*$/;
 const RELATION_TYPES: RelationType[] = ["before", "after", "during", "starts_with", "ends_with", "overlaps", "apart"];

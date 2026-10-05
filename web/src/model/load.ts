@@ -12,9 +12,9 @@
 // from the build where it can (loadFolder): this module never needs the yaml
 // library, and the app loads it only for a file no one has parsed yet.
 
-import { FORMAT, type FormatStatus, formatStatus } from "./format";
-import { BOX_PATH, DEPARTMENT_PATH, isRoadmapPath } from "./paths";
-import type { Box, Department, Issue, Person, Roadmap, RoadmapFiles, Settings } from "./types";
+import { FORMAT, type FormatStatus, formatStatus } from "./format.ts"; // with .ts: vite.config.ts imports this file
+import { BOX_PATH, DEPARTMENT_PATH, isRoadmapPath } from "./paths.ts";
+import type { Box, Department, Issue, Person, Roadmap, RoadmapFiles, Settings } from "./types.ts";
 
 /** Department codes: 2–4 capital letters/digits, starting with a letter. */
 export const DEPT_CODE = /^[A-Z][A-Z0-9]{1,3}$/;
@@ -246,7 +246,7 @@ let parser: Promise<void> | undefined;
  * tried again next time.
  */
 export function loadParser(): Promise<void> {
-  parser ??= import("./parse").then(
+  parser ??= import("./parse.ts").then(
     (m) => {
       parse = m.parseFile;
     },
