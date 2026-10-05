@@ -5,7 +5,7 @@
 //   something the checkout added (a symlink to a secret, a filter's output).
 //   Git runs hardened and as plumbing only (rev-parse, cat-file, ls-tree): no
 //   hooks, filters, textconv or fsmonitor, no system or global configuration,
-//   never a prompt.
+//   no fetching of objects a partial clone lacks, never a prompt.
 // - readRoadmapDir: from a folder on disk, with lstat, so a symlink is never
 //   followed. The dev server and `npm run validate`/`report` use it.
 //
@@ -111,7 +111,15 @@ type Plumbing = "rev-parse" | "cat-file" | "ls-tree";
 function gitEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) if (!key.startsWith("GIT_")) env[key] = value;
-  return { ...env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_NO_REPLACE_OBJECTS: "1" };
+  // GIT_NO_LAZY_FETCH: a partial clone never fetches a missing object from its remote (a network call, and its config) to answer.
+  return {
+    ...env,
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_NO_REPLACE_OBJECTS: "1",
+    GIT_NO_LAZY_FETCH: "1",
+  };
 }
 
 /** The repository's own .git folder; a .git file (a worktree or submodule checkout) or a symlink is refused. */
