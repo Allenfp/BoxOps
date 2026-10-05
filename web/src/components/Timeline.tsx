@@ -41,7 +41,7 @@ import { focusLater } from "../a11y/focus";
 import { followPointer } from "./followPointer";
 
 const LABEL_W = 240;
-/** Height of half an FTE; a 1-FTE lane is two of these. */
+/** The gap (px) between a box and the edges of the slots it's drawn in. */
 const BOX_PAD = 3;
 /** Pointer travel (px) before a press on a box becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 4;
@@ -123,7 +123,7 @@ const initials = (name: string) =>
 
 export function Timeline(props: Props) {
   const display = props.display ?? DEFAULT_PREFS;
-  // Rows are shorter in the compact density; a lane is two half-FTE slots.
+  // Rows are shorter in the compact density. SLOT_H is the height of half an FTE: a 1-FTE lane is two slots.
   const SLOT_H = display.density === "compact" ? 18 : 22;
   const DEPT_H = display.density === "compact" ? 30 : 34;
   // A collapsed row with a capacity chart is a little taller, so the chart can be read.
@@ -396,8 +396,8 @@ export function Timeline(props: Props) {
     const engineers = (b.engineers ?? []).map((id) => personName.get(id) ?? id);
     // Initials only where they won't crowd the title.
     // Scale (FTE × working days) sits at the far right, after the initials.
-    const scale = boxScale(b);
-    const scaleW = 6 + String(scale).length * 7;
+    const scaleValue = boxScale(b);
+    const scaleW = 6 + String(scaleValue).length * 7;
     const showScale = display.showScale && variant !== "compact" && width >= 120;
     const showPeople =
       display.showInitials &&
@@ -414,7 +414,6 @@ export function Timeline(props: Props) {
     const classes = [
       "box",
       `progress-${stage}`,
-      flag && `flagged flag-${b.status}`,
       variant !== "full" && variant,
       slots === 1 && "half",
       b.id === selectedId && "selected",
@@ -429,7 +428,7 @@ export function Timeline(props: Props) {
       ...warnings.map((w) => `⚠ ${w}\n`),
       jira ? `${jira}  ${b.title}  (BoxOps ${code})` : `${code}  ${b.title}`,
       `${prettyDay(b.start)} – ${prettyDay(b.end)}`,
-      `${workdays(b.start, b.end)} working day${workdays(b.start, b.end) === 1 ? "" : "s"} · ${b.fte} FTE · Scale ${scale} · ${PROGRESS_NAME[stage]}${flag ? ` · ${flag}` : ""}`,
+      `${workdays(b.start, b.end)} working day${workdays(b.start, b.end) === 1 ? "" : "s"} · ${b.fte} FTE · Scale ${scaleValue} · ${PROGRESS_NAME[stage]}${flag ? ` · ${flag}` : ""}`,
       engineers.length ? `Engineers: ${engineers.join(", ")}` : "No engineer assigned",
       b.description && `\n${b.description}`,
     ];
@@ -462,8 +461,9 @@ export function Timeline(props: Props) {
         {(showPeople || showScale) && (
           <span className="box-people">
             {showPeople &&
-              engineers.map((n) => (
-                <span key={n} className="avatar" title={n}>
+              engineers.map((n, i) => (
+                // By engineer: two with the same name are two avatars.
+                <span key={b.engineers![i]} className="avatar" title={n}>
                   {initials(n)}
                 </span>
               ))}
@@ -610,7 +610,7 @@ export function Timeline(props: Props) {
                               {lane.fte !== 1 && <span className="pill">{lane.fte} FTE</span>}
                             </div>
                           ) : (
-                            <div className={`label lane-label overflow-label${over ? "" : " squeezed"}`} style={{ width: LABEL_W }}>
+                            <div className="label lane-label overflow-label" style={{ width: LABEL_W }}>
                               {over && !ahead.length ? (
                                 <span className="overflow-note" title={`Over capacity before today: ${overloadText(stretches)}`}>
                                   Over capacity in the past
@@ -627,7 +627,7 @@ export function Timeline(props: Props) {
                             </div>
                           )}
                           <div
-                            className={lane ? "track lane-track" : `track overflow-band${over ? "" : " squeezed"}`}
+                            className={lane ? "track lane-track" : "track overflow-band"}
                             data-lane={lane?.id}
                             style={{ width: scale.width }}
                             onDoubleClick={readOnly || !lane ? undefined : (e) => createAt(e, lane.id)}

@@ -41,7 +41,9 @@ export function UseChart({
   const y = (r: number) => PAD + plotH * (1 - Math.min(r, TOP) / TOP);
   const full = y(1);
   const clip = `use-over-${dept.id}`;
-  const peak = Math.max(0, ...weeks.map((w) => w.ratio ?? 0));
+  // The busiest week with lanes open; a week with work but none open has no percentage.
+  const peak = Math.max(0, ...weeks.map((w) => (w.ratio === null || w.ratio === Infinity ? 0 : w.ratio)));
+  const unstaffed = weeks.some((w) => w.ratio === Infinity);
 
   // The line: one point per week's middle, broken where no lanes are open.
   const runs: string[] = [];
@@ -90,7 +92,7 @@ export function UseChart({
       width={scale.width}
       height={height}
       role="img"
-      aria-label={`${dept.name}: capacity used by week, up to ${pct(peak)}`}
+      aria-label={`${dept.name}: capacity used by week, peak ${pct(peak)}${unstaffed ? "; some weeks have work but no open lanes" : ""}`}
     >
       <defs>
         <clipPath id={clip}>

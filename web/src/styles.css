@@ -8,7 +8,6 @@
   --border: #e3e6eb;
   --grid: #eef0f3;
   --grid-major: #d5d9e0;
-  --weekend: rgba(16, 24, 40, 0.035);
   --today: #d7363c;
   /* Text on the Today flag. */
   --on-today: #ffffff;
@@ -37,7 +36,6 @@
   --border: #262c38;
   --grid: #1d222b;
   --grid-major: #2e3542;
-  --weekend: rgba(255, 255, 255, 0.025);
   --today: #ff6369;
   --on-today: #0f1218;
   --warn: #fb923c;
@@ -406,6 +404,8 @@ button.icon-only[aria-disabled="true"] {
   overflow: auto;
   position: relative;
   background: var(--surface);
+  user-select: none;
+  -webkit-user-select: none;
 }
 .tl-canvas {
   position: relative;
@@ -468,9 +468,6 @@ button.icon-only[aria-disabled="true"] {
   position: sticky;
   left: calc(var(--label-w) + 2px);
 }
-.band-cell.weekend {
-  background: var(--weekend);
-}
 .today-flag {
   position: absolute;
   bottom: 2px;
@@ -503,12 +500,6 @@ button.icon-only[aria-disabled="true"] {
 }
 .grid-line.major {
   background: var(--grid-major);
-}
-.weekend-shade {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: var(--weekend);
 }
 .today-line {
   position: absolute;
@@ -659,13 +650,6 @@ button.icon-only[aria-disabled="true"] {
   color: var(--text-muted);
   white-space: nowrap;
 }
-.pill.warn {
-  background: var(--warn-bg);
-  color: var(--warn);
-}
-.lane-row.over .track {
-  background: color-mix(in srgb, var(--warn) 5%, transparent);
-}
 
 /* Boxes. --c is the box type's colour, and the only colour a box carries:
    status is the small mark before the title, warnings are one ⚠. */
@@ -710,6 +694,7 @@ button.icon-only[aria-disabled="true"] {
   background: var(--c);
   opacity: 0.3;
   border: 0;
+  cursor: pointer;
 }
 
 /* Progress, from the dates: ○ not started, ◐ under way, ● finished. */
@@ -744,17 +729,6 @@ button.icon-only[aria-disabled="true"] {
 
 /* Editing: drag, resize, select */
 
-.timeline {
-  user-select: none;
-  -webkit-user-select: none;
-}
-.box:not(.compact) {
-  cursor: grab;
-  touch-action: none;
-}
-.box.compact {
-  cursor: pointer;
-}
 .handle {
   position: absolute;
   top: 0;
@@ -808,9 +782,6 @@ button.icon-only[aria-disabled="true"] {
   color: var(--surface);
   white-space: nowrap;
   pointer-events: none;
-}
-.lane-row.drop-target .track {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 body.dragging-move,
 body.dragging-move * {
@@ -1767,9 +1738,8 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 /* Boxes vary in height with FTE; the title is centred on the first full lane. */
 .box:not(.compact) {
   line-height: 36px;
-}
-.box-people {
-  margin-top: 6px;
+  cursor: grab;
+  touch-action: none;
 }
 .box.half {
   line-height: 14px;
@@ -1778,6 +1748,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .box-people {
   position: absolute;
   top: 4px;
+  margin-top: 6px;
   line-height: 1;
   right: 8px;
   display: flex;
@@ -1931,7 +1902,6 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .box-table tbody tr:hover td.col-title {
   background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
 }
-/* Extra area when the FTE fits but free space is too split up to draw a box in one piece. */
 /* Boxes that don't fit the lanes' FTE: a warning edge on the box itself. */
 .box.overflowing {
   border-color: color-mix(in srgb, var(--warn) 55%, transparent);

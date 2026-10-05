@@ -338,7 +338,7 @@ test("a collapsed department shows capacity used, as a line or bars (a setting)"
   // Data Engineering runs 4 FTE on 3.5 FTE of lanes around 2026-10-01.
   const de = page.locator(".dept", { hasText: "Data Engineering" });
   await de.locator(".dept-toggle").click();
-  await expect(de.locator(".use-chart")).toHaveAttribute("aria-label", /^Data Engineering: capacity used by week, up to \d+%$/);
+  await expect(de.locator(".use-chart")).toHaveAttribute("aria-label", /^Data Engineering: capacity used by week, peak \d+%$/);
   await expect(de.locator('.use-hit[data-week="2026-09-28"] title')).toHaveText(/^Week of 2026-09-28: [\d.]+ of 3.5 FTE used \(\d+%\); over capacity on 2026-\d\d-\d\d: 4 of 3.5 FTE$/);
 
   await page.getByRole("button", { name: "Settings" }).click();
