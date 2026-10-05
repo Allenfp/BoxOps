@@ -65,9 +65,13 @@ export function appInfo(webDir: string, repoDir = resolve(webDir, "..")): AppInf
   return { version, build: `${version}+${tree}${dirty ? ".dirty" : ""}`, time };
 }
 
-/** "owner/repo" from a remote URL on any host (github.com, GHE.com, GHES), or "" if it doesn't name one. */
+/**
+ * "owner/repo" from a remote URL on any host (github.com, GHE.com, GHES), or
+ * "" if it doesn't name one. As in git, a URL without a scheme names a host
+ * only before a colon (`git@host:owner/repo`); otherwise it's a local path.
+ */
 export function repoFromRemote(url: string): string {
-  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/]+@)?(?!\.\.?[:/])[^/:]+(?::\d+)?[:/]\/*(.+?)(?:\.git)?\/*$/i.exec(url.trim());
+  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?[^/:]+(?::\d+)?\/|(?:[^@/]+@)?[^/:]+:)\/*(.+?)(?:\.git)?\/*$/i.exec(url.trim());
   return m && /^[^/]+\/[^/]+$/.test(m[1]) ? m[1] : "";
 }
 

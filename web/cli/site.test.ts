@@ -230,6 +230,9 @@ describe("repoFromRemote", () => {
       "/srv/git/roadmap.git": "",
       "file:///srv/git/roadmap.git": "",
       "../roadmap/x": "",
+      "foo/bar/baz": "", // relative local paths
+      "acme/roadmap": "",
+      "github.com:acme/roadmap": "acme/roadmap",
       "https://gitlab.example/group/sub/roadmap.git": "",
       "": "",
     };
