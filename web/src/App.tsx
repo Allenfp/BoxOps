@@ -9,7 +9,7 @@ import { TOKEN_KINDS, failureMessage } from "./github/messages";
 import { type Snapshot, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
 import type { SaveResult, SaveStep } from "./github/save";
 import { getToken, setToken } from "./github/token";
-import { KeyContent } from "./components/KeyMenu";
+import { KeyContent } from "./components/KeyContent";
 import { Modal } from "./components/Modal";
 import { SettingsMenu } from "./components/SettingsMenu";
 import { getPrefs, setPrefs, usePrefs, type ViewMode } from "./prefs";

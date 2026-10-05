@@ -1,5 +1,5 @@
 // The colour key: box types, progress marks, flags and warning marks, plus a
-// few tips. Opened from the settings menu.
+// few tips. Shown in a dialog from the settings menu (Key…).
 
 import type { CSSProperties } from "react";
 import type { Settings } from "../model/types";
