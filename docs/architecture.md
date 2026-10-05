@@ -537,10 +537,12 @@ against data the new code wrote.
   validation and the build on every push to `main`. It runs the unit tests
   and the browser tests too, the latter in WebKit alone (CI has run them in
   all three), before deploying, unless nothing outside `roadmap/` has changed
-  since the commit the live site was built from (its `roadmap.json` says
-  which), so saves from the app go live quickly and an app change whose run
-  failed or was cancelled is still tested before it goes out. If that commit
-  can't be read, the tests run. Deploys run one at a time and are never
+  since the commit the live site was built from (that of the newest
+  successful `github-pages` deployment, else what its `roadmap.json` says,
+  which a private Pages site doesn't serve the workflow), so saves from the
+  app go live quickly and an app change whose run failed or was cancelled is
+  still tested before it goes out. If that commit can't be read, the tests
+  run. Deploys run one at a time and are never
   cancelled midway; a burst of saves deploys at most twice. Jobs get only the
   permissions they need, and actions are pinned to commits.
 - **Upgrades.** Dependabot (`.github/dependabot.yml`) opens pull requests
