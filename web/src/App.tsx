@@ -920,7 +920,9 @@ function RoadmapView(props: ViewProps) {
       }
       return;
     }
-    if (preview || isTyping(e.target) || busy || behind) return;
+    // A table cell left with Enter or Esc has nothing typed of its own to undo: ⌘Z there is ours.
+    const typing = isTyping(e.target) && !(e.target as HTMLElement).hasAttribute("data-settled");
+    if (preview || typing || busy || behind) return;
     if (mod && key === "z") {
       e.preventDefault();
       if (e.shiftKey) redo();

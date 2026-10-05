@@ -64,12 +64,13 @@ straight to `main`, and the site updates within a minute.
 - **Keyboard and screen readers.** "Skip to roadmap" is the first stop for
   Tab. Dialogs and the box and PTO editors keep Tab inside them, Esc closes
   them, and focus goes back where it was. In the table and People, Enter
-  keeps what's typed and stays in the cell, and Esc puts it back. Saves,
-  other people's saves, search results, broken rules and problems with a
-  field are announced to screen readers. Delete a box or PTO with its
-  editor's **Delete** button (⌘Z or Ctrl+Z brings it back): the Delete key
-  does nothing while an editor is open. Boxes on the timeline itself can't
-  yet be reached from the keyboard; the Table view edits all of a box.
+  keeps what's typed and stays in the cell (⌘Z or Ctrl+Z then undoes it),
+  and Esc puts it back. Saves, other people's saves, search results, broken
+  rules and problems with a field are announced to screen readers. Delete a
+  box or PTO with its editor's **Delete** button (⌘Z or Ctrl+Z brings it
+  back): the Delete key does nothing while an editor is open. Boxes on the
+  timeline itself can't yet be reached from the keyboard; the Table view
+  edits all of a box.
 
 ## Editing without the app
 

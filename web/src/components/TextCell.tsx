@@ -4,8 +4,9 @@ import { FieldError } from "./FieldError";
 /**
  * A spreadsheet-style text cell: edits locally, saves on Enter or when focus
  * leaves, Esc puts the old value back. Either way focus stays in the cell
- * (losing it would send the next Tab back to the top of the page). One saved
- * edit = one undo step. What's saved has no spaces at either end, as
+ * (losing it would send the next Tab back to the top of the page), and until
+ * something's typed, ⌘Z there is the app's undo (`data-settled`), not the
+ * field's own, as once focus had left it. One saved edit = one undo step. What's saved has no spaces at either end, as
  * `invalid` and `required` check it. `multiline` cells wrap and grow to fit;
  * Shift+Enter adds a line break there. A cell that's invalid has a red edge
  * while it's typed in; once saved like that, `problem` says why under it
@@ -39,6 +40,8 @@ export function TextCell({
 }) {
   const [text, setText] = useState(value);
   const editing = useRef(false);
+  /** Enter or Esc pressed, nothing typed since. */
+  const [settled, setSettled] = useState(false);
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
 
   // Follow outside changes (undo, someone else's save) unless mid-edit.
@@ -83,20 +86,32 @@ export function TextCell({
     "aria-label": ariaLabel,
     "aria-invalid": bad || undefined,
     "aria-describedby": wrong ? problemId : undefined,
+    "data-settled": settled || undefined,
     onFocus: () => (editing.current = true),
-    onChange: (e: { target: { value: string } }) => setText(e.target.value),
+    onChange: (e: { target: { value: string } }) => {
+      editing.current = true;
+      setSettled(false);
+      setText(e.target.value);
+    },
     onBlur: () => {
       editing.current = false;
+      setSettled(false);
       commit();
       onBlur();
     },
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
-      if (e.key === "Enter" && !(multiline && e.shiftKey)) {
+      const enter = e.key === "Enter" && !(multiline && e.shiftKey);
+      if (enter) {
         e.preventDefault();
         commit();
         onBlur(); // the edit is one undo step, as if focus had left
       }
       if (e.key === "Escape") setText(value);
+      // As if focus had left: an undo (or someone else's save) shows here.
+      if (enter || e.key === "Escape") {
+        editing.current = false;
+        setSettled(true);
+      }
     },
   };
   return (

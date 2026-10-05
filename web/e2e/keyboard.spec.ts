@@ -376,6 +376,26 @@ test("undo and save don't act behind a dialog or an open menu", async ({ page, g
   await expect(toolbar(page)).toContainText("No changes");
 });
 
+test("in a table cell, ⌘Z after Enter undoes the edit; once something's typed, it's the field's", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await page.locator('input[aria-label="Title"][value="Dagster 2.x upgrade"]').fill("Dagster 2.x upgrade (phase 1)");
+  await page.keyboard.press("Enter");
+  const cell = page.locator('input[aria-label="Title"]:focus');
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(cell).toHaveValue("Dagster 2.x upgrade");
+  await expect(toolbar(page)).toContainText("No changes");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(cell).toHaveValue("Dagster 2.x upgrade (phase 1)");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+
+  await page.keyboard.press("End");
+  await page.keyboard.type("!");
+  await page.keyboard.press("ControlOrMeta+z"); // the field's own undo, whatever it does: the edit stays
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect(cell).not.toHaveValue("Dagster 2.x upgrade");
+});
+
 test("⌘Z and ⌘S work from a keyboard that doesn't type Latin letters (by the key's place)", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 5);
   await focusApp(page);

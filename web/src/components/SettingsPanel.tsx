@@ -285,7 +285,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
   {
     title: "In the table and People",
     rows: [
-      ["Enter", "Keep what's typed in the cell, staying in it"],
+      ["Enter", `Keep what's typed in the cell, staying in it (${shortcut("Z")} then undoes it)`],
       ["Esc", "Put the cell back as it was"],
       [shifted("Enter"), "New line in a description or notes"],
     ],
