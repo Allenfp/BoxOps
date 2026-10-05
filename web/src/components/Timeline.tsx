@@ -31,8 +31,8 @@ import {
   workIndex,
   workdays,
 } from "../model/dates";
-import type { Box, Department, Roadmap, TimeOff, ZoomLevel } from "../model/types";
-import { type DepartmentLayout, laneAtSlot, layoutDepartment } from "../timeline/layout";
+import type { Box, Department, Lane, Roadmap, TimeOff, ZoomLevel } from "../model/types";
+import { type DepartmentLayout, type Placed, laneAtSlot, layoutDepartment } from "../timeline/layout";
 import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
 import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
@@ -49,6 +49,12 @@ const DRAG_THRESHOLD = 4;
 const SNAP_DAYS: Record<ZoomLevel, number> = { weeks: 1, months: 1, quarters: 5 };
 
 export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
+
+/** The row of a department's extra area, below its lanes. */
+const OVERFLOW = "overflow";
+
+/** "FTE 2", or the lane's name. */
+const laneLabel = (dept: Department, lane: Lane) => lane.name ?? `FTE ${dept.lanes.indexOf(lane) + 1}`;
 
 interface Props {
   /** Personal display preferences: density and what a box shows. */
@@ -93,6 +99,20 @@ interface Props {
 }
 
 type DragMode = "move" | "start" | "end";
+
+/** A new box's dates around `day`, sized to the zoom: a working week, two from that Monday, or the rest of the month. */
+function defaultSpan(day: Day, zoom: ZoomLevel): { start: Day; end: Day } {
+  if (zoom === "months") {
+    const start = startOfWeek(day);
+    return { start, end: addWorkdays(start, 9) };
+  }
+  if (zoom === "quarters") {
+    const start = nextWorkday(startOfMonth(day));
+    return { start, end: prevWorkday(addMonths(start, 1) - 1) };
+  }
+  const start = nextWorkday(day);
+  return { start, end: addWorkdays(start, 4) };
+}
 
 const initials = (name: string) =>
   name
@@ -258,24 +278,11 @@ export function Timeline(props: Props) {
     window.addEventListener("keydown", onKey);
   };
 
-  /** Double-click empty lane space: a new box sized to the zoom level. */
-  const createAt = (e: ReactMouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (target.closest("[data-box-id]")) return;
-    const lane = laneAt(e.clientX, e.clientY, layouts);
-    if (!lane) return;
-    const track = e.currentTarget.getBoundingClientRect();
-    const day = scale.dayAt(e.clientX - track.left);
-    let start = nextWorkday(day);
-    let end = addWorkdays(start, 4); // a working week
-    if (zoom === "months") {
-      start = startOfWeek(day);
-      end = addWorkdays(start, 9); // two working weeks
-    } else if (zoom === "quarters") {
-      start = nextWorkday(startOfMonth(day));
-      end = prevWorkday(addMonths(start, 1) - 1); // the rest of the month
-    }
-    onCreateBox({ lane, start, end });
+  /** Double-click empty space in a lane: a new box there, sized to the zoom level. */
+  const createAt = (e: ReactMouseEvent<HTMLDivElement>, lane: string) => {
+    if ((e.target as HTMLElement).closest("[data-box-id]")) return;
+    const day = scale.dayAt(e.clientX - e.currentTarget.getBoundingClientRect().left);
+    onCreateBox({ lane, ...defaultSpan(day, zoom) });
   };
 
   // ---- PTO ----------------------------------------------------------------
@@ -504,7 +511,15 @@ export function Timeline(props: Props) {
             const extra = layout.height > layout.capacity;
             const deptBoxes = boxes.filter((b) => b.id !== draggingId && laneDept.get(b.lane) === dept.id);
             const previewHere = preview && dragged && laneDept.get(preview.lane) === dept.id ? preview : null;
-            const previewLane = previewHere ? layout.lanes.get(previewHere.lane) : undefined;
+            // Each box goes in the row of the lane it's drawn in (its own, or wherever the layout found room), in time order.
+            const byRow = new Map<string, { box: Box; at: Placed }[]>();
+            for (const b of deptBoxes) {
+              const at = layout.boxes.get(b.id);
+              if (!at) continue;
+              const row = at.overflow ? OVERFLOW : (laneAtSlot(layout, at.slot) ?? OVERFLOW);
+              byRow.set(row, [...(byRow.get(row) ?? []), { box: b, at }]);
+            }
+            for (const list of byRow.values()) list.sort((a, b) => a.box.start - b.box.start || a.at.slot - b.at.slot);
             return (
               <section
                 key={dept.id}
@@ -541,128 +556,106 @@ export function Timeline(props: Props) {
                   </div>
                 </div>
                 {!isCollapsed && (
-                  <div className="row dept-body" style={{ height: layout.height * SLOT_H }}>
-                    <div className="label lane-labels" style={{ width: LABEL_W }}>
-                      {dept.lanes.map((lane, i) => {
-                        const l = layout.lanes.get(lane.id)!;
-                        return (
-                          <div
-                            key={lane.id}
-                            className={`lane-label${previewHere?.lane === lane.id ? " drop-target" : ""}`}
-                            style={{ height: l.slots * SLOT_H }}
-                          >
-                            <LaneName
-                              readOnly={readOnly}
-                              label={lane.name ?? `FTE ${i + 1}`}
-                              named={lane.name !== undefined}
-                              onRename={(name) => props.onRenameLane(lane.id, name)}
-                            />
-                            {hasDates(lane) && (
-                              <span className="pill lane-dates" title={`This lane holds capacity ${laneDates(lane)}`}>
-                                {laneDates(lane)}
-                              </span>
-                            )}
-                            {lane.fte !== 1 && <span className="pill">{lane.fte} FTE</span>}
-                          </div>
-                        );
-                      })}
-                      {extra && (
+                  // One row per lane, then the extra area: each exactly as tall as its slots, so
+                  // a slot is SLOT_H pixels down from the top here wherever it is (laneAt).
+                  <div className="dept-lanes" data-dept-track={dept.id} style={{ height: layout.height * SLOT_H }}>
+                    {[...dept.lanes.map((lane) => lane.id), ...(extra ? [OVERFLOW] : [])].map((rowId) => {
+                      const lane = dept.lanes.find((l) => l.id === rowId);
+                      const l = lane ? layout.lanes.get(lane.id)! : { slot: layout.capacity, slots: layout.height - layout.capacity };
+                      const rowBoxes = byRow.get(rowId) ?? [];
+                      return (
                         <div
-                          className={`lane-label overflow-label${over ? "" : " squeezed"}`}
-                          style={{ height: (layout.height - layout.capacity) * SLOT_H }}
+                          key={rowId}
+                          className={`lane-row${lane ? "" : " overflow-row"}${previewHere?.lane === rowId ? " drop-target" : ""}`}
+                          style={{ height: l.slots * SLOT_H }}
                         >
-                          {over && !ahead.length ? (
-                            <span className="overflow-note" title={`Over capacity before today: ${overloadText(stretches)}`}>
-                              Over capacity in the past
-                            </span>
-                          ) : over ? (
-                            <span className="overflow-note warn-text" title={`Over capacity: ${overloadText(ahead)}`}>
-                              Over capacity
-                            </span>
-                          ) : (
-                            <span className="overflow-note" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
-                              Doesn’t fit side by side
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div
-                      className="track dept-track"
-                      data-dept-track={dept.id}
-                      style={{ width: scale.width, height: layout.height * SLOT_H }}
-                      onDoubleClick={readOnly ? undefined : createAt}
-                    >
-                      {dept.lanes.map((lane) => {
-                        const l = layout.lanes.get(lane.id)!;
-                        return (
-                          <div
-                            key={lane.id}
-                            className={`lane-band${previewHere?.lane === lane.id ? " drop-target" : ""}`}
-                            data-lane={lane.id}
-                            style={{ top: l.slot * SLOT_H, height: l.slots * SLOT_H }}
-                          />
-                        );
-                      })}
-                      {dept.lanes.map((lane) => {
-                        // Before a lane opens and after it closes, it's hatched out: no capacity there.
-                        const l = layout.lanes.get(lane.id)!;
-                        const y = { top: l.slot * SLOT_H, height: l.slots * SLOT_H };
-                        const title = `Closed: this lane holds capacity ${laneDates(lane)}`;
-                        return (
-                          <span key={`closed-${lane.id}`}>
-                            {lane.start !== undefined && lane.start > scale.start && (
-                              <div className="lane-closed" title={title} style={{ ...y, left: 0, width: scale.x(lane.start) }} />
-                            )}
-                            {lane.end !== undefined && lane.end < scale.end && (
-                              <div
-                                className="lane-closed"
-                                title={title}
-                                style={{ ...y, left: scale.x(lane.end + 1), width: scale.width - scale.x(lane.end + 1) }}
+                          {lane ? (
+                            <div className="label lane-label" style={{ width: LABEL_W }}>
+                              <LaneName
+                                readOnly={readOnly}
+                                label={laneLabel(dept, lane)}
+                                named={lane.name !== undefined}
+                                onRename={(name) => props.onRenameLane(lane.id, name)}
                               />
-                            )}
-                          </span>
-                        );
-                      })}
-                      {extra && (
-                        <div
-                          className={`overflow-band${over ? "" : " squeezed"}`}
-                          style={{ top: layout.capacity * SLOT_H, height: (layout.height - layout.capacity) * SLOT_H }}
-                        />
-                      )}
-                      {deptBoxes.map((b) => {
-                        const p = layout.boxes.get(b.id);
-                        if (!p) return null;
-                        return boxEl(
-                          b,
-                          { ...span(b.start, b.end), top: boxTop(p.slot), height: boxHeight(p.slots) },
-                          "full",
-                          p.slots,
-                          over && p.slot >= layout.capacity && ahead.length > 0 && b.end >= now,
-                        );
-                      })}
-                      {previewHere && dragged && previewLane && (
-                        <>
-                          {boxEl(
-                            { ...dragged, ...previewHere },
-                            {
-                              ...span(previewHere.start, previewHere.end),
-                              top: boxTop(previewLane.slot),
-                              height: boxHeight(Math.max(1, Math.round(dragged.fte * 2))),
-                            },
-                            "dragging",
-                            Math.max(1, Math.round(dragged.fte * 2)),
+                              {hasDates(lane) && (
+                                <span className="pill lane-dates" title={`This lane holds capacity ${laneDates(lane)}`}>
+                                  {laneDates(lane)}
+                                </span>
+                              )}
+                              {lane.fte !== 1 && <span className="pill">{lane.fte} FTE</span>}
+                            </div>
+                          ) : (
+                            <div className={`label lane-label overflow-label${over ? "" : " squeezed"}`} style={{ width: LABEL_W }}>
+                              {over && !ahead.length ? (
+                                <span className="overflow-note" title={`Over capacity before today: ${overloadText(stretches)}`}>
+                                  Over capacity in the past
+                                </span>
+                              ) : over ? (
+                                <span className="overflow-note warn-text" title={`Over capacity: ${overloadText(ahead)}`}>
+                                  Over capacity
+                                </span>
+                              ) : (
+                                <span className="overflow-note" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
+                                  Doesn’t fit side by side
+                                </span>
+                              )}
+                            </div>
                           )}
                           <div
-                            className="drag-dates"
-                            style={{ left: scale.x(previewHere.start), top: boxTop(previewLane.slot) - 21 }}
+                            className={lane ? "track lane-track" : `track overflow-band${over ? "" : " squeezed"}`}
+                            data-lane={lane?.id}
+                            style={{ width: scale.width }}
+                            onDoubleClick={readOnly || !lane ? undefined : (e) => createAt(e, lane.id)}
                           >
-                            {prettyDay(previewHere.start)} – {prettyDay(previewHere.end)} ·{" "}
-                            {workdays(previewHere.start, previewHere.end)} working day{workdays(previewHere.start, previewHere.end) === 1 ? "" : "s"}
+                            {lane && (() => {
+                              // Before a lane opens and after it closes, it's hatched out: no capacity there.
+                              const title = `Closed: this lane holds capacity ${laneDates(lane)}`;
+                              return (
+                                <>
+                                  {lane.start !== undefined && lane.start > scale.start && (
+                                    <div className="lane-closed" title={title} style={{ left: 0, width: scale.x(lane.start) }} />
+                                  )}
+                                  {lane.end !== undefined && lane.end < scale.end && (
+                                    <div
+                                      className="lane-closed"
+                                      title={title}
+                                      style={{ left: scale.x(lane.end + 1), width: scale.width - scale.x(lane.end + 1) }}
+                                    />
+                                  )}
+                                </>
+                              );
+                            })()}
+                            {rowBoxes.map(({ box: b, at }) =>
+                              boxEl(
+                                b,
+                                { ...span(b.start, b.end), top: boxTop(at.slot - l.slot), height: boxHeight(at.slots) },
+                                "full",
+                                at.slots,
+                                over && at.slot >= layout.capacity && ahead.length > 0 && b.end >= now,
+                              ),
+                            )}
+                            {previewHere?.lane === rowId && dragged && (
+                              <>
+                                {boxEl(
+                                  { ...dragged, ...previewHere },
+                                  {
+                                    ...span(previewHere.start, previewHere.end),
+                                    top: BOX_PAD,
+                                    height: boxHeight(Math.max(1, Math.round(dragged.fte * 2))),
+                                  },
+                                  "dragging",
+                                  Math.max(1, Math.round(dragged.fte * 2)),
+                                )}
+                                <div className="drag-dates" style={{ left: scale.x(previewHere.start), top: BOX_PAD - 21 }}>
+                                  {prettyDay(previewHere.start)} – {prettyDay(previewHere.end)} ·{" "}
+                                  {workdays(previewHere.start, previewHere.end)} working day{workdays(previewHere.start, previewHere.end) === 1 ? "" : "s"}
+                                </div>
+                              </>
+                            )}
                           </div>
-                        </>
-                      )}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {!isCollapsed && display.showPto && people.some((p) => p.department === dept.id) && (() => {

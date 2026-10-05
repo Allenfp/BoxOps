@@ -1720,32 +1720,27 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   font-size: 12px;
 }
 
-/* Department body: stacked lane labels + one track where boxes can span lanes */
-.dept-body {
+/* A department's lanes: a row each (label and track), then the extra area. Rows are exactly
+   as tall as their slots (no border or padding of their own adds to it), so slot maths from
+   the top of .dept-lanes holds; a box taller than its lane is drawn over the row below. */
+.dept-lanes {
+  position: relative;
   border-bottom: 1px solid var(--border);
 }
-.label.lane-labels {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 0;
-}
-.lane-labels .lane-label {
+.lane-row {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-right: 12px;
+}
+.lane-row > .lane-label {
   border-bottom: 1px solid var(--grid);
-  min-height: 0;
   overflow: hidden;
 }
-.lane-labels .lane-label:last-child {
+.lane-row:last-child > .lane-label {
   border-bottom: 0;
 }
-.lane-labels .lane-label.drop-target {
+.lane-row.drop-target > .lane-label {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
 }
-.lane-labels .overflow-label {
+.lane-row > .overflow-label {
   background: var(--surface);
 }
 .overflow-note {
@@ -1756,22 +1751,13 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--warn);
   font-weight: 500;
 }
-.dept-track {
-  position: relative;
-}
-.lane-band {
-  position: absolute;
-  left: 0;
-  right: 0;
+.lane-track {
   border-bottom: 1px solid var(--grid);
 }
-.lane-band.drop-target {
+.lane-row.drop-target > .lane-track {
   background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .overflow-band {
-  position: absolute;
-  left: 0;
-  right: 0;
   border-top: 1px dashed var(--grid-major);
 }
 .grid-line.week {
@@ -2429,6 +2415,8 @@ button.primary {
 /* Lane dates: outside them a lane is closed (no capacity), hatched out. */
 .lane-closed {
   position: absolute;
+  top: 0;
+  bottom: 0;
   z-index: 0;
   background: repeating-linear-gradient(
     -45deg,
