@@ -21,6 +21,8 @@ export type SaveProblem =
   /** GitHub refused, or couldn't be reached (kinds and words in github/api.ts and messages.ts). */
   | { kind: "github"; failure: GitHubFailure; resume?: Resume }
   | { kind: "error"; message: string; resume?: Resume }
+  /** The roadmap on GitHub is in a newer data format: an upgrade is deploying. */
+  | { kind: "upgrading"; format: number }
   | {
       /** Pre-save check: others saved since this tab loaded. Their changes are now on screen. */
       kind: "updated";
@@ -42,6 +44,8 @@ interface Props {
   onRetry(): void;
   /** Ask for another token (the one kept doesn't do). */
   onNewToken(): void;
+  /** Load the page again, for a newer BoxOps. */
+  onReloadApp(): void;
   onClose(): void;
 }
 
@@ -75,7 +79,7 @@ function Bolded({ text }: { text: string }) {
   );
 }
 
-export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onResolve, onSaveNow, onRetry, onNewToken, onClose }: Props) {
+export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onResolve, onSaveNow, onRetry, onNewToken, onReloadApp, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = dialogRef.current;
@@ -95,6 +99,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
           unwritable: "Can’t save yet",
           conflict: "Someone else changed the same items",
           error: "Save failed",
+          upgrading: "BoxOps is being upgraded",
           updated: "The roadmap changed since you opened it",
         }[problem.kind];
 
@@ -212,6 +217,22 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
 
       {problem.kind === "github" && (
         <Failure failure={problem.failure} source={source} busy={busy} onRetry={onRetry} onNewToken={onNewToken} onClose={onClose} />
+      )}
+
+      {problem.kind === "upgrading" && (
+        <>
+          <div className="callout warn">
+            BoxOps is being upgraded; reload in a minute. The roadmap on GitHub now uses data format {problem.format}, which
+            this version of BoxOps doesn’t write, so nothing was saved.
+          </div>
+          <p className="hint">Your changes are still here and still saved in this browser.</p>
+          <footer className="dialog-foot">
+            <button onClick={onClose}>Close</button>
+            <button className="primary" onClick={onReloadApp}>
+              Reload
+            </button>
+          </footer>
+        </>
       )}
 
       {problem.kind === "error" && (

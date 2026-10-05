@@ -10,7 +10,7 @@ import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
 import { failureMessage } from "./github/messages";
 import { type Snapshot, type Source, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
-import { NewerSaves, SaveConflict, type SaveResult, type SaveStep, saveRoadmap } from "./github/save";
+import { NewerFormat, NewerSaves, SaveConflict, type SaveResult, type SaveStep, saveRoadmap } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyMenu";
 import { Modal } from "./components/Modal";
@@ -681,7 +681,9 @@ function RoadmapView(props: ViewProps) {
         setProblem({ kind: "updated", saves, changes: theirs, clashes: clashes.map(describeItem) });
         return;
       }
-      if (e instanceof SaveConflict) {
+      if (e instanceof NewerFormat) {
+        setProblem({ kind: "upgrading", format: e.format });
+      } else if (e instanceof SaveConflict) {
         // Someone saved the same items since we loaded: move onto their version,
         // then ask (see the effect below) once the clashes are known.
         askAfterRebase.current = true;
@@ -1247,6 +1249,7 @@ function RoadmapView(props: ViewProps) {
             setProblem(null);
             void save();
           }}
+          onReloadApp={() => reloadApp("")}
           onRetry={() => {
             setProblem(null);
             void save(problem.kind === "github" || problem.kind === "error" ? problem.resume : {});

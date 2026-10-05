@@ -1,5 +1,5 @@
 import type { Bundle } from "../src/model/bundle";
-import { DAGSTER, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
+import { DAGSTER, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
 
 // A tab left open while BoxOps itself is upgraded: older code never writes.
 
@@ -51,4 +51,17 @@ test("an older BoxOps behind roadmap.json (a CDN catching up) doesn't stop this 
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
   await expect(page.locator(".banner", { hasText: "BoxOps was updated" })).toHaveCount(0);
+});
+
+test("a save while an upgrade to a newer data format deploys is refused, nothing written", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  const upgrade = github.otherSave({ "settings.yaml": (t) => t.replace(/^format: 1 /m, "format: 2 ") }, "Ada Admin", "Upgrade BoxOps to 0.2.0");
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("BoxOps is being upgraded");
+  await expect(dialog).toContainText("BoxOps is being upgraded; reload in a minute.");
+  await expect(dialog).toContainText("data format 2");
+  expect(github.head).toBe(upgrade);
+  expect(github.calls("graphql")).toBe(0);
+  expect(github.file(boxFile(DAGSTER))).not.toContain("start: 2026-09-28");
 });

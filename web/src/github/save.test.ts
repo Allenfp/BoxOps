@@ -3,7 +3,7 @@ import { FakeGitHub, OTHER_OWNER_TOKEN, READ_TOKEN, TOKEN } from "../../e2e/fake
 import { GitHubClient, GitHubFailure, TIMEOUTS } from "./api";
 import { failureMessage } from "./messages";
 import { forgetBlobs, fromBundle } from "./read";
-import { NewerSaves, SaveConflict, type SaveRequest, commitParts, saveRoadmap } from "./save";
+import { NewerFormat, NewerSaves, SaveConflict, type SaveRequest, commitParts, saveRoadmap } from "./save";
 
 const FILES = {
   "settings.yaml": "format: 1\n",
@@ -117,6 +117,17 @@ describe("saveRoadmap", () => {
     expect(await save({ changes: { "boxes/a.yaml": "id: a\n" } })).toMatchObject({ status: "noop" });
     g.otherSave({ "boxes/a.yaml": () => "id: a\ntitle: A2\n", "boxes/b.yaml": () => undefined });
     expect(await save({ review: true })).toMatchObject({ status: "alreadySaved", commit: g.head });
+    expect(g.calls("graphql")).toBe(0);
+  });
+
+  it("writes nothing while the head is in a newer data format (an upgrade deploying), even before review", async () => {
+    const { g, save } = await setup();
+    g.otherSave({ "settings.yaml": () => "format: 2\n" });
+    for (const review of [false, true]) {
+      const e = await save({ review }).catch((x) => x);
+      expect(e).toBeInstanceOf(NewerFormat);
+      expect(e).toMatchObject({ format: 2, message: "BoxOps is being upgraded; reload in a minute." });
+    }
     expect(g.calls("graphql")).toBe(0);
   });
 

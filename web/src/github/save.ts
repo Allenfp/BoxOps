@@ -9,13 +9,16 @@
 // other files stay and ours go on top; a file both of us changed is a
 // conflict the user settles. The roadmap as it would be after the save is
 // validated first. Files the head already holds exactly as ours are left
-// out, and an empty change is never sent.
+// out, and an empty change is never sent. A head in a newer data format (an
+// upgrade merged, its deploy still running) is never written to.
 //
 // Retrying is safe: every attempt names the head it goes on, so at most one
 // lands. After STALE_DATA, or a failure that leaves unclear whether the
 // commit was made (a timeout, a dropped connection), the head is read again;
 // if it holds our content in every changed file, the save already landed.
 
+import { FORMAT } from "../model/format";
+import { settingsFormat } from "../model/load";
 import { isRoadmapPath } from "../model/paths";
 import { type FileChanges, applyChanges } from "../model/serialize";
 import type { RoadmapFiles } from "../model/types";
@@ -38,6 +41,22 @@ export class SaveConflict extends Error {
   ) {
     super(`${paths.length} item(s) were changed by someone else since you loaded the roadmap.`);
   }
+}
+
+/**
+ * The head's settings.yaml states a newer data format than this BoxOps writes:
+ * an upgrade was merged and its deploy is still running. Nothing is written.
+ */
+export class NewerFormat extends Error {
+  constructor(readonly format: number) {
+    super("BoxOps is being upgraded; reload in a minute.");
+  }
+}
+
+/** Throws NewerFormat if this head is in a data format newer than FORMAT. */
+function checkFormat(head: Snapshot): void {
+  const format = settingsFormat(head.files["settings.yaml"]);
+  if (format !== null && format > FORMAT) throw new NewerFormat(format);
 }
 
 /** Retries after STALE_DATA or an unclear failure, on top of the first attempt. */
@@ -117,6 +136,7 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
   const progress = (step: SaveStep) => req.onProgress?.(step);
   progress("checking");
   let head = await readSnapshot(gh, base, { seen: req.seen });
+  checkFormat(head);
   // An earlier save whose answer never arrived may be there already, even under later saves.
   if (head !== base && landed(head)) return { status: "alreadySaved", commit: head.source.commit, url: commitUrl(repo, head.source.commit), snapshot: head };
   if (req.review && !sameBlobs(head.blobs, base.blobs)) throw new NewerSaves(head);
@@ -184,6 +204,7 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
           : new GitHubFailure(e.kind, e.message, e.detail, false);
       }
       head = fresh;
+      checkFormat(head);
       progress("retrying");
       await gh.sleep(1000 * (attempt + 1)); // GitHub asks for a second or more between writes
     }

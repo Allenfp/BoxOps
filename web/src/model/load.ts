@@ -476,6 +476,11 @@ function readPto(r: Reader, person: At): TimeOff[] | undefined {
   return out;
 }
 
+/** The data format a settings.yaml states (0 when it doesn't, null when that can't be read): what a save checks the head against. */
+export function settingsFormat(text: string | undefined): number | null {
+  return loadSettings(text, new Reader("settings.yaml", [])).format;
+}
+
 function loadSettings(text: string | undefined, r: Reader): { settings: Settings; format: number | null } {
   if (text === undefined) {
     r.fail(`missing: every roadmap needs a settings.yaml with at least "format: ${FORMAT}"`);
