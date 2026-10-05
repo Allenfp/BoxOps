@@ -1,5 +1,6 @@
 import {
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -9,7 +10,7 @@ import {
   useState,
 } from "react";
 import { flagName, PROGRESS_NAME, progress } from "../model/status";
-import { boxScale } from "../model/scale";
+import { boxScale, scaleSentence } from "../model/scale";
 import { jiraKey } from "../model/jira";
 import { ScaleBadge } from "./ScaleBadge";
 import { capacityOn, hasDates, laneDates } from "../model/lanes";
@@ -39,6 +40,9 @@ import { UseChart } from "./UseChart";
 import { useReorder } from "./useReorder";
 import { focusLater } from "../a11y/focus";
 import { followPointer } from "./followPointer";
+import { cellOf, useGridFocus } from "./useGridFocus";
+import { announce } from "../a11y/announce";
+import { boxName, laneName, ptoName, spokenRange } from "../timeline/keyboard";
 
 const LABEL_W = 240;
 /** The gap (px) between a box and the edges of the slots it's drawn in. */
@@ -53,6 +57,21 @@ export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
 
 /** The row of a department's extra area, below its lanes. */
 const OVERFLOW = "overflow";
+
+/** The id of what's said about the focused box beyond its name (useGridFocus.ts writes it). */
+const DESCRIBED_BY = "tl-focus-desc";
+const GRID_HELP =
+  "Arrow keys move between lanes, boxes and PTO. Enter opens a box, Space picks it up to move it, N adds one, Delete deletes it. Question mark lists the keys.";
+
+/** A cell's key, `kind:id` (data-cell), in its two parts. */
+const splitKey = (key: string): [string, string] => {
+  const i = key.indexOf(":");
+  return [key.slice(0, i), key.slice(i + 1)];
+};
+/** A PTO block's ref from its key, `person#index`. */
+const ptoRefOf = (key: string): PtoRef => ({ personId: key.slice(0, key.lastIndexOf("#")), index: Number(key.slice(key.lastIndexOf("#") + 1)) });
+
+const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
 /** "FTE 2", or the lane's name. */
 const laneLabel = (dept: Department, lane: Lane) => lane.name ?? `FTE ${dept.lanes.indexOf(lane) + 1}`;
@@ -97,7 +116,12 @@ interface Props {
   onPlacePto?(ref: PtoRef, dates: Pick<TimeOff, "start" | "end">): void;
   /** Double-click a department's PTO row. */
   onCreatePto?(departmentId: string, dates: Pick<TimeOff, "start" | "end">): void;
+  /** Why nothing can be changed while `readOnly`, said when a key or button would have changed something. */
+  readOnlyReason?: string;
 }
+
+/** Working days a box added from the keyboard (or its lane's +) runs, by zoom: a week, two, or about a month. */
+const NEW_DAYS: Record<ZoomLevel, number> = { weeks: 5, months: 10, quarters: 20 };
 
 /** A new box's dates around `day`, sized to the zoom: a working week, two from that Monday, or the rest of the month. */
 function defaultSpan(day: Day, zoom: ZoomLevel): { start: Day; end: Day } {
@@ -179,6 +203,83 @@ export function Timeline(props: Props) {
   const centerDay = useRef<Day | null>(null);
   const trackWidth = () => (scrollRef.current?.clientWidth ?? 0) - LABEL_W;
 
+  /** The working days on screen. */
+  const visible = () => {
+    const el = scrollRef.current;
+    const s = latest.current.scale;
+    if (!el) return { from: s.start, to: s.start };
+    return { from: s.dayAt(el.scrollLeft), to: s.dayAt(el.scrollLeft + Math.max(0, el.clientWidth - LABEL_W)) };
+  };
+  /** Today if it's on screen, else the middle of what is: where a new box goes. */
+  const nearToday = () => {
+    const { from, to } = visible();
+    return now >= from && now <= to ? now : Math.round((from + to) / 2);
+  };
+
+  // ---- Keyboard ---------------------------------------------------------------
+  // The timeline is a grid: one Tab stop, the arrow keys between cells
+  // (useGridFocus.ts). Enter opens a box or PTO block.
+
+  const gridRef = useRef<HTMLDivElement>(null);
+  /** What's said about a focused cell beyond its name: a box's lane, scale, progress and warnings; a chart's overloads. */
+  const describeCell = (cell: HTMLElement): string => {
+    const [kind, id] = splitKey(cell.dataset.cell!);
+    const p = latest.current.props;
+    if (kind === "chart") {
+      const dept = p.roadmap.departments.find((d) => d.id === id);
+      const over = dept ? overCapacity(dept, p.allBoxes ?? p.roadmap.boxes) : [];
+      return over.length ? `Over capacity: ${overloadText(over)}.` : "Never over capacity.";
+    }
+    const b = kind === "box" && p.roadmap.boxes.find((x) => x.id === id);
+    if (!b) return "";
+    const clash = p.conflictIds?.has(b.id);
+    return [
+      `${laneName(p.roadmap.departments, b.lane)}.`,
+      scaleSentence(b, p.roadmap.departments),
+      `${PROGRESS_NAME[progress(b, now)]}.`,
+      ...(p.ruleWarnings?.get(b.id) ?? []),
+      clash && "Someone else also changed this box: you’ll choose whose version to keep when you save.",
+      p.updatedIds?.has(b.id) && !clash && "Changed by someone else since you opened the roadmap.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  };
+  const grid = useGridFocus(gridRef, { scroller: scrollRef, labelWidth: LABEL_W, visible, describe: describeCell, describedBy: DESCRIBED_BY });
+
+  const readOnlyWhy = props.readOnlyReason ?? "Read-only: changes can’t be made here.";
+  const say = (text: string) => void announce(text);
+
+  /** A new box in `lane` (Add a box, or N): after `after`, else near today, as long as the zoom suggests. */
+  const createBoxIn = (lane: string, after?: Day) => {
+    if (readOnly) return say(readOnlyWhy);
+    const start = after === undefined ? nextWorkday(nearToday()) : addWorkdays(after, 1);
+    const end = addWorkdays(start, NEW_DAYS[zoom] - 1);
+    onCreateBox({ lane, start, end });
+    say(`Added a box to ${laneName(departments, lane)}, ${spokenRange(start, end)}.`);
+  };
+  /** A week of PTO in `deptId` (Add PTO, or N): after `after`, else from the next working day. */
+  const createPto = (deptId: string, after?: Day) => {
+    if (readOnly) return say(readOnlyWhy);
+    const start = after === undefined ? nextWorkday(now) : addWorkdays(after, 1);
+    const end = addWorkdays(start, 4);
+    props.onCreatePto?.(deptId, { start, end });
+    say(`Added PTO in ${departments.find((d) => d.id === deptId)?.name ?? "the department"}, ${spokenRange(start, end)}.`);
+  };
+
+  const onGridKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.defaultPrevented || isTyping(e.target)) return;
+    const cell = cellOf(e.target);
+    if (!cell || grid.onKey(e.nativeEvent)) return;
+    const [kind, id] = splitKey(cell.dataset.cell!);
+    const plain = !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey;
+    if (e.key === "Enter" && plain && (kind === "box" || kind === "pto")) {
+      e.preventDefault();
+      if (readOnly) return say(readOnlyWhy);
+      if (kind === "box") onSelect(id);
+      else props.onSelectPto?.(ptoRefOf(id));
+    }
+  };
+
   const scrollToDay = (day: Day, fraction: number, smooth = false) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -254,6 +355,8 @@ export function Timeline(props: Props) {
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>, box: Box) => {
     if (e.button !== 0 || endDrag.current) return;
+    // Focus on what was pressed (it wouldn't take it otherwise, the press being kept from selecting text).
+    e.currentTarget.focus({ preventScroll: true });
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
@@ -295,11 +398,8 @@ export function Timeline(props: Props) {
         scrolling?.stop();
         document.body.classList.remove("dragging-move", "dragging-resize");
         setPreview(null);
-        if (!released) return;
-        if (!scrolling) {
-          latest.current.props.onSelect(box.id);
-          return;
-        }
+        // A press that didn't drag is a click: the box's onClick opens it.
+        if (!released || !scrolling) return;
         const changed = placement.lane !== box.lane || placement.start !== box.start || placement.end !== box.end;
         if (changed) latest.current.props.onPlaceBox(box.id, placement);
       },
@@ -321,6 +421,7 @@ export function Timeline(props: Props) {
 
   const startPtoDrag = (e: ReactPointerEvent<HTMLDivElement>, ref: PtoRef, pto: TimeOff) => {
     if (e.button !== 0 || endDrag.current) return;
+    e.currentTarget.focus({ preventScroll: true });
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
@@ -351,10 +452,8 @@ export function Timeline(props: Props) {
         scrolling?.stop();
         document.body.classList.remove("dragging-move", "dragging-resize");
         setPtoPreview(null);
-        if (!released) return;
-        const p = latest.current.props;
-        if (!scrolling) p.onSelectPto?.(ref);
-        else if (dates.start !== pto.start || dates.end !== pto.end) p.onPlacePto?.(ref, dates);
+        if (!released || !scrolling) return;
+        if (dates.start !== pto.start || dates.end !== pto.end) latest.current.props.onPlacePto?.(ref, dates);
       },
     });
   };
@@ -436,13 +535,33 @@ export function Timeline(props: Props) {
       <div
         key={b.id}
         data-box-id={b.id}
-        // Focus can be put here (when its editor closes), not tabbed to.
+        role="gridcell"
+        data-cell={`box:${b.id}`}
+        data-start={b.start}
+        data-end={b.end}
+        aria-label={boxName({
+          title: b.title,
+          code,
+          jira,
+          start: b.start,
+          end: b.end,
+          fte: b.fte,
+          engineers,
+          flag: b.status ? flag : undefined,
+          rules: warnings.length,
+          clash: !!clash,
+          updated: !!props.updatedIds?.has(b.id),
+        })}
+        aria-haspopup={readOnly ? undefined : "dialog"}
+        aria-expanded={readOnly ? undefined : b.id === selectedId}
+        // The grid's Tab stop when it's the active cell (useGridFocus.ts); else reached with the arrow keys.
         tabIndex={-1}
         className={classes.filter(Boolean).join(" ")}
         style={{ ...style, ...((showPeople || showScale) && { paddingRight: peopleW }), "--c": typeColor.get(b.type) ?? "#8a94a6" } as CSSProperties}
         title={variant === "full" && b.id !== selectedId ? tooltip.filter(Boolean).join("\n") : undefined}
         onPointerDown={interactive ? (e) => startDrag(e, b) : undefined}
-        onClick={interactive || readOnly ? undefined : () => onSelect(b.id)}
+        // A click opens it (a screen reader's "press" is a click too); one ending a drag goes elsewhere.
+        onClick={readOnly ? undefined : () => onSelect(b.id)}
       >
         {variant !== "compact" && (
           <span className="box-title">
@@ -500,7 +619,8 @@ export function Timeline(props: Props) {
             {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
             {readOnly && props.readOnlyLabel && <span>{props.readOnlyLabel}</span>}
           </div>
-          <div className="tl-bands" style={{ width: scale.width }}>
+          {/* The dates along the top: what the boxes' names say in words. */}
+          <div className="tl-bands" aria-hidden style={{ width: scale.width }}>
             {bands.map((band, i) => (
               <div key={i} className={`tl-band band-${i}`}>
                 {band.map((s) => (
@@ -518,236 +638,294 @@ export function Timeline(props: Props) {
 
         <div className="tl-body" ref={bodyRef}>
           <Grid scale={scale} fine={bands[1]} coarse={bands[0]} zoom={zoom} />
-          {reorder.line && <div className="reorder-line" style={reorder.line} />}
+          {reorder.line && <div className="reorder-line" aria-hidden style={reorder.line} />}
 
-          {departments.map((dept) => {
-            const layout = layouts.get(dept.id)!;
-            const isCollapsed = collapsed.has(dept.id);
-            // Over capacity is FTE arithmetic; the extra area is where boxes that couldn't be drawn in the lanes go.
-            // Only an overload from today on is a warning, as in the app's warnings; past ones are history.
-            // The layout counts in half slots: where the warnings' arithmetic finds no overload, it's none.
-            const stretches = overloads.get(dept.id) ?? [];
-            const over = layout.overCapacity && stretches.length > 0;
-            const ahead = stretches.filter((x) => x.to >= now);
-            const extra = layout.height > layout.capacity;
-            const deptBoxes = boxes.filter((b) => laneDept.get(b.lane) === dept.id);
-            // Each box goes in the row of the lane it's drawn in (its own, or wherever the layout found room), in time order.
-            // One being dragged stays there while it's only moved in time; dragged to another lane, it's in that lane's row.
-            const byRow = new Map<string, { box: Box; at: Placed }[]>();
-            const add = (row: string, box: Box, at: Placed) => byRow.set(row, [...(byRow.get(row) ?? []), { box, at }]);
-            for (const b of deptBoxes) {
-              const at = layout.boxes.get(b.id);
-              if (!at || (moving?.id === b.id && moving.lane !== b.lane)) continue;
-              add(at.overflow ? OVERFLOW : (laneAtSlot(layout, at.slot) ?? OVERFLOW), b, at);
-            }
-            if (moving && moving.lane !== dragged!.lane && laneDept.get(moving.lane) === dept.id) {
-              const need = slotsOf(moving.fte);
-              add(moving.lane, dragged!, { slot: previewSlot(layout, moving.lane, need), slots: need, overflow: false });
-            }
-            for (const list of byRow.values()) list.sort((a, b) => a.box.start - b.box.start || a.at.slot - b.at.slot);
-            return (
-              <section
-                key={dept.id}
-                className={`dept${reorder.draggingId === dept.id ? " reordering-this" : ""}`}
-                data-dept-id={dept.id}
-                data-reorder-id={dept.id}
-                style={{ "--dept": dept.color } as CSSProperties}>
-                <div
-                  className="row dept-row"
-                  style={{ height: isCollapsed && display.collapsedView !== "boxes" ? CHART_H : DEPT_H }}
-                >
-                  <DeptLabel
-                    dept={dept}
-                    now={now}
-                    over={ahead}
-                    collapsed={isCollapsed}
-                    onToggle={() => onToggleDepartment(dept.id)}
-                    onGrab={readOnly || !props.onMoveDepartment ? undefined : (e) => reorder.start(e, dept.id)}
-                    onEdit={readOnly || !props.onEditDepartment ? undefined : () => props.onEditDepartment!(dept.id)}
-                  />
-                  <div className="track" style={{ width: scale.width }}>
-                    {isCollapsed &&
-                      (display.collapsedView === "boxes" ? (
-                        deptBoxes.map((b) => boxEl(b, span(b.start, b.end), "compact"))
-                      ) : (
-                        <UseChart
-                          dept={dept}
-                          boxes={(props.allBoxes ?? boxes).filter((b) => laneDept.get(b.lane) === dept.id)}
-                          scale={scale}
-                          height={CHART_H}
-                          kind={display.collapsedView}
-                        />
-                      ))}
+          {/* The timeline as a grid for the keyboard and screen readers (useGridFocus.ts): one Tab stop, arrow keys between cells. */}
+          <div
+            ref={gridRef}
+            className="tl-rows"
+            role={departments.length ? "grid" : undefined}
+            aria-label={departments.length ? "Timeline" : undefined}
+            aria-describedby={departments.length ? "tl-help" : undefined}
+            aria-readonly={(departments.length && readOnly) || undefined}
+            onKeyDown={onGridKey}
+          >
+            {departments.map((dept) => {
+              const layout = layouts.get(dept.id)!;
+              const isCollapsed = collapsed.has(dept.id);
+              // Over capacity is FTE arithmetic; the extra area is where boxes that couldn't be drawn in the lanes go.
+              // Only an overload from today on is a warning, as in the app's warnings; past ones are history.
+              // The layout counts in half slots: where the warnings' arithmetic finds no overload, it's none.
+              const stretches = overloads.get(dept.id) ?? [];
+              const over = layout.overCapacity && stretches.length > 0;
+              const ahead = stretches.filter((x) => x.to >= now);
+              const extra = layout.height > layout.capacity;
+              const deptBoxes = boxes.filter((b) => laneDept.get(b.lane) === dept.id);
+              // Each box goes in the row of the lane it's drawn in (its own, or wherever the layout found room), in time order.
+              // One being dragged stays there while it's only moved in time; dragged to another lane, it's in that lane's row.
+              const byRow = new Map<string, { box: Box; at: Placed }[]>();
+              const add = (row: string, box: Box, at: Placed) => byRow.set(row, [...(byRow.get(row) ?? []), { box, at }]);
+              for (const b of deptBoxes) {
+                const at = layout.boxes.get(b.id);
+                if (!at || (moving?.id === b.id && moving.lane !== b.lane)) continue;
+                add(at.overflow ? OVERFLOW : (laneAtSlot(layout, at.slot) ?? OVERFLOW), b, at);
+              }
+              if (moving && moving.lane !== dragged!.lane && laneDept.get(moving.lane) === dept.id) {
+                const need = slotsOf(moving.fte);
+                add(moving.lane, dragged!, { slot: previewSlot(layout, moving.lane, need), slots: need, overflow: false });
+              }
+              for (const list of byRow.values()) list.sort((a, b) => a.box.start - b.box.start || a.at.slot - b.at.slot);
+              return (
+                <section
+                  key={dept.id}
+                  role="rowgroup"
+                  className={`dept${reorder.draggingId === dept.id ? " reordering-this" : ""}`}
+                  data-dept-id={dept.id}
+                  data-reorder-id={dept.id}
+                  style={{ "--dept": dept.color } as CSSProperties}>
+                  <div
+                    className="row dept-row"
+                    role="row"
+                    style={{ height: isCollapsed && display.collapsedView !== "boxes" ? CHART_H : DEPT_H }}
+                  >
+                    <DeptLabel
+                      dept={dept}
+                      now={now}
+                      over={ahead}
+                      collapsed={isCollapsed}
+                      onToggle={() => onToggleDepartment(dept.id)}
+                      onGrab={readOnly || !props.onMoveDepartment ? undefined : (e) => reorder.start(e, dept.id)}
+                      onEdit={props.onEditDepartment && (() => (readOnly ? say(readOnlyWhy) : props.onEditDepartment!(dept.id)))}
+                      readOnly={readOnly}
+                    />
+                    <div className="track" style={{ width: scale.width }}>
+                      {isCollapsed &&
+                        (display.collapsedView === "boxes" ? (
+                          deptBoxes.toSorted((a, b) => a.start - b.start).map((b) => boxEl(b, span(b.start, b.end), "compact"))
+                        ) : (
+                          // The chart as a cell: its name says the peak, its description the weeks over capacity.
+                          <div role="gridcell" tabIndex={-1} data-cell={`chart:${dept.id}`} className="use-cell">
+                            <UseChart
+                              dept={dept}
+                              boxes={(props.allBoxes ?? boxes).filter((b) => laneDept.get(b.lane) === dept.id)}
+                              scale={scale}
+                              height={CHART_H}
+                              kind={display.collapsedView}
+                            />
+                          </div>
+                        ))}
+                    </div>
                   </div>
-                </div>
-                {!isCollapsed && (
-                  // One row per lane, then the extra area: each exactly as tall as its slots, so
-                  // a slot is SLOT_H pixels down from the top here wherever it is (laneAt).
-                  <div className="dept-lanes" data-dept-track={dept.id} style={{ height: layout.height * SLOT_H }}>
-                    {[...dept.lanes.map((lane) => lane.id), ...(extra ? [OVERFLOW] : [])].map((rowId) => {
-                      const lane = dept.lanes.find((l) => l.id === rowId);
-                      const l = lane ? layout.lanes.get(lane.id)! : { slot: layout.capacity, slots: layout.height - layout.capacity };
-                      const rowBoxes = byRow.get(rowId) ?? [];
-                      return (
-                        <div
-                          key={rowId}
-                          className={`lane-row${lane ? "" : " overflow-row"}${moving?.lane === rowId ? " drop-target" : ""}`}
-                          style={{ height: l.slots * SLOT_H }}
-                        >
-                          {lane ? (
-                            <div className="label lane-label" style={{ width: LABEL_W }}>
-                              <LaneName
-                                readOnly={readOnly}
-                                label={laneLabel(dept, lane)}
-                                named={lane.name !== undefined}
-                                onRename={(name) => props.onRenameLane(lane.id, name)}
-                              />
-                              {hasDates(lane) && (
-                                <span className="pill lane-dates" title={`This lane holds capacity ${laneDates(lane)}`}>
-                                  {laneDates(lane)}
-                                </span>
+                  {!isCollapsed && (
+                    // One row per lane, then the extra area: each exactly as tall as its slots, so
+                    // a slot is SLOT_H pixels down from the top here wherever it is (laneAt).
+                    <div className="dept-lanes" data-dept-track={dept.id} style={{ height: layout.height * SLOT_H }}>
+                      {[...dept.lanes.map((lane) => lane.id), ...(extra ? [OVERFLOW] : [])].map((rowId) => {
+                        const lane = dept.lanes.find((l) => l.id === rowId);
+                        const l = lane ? layout.lanes.get(lane.id)! : { slot: layout.capacity, slots: layout.height - layout.capacity };
+                        const rowBoxes = byRow.get(rowId) ?? [];
+                        return (
+                          <div
+                            key={rowId}
+                            role="row"
+                            className={`lane-row${lane ? "" : " overflow-row"}${moving?.lane === rowId ? " drop-target" : ""}`}
+                            style={{ height: l.slots * SLOT_H }}
+                          >
+                            {lane ? (
+                              <div className="label lane-label" style={{ width: LABEL_W }}>
+                                {/* The row's header: the lane's name, and when it's open and its size, if not always and 1 FTE. */}
+                                <div role="rowheader" className="lane-head">
+                                  <LaneName
+                                    readOnly={readOnly}
+                                    label={laneLabel(dept, lane)}
+                                    named={lane.name !== undefined}
+                                    cell={`lane:${lane.id}`}
+                                    details={[hasDates(lane) && `lane-dates-${lane.id}`, lane.fte !== 1 && `lane-fte-${lane.id}`].filter(Boolean).join(" ") || undefined}
+                                    onRename={(name) => props.onRenameLane(lane.id, name)}
+                                  />
+                                  {hasDates(lane) && (
+                                    <span id={`lane-dates-${lane.id}`} className="pill lane-dates" title={`This lane holds capacity ${laneDates(lane)}`}>
+                                      {laneDates(lane)}
+                                    </span>
+                                  )}
+                                  {lane.fte !== 1 && (
+                                    <span id={`lane-fte-${lane.id}`} className="pill">
+                                      {lane.fte} FTE
+                                    </span>
+                                  )}
+                                </div>
+                                <div role="gridcell" className="add-cell">
+                                  <button
+                                    className="icon-button lane-add"
+                                    tabIndex={-1}
+                                    data-cell={`lane-add:${lane.id}`}
+                                    title="Add a box (or double-click the lane)"
+                                    aria-label={`Add a box to ${dept.name} / ${laneLabel(dept, lane)}`}
+                                    aria-disabled={readOnly || undefined}
+                                    onClick={() => createBoxIn(lane.id)}
+                                  >
+                                    <Icon name="plus" size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="label lane-label overflow-label" role="rowheader" style={{ width: LABEL_W }}>
+                                {over && !ahead.length ? (
+                                  <span className="overflow-note" title={`Over capacity before today: ${overloadText(stretches)}`}>
+                                    Over capacity in the past
+                                  </span>
+                                ) : over ? (
+                                  <span className="overflow-note warn-text" title={`Over capacity: ${overloadText(ahead)}`}>
+                                    Over capacity
+                                  </span>
+                                ) : (
+                                  <span className="overflow-note" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
+                                    Doesn’t fit side by side
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            <div
+                              className={lane ? "track lane-track" : "track overflow-band"}
+                              data-lane={lane?.id}
+                              style={{ width: scale.width }}
+                              onDoubleClick={readOnly || !lane ? undefined : (e) => createAt(e, lane.id)}
+                            >
+                              {lane && (() => {
+                                // Before a lane opens and after it closes, it's hatched out: no capacity there.
+                                const title = `Closed: this lane holds capacity ${laneDates(lane)}`;
+                                return (
+                                  <>
+                                    {lane.start !== undefined && lane.start > scale.start && (
+                                      <div className="lane-closed" aria-hidden title={title} style={{ left: 0, width: scale.x(lane.start) }} />
+                                    )}
+                                    {lane.end !== undefined && lane.end < scale.end && (
+                                      <div
+                                        className="lane-closed"
+                                        aria-hidden
+                                        title={title}
+                                        style={{ left: scale.x(lane.end + 1), width: scale.width - scale.x(lane.end + 1) }}
+                                      />
+                                    )}
+                                  </>
+                                );
+                              })()}
+                              {rowBoxes.map(({ box: b, at }) => {
+                                const style = { top: boxTop(at.slot - l.slot), height: boxHeight(at.slots) };
+                                // The same element dragged or not: moved in time, it keeps focus.
+                                return b.id === moving?.id
+                                  ? boxEl(moving, { ...span(moving.start, moving.end), ...style }, "dragging", at.slots)
+                                  : boxEl(b, { ...span(b.start, b.end), ...style }, "full", at.slots, over && at.slot >= layout.capacity && ahead.length > 0 && b.end >= now);
+                              })}
+                              {rowBoxes.map(({ box: b, at }) =>
+                                b.id === moving?.id ? (
+                                  <div key="drag-dates" className="drag-dates" aria-hidden style={{ left: scale.x(moving.start), top: boxTop(at.slot - l.slot) - 21 }}>
+                                    {prettyDay(moving.start)} – {prettyDay(moving.end)} · {workdays(moving.start, moving.end)} working day
+                                    {workdays(moving.start, moving.end) === 1 ? "" : "s"}
+                                  </div>
+                                ) : null,
                               )}
-                              {lane.fte !== 1 && <span className="pill">{lane.fte} FTE</span>}
                             </div>
-                          ) : (
-                            <div className="label lane-label overflow-label" style={{ width: LABEL_W }}>
-                              {over && !ahead.length ? (
-                                <span className="overflow-note" title={`Over capacity before today: ${overloadText(stretches)}`}>
-                                  Over capacity in the past
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {!isCollapsed && display.showPto && people.some((p) => p.department === dept.id) && (() => {
+                    const entries = ptoByDept.get(dept.id) ?? [];
+                    const { rows, count } = packRows(entries);
+                    const height = Math.max(1, count) * SLOT_H;
+                    return (
+                      <div className="row pto-row" role="row" style={{ height }}>
+                        <div className="label lane-label pto-label" style={{ width: LABEL_W, height }}>
+                          <span className="lane-name static" role="rowheader">
+                            PTO
+                          </span>
+                          {props.onCreatePto && (
+                            <span role="gridcell" className="add-cell">
+                              <button
+                                className="icon-button pto-add"
+                                tabIndex={-1}
+                                data-cell={`pto-add:${dept.id}`}
+                                title="Add PTO (or double-click the row)"
+                                aria-label={`Add PTO in ${dept.name}`}
+                                aria-disabled={readOnly || undefined}
+                                onClick={() => createPto(dept.id)}
+                              >
+                                <Icon name="plus" size={14} />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="track pto-track"
+                          data-pto-track={dept.id}
+                          style={{ width: scale.width, height }}
+                          onDoubleClick={readOnly || !props.onCreatePto ? undefined : (e) => createPtoAt(e, dept.id)}
+                        >
+                          {entries.toSorted((a, b) => a.pto.start - b.pto.start || a.pto.end - b.pto.end).map((entry) => {
+                            const ref = { personId: entry.person.id, index: entry.index };
+                            const key = ptoKey(ref);
+                            const live = ptoPreview?.key === key ? { ...entry.pto, ...ptoPreview } : entry.pto;
+                            const style = { ...span(live.start, live.end), top: rows.get(entry)! * SLOT_H + BOX_PAD, height: SLOT_H - BOX_PAD * 2 };
+                            const days = workdays(live.start, live.end);
+                            return (
+                              <div
+                                key={key}
+                                data-pto-key={key}
+                                role="gridcell"
+                                data-cell={`pto:${key}`}
+                                data-start={entry.pto.start}
+                                data-end={entry.pto.end}
+                                aria-label={ptoName(entry.person.name, live)}
+                                aria-haspopup={readOnly ? undefined : "dialog"}
+                                aria-expanded={readOnly ? undefined : props.selectedPto === key}
+                                tabIndex={-1}
+                                className={`pto-block${props.selectedPto === key ? " selected" : ""}${ptoPreview?.key === key ? " dragging" : ""}`}
+                                style={style}
+                                title={[
+                                  `PTO · ${entry.person.name}`,
+                                  `${ptoRange(live)} · ${days} working day${days === 1 ? "" : "s"}`,
+                                  live.note,
+                                ]
+                                  .filter(Boolean)
+                                  .join("\n")}
+                                onPointerDown={readOnly ? undefined : (e) => startPtoDrag(e, ref, entry.pto)}
+                                onClick={readOnly ? undefined : () => props.onSelectPto?.(ref)}
+                              >
+                                <span className="pto-text">
+                                  {/* Short blocks show initials; the tooltip has the rest. */}
+                                  <strong>{style.width < 90 ? initials(entry.person.name) : entry.person.name}</strong>
+                                  {live.note && style.width >= 90 && <span className="pto-note"> · {live.note}</span>}
                                 </span>
-                              ) : over ? (
-                                <span className="overflow-note warn-text" title={`Over capacity: ${overloadText(ahead)}`}>
-                                  Over capacity
-                                </span>
-                              ) : (
-                                <span className="overflow-note" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
-                                  Doesn’t fit side by side
-                                </span>
-                              )}
+                                {!readOnly && style.width >= 24 && (
+                                  <>
+                                    <div className="handle start" data-handle="start" />
+                                    <div className="handle end" data-handle="end" />
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {ptoPreview && entries.some((en) => ptoKey({ personId: en.person.id, index: en.index }) === ptoPreview.key) && (
+                            <div className="drag-dates" aria-hidden style={{ left: scale.x(ptoPreview.start), top: -18 }}>
+                              {prettyDay(ptoPreview.start)} – {prettyDay(ptoPreview.end)} · {workdays(ptoPreview.start, ptoPreview.end)} working day
+                              {workdays(ptoPreview.start, ptoPreview.end) === 1 ? "" : "s"}
                             </div>
                           )}
-                          <div
-                            className={lane ? "track lane-track" : "track overflow-band"}
-                            data-lane={lane?.id}
-                            style={{ width: scale.width }}
-                            onDoubleClick={readOnly || !lane ? undefined : (e) => createAt(e, lane.id)}
-                          >
-                            {lane && (() => {
-                              // Before a lane opens and after it closes, it's hatched out: no capacity there.
-                              const title = `Closed: this lane holds capacity ${laneDates(lane)}`;
-                              return (
-                                <>
-                                  {lane.start !== undefined && lane.start > scale.start && (
-                                    <div className="lane-closed" title={title} style={{ left: 0, width: scale.x(lane.start) }} />
-                                  )}
-                                  {lane.end !== undefined && lane.end < scale.end && (
-                                    <div
-                                      className="lane-closed"
-                                      title={title}
-                                      style={{ left: scale.x(lane.end + 1), width: scale.width - scale.x(lane.end + 1) }}
-                                    />
-                                  )}
-                                </>
-                              );
-                            })()}
-                            {rowBoxes.map(({ box: b, at }) => {
-                              const style = { top: boxTop(at.slot - l.slot), height: boxHeight(at.slots) };
-                              // The same element dragged or not: moved in time, it keeps focus.
-                              return b.id === moving?.id
-                                ? boxEl(moving, { ...span(moving.start, moving.end), ...style }, "dragging", at.slots)
-                                : boxEl(b, { ...span(b.start, b.end), ...style }, "full", at.slots, over && at.slot >= layout.capacity && ahead.length > 0 && b.end >= now);
-                            })}
-                            {rowBoxes.map(({ box: b, at }) =>
-                              b.id === moving?.id ? (
-                                <div key="drag-dates" className="drag-dates" style={{ left: scale.x(moving.start), top: boxTop(at.slot - l.slot) - 21 }}>
-                                  {prettyDay(moving.start)} – {prettyDay(moving.end)} · {workdays(moving.start, moving.end)} working day
-                                  {workdays(moving.start, moving.end) === 1 ? "" : "s"}
-                                </div>
-                              ) : null,
-                            )}
-                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {!isCollapsed && display.showPto && people.some((p) => p.department === dept.id) && (() => {
-                  const entries = ptoByDept.get(dept.id) ?? [];
-                  const { rows, count } = packRows(entries);
-                  const height = Math.max(1, count) * SLOT_H;
-                  return (
-                    <div className="row pto-row" style={{ height }}>
-                      <div className="label lane-label pto-label" style={{ width: LABEL_W, height }}>
-                        <span className="lane-name static">PTO</span>
-                        {!readOnly && props.onCreatePto && (
-                          <button
-                            className="icon-button pto-add"
-                            title="Add PTO (or double-click the row)"
-                            aria-label={`Add PTO in ${dept.name}`}
-                            onClick={() => {
-                              const start = nextWorkday(now);
-                              props.onCreatePto!(dept.id, { start, end: addWorkdays(start, 4) });
-                            }}
-                          >
-                            <Icon name="plus" size={14} />
-                          </button>
-                        )}
                       </div>
-                      <div
-                        className="track pto-track"
-                        data-pto-track={dept.id}
-                        style={{ width: scale.width, height }}
-                        onDoubleClick={readOnly || !props.onCreatePto ? undefined : (e) => createPtoAt(e, dept.id)}
-                      >
-                        {entries.map((entry) => {
-                          const ref = { personId: entry.person.id, index: entry.index };
-                          const key = ptoKey(ref);
-                          const live = ptoPreview?.key === key ? { ...entry.pto, ...ptoPreview } : entry.pto;
-                          const style = { ...span(live.start, live.end), top: rows.get(entry)! * SLOT_H + BOX_PAD, height: SLOT_H - BOX_PAD * 2 };
-                          const days = workdays(live.start, live.end);
-                          return (
-                            <div
-                              key={key}
-                              data-pto-key={key}
-                              tabIndex={-1}
-                              className={`pto-block${props.selectedPto === key ? " selected" : ""}${ptoPreview?.key === key ? " dragging" : ""}`}
-                              style={style}
-                              title={[
-                                `PTO · ${entry.person.name}`,
-                                `${ptoRange(live)} · ${days} working day${days === 1 ? "" : "s"}`,
-                                live.note,
-                              ]
-                                .filter(Boolean)
-                                .join("\n")}
-                              onPointerDown={readOnly ? undefined : (e) => startPtoDrag(e, ref, entry.pto)}
-                            >
-                              <span className="pto-text">
-                                {/* Short blocks show initials; the tooltip has the rest. */}
-                                <strong>{style.width < 90 ? initials(entry.person.name) : entry.person.name}</strong>
-                                {live.note && style.width >= 90 && <span className="pto-note"> · {live.note}</span>}
-                              </span>
-                              {!readOnly && style.width >= 24 && (
-                                <>
-                                  <div className="handle start" data-handle="start" />
-                                  <div className="handle end" data-handle="end" />
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {ptoPreview && entries.some((en) => ptoKey({ personId: en.person.id, index: en.index }) === ptoPreview.key) && (
-                          <div className="drag-dates" style={{ left: scale.x(ptoPreview.start), top: -18 }}>
-                            {prettyDay(ptoPreview.start)} – {prettyDay(ptoPreview.end)} · {workdays(ptoPreview.start, ptoPreview.end)} working day
-                            {workdays(ptoPreview.start, ptoPreview.end) === 1 ? "" : "s"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </section>
-            );
-          })}
+                    );
+                  })()}
+                </section>
+              );
+            })}
+          </div>
+          <p id="tl-help" hidden>
+            {GRID_HELP}
+          </p>
+          {/* What's said about the focused box beyond its name (useGridFocus.ts writes it). */}
+          <p id={DESCRIBED_BY} hidden />
 
           {departments.length === 0 && (
             <div className="empty-roadmap">
@@ -778,7 +956,7 @@ export function Timeline(props: Props) {
             </div>
           )}
 
-          {showToday && <div className="today-line" style={{ left: LABEL_W + todayX }} />}
+          {showToday && <div className="today-line" aria-hidden style={{ left: LABEL_W + todayX }} />}
         </div>
       </div>
     </div>
@@ -799,7 +977,7 @@ function BandCell({ seg, scale }: { seg: Segment; scale: Scale }) {
 function Grid({ scale, fine, coarse, zoom }: { scale: Scale; fine: Segment[]; coarse: Segment[]; zoom: ZoomLevel }) {
   const major = new Set(coarse.map((s) => scale.x(s.start)));
   return (
-    <div className="tl-grid" style={{ left: LABEL_W, width: scale.width }}>
+    <div className="tl-grid" aria-hidden style={{ left: LABEL_W, width: scale.width }}>
       {fine.map((s) => {
         const x = scale.x(s.start);
         const week = zoom === "weeks" && dayParts(s.start).weekday === 0;
@@ -812,16 +990,22 @@ function Grid({ scale, fine, coarse, zoom }: { scale: Scale; fine: Segment[]; co
 /**
  * Click the lane name to rename it in place. Enter or click away saves; Esc
  * cancels; empty resets to "FTE n". After Enter or Esc, focus is back on the
- * name (the field it was in has gone).
+ * name (the field it was in has gone). The name, the field and the read-only
+ * text are all the lane's first cell (`cell`), so focus in the grid keeps to
+ * it whichever is there; `details` (its dates and size) is read with it.
  */
 function LaneName({
   label,
   named,
+  cell,
+  details,
   onRename,
   readOnly,
 }: {
   label: string;
   named: boolean;
+  cell: string;
+  details?: string;
   onRename(name: string | undefined): void;
   readOnly?: boolean;
 }) {
@@ -836,11 +1020,25 @@ function LaneName({
     focusLater([() => button.current]);
   }, [text]);
 
-  if (readOnly) return <span className="lane-name static">{label}</span>;
+  if (readOnly) {
+    return (
+      <span className="lane-name static" tabIndex={-1} data-cell={cell} aria-describedby={details}>
+        {label}
+      </span>
+    );
+  }
 
   if (text === null) {
     return (
-      <button ref={button} className="lane-name" title="Click to rename this lane" onClick={() => setText(named ? label : "")}>
+      <button
+        ref={button}
+        className="lane-name"
+        tabIndex={-1}
+        data-cell={cell}
+        aria-describedby={details}
+        title="Click to rename this lane"
+        onClick={() => setText(named ? label : "")}
+      >
         {label}
         <span className="edit-icon" aria-hidden>
           <Icon name="pencil" size={12} />
@@ -857,6 +1055,7 @@ function LaneName({
   return (
     <input
       className="lane-name-input"
+      data-cell={cell}
       value={text}
       placeholder={label}
       aria-label="Lane name"
@@ -878,6 +1077,7 @@ function DeptLabel({
   now,
   over,
   collapsed,
+  readOnly,
   onToggle,
   onGrab,
   onEdit,
@@ -887,6 +1087,7 @@ function DeptLabel({
   /** Its stretches over capacity from today on. */
   over: CapacityStretch[];
   collapsed: boolean;
+  readOnly?: boolean;
   onToggle(): void;
   onGrab?(e: ReactPointerEvent): void;
   onEdit?(): void;
@@ -906,33 +1107,49 @@ function DeptLabel({
         </span>
       )}
       {/* A heading for each department, as in the table and People views: screen readers can jump between them. */}
-      <h3 className="dept-heading">
-        <button
-          className="dept-toggle"
-          onClick={onToggle}
-          aria-expanded={!collapsed}
-          title={over.length ? `Over capacity: ${overloadText(over)}` : undefined}
-        >
-          <Icon name="chevron-right" size={14} className={`chevron${collapsed ? "" : " open"}`} />
-          <span className="dept-text">
-            <span className="dept-name">{dept.name}</span>
-            <span className="dept-sub">
-              <span className="dept-meta" title={dated ? `${fte} FTE today; some lanes open or close on set dates` : undefined}>
-                {fte} FTE
-              </span>
-              {over.length > 0 && (
-                <span className="dept-over">
-                  <Icon name="alert" size={11} /> {worstStretch(over).fte} planned
+      <div role="gridcell" className="dept-cell">
+        <h3 className="dept-heading">
+          <button
+            className="dept-toggle"
+            tabIndex={-1}
+            data-cell={`dept:${dept.id}`}
+            onClick={onToggle}
+            aria-expanded={!collapsed}
+            aria-keyshortcuts={readOnly ? undefined : "Alt+ArrowUp Alt+ArrowDown"}
+            title={over.length ? `Over capacity: ${overloadText(over)}` : undefined}
+          >
+            <Icon name="chevron-right" size={14} className={`chevron${collapsed ? "" : " open"}`} />
+            <span className="dept-text">
+              <span className="dept-name">{dept.name}</span>
+              <span className="dept-sub">
+                <span className="dept-meta" title={dated ? `${fte} FTE today; some lanes open or close on set dates` : undefined}>
+                  {fte} FTE
                 </span>
-              )}
+                {over.length > 0 && (
+                  <span className="dept-over">
+                    <Icon name="alert" size={11} /> {worstStretch(over).fte} planned
+                  </span>
+                )}
+              </span>
             </span>
-          </span>
-        </button>
-      </h3>
+          </button>
+        </h3>
+      </div>
       {onEdit && (
-        <button className="icon-button dept-edit" onClick={onEdit} aria-label={`Edit ${dept.name}`} title="Edit department and lanes">
-          <Icon name="pencil" size={14} />
-        </button>
+        // Still there while read-only (a save under way, say), so focus on it isn't lost: it says why it does nothing.
+        <div role="gridcell" className="edit-cell">
+          <button
+            className="icon-button dept-edit"
+            tabIndex={-1}
+            data-cell={`dept-edit:${dept.id}`}
+            onClick={onEdit}
+            aria-label={`Edit ${dept.name}`}
+            aria-disabled={readOnly || undefined}
+            title="Edit department and lanes"
+          >
+            <Icon name="pencil" size={14} />
+          </button>
+        </div>
       )}
     </div>
   );

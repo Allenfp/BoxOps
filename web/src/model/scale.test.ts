@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
 import { loadRoadmap } from "./parse";
-import { amount, boxScale, percent, scaleStats } from "./scale";
+import { amount, boxScale, percent, scaleSentence, scaleStats } from "./scale";
 
 describe("boxScale", () => {
   it("is FTE × working days", () => {
@@ -26,5 +26,8 @@ describe("scaleStats", () => {
     expect(s.dept?.name).toBe("Data Engineering");
     expect(percent(s.dept!.share)).toBe("29%");
     expect(percent(0.031)).toBe("3.1%");
+    expect(scaleSentence(dagster, roadmap.departments)).toBe(
+      "Scale 30 (1 FTE × 30 working days): about 6 weeks, 1.5 months or 0.5 quarters; 29% of Data Engineering while it runs.",
+    );
   });
 });

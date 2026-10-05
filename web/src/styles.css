@@ -411,6 +411,10 @@ button.icon-only[aria-disabled="true"] {
   position: relative;
   min-height: 100%;
 }
+/* Room to scroll the last rows up clear of the broken-rule popup, so focus is never under it. */
+.app:has(.toast) .tl-canvas {
+  padding-bottom: 240px;
+}
 .tl-head {
   position: sticky;
   top: 0;
@@ -1708,6 +1712,17 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .lane-row:last-child > .lane-label {
   border-bottom: 0;
 }
+.lane-row > .lane-label {
+  padding-right: 6px;
+}
+/* The lane's name and pills: the row's header. */
+.lane-head {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .lane-row.drop-target > .lane-label {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
 }
@@ -1948,9 +1963,21 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   display: flex;
   align-items: center;
 }
-.dept-label > .dept-heading {
+/* A department heading's cells in the timeline's grid: the heading (with its toggle), and ✎. */
+.dept-cell {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+}
+.dept-cell > .dept-heading {
   flex: 1;
   height: 100%;
+}
+.edit-cell,
+.add-cell {
+  display: flex;
+  align-items: center;
 }
 .dept-toggle {
   flex: 1;
@@ -2266,13 +2293,16 @@ button.primary {
 .pto-label .lane-name {
   flex: 1;
 }
-/* Hover-only add button, in place of written instructions. */
-.pto-add {
-  padding: 2px;
+/* Hover-only add buttons (and while focused), in place of written instructions; 24 px across, a target easy to hit. */
+.pto-add,
+.lane-add {
+  padding: 5px;
   opacity: 0;
 }
 .pto-label:hover .pto-add,
-.pto-add:focus-visible {
+.pto-add:focus-visible,
+.lane-label:hover .lane-add,
+.lane-add:focus-visible {
   opacity: 1;
 }
 .pto-track {
@@ -2881,6 +2911,15 @@ kbd {
 }
 
 /* ---- Collapsed department: capacity used ---- */
+/* The chart is a cell of the timeline's grid: focus outlines all of it. */
+.use-cell {
+  position: absolute;
+  inset: 0;
+}
+.use-cell:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
 .use-chart {
   position: absolute;
   inset: 0 auto auto 0;

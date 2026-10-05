@@ -1822,6 +1822,13 @@ function RoadmapView(props: ViewProps) {
               onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
               readOnly={preview || busy}
               readOnlyLabel={props.preview ? "Read-only preview" : preview ? "Read-only" : undefined}
+              readOnlyReason={
+                props.preview
+                  ? "Read-only preview: changes can’t be made here."
+                  : preview
+                    ? "Read-only: changes can’t be made here."
+                    : "Saving… try again in a moment."
+              }
               conflictIds={conflictBoxIds}
               updatedIds={updatedIds}
               ruleWarnings={ruleWarnings}
