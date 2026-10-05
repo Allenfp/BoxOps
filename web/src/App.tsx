@@ -411,7 +411,7 @@ function RoadmapView(props: ViewProps) {
     [issues],
   );
 
-  /** A conflict key (`box:<id>` / `dept:<id>`) in words, for the conflict dialog. */
+  /** A conflict key (`box:<id>`, `dept:<id>`, `person:<id>` or team settings) in words, for the conflict dialog. */
   const describeItem = (key: string) => {
     const id = key.slice(key.indexOf(":") + 1);
     if (key.startsWith("box:")) {

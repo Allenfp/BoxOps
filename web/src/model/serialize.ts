@@ -1,8 +1,8 @@
 // Turns the draft back into YAML file changes. Changed files are edited in
 // place through the `yaml` Document API, so comments, key order and quoting in
-// the original survive and a PR diff shows only the lines that really changed:
-// only fields that differ from what was loaded are touched, list entries are
-// matched up one by one, and a file keeps its BOM and line endings.
+// the original survive and a commit's diff shows only the lines that really
+// changed: only fields that differ from what was loaded are touched, list
+// entries are matched up one by one, and a file keeps its BOM and line endings.
 //
 // A file the loader couldn't fully read is never written (UnsafeWrite): that
 // would delete whatever the loader left out.

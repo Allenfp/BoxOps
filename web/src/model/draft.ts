@@ -23,7 +23,7 @@ interface History {
   future: DraftState[];
   /** Consecutive edits with the same key (typing in one field) form one undo step. */
   lastKey?: string;
-  /** Items (`box:<id>`, `dept:<id>`) someone else changed while we were editing them too. */
+  /** Items (`box:<id>`, `dept:<id>`, `person:<id>`, SETTINGS_KEY) someone else changed while we were editing them too. */
   conflicts: string[];
 }
 
