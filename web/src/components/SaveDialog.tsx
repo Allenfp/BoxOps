@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Source } from "../github/save";
+import type { Source } from "../github/read";
 import type { ChangeLine } from "../model/summary";
 import { Icon } from "./Icon";
 

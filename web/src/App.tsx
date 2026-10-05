@@ -7,17 +7,10 @@ import { PtoEditor } from "./components/PtoEditor";
 import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
 import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
-import { GitHub, GitHubError } from "./github/api";
-import {
-  SaveConflict,
-  type SaveResult,
-  type Source,
-  latestCommit,
-  loadCommit,
-  loadFromGitHub,
-  parseRepo,
-  saveToBranch,
-} from "./github/save";
+import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
+import { failureMessage } from "./github/messages";
+import { type Snapshot, canRead, fromBundle, readSnapshot, remember } from "./github/read";
+import { NewerSaves, SaveConflict, type SaveResult, saveRoadmap } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyMenu";
 import { Modal } from "./components/Modal";
@@ -40,9 +33,7 @@ import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types
 import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
 
-interface Loaded extends LoadResult {
-  files: RoadmapFiles;
-  source: Source;
+interface Loaded extends LoadResult, Snapshot {
   /** Showing a branch other than the one this site was built from (`?ref=`). */
   preview: boolean;
 }
@@ -88,35 +79,33 @@ async function fetchBundle(): Promise<Bundle> {
   return readBundle(await res.json());
 }
 
-async function load(bundle: Bundle): Promise<Loaded> {
-  const gh = new GitHub(getToken());
+async function load(bundle: Bundle, seen: ReadonlySet<string>): Promise<Loaded> {
+  const base = remember(await fromBundle(bundle));
+  const gh = new GitHubClient({ token: getToken() });
   const ref = new URLSearchParams(window.location.search).get("ref");
-  if (ref && ref !== bundle.source.branch) {
-    const { files, source } = await loadFromGitHub(gh, bundle.source.repo, ref);
-    return { ...loadRoadmap(files), files, source, preview: true };
+  if (ref && ref !== base.source.branch) {
+    if (!isBranchName(ref)) throw new Error(`“${ref}” isn’t a branch name.`);
+    return fromSnapshot(await readSnapshot(gh, base, { branch: ref }), true);
   }
 
   // The site is rebuilt a minute or so after each save. If someone saved since
   // this build, read the newer roadmap from GitHub so nobody edits a stale copy.
   // (Skipped for a bundle built from files on disk: `npm run dev`, or a local
-  // build with uncommitted roadmap/ edits.)
-  if (!bundle.source.local) {
-    const head = await latestCommit(gh, bundle.source);
-    if (head && head !== bundle.source.commit) {
-      try {
-        const files = await loadCommit(gh, bundle.source.repo, head);
-        return { ...loadRoadmap(files), files, source: { ...bundle.source, commit: head }, preview: false };
-      } catch {
-        // Fall back to the bundled copy.
-      }
+  // build with uncommitted roadmap/ edits; and for a private repository when
+  // there's no token, which would make a call that can only fail.)
+  if (!base.source.local && canRead(base.source, gh)) {
+    try {
+      return fromSnapshot(await readSnapshot(gh, base, { seen }));
+    } catch {
+      // Fall back to the bundled copy.
     }
   }
-  return { ...loadRoadmap(bundle.files, bundle.ignored), files: bundle.files, source: bundle.source, preview: false };
+  return fromSnapshot(base);
 }
 
-/** `ignored`: other files in the roadmap folder (a bundle lists them), reported as unexpected. */
-function fromFiles(files: RoadmapFiles, source: Source, ignored: string[] = []): Loaded {
-  return { ...loadRoadmap(files, ignored), files, source, preview: false };
+/** The ignored files (a snapshot lists them) are reported as unexpected. */
+function fromSnapshot(s: Snapshot, preview = false): Loaded {
+  return { ...loadRoadmap(s.files, s.ignored), ...s, preview };
 }
 
 export function App() {
@@ -134,7 +123,7 @@ export function App() {
     fetchBundle()
       .then(async (bundle) => {
         seen.current.add(bundle.source.commit);
-        const loaded = await load(bundle);
+        const loaded = await load(bundle, seen.current);
         seen.current.add(loaded.source.commit);
         setState({ status: "ready", ...loaded });
       })
@@ -154,7 +143,7 @@ export function App() {
         const commit = bundle.source.commit;
         if (seen.current.has(commit) || saving.current) return;
         seen.current.add(commit);
-        setState({ status: "ready", ...fromFiles(bundle.files, bundle.source, bundle.ignored) });
+        setState({ status: "ready", ...fromSnapshot(remember(await fromBundle(bundle))) });
         setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
         // Offline or mid-deploy: try again next time.
@@ -173,7 +162,6 @@ export function App() {
 
   if (state.status === "loading") return <div className="splash">Loading roadmap…</div>;
   if (state.status === "error") return <div className="splash error">Couldn’t load the roadmap: {state.message}</div>;
-  const source = state.source;
   return (
     <RoadmapView
       {...state}
@@ -182,15 +170,15 @@ export function App() {
       onDismissSave={() => setLastSave(null)}
       onDismissRemote={() => setRemote(null)}
       onSavingChange={(busy) => (saving.current = busy)}
-      onReload={(files, commit) => {
-        seen.current.add(commit);
-        setState({ status: "ready", ...fromFiles(files, { repo: source.repo, branch: source.branch, commit }) });
+      onReload={(snapshot) => {
+        seen.current.add(snapshot.source.commit);
+        setState({ status: "ready", ...fromSnapshot(snapshot) });
       }}
       onSaved={(result: SaveResult) => {
-        seen.current.add(result.parent);
-        seen.current.add(result.commit);
-        setState({ status: "ready", ...fromFiles(result.files, { repo: source.repo, branch: source.branch, commit: result.commit }) });
-        setLastSave({ commit: result.commit, url: result.url });
+        if (result.status === "saved") seen.current.add(result.parent);
+        seen.current.add(result.snapshot.source.commit);
+        setState({ status: "ready", ...fromSnapshot(result.snapshot) });
+        if (result.status !== "noop") setLastSave({ commit: result.commit, url: result.url });
         setRemote(null);
       }}
     />
@@ -204,7 +192,7 @@ interface ViewProps extends Loaded {
   onDismissRemote(): void;
   onSavingChange(busy: boolean): void;
   /** Show this newer commit; the draft is carried over onto it. */
-  onReload(files: RoadmapFiles, commit: string): void;
+  onReload(snapshot: Snapshot): void;
   onSaved(result: SaveResult): void;
 }
 
@@ -460,36 +448,20 @@ function RoadmapView(props: ViewProps) {
     }
     const token = opts.token ?? getToken();
     if (!token) return setProblem({ kind: "token" });
-    const gh = new GitHub(token);
+    const gh = new GitHubClient({ token });
 
     select(null);
     setBusy(true);
     try {
-      // Pre-save check: if anyone saved since this tab loaded, bring their
-      // changes in and let the user review before anything is written.
-      if (!opts.keep) {
-        const head = await gh.branchSha(parseRepo(source.repo), source.branch);
-        if (head !== source.commit) {
-          const headFiles = await loadCommit(gh, source.repo, head);
-          const saves = await gh.compare(parseRepo(source.repo), source.commit, head).catch(() => []);
-          const { roadmap: latest } = loadRoadmap(headFiles);
-          const latestState = { boxes: latest.boxes, departments: latest.departments, people: latest.people, settings: latest.settings };
-          const theirs = describeChanges(draftBase, latestState);
-          const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
-          setToken(token);
-          setBusy(false);
-          onReload(headFiles, head);
-          setProblem({ kind: "updated", saves, changes: theirs, clashes: clashes.map(describeItem) });
-          return;
-        }
-      }
-
-      const result = await saveToBranch({
+      // The pre-save check (unless the user already chose whose version to
+      // keep): if anyone saved roadmap changes since this tab loaded, bring
+      // them in and let the user review before anything is written.
+      const result = await saveRoadmap({
         gh,
-        source,
-        baseFiles: files,
+        base: { source, files, blobs: props.blobs, ignored: props.ignored },
         changes,
         message: commitMessage(describeChanges(draftBase, target)),
+        review: !opts.keep,
         validate: newProblems,
       });
       setToken(token);
@@ -498,14 +470,29 @@ function RoadmapView(props: ViewProps) {
       setUpdatedIds(new Set());
       onSaved(result);
     } catch (e) {
+      if (e instanceof NewerSaves) {
+        const head = e.head;
+        const saves = await gh.compare(source.repo, source.commit, head.source.commit).catch(() => []);
+        const { roadmap: latest } = loadRoadmap(head.files, head.ignored);
+        const latestState = { boxes: latest.boxes, departments: latest.departments, people: latest.people, settings: latest.settings };
+        const theirs = describeChanges(draftBase, latestState);
+        const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
+        setToken(token);
+        setBusy(false);
+        onReload(head);
+        setProblem({ kind: "updated", saves, changes: theirs, clashes: clashes.map(describeItem) });
+        return;
+      }
       if (e instanceof SaveConflict) {
         // Someone saved the same items since we loaded: move onto their version,
         // then ask (see the effect below) once the clashes are known.
         askAfterRebase.current = true;
-        onReload(e.headFiles, e.headCommit);
-      } else if (e instanceof GitHubError && e.status === 401) {
+        onReload(e.head);
+      } else if (e instanceof GitHubFailure && e.kind === "unauthorized") {
         setToken(null);
         setProblem({ kind: "token", rejected: true });
+      } else if (e instanceof GitHubFailure) {
+        setProblem({ kind: "error", message: failureMessage(e, source) });
       } else {
         setProblem({ kind: "error", message: (e as Error).message });
       }

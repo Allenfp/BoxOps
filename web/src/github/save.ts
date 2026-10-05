@@ -1,164 +1,191 @@
-// Saving = one commit straight onto the branch the roadmap was loaded from.
-// If someone else saved in the meantime, our files go on top of theirs; only
-// files that both of us changed count as a conflict, and the user decides.
+// Saving = one commit straight onto the branch the roadmap was loaded from,
+// made with GitHub's GraphQL createCommitOnBranch: GitHub writes the commit
+// and moves the branch in one step, authored by the token's owner and signed
+// by GitHub where it supports that. It refuses (STALE_DATA) unless the branch
+// is still at expectedHeadOid, the head this save was checked against.
+//
+// Before writing, the head is read (read.ts) and compared, file by file and
+// by blob SHA, with the copy the edits were made on. Someone else's saves to
+// other files stay and ours go on top; a file both of us changed is a
+// conflict the user settles. The roadmap as it would be after the save is
+// validated first. Files the head already holds exactly as ours are left
+// out, and an empty change is never sent.
+//
+// Retrying is safe: every attempt names the head it goes on, so at most one
+// lands. After STALE_DATA, or a failure that leaves unclear whether the
+// commit was made (a timeout, a dropped connection), the head is read again;
+// if it holds our content in every changed file, the save already landed.
 
 import { isRoadmapPath } from "../model/paths";
 import { type FileChanges, applyChanges } from "../model/serialize";
 import type { RoadmapFiles } from "../model/types";
-import { GitHub, GitHubError, type RepoRef, type TreeEntry } from "./api";
+import { type GitHubClient, GitHubFailure } from "./api";
+import { textBlobSha, utf8ToBase64 } from "./git-objects";
+import { type Snapshot, type Source, readSnapshot, remember, sameBlobs } from "./read";
 
-/** Where the loaded roadmap came from; written into roadmap.json at build time. */
-export interface Source {
-  /** "owner/repo" */
-  repo: string;
-  branch: string;
-  /** Commit the files were read from. */
-  commit: string;
-  /** Read from files on disk (`npm run dev`, a local build with edits): they needn't be `commit`'s. */
-  local?: boolean;
-  /** Author and first line of `commit`'s message. */
-  author?: string;
-  subject?: string;
+/** Others saved roadmap changes since the edits' base: shown for review before anything is written. */
+export class NewerSaves extends Error {
+  constructor(readonly head: Snapshot) {
+    super("The roadmap changed since you opened it.");
+  }
 }
 
-export const ROADMAP_DIR = "roadmap";
-
-export function parseRepo(repo: string): RepoRef {
-  const [owner, name] = repo.split("/");
-  return { owner, repo: name };
-}
-
-/** Files we changed that someone else also changed (or deleted) since we loaded. */
+/** Files we changed that someone else also changed (or deleted, or created) since the edits' base. */
 export class SaveConflict extends Error {
   constructor(
     readonly paths: string[],
-    readonly headCommit: string,
-    readonly headFiles: RoadmapFiles,
+    readonly head: Snapshot,
   ) {
     super(`${paths.length} item(s) were changed by someone else since you loaded the roadmap.`);
   }
 }
 
+/** Retries after STALE_DATA or an unclear failure, on top of the first attempt. */
+const RETRIES = 2;
+/** One commit's size, until a live check measures what GitHub takes. */
+const MAX_FILES = 1000;
+const MAX_BASE64 = 8 * 1024 * 1024;
+
 export interface SaveRequest {
-  gh: GitHub;
-  source: Source;
-  /** The files as loaded; `changes` were computed against these. */
-  baseFiles: RoadmapFiles;
+  gh: GitHubClient;
+  /** The copy the edits were made on. */
+  base: Snapshot;
+  /** Path in the roadmap folder → new text, or null to delete. */
   changes: FileChanges;
+  /** commitMessage(): headline, blank line, body. */
   message: string;
-  /** Write our version of these conflicting paths anyway. */
-  overwrite?: string[];
+  /** Stop with NewerSaves if the roadmap files changed since `base`. */
+  review?: boolean;
+  /** Commits the tab has already shown or moved past (see ReadOptions). */
+  seen?: ReadonlySet<string>;
   /** Problems with the files as they would be after this save; any problem stops the save. */
   validate?(files: RoadmapFiles): string[];
-  fetchImpl?: typeof fetch;
 }
 
-export interface SaveResult {
-  commit: string;
-  /** The commit this save went on top of (ours, or someone else's newer one). */
-  parent: string;
-  url: string;
-  /** The whole roadmap as of the new commit, including anyone else's saves. */
-  files: RoadmapFiles;
+export type SaveResult =
+  /** Committed. `parent` is the head it went on (ours, or someone else's newer one). */
+  | { status: "saved"; commit: string; parent: string; url: string; signed: boolean | null; snapshot: Snapshot }
+  /** The head already holds these changes: an earlier attempt whose answer was lost landed. `snapshot` is that head. */
+  | { status: "alreadySaved"; commit: string; url: string; snapshot: Snapshot }
+  /** Nothing to write: the head already has every change. */
+  | { status: "noop"; snapshot: Snapshot };
+
+/** [skip ci] and the like: GitHub runs no workflow for such a commit, so it would never deploy. */
+const SKIP_MARKER = /\[\s*(skip\s+ci|ci\s+skip|no\s+ci|skip\s+actions|actions\s+skip)\s*\]/gi;
+
+/** A commit message as the mutation takes it: the first line as headline (on one line), the rest after the blank line as body. */
+export function commitParts(message: string): { headline: string; body: string } {
+  const [first, ...rest] = message.replace(SKIP_MARKER, "($1)").split("\n");
+  return {
+    headline: first.replace(/\s+/g, " ").trim() || "Update the roadmap",
+    body: rest.join("\n").replace(/^\n+/, "").trimEnd(),
+  };
 }
 
-export async function saveToBranch(req: SaveRequest): Promise<SaveResult> {
-  const { gh, source, baseFiles, changes, message, overwrite = [], validate, fetchImpl } = req;
-  const repo = parseRepo(source.repo);
+const commitUrl = (repo: string, sha: string) => `https://github.com/${repo}/commit/${sha}`;
 
-  const info = await gh.repo(repo);
-  if (!info.permissions?.push) {
+export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
+  const { gh, base, changes } = req;
+  const { repo, branch, dir } = base.source;
+  if (base.source.readonly) throw new Error("This site is read-only: it never saves.");
+  const paths = Object.keys(changes).sort();
+  const odd = paths.filter((p) => !isRoadmapPath(p));
+  if (odd.length) throw new Error(`BoxOps writes only roadmap files, not ${odd.map((p) => `${dir}/${p}`).join(", ")}.`);
+  const mine: Record<string, string | null> = {};
+  for (const p of paths) {
+    const text = changes[p];
+    mine[p] = text === null ? null : await textBlobSha(text);
+  }
+  const contents: Record<string, string> = {};
+  for (const p of paths) if (changes[p] !== null) contents[p] = utf8ToBase64(changes[p]!);
+  const size = Object.values(contents).reduce((n, c) => n + c.length, 0);
+  if (paths.length > MAX_FILES || size > MAX_BASE64) {
     throw new Error(
-      `This token can’t write to ${source.repo}. Give it “Contents: Read and write” access to this repository.`,
+      `This save is too big for one commit (${paths.length} files, ${(size / 1024 / 1024).toFixed(1)} MB). Undo some changes, save, then redo them.`,
     );
   }
+  const { headline, body } = commitParts(req.message);
+  if (!paths.length) return { status: "noop", snapshot: base };
+  /** Every changed file at this head is exactly ours. */
+  const landed = (s: Snapshot) => paths.every((p) => (s.blobs[p] ?? null) === mine[p]);
 
-  // Two tries: if someone saves between our read and our write, GitHub refuses
-  // the non-fast-forward update and we redo the check against their commit.
+  let head = await readSnapshot(gh, base, { seen: req.seen });
+  // An earlier save whose answer never arrived may be there already, even under later saves.
+  if (head !== base && landed(head)) return { status: "alreadySaved", commit: head.source.commit, url: commitUrl(repo, head.source.commit), snapshot: head };
+  if (req.review && !sameBlobs(head.blobs, base.blobs)) throw new NewerSaves(head);
+
+  let unclear = false; // an attempt may have landed without our hearing
   for (let attempt = 0; ; attempt++) {
-    const head = await gh.branchSha(repo, source.branch);
-    let headFiles = baseFiles;
-    if (head !== source.commit) {
-      headFiles = await loadCommit(gh, source.repo, head, fetchImpl);
-      const conflicts = Object.keys(changes).filter((p) => headFiles[p] !== baseFiles[p] && !overwrite.includes(p));
-      if (conflicts.length) throw new SaveConflict(conflicts, head, headFiles);
-    }
+    const at = (p: string) => head.blobs[p];
+    const conflicts = paths.filter((p) => at(p) !== base.blobs[p] && (at(p) ?? null) !== mine[p]);
+    if (conflicts.length) throw new SaveConflict(conflicts, head);
     // Someone else's save could, e.g., delete a lane our boxes use.
-    const problems = validate?.(applyChanges(headFiles, changes)) ?? [];
+    const next = applyChanges(head.files, changes);
+    const problems = req.validate?.(next) ?? [];
     if (problems.length) throw new Error(`This save would leave the roadmap invalid: ${problems.join("; ")}`);
 
-    const entries: TreeEntry[] = Object.entries(changes).map(([path, text]) =>
-      text === null
-        ? { path: `${ROADMAP_DIR}/${path}`, mode: "100644", type: "blob", sha: null }
-        : { path: `${ROADMAP_DIR}/${path}`, mode: "100644", type: "blob", content: text },
-    );
-    const baseTree = (await gh.commit(repo, head)).tree.sha;
-    const tree = await gh.createTree(repo, baseTree, entries);
-    const commit = await gh.createCommit(repo, message, tree.sha, head);
+    const additions = paths.filter((p) => mine[p] !== null && at(p) !== mine[p]).map((p) => ({ path: `${dir}/${p}`, contents: contents[p] }));
+    // Deleting a path that isn't there makes GitHub refuse the whole commit.
+    const deletions = paths.filter((p) => mine[p] === null && at(p) !== undefined).map((p) => ({ path: `${dir}/${p}` }));
+    if (!additions.length && !deletions.length) return { status: "noop", snapshot: head };
+
     try {
-      await gh.updateBranch(repo, source.branch, commit.sha);
-    } catch (e) {
-      if (e instanceof GitHubError && e.status === 422 && /fast.?forward/i.test(e.message) && attempt === 0) continue;
-      if (e instanceof GitHubError && (e.status === 403 || /protected/i.test(e.message))) {
-        throw new Error(
-          `${source.branch} is a protected branch, so saves can’t be written to it directly. Remove the protection rule or ask an admin.`,
-        );
+      const c = await gh.createCommitOnBranch({ repo, branch, expectedHeadOid: head.source.commit, headline, body, additions, deletions });
+      const blobs = { ...head.blobs };
+      for (const p of paths) {
+        if (mine[p] === null) delete blobs[p];
+        else blobs[p] = mine[p]!;
       }
-      throw e;
+      const source: Source = {
+        ...head.source,
+        commit: c.oid,
+        parent: head.source.commit,
+        tree: null, // not known until the next read
+        author: "",
+        subject: headline,
+        date: c.date,
+        history: [c.oid, ...head.source.history].slice(0, 50),
+      };
+      const snapshot = remember({ source, files: next, blobs, ignored: head.ignored });
+      return { status: "saved", commit: c.oid, parent: head.source.commit, url: c.url, signed: c.signed, snapshot };
+    } catch (e) {
+      if (!(e instanceof GitHubFailure)) throw e;
+      if (e.kind === "read-only" || e.kind === "no-access") throw await explain(gh, repo, e);
+      if (e.kind !== "stale" && !e.ambiguous) throw e;
+      unclear ||= e.ambiguous;
+      let fresh: Snapshot;
+      try {
+        fresh = await readSnapshot(gh, head, { seen: req.seen }); // fetches only blobs changed since `head`
+      } catch {
+        throw e; // still unclear: say so
+      }
+      if (fresh !== head && landed(fresh)) {
+        if (!unclear) return { status: "noop", snapshot: fresh }; // someone else made the same changes
+        // Ours went straight onto `head`; anything after it is someone else's.
+        const ours =
+          fresh.source.parent === head.source.commit
+            ? fresh.source.commit
+            : ((await gh.compare(repo, head.source.commit, fresh.source.commit).catch(() => []))[0]?.sha ?? fresh.source.commit);
+        return { status: "alreadySaved", commit: ours, url: commitUrl(repo, ours), snapshot: fresh };
+      }
+      if (attempt >= RETRIES) {
+        // Checked: nothing landed, so it isn't unclear any more.
+        throw e.kind === "stale"
+          ? new GitHubFailure("stale", "Others kept saving while BoxOps was saving.", e.detail)
+          : new GitHubFailure(e.kind, e.message, e.detail, false);
+      }
+      head = fresh;
+      await gh.sleep(1000 * (attempt + 1)); // GitHub asks for a second or more between writes
     }
-    return {
-      commit: commit.sha,
-      parent: head,
-      url: `https://github.com/${source.repo}/commit/${commit.sha}`,
-      files: applyChanges(headFiles, changes),
-    };
   }
 }
 
-/** Latest commit on the branch, or null if GitHub can't be reached (offline, rate-limited). */
-export async function latestCommit(gh: GitHub, source: Source): Promise<string | null> {
+/** A read-only or no-access refusal, with what GET /repos says about the account (only asked after a failure). */
+async function explain(gh: GitHubClient, repo: string, e: GitHubFailure): Promise<GitHubFailure> {
   try {
-    return await gh.branchSha(parseRepo(source.repo), source.branch);
-  } catch {
-    return null;
+    const r = await gh.repository(repo);
+    return new GitHubFailure(e.kind, e.message, { ...e.detail, visible: true, ...(r.push === null ? {} : { push: r.push }) }, e.ambiguous);
+  } catch (x) {
+    return x instanceof GitHubFailure && x.kind === "no-access" ? new GitHubFailure(e.kind, e.message, { ...e.detail, visible: false }, e.ambiguous) : e;
   }
-}
-
-/**
- * Read roadmap/ at the tip of a branch. Uses the API for the listing and
- * raw.githubusercontent.com for contents, so it works without a token on a
- * public repo.
- */
-export async function loadFromGitHub(
-  gh: GitHub,
-  repoName: string,
-  branch: string,
-  fetchImpl?: typeof fetch,
-): Promise<{ files: RoadmapFiles; source: Source }> {
-  const commit = await gh.branchSha(parseRepo(repoName), branch);
-  const files = await loadCommit(gh, repoName, commit, fetchImpl);
-  return { files, source: { repo: repoName, branch, commit } };
-}
-
-/** roadmap/ files exactly as they are in `commit`. */
-export async function loadCommit(
-  gh: GitHub,
-  repoName: string,
-  commit: string,
-  fetchImpl: typeof fetch = (...a) => fetch(...a),
-): Promise<RoadmapFiles> {
-  const repo = parseRepo(repoName);
-  const { tree } = await gh.commit(repo, commit).then((c) => gh.tree(repo, c.tree.sha));
-  const paths = tree
-    .filter((t) => t.type === "blob" && t.path.startsWith(`${ROADMAP_DIR}/`) && isRoadmapPath(t.path.slice(ROADMAP_DIR.length + 1)))
-    .map((t) => t.path);
-  const files: RoadmapFiles = {};
-  await Promise.all(
-    paths.map(async (path) => {
-      const res = await fetchImpl(`https://raw.githubusercontent.com/${repoName}/${commit}/${path}`);
-      if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-      files[path.slice(ROADMAP_DIR.length + 1)] = await res.text();
-    }),
-  );
-  return files;
 }
