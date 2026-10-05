@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
 import { DEFAULT_SETTINGS, loadRoadmap } from "./load";
-import { readRoadmapDir } from "./files";
 import { amount, boxScale, percent, scaleStats } from "./scale";
 import { flagName, progress } from "./status";
 
@@ -31,8 +31,10 @@ describe("boxScale", () => {
   });
 });
 
+const fixture = (await readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"))).files;
+
 describe("scaleStats", () => {
-  const { roadmap } = loadRoadmap(readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap")));
+  const { roadmap } = loadRoadmap(fixture);
 
   it("puts a box's scale in person-weeks, -months and -quarters, and its share of the department", () => {
     const dagster = roadmap.boxes.find((b) => b.id === "bx-c93d-dagster-upgrade")!; // 1 FTE × 30 days in Data Engineering (3.5 FTE)

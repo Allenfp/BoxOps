@@ -4,9 +4,9 @@
 
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
-import { readRoadmapDir } from "./files";
 import { loadRoadmap } from "./load";
 import { type FileChanges, serializeChanges, UnsafeWrite } from "./serialize";
 import type { RoadmapFiles } from "./types";
@@ -23,8 +23,8 @@ const ROADMAP: RoadmapFiles = {
   "boxes/b2.yaml": box("b2", "B2X"),
 };
 
-const shipped = readRoadmapDir(resolve(__dirname, "../../../roadmap"));
-const fixture = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
+const shipped = (await readRoadmapDir(resolve(__dirname, "../../../roadmap"))).files;
+const fixture = (await readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"))).files;
 
 /** The roadmap loaded from these files, as the app's draft starts out. */
 function loaded(files: RoadmapFiles): DraftState {

@@ -13,8 +13,11 @@ roadmap/
   boxes/<id>.yaml         one file per box (a piece of planned work)
 ```
 
-Any other file under `roadmap/` is reported as unexpected. (Department and box
-files may also end in `.yml`.)
+Any other file under `roadmap/` is reported as unexpected, except hidden ones
+(a name starting with `.`), which are skipped. (Department and box files may
+also end in `.yml`.) Everything under `roadmap/` must be a plain file: a
+symlink or a submodule is an error that stops validation and the build, and so
+is a roadmap file that isn't UTF-8 text or is over 1 MiB.
 
 ## Common rules
 

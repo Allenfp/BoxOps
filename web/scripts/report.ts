@@ -6,7 +6,7 @@
 import { buildReport, formatReport } from "../src/model/report";
 import { issueLine, loadRoadmapArg } from "./roadmap-dir";
 
-const { dir, roadmap, issues } = loadRoadmapArg("report");
+const { dir, roadmap, issues } = await loadRoadmapArg("report");
 for (const issue of issues) console.error(issueLine(dir, issue));
 console.log(formatReport(buildReport(roadmap)));
 process.exit(issues.length ? 1 : 0);

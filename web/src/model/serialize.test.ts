@@ -1,15 +1,15 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
-import { readRoadmapDir } from "./files";
 import { loadRoadmap } from "./load";
 import { applyChanges, serializeChanges } from "./serialize";
 import { describeChanges } from "./summary";
 import { DEFAULT_SETTINGS } from "./load";
 
 // The fixed sample roadmap the browser tests use, minus its roster (tests below add their own).
-const { "people.yaml": _roster, ...files } = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
+const { "people.yaml": _roster, ...files } = (await readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"))).files;
 const { roadmap } = loadRoadmap(files);
 const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people, settings: roadmap.settings };
 

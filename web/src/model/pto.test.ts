@@ -1,15 +1,15 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
-import { readRoadmapDir } from "./files";
 import { loadRoadmap } from "./load";
 import { packRows, ptoClashes } from "./pto";
 import { serializeChanges } from "./serialize";
 import { describeChanges } from "./summary";
 import type { TimeOff } from "./types";
 
-const files = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
+const files = (await readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"))).files;
 const { roadmap } = loadRoadmap(files);
 const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people, settings: roadmap.settings };
 const d = (s: string) => parseDay(s)!;

@@ -3,7 +3,7 @@
 
 import { issueLine, loadRoadmapArg } from "./roadmap-dir";
 
-const { dir, roadmap, issues } = loadRoadmapArg("validate");
+const { dir, roadmap, issues } = await loadRoadmapArg("validate");
 
 for (const issue of issues) {
   console.error(issueLine(dir, issue));

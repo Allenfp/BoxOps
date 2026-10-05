@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readRoadmapDir } from "../../cli/git";
 import { layoutDepartment } from "../timeline/layout";
 import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
-import { readRoadmapDir } from "./files";
 import { capacityOn } from "./lanes";
 import { loadRoadmap } from "./load";
 import { capacityStretches } from "./report";
@@ -12,7 +12,7 @@ import { describeChanges } from "./summary";
 import type { Box, Department } from "./types";
 
 const d = (s: string) => parseDay(s)!;
-const files = readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"));
+const files = (await readRoadmapDir(resolve(__dirname, "../../e2e/fixtures/roadmap"))).files;
 const { roadmap } = loadRoadmap(files);
 const base: DraftState = { boxes: roadmap.boxes, departments: roadmap.departments, people: roadmap.people, settings: roadmap.settings };
 
