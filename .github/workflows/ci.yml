@@ -24,7 +24,9 @@ jobs:
     # Pinned on purpose: ubuntu-latest moves to Ubuntu 26.04 between 2026-10-19
     # and 2026-11-19. Move to ubuntu-26.04 in its own pull request.
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Generous: on a private repository's 2-CPU runner Playwright runs one test
+    # at a time, and the browser tests alone may take half an hour (estimated).
+    timeout-minutes: 60
     permissions:
       contents: read # check out the repo
     defaults:
@@ -65,13 +67,13 @@ jobs:
       # time zones: Safari is the browser BoxOps is made for. Then the whole
       # suite in Chromium (Chrome, Edge) and in Firefox, which must work too.
       - name: Browser tests (WebKit)
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: npx playwright test --project='webkit*'
       - name: Browser tests (Chromium)
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: npx playwright test --project=chromium
       - name: Browser tests (Firefox)
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: npx playwright test --project=firefox
       # npm run perf, on the build above: the first load of a generated
       # 2,000-box roadmap in WebKit. Blocking: its exact checks (the main

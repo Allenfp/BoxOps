@@ -28,8 +28,10 @@ jobs:
     # and 2026-11-19. Move to ubuntu-26.04 in its own pull request.
     runs-on: ubuntu-24.04
     # Runs are no longer cancelled by the next push, so a hung run would hold up
-    # every later deploy; cap it.
-    timeout-minutes: 15
+    # every later deploy; cap it. Not tightly: a private repository's runner has
+    # 2 CPUs, where Playwright runs one test at a time, and the WebKit tests
+    # alone may then take over 10 minutes (estimated, not yet measured).
+    timeout-minutes: 25
     permissions:
       contents: read # check out the repo
       deployments: read # find the commit the live site was built from
@@ -131,7 +133,7 @@ jobs:
       # a merge. Here every minute holds up the saves deploying behind this run.
       - name: Browser tests
         if: steps.changes.outputs.app == 'true'
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: npx playwright test --project='webkit*'
       - name: Upload browser test report
         if: failure() && steps.changes.outputs.app == 'true'
