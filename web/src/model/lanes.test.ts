@@ -5,7 +5,7 @@ import { layoutDepartment } from "../timeline/layout";
 import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
 import { capacityOn } from "./lanes";
-import { loadRoadmap } from "./load";
+import { loadRoadmap } from "./parse";
 import { capacityStretches } from "./report";
 import { serializeChanges } from "./serialize";
 import { describeChanges } from "./summary";

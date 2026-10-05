@@ -3,7 +3,7 @@
 // and whether the file becomes lossy (left partly out, so the app won't write it).
 
 import { describe, expect, it } from "vitest";
-import { loadRoadmap } from "./load";
+import { loadRoadmap } from "./parse";
 import type { RoadmapFiles } from "./types";
 
 /** `key: value` lines; values are YAML as written (null leaves the key out). */

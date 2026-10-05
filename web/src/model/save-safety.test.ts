@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
-import { loadRoadmap } from "./load";
+import { loadRoadmap } from "./parse";
 import { type FileChanges, serializeChanges, UnsafeWrite } from "./serialize";
 import type { RoadmapFiles } from "./types";
 

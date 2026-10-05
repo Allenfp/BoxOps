@@ -18,7 +18,7 @@
 // if it holds our content in every changed file, the save already landed.
 
 import { FORMAT } from "../model/format";
-import { settingsFormat } from "../model/load";
+import { settingsFormat } from "../model/parse";
 import { isRoadmapPath } from "../model/paths";
 import { type FileChanges, applyChanges } from "../model/serialize";
 import type { RoadmapFiles } from "../model/types";

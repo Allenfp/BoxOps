@@ -11,7 +11,8 @@ import { Document, isMap, isScalar, isSeq, parseDocument, visit, type YAMLMap, t
 import { formatDay } from "./dates";
 import { diffDraft, normalize, type DraftState } from "./draft";
 import { FORMAT } from "./format";
-import { DEFAULT_DEPT_COLOR, type LoadResult, loadRoadmap } from "./load";
+import { DEFAULT_DEPT_COLOR, type LoadResult } from "./load";
+import { loadRoadmap } from "./parse";
 import type { Box, Department, Person, RoadmapFiles } from "./types";
 
 /** path → new file text, or null to delete the file. */

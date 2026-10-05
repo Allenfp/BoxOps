@@ -27,9 +27,10 @@ web/
                             DepartmentEditor, EngineerPicker, SaveDialog,
                             TokenForm, TextCell, LoadScreen (load failures),
                             ErrorBoundary
-    model/                  data: dates, format (data format version), load
-                            (validator), draft, structure (departments and
-                            lanes), relations (codes and rules), serialize,
+    model/                  data: dates, format (data format version), parse
+                            and load (the validator: each file on its own,
+                            then across files), draft, structure (departments
+                            and lanes), relations (codes and rules), serialize,
                             summary (change descriptions), report
     timeline/               scale (time ↔ pixels), layout (lanes, capacity)
     github/                 api (REST and GraphQL client, timeouts, errors),

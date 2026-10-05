@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadRoadmap } from "./load";
+import { loadRoadmap } from "./parse";
 import { isHiddenPath, isRoadmapPath } from "./paths";
 
 /** Does the loader take this file as a roadmap file (rather than report it as unexpected or misnamed)? */

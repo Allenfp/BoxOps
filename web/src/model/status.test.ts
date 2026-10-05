@@ -2,7 +2,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
-import { DEFAULT_SETTINGS, loadRoadmap } from "./load";
+import { DEFAULT_SETTINGS } from "./load";
+import { loadRoadmap } from "./parse";
 import { amount, boxScale, percent, scaleStats } from "./scale";
 import { flagName, progress } from "./status";
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
 import type { DraftState } from "./draft";
-import { loadRoadmap } from "./load";
+import { loadRoadmap } from "./parse";
 import { applyChanges, serializeChanges } from "./serialize";
 import { describeChanges } from "./summary";
 import { DEFAULT_SETTINGS } from "./load";

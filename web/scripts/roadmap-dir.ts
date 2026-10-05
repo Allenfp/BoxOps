@@ -6,7 +6,7 @@
 import { existsSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { RoadmapReadError, readRoadmapDir } from "../cli/git";
-import { loadRoadmap } from "../src/model/load";
+import { loadRoadmap } from "../src/model/parse";
 import type { Issue } from "../src/model/types";
 
 /** Where the command was typed: npm runs scripts in web/, but says where it was run in INIT_CWD. */

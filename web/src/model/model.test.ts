@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { headerBands, makeScale, packRows } from "../timeline/scale";
 import { formatDay, makeDay, parseDay, quarterLabel, startOfQuarter, startOfWeek, today } from "./dates";
-import { loadRoadmap } from "./load";
+import { loadRoadmap } from "./parse";
 import type { Box } from "./types";
 
 describe("dates", () => {
