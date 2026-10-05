@@ -35,6 +35,18 @@ test("a stored draft that crashes the app can be downloaded and discarded", asyn
   await expect(toolbar(page)).toContainText("No changes");
 });
 
+test("the built page enforces a strict Content-Security-Policy, and tests catch violations", async ({ page, csp, github: _ }) => {
+  const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
+  expect(policy).toContain("default-src 'none'");
+  expect(policy).toContain("connect-src 'self' https://api.github.com https://raw.githubusercontent.com;");
+  // A script that tried to send data elsewhere is stopped, and the fixture sees it.
+  const sent = await page.evaluate(() => fetch("https://example.com/collect").then(() => true, () => false));
+  expect(sent).toBe(false);
+  await expect.poll(() => csp.length).toBe(1);
+  expect(csp[0]).toContain("connect-src blocked https://example.com/collect");
+  csp.length = 0; // expected here; any other test with a violation fails
+});
+
 test("the theme is applied before the app's JavaScript runs", async ({ page, github: _ }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.route("**/assets/*.js", () => {}); // never answered

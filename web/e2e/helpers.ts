@@ -12,11 +12,26 @@ export const boxFile = (id: string) => `boxes/${id}.yaml`;
 /**
  * `page` comes with the clock pinned, the fake GitHub installed, and the app
  * open. `visibility` makes the repository public (the default) or private.
+ * `csp` collects Content-Security-Policy violations; any left at the end
+ * fails the test (every test has it, through `github`).
  */
-export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibility: "public" | "private" }>({
+export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibility: "public" | "private"; csp: string[] }>({
   signedIn: [true, { option: true }],
   visibility: ["public", { option: true }],
-  github: async ({ page, signedIn, visibility }, use) => {
+  csp: async ({ page }, use) => {
+    const violations: string[] = [];
+    await page.addInitScript(() =>
+      document.addEventListener("securitypolicyviolation", (e) =>
+        console.error(`CSP violation: ${e.violatedDirective} blocked ${e.blockedURI || "inline code"} (${e.sourceFile}:${e.lineNumber})`),
+      ),
+    );
+    page.on("console", (m) => {
+      if (m.type() === "error" && m.text().startsWith("CSP violation")) violations.push(m.text());
+    });
+    await use(violations);
+    expect(violations, "Content-Security-Policy violations").toEqual([]);
+  },
+  github: async ({ page, signedIn, visibility, csp: _ }, use) => {
     const github = await FakeGitHub.create(undefined, { visibility });
     await page.clock.install({ time: TODAY });
     await github.install(page);

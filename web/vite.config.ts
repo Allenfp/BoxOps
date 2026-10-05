@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
@@ -64,10 +65,44 @@ function roadmapData(): Plugin {
   };
 }
 
+/**
+ * The built page's Content-Security-Policy, as a meta tag (Pages can't send
+ * headers): scripts and styles only from the site, except index.html's inline
+ * scripts, allowed by their hashes; network calls only to the site, the
+ * GitHub API and raw.githubusercontent.com (anonymous reads of a public
+ * repository). React's style props go through the CSSOM, which style-src
+ * doesn't govern. Not in dev, whose server injects scripts and a websocket.
+ */
+function contentSecurityPolicy(): Plugin {
+  return {
+    name: "boxops-csp",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html) {
+        const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
+          (m) => `'sha256-${createHash("sha256").update(m[1]).digest("base64")}'`,
+        );
+        const policy = [
+          "default-src 'none'",
+          `script-src 'self' ${inline.join(" ")}`.trim(),
+          "style-src 'self'",
+          "img-src 'self' data:",
+          "connect-src 'self' https://api.github.com https://raw.githubusercontent.com",
+          "base-uri 'none'",
+          "form-action 'none'",
+          "object-src 'none'",
+        ].join("; ");
+        return [{ tag: "meta", attrs: { "http-equiv": "Content-Security-Policy", content: policy }, injectTo: "head-prepend" }];
+      },
+    },
+  };
+}
+
 export default defineConfig({
   // Relative asset paths so the site works under https://<user>.github.io/BoxOps/.
   base: "./",
   define: { __BOXOPS_BUILD__: JSON.stringify(APP.build), __BOXOPS_BUILD_TIME__: JSON.stringify(APP.time) },
-  plugins: [react(), roadmapData()],
+  plugins: [react(), roadmapData(), contentSecurityPolicy()],
   test: { environment: "node", include: ["src/**/*.test.ts", "cli/**/*.test.ts"] },
 });
