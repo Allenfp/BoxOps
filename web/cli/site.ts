@@ -68,6 +68,9 @@ export function repoFromRemote(url: string): string {
   return m && /^[^/]+\/[^/]+$/.test(m[1]) ? m[1] : "";
 }
 
+/** A remote URL fit for a log: without the user and password (a token) a URL may carry. */
+export const withoutCredentials = (url: string) => url.replace(/^([a-z][a-z0-9+.-]*:\/\/)?[^@/]+@/i, "$1");
+
 /**
  * The repository's visibility from the GitHub Actions event payload. Unknown
  * (no payload, no repository in it, or another repository) counts as private,
@@ -210,7 +213,9 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
     // Outside a repository (a dev server on some folder) there's nothing to name.
     const remote = commit ? localGit(o.repoDir, ["remote", "get-url", "origin"]) : "";
     repo = repoFromRemote(remote);
-    if (commit && !repo) warn(`Can't tell the repository from the origin remote${remote ? ` (${remote})` : ""}: source.repo is empty`);
+    if (commit && !repo) {
+      warn(`Can't tell the repository from the origin remote${remote ? ` (${withoutCredentials(remote)})` : ""}: source.repo is empty`);
+    }
     branch = commit ? gitPlumbing(o.repoDir, "rev-parse", ["--abbrev-ref", "HEAD"]).toString().trim() : "";
   }
   const { visibility, private: isPrivate } = actions ? repoVisibility(env) : { visibility: null, private: true };

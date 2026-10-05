@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readBundle } from "../src/model/bundle";
 import { RoadmapReadError } from "./git";
-import { appInfo, buildBundle, hashFolder, repoFromRemote, repoVisibility } from "./site";
+import { appInfo, buildBundle, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
 import { TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -164,6 +164,15 @@ describe("buildBundle locally", () => {
     expect(source).toMatchObject({ commit: second, tree: null, local: true, repo: "planning/roadmap" });
   });
 
+  it("warns when origin names no repository, without the credentials its URL holds", async () => {
+    const { repo: r } = repo();
+    r.git(["remote", "set-url", "origin", "https://sam:ghp_s3cret@gitlab.example/group/sub/roadmap.git"]);
+    const warnings: string[] = [];
+    const { source } = await buildBundle({ repoDir: r.dir, app: APP, env: {}, warn: (m) => warnings.push(m) });
+    expect(source.repo).toBe("");
+    expect(warnings).toEqual(["Can't tell the repository from the origin remote (https://gitlab.example/group/sub/roadmap.git): source.repo is empty"]);
+  });
+
   it("caps the history at 50 commits", async () => {
     const { repo: r, second } = repo();
     // 52 more commits of the same tree, quickly.
@@ -225,6 +234,16 @@ describe("repoFromRemote", () => {
       "": "",
     };
     for (const [url, name] of Object.entries(cases)) expect([url, repoFromRemote(url)]).toEqual([url, name]);
+  });
+});
+
+describe("withoutCredentials", () => {
+  it("leaves out a URL's user and password", () => {
+    expect(withoutCredentials("https://x-access-token:ghp_abc@github.com/acme/roadmap.git")).toBe("https://github.com/acme/roadmap.git");
+    expect(withoutCredentials("ssh://git@ghe.acme.internal:2222/a/b")).toBe("ssh://ghe.acme.internal:2222/a/b");
+    expect(withoutCredentials("git@github.com:acme/roadmap.git")).toBe("github.com:acme/roadmap.git");
+    expect(withoutCredentials("https://github.com/acme/ro@dmap")).toBe("https://github.com/acme/ro@dmap");
+    expect(withoutCredentials("/srv/git/roadmap.git")).toBe("/srv/git/roadmap.git");
   });
 });
 
