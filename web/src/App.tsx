@@ -760,7 +760,12 @@ function RoadmapView(props: ViewProps) {
     if (id !== selected.id) setSelected({ ...selected, id });
   };
 
-  const { count } = draft.changes;
+  // Unsaved changes are counted as the save will list them: one per line.
+  const lines = useMemo(
+    () => (draft.changes.count ? describeChanges(draftBase, draftState, draft.changes) : NO_LINES),
+    [draftBase, draftState, draft.changes],
+  );
+  const count = lines.length;
   // Notices about where unsaved changes are kept: other tabs' (until put away,
   // or until there are none), and this browser refusing to keep this tab's
   // (shown once).
@@ -776,11 +781,6 @@ function RoadmapView(props: ViewProps) {
       draft.discard();
     }
   };
-  // The changes listed in the token form: worked out only while it's open, not on every edit.
-  const lines = useMemo(
-    () => (problem?.kind === "token" ? describeChanges(draftBase, draftState, draft.changes) : NO_LINES),
-    [problem, draftBase, draftState, draft.changes],
-  );
 
   // Someone is editing: fetch what saving needs now, so a save doesn't wait for it.
   const editing = !preview && (count > 0 || !!selected || !!selectedPto || !!deptEditor || modal === "team");
@@ -886,7 +886,7 @@ function RoadmapView(props: ViewProps) {
         gh,
         base: { source, files, blobs: props.blobs, ignored: props.ignored },
         changes,
-        message: commitMessage(describeChanges(draftBase, target, draft.changes)),
+        message: commitMessage(lines),
         review: !opts.keep,
         seen: props.seen,
         validate: newProblems,

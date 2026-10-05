@@ -30,6 +30,7 @@ import {
 import { FORMAT } from "./format";
 import { newBoxCode } from "./relations";
 import * as structure from "./structure";
+import { describeChanges } from "./summary";
 import type { Box, Department, Lane, Person, Settings } from "./types";
 
 export interface DraftState {
@@ -516,7 +517,7 @@ export interface DraftOffer {
   key: string;
   /** As stored: what "Download my unsaved edits" saves. */
   value: unknown;
-  /** Restorable here, as `count` changes; otherwise (another version of BoxOps wrote it) only to download or discard. */
+  /** Restorable here, as `count` changes (lines of a save, as the toolbar counts them); otherwise (another version of BoxOps wrote it) only to download or discard. */
   restorable: boolean;
   count: number;
   /** When it was last written (ISO 8601); "" if unknown. */
@@ -527,7 +528,7 @@ function offerOf(found: FoundDraft, base: DraftState): DraftOffer {
   const offer = { key: found.key, value: found.value, restorable: false, count: 0, savedAt: savedAtOf(found.value) };
   if (!found.record) return offer;
   try {
-    return { ...offer, restorable: true, count: diffDraft(base, restoreRecord(found.record, base).draft).count };
+    return { ...offer, restorable: true, count: describeChanges(base, restoreRecord(found.record, base).draft).length };
   } catch {
     return offer;
   }
