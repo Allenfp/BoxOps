@@ -1,6 +1,7 @@
 // Everything that needs a look, in one toolbar button: clashes with someone
-// else's save, broken rules, departments over capacity, and problems in the
-// roadmap files. Hidden when there's nothing to say.
+// else's save, broken rules, departments over capacity, engineers booked
+// during their PTO, and problems in the roadmap files. Hidden when there's
+// nothing to say.
 
 import { Popover } from "./Popover";
 import { Icon } from "./Icon";

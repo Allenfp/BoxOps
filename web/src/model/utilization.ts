@@ -18,7 +18,7 @@ export interface WeekUse {
   peak?: { day: Day; used: number; capacity: number };
 }
 
-/** One entry per week from the week holding `from` to the one holding `to` (exclusive). */
+/** One entry per week from the week holding `from`, for every week that starts before `to` (so the week holding `to` is included unless `to` is a Monday). */
 export function weeklyUse(dept: Department, boxes: Box[], from: Day, to: Day): WeekUse[] {
   const out: WeekUse[] = [];
   for (let monday = startOfWeek(from); monday < to; monday += 7) {

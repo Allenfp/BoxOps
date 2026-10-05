@@ -96,7 +96,7 @@ export interface Violation {
 
 const days = (n: number) => `${n} working day${n === 1 ? "" : "s"}`;
 
-/** Why a rule doesn't hold, in words with dates: "it ends Feb 26, 2027 and the other starts Feb 22, 2027". */
+/** Why a rule doesn't hold, in words with dates: "it ends 2027-02-26 and the other starts 2027-02-22". */
 function explain(type: RelationType, a: Box, b: Box): string {
   switch (type) {
     case "before":
