@@ -520,8 +520,9 @@ when a focused element is removed.
   PTO block hands focus to its neighbour, a deleted table row to the next
   row's Delete, a removed rule or lane to the next one's ✕ (else the one
   before's, else Add), a cleared lane date to its +; a save gives it back
-  where it was, or to the saved banner; Enter and Esc in a table cell, a
-  date picked from the calendar and a lane renamed in place keep it there.
+  where it was, or to the saved banner; Enter and Esc in a table cell and a
+  lane renamed in place keep it there, and a date field's calendar gives it
+  back to what opened it (its button, or the field).
   Save stays focusable while saving, and Undo and Redo with nothing left
   to undo or redo (`aria-disabled`, not `disabled`); discarding all
   changes puts focus on Undo.
@@ -534,6 +535,20 @@ when a focused element is removed.
   opened from the keyboard start on their first control, and Esc puts focus
   back on their button. The Engineers list is a small dialog of checkboxes
   (↑ and ↓ move between them) whose button is named by who's assigned.
+- **Date fields** (`components/DateInput.tsx`) are YYYY-MM-DD text. Text
+  that more typing can't make a date says why just under the field (over
+  what's below, so nothing moves when focus leaves and the field goes back
+  to its date); deleting an `optional` date's text clears it. The calendar
+  is the APG date-picker dialog, opened by **Choose date** (its description
+  is the date; not a Tab stop in table rows) or Option/Alt+↓ in the field:
+  named "Choose date", `aria-modal`, its grid a `<table role="grid">`
+  labelled by the month heading (a live region) with one Tab stop, the day
+  the keys move (`calendarMove` in `model/dates.ts`). Weekends are shown
+  but `aria-disabled` and skipped, as they can't be picked; a day's name
+  is its date and weekday, with "today" and "selected" where they apply.
+  Tab goes round its controls, Today and Clear too; Esc closes it and
+  nothing else (it's `preventDefault`ed, so a native dialog around it
+  isn't cancelled); focus has the ring when a key put it there.
 - **Keys.** ⌘ and Ctrl both work everywhere; labels say ⌘ on Apple's
   platforms and Ctrl elsewhere (`a11y/keys.ts`). A letter is matched by
   `key`, or by its place (`code`) when the layout doesn't type Latin
@@ -601,7 +616,9 @@ when a focused element is removed.
   Edge: how the timeline grid's rows and cells are spoken (a box is
   "expanded" while its editor is open), a move's announcements (↑ ↓ say
   "Busy then" from the layout as it is; once dropped, the box may be drawn
-  in other free space than that suggests), Alt+← and Alt+→ on Windows, and
+  in other free space than that suggests), the calendar's days (whether
+  "today" and "selected" are said twice, by name and state) and its month
+  heading as it changes, Alt+← and Alt+→ on Windows, and
   ⌘← and ⌘→ (Home and End on the grid) never going Back or Forward in a Mac
   browser with history. And a finger dragging a box on a real touch screen
   (iPad Safari, Android Chrome): the tests send touches to Chromium alone.

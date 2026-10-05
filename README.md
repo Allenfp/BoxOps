@@ -74,10 +74,16 @@ straight to `main`, and the site updates within a minute.
   ? lists the keys. Dialogs and the box and PTO editors keep Tab inside
   them, Esc closes them, and focus goes back where it was. In the table and
   People, Enter keeps what's typed and stays in the cell (⌘Z or Ctrl+Z then
-  undoes it), and Esc puts it back. Saves, other people's saves, search
-  results, broken rules, deletions (with how to undo them), moves and what
-  they'd do (a department over capacity, a rule broken, someone on PTO) and
-  problems with a field are announced to screen readers.
+  undoes it), and Esc puts it back. Dates are typed as YYYY-MM-DD (deleting
+  the text of one that can be left out, like a lane's or the table's date
+  range, clears it); **Choose date** beside one, or Option or Alt with ↓ in
+  it, opens a calendar, where the arrow keys move a working day or a week,
+  Home and End go to Monday and Friday, Page Up and Page Down a month (with
+  Shift, a year), Enter picks, and Esc closes the calendar alone. Saves,
+  other people's saves, search results, broken rules, deletions (with how
+  to undo them), moves and what they'd do (a department over capacity, a
+  rule broken, someone on PTO) and problems with a field are announced to
+  screen readers.
 
 ## Editing without the app
 
