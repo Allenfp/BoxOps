@@ -156,12 +156,12 @@ export function Timeline(props: Props) {
   useLayoutEffect(() => {
     if (centerDay.current === null) scrollToDay(now, 1 / 3);
     else scrollToDay(centerDay.current, 1 / 2);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-centre on zoom only, not when today changes
   }, [scale]);
 
   useEffect(() => {
     if (jumpToToday > 0) scrollToDay(now, 1 / 3, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scroll only when Today is pressed
   }, [jumpToToday]);
 
   const onScroll = () => {

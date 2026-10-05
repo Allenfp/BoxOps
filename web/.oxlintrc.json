@@ -1,0 +1,29 @@
+{
+  // oxlint, not ESLint: typescript-eslint doesn't support TypeScript 7 yet.
+  // Run with `npm run lint`; any warning fails it.
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "react", "import"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    // What tsc's noUnused* allow: a parameter named _…, and a key left out with
+    // `const { omit, ...rest } = …`.
+    "eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "ignoreRestSiblings": true }]
+  },
+  "options": {
+    // A disable comment that no longer hides anything is an error, so none go stale.
+    "reportUnusedDisableDirectives": "error"
+  },
+  "overrides": [
+    {
+      // Browser tests aren't React: Playwright fixtures hand over values with `use()`.
+      "files": ["e2e/**"],
+      "rules": {
+        "react-hooks/rules-of-hooks": "off"
+      }
+    }
+  ]
+}

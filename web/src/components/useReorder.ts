@@ -126,7 +126,9 @@ export function useReorder(
       document.addEventListener("pointercancel", stop);
       document.addEventListener("keydown", end, true);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // track and opts.scroller only reach the DOM through refs, so an older render's copies
+    // behave the same, and start stays the same function between renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
     [opts.disabled],
   );
 

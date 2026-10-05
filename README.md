@@ -64,6 +64,7 @@ The app is in `web/`: Vite, React and TypeScript.
 cd web
 npm ci
 npm run dev        # http://localhost:5173; reads ../roadmap and reloads on change
+npm run lint       # oxlint, including the React hooks rules; a warning fails it
 npm test           # unit tests
 npm run e2e        # browser tests (Playwright, WebKit)
 npm run validate   # check the roadmap files

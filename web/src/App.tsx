@@ -389,7 +389,7 @@ function RoadmapView(props: ViewProps) {
       draft.checkpoint();
       setSelected({ id, session: Date.now() });
     },
-    [draft, draft.settings],
+    [draft],
   );
 
   const editBox = (patch: Partial<Box>, field: string) => {
@@ -512,7 +512,8 @@ function RoadmapView(props: ViewProps) {
     askAfterRebase.current = false;
     if (draft.conflicts.length) setProblem({ kind: "conflict", items: draft.conflicts.map(describeItem) });
     else void saveRef.current(); // their changes didn't actually clash with ours
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only when the rebased files arrive, with the conflicts as they are then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [files]);
 
   // Boxes someone else added or changed since this tab loaded, highlighted for

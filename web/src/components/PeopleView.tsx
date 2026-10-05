@@ -131,6 +131,8 @@ export function PeopleView(props: Props) {
               ))}
             </tr>
           </thead>
+          {/* keyFor reads rowKeys while rendering, on purpose; it only ever adds id → id, so a second render is harmless. */}
+          {/* eslint-disable-next-line react-hooks/refs -- stable row keys, see above */}
           {groups.map((g) => {
             const rows = g.all.filter(matches).sort((a, b) => a.name.localeCompare(b.name));
             if (g.id === NO_DEPT && g.all.length === 0) return null;

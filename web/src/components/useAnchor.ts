@@ -47,7 +47,8 @@ export function useAnchor(ref: RefObject<HTMLElement | null>, selector: string, 
       window.removeEventListener("scroll", place, true);
       window.removeEventListener("resize", place);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The caller's deps say when the anchor moves; its selector and width only change with them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps come from the caller, see above
   }, deps);
   return pos;
 }

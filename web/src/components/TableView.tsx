@@ -185,7 +185,8 @@ export function TableView(props: Props) {
       const vb = value(b);
       return (va < vb ? -1 : va > vb ? 1 : a.start - b.start || a.id.localeCompare(b.id)) * sort.dir;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // inDates and engineerNames are new functions every render: list what they read instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fromDay, toDay and personName stand in for them
   }, [boxes, query, sort, lanes, typeIndex, statusIndex, personName, fromDay, toDay, props.hideFinished, now]);
 
   // Sorted rows, bucketed by department (in department order).
@@ -217,7 +218,7 @@ export function TableView(props: Props) {
       out.set(e.person.department, [...(out.get(e.person.department) ?? []), e]);
     }
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fromDay and toDay stand in for inDates, as above
   }, [people, query, props.showPto, fromDay, toDay]);
   const ptoDates = (ref: PtoRef, pto: TimeOff, field: "start" | "end", text: string) => {
     const picked = parseDay(text);

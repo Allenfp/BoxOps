@@ -111,6 +111,11 @@ yours but are flagged as clashes.
   state) and the roadmap is a fixed copy in `web/e2e/fixtures/roadmap/`. The
   clock is pinned to 2026-10-03, so tests never depend on live data, the date
   or the network.
+- **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
+  the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
+  doesn't support TypeScript 7 yet.) A deliberate exception is a
+  `// eslint-disable-next-line <rule> -- <reason>` comment, which oxlint
+  honours; one that no longer hides anything is an error.
 - **CI.** `checks` (`validate.yml`) runs validation, unit tests, the build and
   the browser tests on every branch push and pull request. The Pages deploy
   (`pages.yml`) runs validation, unit tests and the build on every push to
