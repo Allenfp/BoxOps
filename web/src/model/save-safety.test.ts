@@ -149,7 +149,7 @@ describe("untouched lines stay as written", () => {
   }
 
   it("with a BOM and CRLF line endings, which are kept", () => {
-    const text = "﻿" + box("b1", "B1X", "tags: [cost, q1] # flow list\n").replace(/\n/g, "\r\n");
+    const text = "\uFEFF" + box("b1", "B1X", "tags: [cost, q1] # flow list\n").replace(/\n/g, "\r\n");
     const out = save({ ...ROADMAP, "boxes/b1.yaml": text }, (s) => editBox(s, "b1", { end: d("2026-01-23") }))["boxes/b1.yaml"]!;
     expect(out).toBe(text.replace("end: 2026-01-16", "end: 2026-01-23"));
   });
@@ -161,6 +161,14 @@ describe("untouched lines stay as written", () => {
       departments: s.departments.map((x) => ({ ...x, lanes: x.lanes.map((l) => (l.id === "e1" ? { ...l, name: "Platform" } : l)) })),
     }));
     expect(out).toEqual({ "departments/eng.yaml": flush.replace("- id: e1\n", "- id: e1\n  name: Platform\n") });
+  });
+
+  it("in indented lists, beside a description that only looks like a flush list", () => {
+    const files = { ...ROADMAP, "boxes/b1.yaml": box("b1", "B1X", "engineers:\n  - sam\nrelations:\n  - type: before\n    box: B2X\n") };
+    const described = { ...files, ...save(files, (s) => editBox(s, "b1", { description: "Acceptance criteria:\n- first\n- second" })) } as RoadmapFiles;
+    expect(described["boxes/b1.yaml"]).toContain("    box: B2X\ndescription: |-\n  Acceptance criteria:\n  - first\n  - second\n");
+    const out = save(described, (s) => editBox(s, "b1", { title: "Renamed" }))["boxes/b1.yaml"]!;
+    expect(changedLines(described["boxes/b1.yaml"], out)).toEqual(["title: Renamed"]);
   });
 
   it("for values YAML would read as numbers, which stay quoted", () => {

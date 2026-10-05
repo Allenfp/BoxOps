@@ -7,7 +7,7 @@
 // A file the loader couldn't fully read is never written (UnsafeWrite): that
 // would delete whatever the loader left out.
 
-import { Document, isMap, isScalar, isSeq, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
+import { Document, isMap, isScalar, isSeq, parseDocument, visit, type YAMLMap, type YAMLSeq } from "yaml";
 import { formatDay } from "./dates";
 import { diffDraft, normalize, type DraftState } from "./draft";
 import { FORMAT } from "./format";
@@ -72,10 +72,31 @@ const SETTINGS_LISTS: Lists = {
 const DEFAULTS: Plain = { fte: 1, collapsed: false, order: 0, color: DEFAULT_DEPT_COLOR };
 
 /** yaml's output options, keeping what it can of the file's own style. */
-function style(original: string) {
-  // A list written flush with its key ("lanes:\n- id: x") stays that way.
-  const indentless = /^([ \t]*)[^\s#-][^\n]*:[ \t]*(?:#.*)?\r?\n\1- /m.test(original);
+function style(indentless = false) {
   return { lineWidth: 0, flowCollectionPadding: false, indentSeq: !indentless } as const;
+}
+
+/**
+ * Whether a list in the parsed file is written flush with its key
+ * ("lanes:\n- id: x"), so the file is written back that way. Read from the
+ * nodes' positions, so text that only looks like a list (inside a `|` block)
+ * doesn't count.
+ */
+function indentless(doc: Document, text: string): boolean {
+  const column = (offset: number) => {
+    const start = text.lastIndexOf("\n", offset - 1) + 1;
+    return offset - start - (start === 0 && text.startsWith("\uFEFF") ? 1 : 0);
+  };
+  let flush = false;
+  visit(doc, {
+    Pair(_, { key, value }) {
+      if (!isSeq(value) || value.flow || !value.range || !isScalar(key) || !key.range) return;
+      if (column(value.range[0]) > column(key.range[0])) return;
+      flush = true;
+      return visit.BREAK;
+    },
+  });
+  return flush;
 }
 
 function boxToPlain(b: Box): Plain {
@@ -215,17 +236,18 @@ function writeFile(
   lists: Lists,
   defaults: Plain = DEFAULTS,
 ): string {
-  if (original === undefined) return new Document(ordered(value, keys, defaults, lists)).toString(style(""));
+  if (original === undefined) return new Document(ordered(value, keys, defaults, lists)).toString(style());
   const doc = parseDocument(original) as Document;
   // The loader marks such files lossy, so a save never gets here; never write over one regardless.
   const error = doc.errors[0];
   if (error) throw new UnsafeWrite([{ path, problems: [`YAML syntax error: ${error.message.split("\n")[0].replace(/:$/, "")}`] }]);
   if (doc.contents === null) doc.contents = doc.createNode({}); // empty, or only comments
   if (!isMap(doc.contents)) throw new UnsafeWrite([{ path, problems: ["expected a YAML mapping (key: value lines) at the top level"] }]);
+  const flush = indentless(doc, original);
   mergeMap(doc, doc.contents, value, base, keys, lists, defaults);
-  let text = doc.toString(style(original));
+  let text = doc.toString(style(flush));
   if (original.includes("\r\n")) text = text.replace(/\r?\n/g, "\r\n");
-  return original.startsWith("﻿") ? `﻿${text}` : text;
+  return original.startsWith("\uFEFF") ? `\uFEFF${text}` : text;
 }
 
 /**
