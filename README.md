@@ -108,5 +108,4 @@ anything else must pass the browser tests before it deploys.
 
 - [docs/architecture.md](docs/architecture.md): how loading, saving, conflicts,
   polling, layout and CI work.
-- [docs/decisions.md](docs/decisions.md): what was decided and why, and what
-  isn't built yet.
+- [docs/decisions.md](docs/decisions.md): what was decided, when and why.
