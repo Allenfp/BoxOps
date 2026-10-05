@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { withContentSecurityPolicy } from "../cli/csp";
 import { FakeGitHub, REPO, TOKEN } from "./fake-github";
-import { CDC, DAGSTER, REVENUE, TODAY, boxFile, dragDays, expect, pollNow, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, REVENUE, TODAY, boxFile, dragDays, expect, looseBannerText, pollNow, test, toolbar } from "./helpers";
 
 // The page around the app: what happens when the app itself fails.
 
@@ -187,4 +187,5 @@ test("a roadmap without settings.yaml opens read-only, saying the file is missin
   const banner = page.locator(".banner", { hasText: "Read-only" });
   await expect(banner).toContainText("the roadmap has no roadmap/settings.yaml");
   await expect(banner).toContainText("Add one holding format: 1");
+  expect(await looseBannerText(page)).toEqual([]);
 });

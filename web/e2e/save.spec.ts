@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 import { CLASSIC_TOKEN, type FakeGitHub, REPO, TOKEN } from "./fake-github";
-import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, pollNow, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, looseBannerText, pollNow, save, test, toolbar } from "./helpers";
 
 // Saving works the same on a public and on a private repository; on a private
 // one, everything goes through the API with the token.
@@ -27,6 +27,7 @@ for (const visibility of ["public", "private"] as const) {
         await page.locator(".save-dialog[open]").getByRole("button", { name: "Save" }).click();
         await expect(page.locator(".banner.success")).toContainText("Saved to main");
         await expect(page.locator(".banner.success")).toContainText("The site picks it up in about a minute.");
+        expect(await looseBannerText(page)).toEqual([]);
         await expect(toolbar(page)).toContainText("No changes");
 
         const head = github.headCommit();

@@ -1360,59 +1360,68 @@ function RoadmapView(props: ViewProps) {
             </button>
           </div>
         ))}
+      {/* A banner is a flex row: its text goes in one <span>, or each run of text, <code> and link is spaced apart. */}
       {props.preview && (
         <div className="banner">
-          Previewing branch <code>{source.branch}</code> (read-only). <a href={liveUrl()}>Back to the live roadmap</a>
+          <span>
+            Previewing branch <code>{source.branch}</code> (read-only). <a href={liveUrl()}>Back to the live roadmap</a>
+          </span>
         </div>
       )}
       {source.local && !props.preview && (
         <div className="banner">
-          Read-only: this copy was built from the files on disk (<code>npm run dev</code>, or a build with uncommitted
-          changes in <code>roadmap/</code>), so it can’t save. Edit the YAML files, or save from the deployed site.
+          <span>
+            Read-only: this copy was built from the files on disk (<code>npm run dev</code>, or a build with uncommitted
+            changes in <code>roadmap/</code>), so it can’t save. Edit the YAML files, or save from the deployed site.
+          </span>
         </div>
       )}
       {source.readonly && !source.local && !props.preview && <div className="banner">Read-only: this site doesn’t save.</div>}
       {/* A newer format with a newer BoxOps to reload onto: the update banner says what to do. */}
       {props.formatStatus !== "current" && !(props.formatStatus === "newer" && props.update) && (
         <div className="banner">
-          {props.formatStatus === "older" && files["settings.yaml"] === undefined ? (
-            <>
-              Read-only: the roadmap has no <code>roadmap/settings.yaml</code>, which says which data format the files
-              use. Add one holding <code>format: {FORMAT}</code> to edit the roadmap here.
-            </>
-          ) : props.formatStatus === "older" ? (
-            <>
-              Read-only: <code>roadmap/settings.yaml</code> doesn’t say which data format the files use. Add{" "}
-              <code>format: {FORMAT}</code> to it to edit the roadmap here.
-            </>
-          ) : props.formatStatus === "newer" && props.preview ? (
-            <>
-              Read-only: this branch uses data format {base.format}, newer than this BoxOps reads ({FORMAT}).
-            </>
-          ) : props.formatStatus === "newer" ? (
-            // Merged on GitHub before the site has redeployed with the BoxOps that reads it.
-            <>
-              Read-only: the roadmap now uses data format {base.format}, newer than this BoxOps reads ({FORMAT}), so
-              BoxOps is probably being upgraded. Reload in a few minutes; if it stays like this, ask whoever looks after
-              the site.
-              {stranded && " Your unsaved changes were made in the old format: the upgraded BoxOps offers them only as a download (JSON)."}
-            </>
-          ) : (
-            <>
-              Read-only: the data format in <code>roadmap/settings.yaml</code> can’t be read. Fix the file (see the
-              problems list) to edit the roadmap here.
-            </>
-          )}
+          <span>
+            {props.formatStatus === "older" && files["settings.yaml"] === undefined ? (
+              <>
+                Read-only: the roadmap has no <code>roadmap/settings.yaml</code>, which says which data format the files
+                use. Add one holding <code>format: {FORMAT}</code> to edit the roadmap here.
+              </>
+            ) : props.formatStatus === "older" ? (
+              <>
+                Read-only: <code>roadmap/settings.yaml</code> doesn’t say which data format the files use. Add{" "}
+                <code>format: {FORMAT}</code> to it to edit the roadmap here.
+              </>
+            ) : props.formatStatus === "newer" && props.preview ? (
+              <>
+                Read-only: this branch uses data format {base.format}, newer than this BoxOps reads ({FORMAT}).
+              </>
+            ) : props.formatStatus === "newer" ? (
+              // Merged on GitHub before the site has redeployed with the BoxOps that reads it.
+              <>
+                Read-only: the roadmap now uses data format {base.format}, newer than this BoxOps reads ({FORMAT}), so
+                BoxOps is probably being upgraded. Reload in a few minutes; if it stays like this, ask whoever looks after
+                the site.
+                {stranded && " Your unsaved changes were made in the old format: the upgraded BoxOps offers them only as a download (JSON)."}
+              </>
+            ) : (
+              <>
+                Read-only: the data format in <code>roadmap/settings.yaml</code> can’t be read. Fix the file (see the
+                problems list) to edit the roadmap here.
+              </>
+            )}
+          </span>
           {props.formatStatus === "newer" && !props.preview && stranded && <button onClick={downloadDraft}>Download unsaved changes</button>}
         </div>
       )}
       {lastSave && (
         <div className="banner success">
-          Saved to <code>{source.branch}</code> as commit{" "}
-          <a href={lastSave.url} target="_blank" rel="noopener noreferrer">
-            {lastSave.commit.slice(0, 7)}
-          </a>
-          . The site picks it up in about a minute.
+          <span>
+            Saved to <code>{source.branch}</code> as commit{" "}
+            <a href={lastSave.url} target="_blank" rel="noopener noreferrer">
+              {lastSave.commit.slice(0, 7)}
+            </a>
+            . The site picks it up in about a minute.
+          </span>
           <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
             <Icon name="x" size={16} />
           </button>

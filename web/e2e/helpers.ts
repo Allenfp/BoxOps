@@ -141,6 +141,18 @@ function countSiteFetches() {
   };
 }
 
+/**
+ * Text lying straight in a banner, outside any element. A banner is a flex
+ * row, so such text, a <code> and a link beside it become items of their
+ * own, spaced apart ("disk ( npm run dev , or …"): its text belongs in one
+ * <span>. Should be none.
+ */
+export function looseBannerText(page: Page): Promise<string[]> {
+  return page
+    .locator(".banner")
+    .evaluateAll((banners) => banners.flatMap((b) => [...b.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim()).map((n) => n.textContent!)));
+}
+
 /** Make the app's 2-minute check for others' saves happen now, once the last one has finished. */
 export async function pollNow(page: Page) {
   await expect.poll(() => page.evaluate(() => (window as unknown as { __boxopsSiteFetches?: number }).__boxopsSiteFetches ?? 0)).toBe(0);
