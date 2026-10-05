@@ -189,7 +189,8 @@ describe("commits", () => {
 
     const clone = mkdtempSync(join(tmpdir(), "boxops-test-"));
     temps.push(clone);
-    execFileSync("git", ["clone", "-q", "--depth", "2", `file://${repo.dir}`, clone], { stdio: "pipe" });
+    // Like every test git, without the host's configuration (TestRepo.git).
+    repo.git(["clone", "-q", "--depth", "2", `file://${repo.dir}`, clone]);
     expect(firstParents(clone, c4)).toEqual([c4, merge, c2]);
   });
 });
