@@ -671,7 +671,7 @@ function RoadmapView(props: ViewProps) {
   );
   const draft = useDraft(draftBase, { scope: `${source.repo}@${source.branch}`, commit: source.commit, build: __BOXOPS_BUILD__ });
   // Should anything below crash, the recovery screen offers this tab's draft (and no other's).
-  noteDraft(draft.storageKey);
+  noteDraft(draft.storageKey, draft.kept);
   // The department being edited is gone (undone, or deleted in someone else's save): its editor closes.
   const editedGone = deptEditor?.kind === "edit" && !draft.departments.some((d) => d.id === deptEditor.id);
   useEffect(() => {

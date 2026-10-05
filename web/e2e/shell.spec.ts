@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { withContentSecurityPolicy } from "../cli/csp";
 import { FakeGitHub, REPO, TOKEN } from "./fake-github";
-import { DAGSTER, TODAY, dragDays, expect, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, REVENUE, TODAY, boxFile, dragDays, expect, pollNow, test, toolbar } from "./helpers";
 
 // The page around the app: what happens when the app itself fails.
 
@@ -62,6 +62,34 @@ test("a crash says unsaved changes are kept only if this tab has some, whatever 
   await expect(crash).toContainText("Something went wrong");
   await expect(crash).not.toContainText("unsaved changes");
   await expect(crash.getByRole("button", { name: "Download unsaved changes" })).toHaveCount(0);
+});
+
+test("a crash once this browser stopped keeping the draft says only an older copy is kept", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("boxops-draft:")).length)).toBe(1);
+  // Storage fills up: the draft of one change was kept, one of two no longer fits.
+  await page.evaluate(() => {
+    const kept = Object.keys(localStorage).find((k) => k.startsWith("boxops-draft:"))!;
+    const limit = localStorage.getItem(kept)!.length + 100;
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith("boxops-draft:") && value.length > limit) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      return setItem.call(this, key, value);
+    };
+  });
+  await dragDays(page, CDC, 5);
+  await expect(page.locator(".banner", { hasText: "This browser isn’t keeping your unsaved changes" })).toBeVisible();
+  // Then a save comes in that the app can't render (a bug): the build's parse of a box, spoiled.
+  github.patchBundle = (b) => {
+    for (const f of Object.values(b.parsed!.files)) if (f.kind === "box" && f.box?.id === REVENUE) Object.assign(f.box, { title: { text: "?" } });
+    return b;
+  };
+  github.deploy(github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") }, "Sam Lee", "Revenue mart: v3"));
+  await pollNow(page);
+  const crash = page.locator(".crash");
+  await expect(crash).toContainText("Something went wrong");
+  await expect(crash).toContainText("An older copy of your unsaved changes is kept in this browser; the latest edits weren’t.");
+  await expect(crash).not.toContainText("Your unsaved changes are kept");
 });
 
 test("once the app has run a few seconds, an earlier crash is forgotten: a later one isn't \"again\"", async ({ page, github: _ }) => {

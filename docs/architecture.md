@@ -435,10 +435,11 @@ against data the new code wrote.
   (plus the branch for a preview); `index.html` says "BoxOps" until then.
 - **Errors.** An error boundary around the app shows a recovery screen with
   Reload instead of a blank page, saying unsaved changes are kept only when
-  this tab's are. A second crash in a row (a stored draft can
-  make every reload crash) also offers to download the unsaved changes as
-  JSON and discard them: only this tab's draft of the roadmap on screen, since
-  project sites on `<owner>.github.io` share one `localStorage`. A crash
+  this tab's are (an older copy, if storage refused the latest edits). A
+  second crash in a row (a stored draft can make every reload crash) also
+  offers to download the unsaved changes as JSON and discard them: only
+  this tab's draft of the roadmap on screen, since project sites on
+  `<owner>.github.io` share one `localStorage`. A crash
   counts as the same one again within 5 minutes, unless the app ran for a few
   seconds in between.
 

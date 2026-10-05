@@ -15,10 +15,17 @@ const AGAIN_MS = 5 * 60_000;
 
 /** The localStorage key of this tab's draft of the roadmap on screen, once the app has one. */
 let shownDraft: string | null = null;
+/** Whether storage holds that draft as it is: when its last write was refused, what's stored is older. */
+let shownKept = true;
 
-/** This tab keeps its draft of the roadmap on screen under `key` (model/draftStore.ts): the one a crash offers. */
-export function noteDraft(key: string): void {
+/**
+ * This tab keeps its draft of the roadmap on screen under `key`
+ * (model/draftStore.ts): the one a crash offers. `kept`: storage holds it
+ * as it is (its last write went through).
+ */
+export function noteDraft(key: string, kept: boolean): void {
   shownDraft = key;
+  shownKept = kept;
 }
 
 /** The app has been running fine: a crash from now on isn't the same one again. */
@@ -96,8 +103,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   render(): ReactNode {
     const { error, again } = this.state;
     if (!error) return this.props.children;
-    const kept = storedDraft() !== null;
-    const draft = kept && shownDraft !== null ? draftRepo(shownDraft) : null;
+    const stored = storedDraft() !== null;
+    const draft = stored && shownDraft !== null ? draftRepo(shownDraft) : null;
     return (
       <div className="crash" role="alert">
         <h1>Something went wrong</h1>
@@ -121,7 +128,13 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
           </>
         ) : (
           <>
-            {kept && <p>Your unsaved changes are kept in this browser.</p>}
+            {stored && (
+              <p>
+                {shownKept
+                  ? "Your unsaved changes are kept in this browser."
+                  : "An older copy of your unsaved changes is kept in this browser; the latest edits weren’t."}
+              </p>
+            )}
             <div className="crash-actions">
               <button className="primary" onClick={() => location.reload()}>
                 Reload
