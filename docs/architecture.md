@@ -29,8 +29,10 @@ web/
                             lanes), relations (codes and rules), serialize,
                             summary (change descriptions), report
     timeline/               scale (time ↔ pixels), layout (lanes, capacity)
-    github/                 api (REST client), save (commit, conflicts,
-                            loading), git-objects (git blob and tree SHAs)
+    github/                 api (REST and GraphQL client, timeouts, errors),
+                            read (newer commits by SHA diff), save (commit,
+                            conflicts, retries), messages (errors in words),
+                            git-objects (git blob and tree SHAs, base64)
   cli/                      Node-only: git.ts (reads a roadmap folder from git
                             objects or from disk), site.ts (builds roadmap.json)
   scripts/                  validate.ts, report.ts (command-line checks; an
@@ -48,7 +50,7 @@ both.
 ## Reading
 
 - **At build time** the Vite plugin writes `roadmap.json` (`cli/site.ts`;
-  fields in `model/bundle.ts`), so viewers need no token and use no API quota.
+  fields in `model/bundle.ts`), so viewers need no token.
   It reads `roadmap/` from git objects at the commit being built (`GITHUB_SHA`
   in Actions, else HEAD), never from the checkout, with git hardened and
   plumbing only (`cli/git.ts`). Only plain files are allowed: a symlink or
@@ -79,16 +81,33 @@ both.
   `report` read files on disk under the same rules: symlinks are errors, never
   followed. The app still opens a `roadmap.json` from before schema 1, treating
   what it lacks as unknown.
-- **On load** the app asks GitHub for the head of `main` (one API call). If it's
-  newer than the bundled commit (someone saved and the redeploy hasn't
-  finished), it reads the newer files from `raw.githubusercontent.com`.
+- **On load** the app asks GitHub for the head of `main`, from a URL the
+  browser hasn't cached (GitHub lets browsers keep a branch head for 60 s; no
+  cache header is sent, since Safari may add one GitHub's CORS check refuses).
+  If it's newer than the bundled commit (someone saved and the redeploy
+  hasn't finished), the app reads the newer roadmap by SHA diff
+  (`github/read.ts`): the commit and root tree, the folder's listing if its
+  tree SHA changed, then only blobs whose SHA the tab doesn't hold, 4 at a
+  time, from a cache kept for the session and at most 300 per read. Whether
+  roadmap files changed is decided from their blob SHAs, never from the tree
+  SHA alone. A head older than one the tab has seen is asked for once more.
+  The folder is held to the build's rules (plain files, the same limits,
+  UTF-8 with any BOM kept). With a token every call goes through the API,
+  which is how a private repository is read. Without one the app reads only a
+  repository the build says is public, taking file contents from
+  `raw.githubusercontent.com` to spare the anonymous allowance (60 API calls
+  an hour per IP address): one call when nothing changed. A private
+  repository and no token cost no calls; the tab shows the deployed copy. If
+  the read fails, the bundled copy stays.
 - **Polling.** Every 2 minutes, while the tab is visible, the app re-fetches the
   site's own `roadmap.json`. That's a cheap 304 when nothing changed, and it
   doesn't touch the GitHub API, whose anonymous limit (60 requests an hour per
   IP) counts 304s too. A newer commit is merged into the screen in place, and a
   notice says who saved what. The tab remembers which commits it has already
   shown or saved on top of, so the lagging deploy never rolls it back.
-- **Previews.** `?ref=<branch>` shows another branch read-only.
+- **Previews.** `?ref=<branch>` shows another branch read-only, read the same
+  way (only files that differ from `main`'s are fetched). The name is checked
+  against git's rules before any call. A private repository needs a token.
 - **Data format.** `format` in `settings.yaml` must be the one this build reads
   (`model/format.ts`); a roadmap in any other format opens read-only, with a
   banner saying why.
@@ -118,19 +137,35 @@ yours but are flagged as clashes.
 2. **Token.** The first save asks for a fine-grained token (Contents: write on
    this repo). It's kept in `sessionStorage`, so it's forgotten when the tab
    closes, and it's sent only to GitHub.
-3. **Pre-save check.** The app asks for the head of `main`. If someone saved
-   since the tab loaded, their changes are merged onto the screen, outlined in
+3. **Pre-save check.** The app reads the head of `main` as on load. If someone
+   saved roadmap changes since the tab loaded (by blob SHA: a commit to other
+   files doesn't count), their changes are merged onto the screen, outlined in
    teal, and the save pauses on a dialog listing who saved what. The user can
    review, then save, or choose whose version to keep for clashing items.
 4. **Commit.** The changed files are written with the `yaml` Document API, so
    only the edited lines change and comments survive: only fields that differ
    from what was loaded are touched, list entries (lanes, people, PTO, rules)
    are matched up one by one, and a file keeps its BOM and line endings. Each
-   department and box goes to the file it was loaded from. The app makes one tree
-   (based on the head), one commit, then a fast-forward-only update of `main`.
-   If someone saved in the split second in between, GitHub refuses, and the app
-   retries once on top of their commit. A same-file clash at that point shows
-   the keep-mine / keep-theirs choice.
+   department and box goes to the file it was loaded from. The save is one
+   GraphQL `createCommitOnBranch` call (`github/save.ts`): GitHub makes the
+   commit and moves `main` in one step, only if `main` is still at the head
+   the save was checked against. The commit is authored by the token's owner
+   and committed by GitHub, which signs it "if supported", in GitHub's words;
+   whether that satisfies a *Require signed commits* rule with a fine-grained
+   token is still to be checked live. Only files whose blob SHA differs from
+   the head's are sent, and an empty change never is. CI skip markers such as
+   `[skip ci]` in titles are neutralised, so every save deploys. If someone
+   saved in between, GitHub refuses (`STALE_DATA`): the app re-reads only what
+   changed, checks clashes and validates again, then retries on top of their
+   commit, at most twice. A same-file clash at that point shows the keep-mine
+   / keep-theirs choice. After a failure that leaves unclear whether the
+   commit was made (a timeout, a dropped connection, a 5xx), the app reads the
+   head again: if every changed file there is ours, the save landed and is
+   reported as saved; otherwise retrying is safe, since each attempt names
+   the head it goes on. Every call has a timeout that also covers reading the
+   answer (15 s for reads, 30 s for the save). There's no permission check
+   first: GitHub's refusals are sorted into kinds (`github/api.ts`, for REST
+   and GraphQL alike) and worded in `github/messages.ts`.
 5. **Deploy.** The push triggers the Pages workflow; the site usually updates
    within a minute (deploys queue, so longer if one is already running).
 
@@ -156,14 +191,19 @@ yours but are flagged as clashes.
 
 - **Unit tests** (Vitest, `web/src/**/*.test.ts` and `web/cli/**/*.test.ts`)
   cover dates, loading and validation, the draft and rebasing, YAML writing,
-  change descriptions, layout and capacity, the report, the save logic against
-  a fake API, and the roadmap readers, git SHAs and `roadmap.json` against
-  real git repositories made in the temp folder.
+  change descriptions, layout and capacity, the report, the GitHub client,
+  reader and save logic against the browser tests' fake GitHub, and the
+  roadmap readers, git SHAs and `roadmap.json` against real git repositories
+  made in the temp folder.
 - **Browser tests** (Playwright with WebKit, `web/e2e/`) run the production
-  build. GitHub is faked by a stateful stand-in (real commits and branch
-  state) and the roadmap is a fixed copy in `web/e2e/fixtures/roadmap/`. The
-  stand-in makes each deploy's `roadmap.json` with the build's own code, so
-  its blob and tree SHAs are real. The clock is pinned to 2026-10-03, so tests
+  build. GitHub is faked by a stateful stand-in (`web/e2e/fake-github.ts`:
+  commits with real git trees and blobs, GraphQL saves that check the
+  expected head, a private mode, injected failures) and the roadmap is a
+  fixed copy in `web/e2e/fixtures/roadmap/`. The save and polling tests run
+  on a public and on a private repository, and every test checks the
+  stand-in saw no call a correct app never makes. It makes each deploy's
+  `roadmap.json` with the build's own code, so its blob and tree SHAs are
+  real. The clock is pinned to 2026-10-03, so tests
   never depend on live data, the date or the network.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
   the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
