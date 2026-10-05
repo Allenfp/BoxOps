@@ -499,22 +499,26 @@ when a focused element is removed.
   them), undo and redo, and field problems and date corrections as they
   appear (each correction, the same one twice too; not a problem already
   there when its field shows, nor one put right before it's read). Nothing
-  uses `role="status"` on an element added already filled.
-- **Focus** is never left on `<body>`. Each dialog and editor notes what
-  had focus when it opened; when it goes, if focus was in it (or lost), it
-  goes back there, or to the nearest thing still on the page: the box or
-  PTO block, the department's ✎, the gear (for what its menu opened), the
-  Save button, else the roadmap (`useReturnFocus` in `a11y/focus.ts`). A
-  banner or the broken-rule popup going with focus in it hands focus to the
-  roadmap (focus elsewhere stays put; the popup doesn't go by itself while
-  focus is in it). A deleted box or PTO block hands focus to its neighbour,
-  a deleted table row to the next row's Delete, a removed rule or lane to
-  the next one's ✕ (else the one before's, else Add), a cleared lane date
-  to its +; a save gives it back where it was, or to the saved banner;
-  Enter and Esc in a table cell, a date picked from the calendar and a lane
-  renamed in place keep it there. Save stays focusable while saving, and
-  Undo and Redo with nothing left to undo or redo (`aria-disabled`, not
-  `disabled`); discarding all changes puts focus on Undo.
+  uses `role="status"` or `role="alert"` on an element added already
+  filled, but the crash and load-problem screens, which take focus.
+- **Focus** is never left on `<body>`, nor on something hidden (Firefox
+  leaves it on a part React hides while what replaces it loads, until the
+  part goes). Each dialog and editor notes what had focus when it opened;
+  when it goes, if focus was in it (or lost), it goes back there, or to
+  the nearest thing still on the page: the box or PTO block, the
+  department's ✎, the gear (for what its menu opened), the Save button,
+  else the roadmap (`useReturnFocus` in `a11y/focus.ts`). A banner (a part
+  that couldn't load, too, after Try again) or the broken-rule popup going
+  with focus in it hands focus to the roadmap (focus elsewhere stays put;
+  the popup doesn't go by itself while focus is in it). A deleted box or
+  PTO block hands focus to its neighbour, a deleted table row to the next
+  row's Delete, a removed rule or lane to the next one's ✕ (else the one
+  before's, else Add), a cleared lane date to its +; a save gives it back
+  where it was, or to the saved banner; Enter and Esc in a table cell, a
+  date picked from the calendar and a lane renamed in place keep it there.
+  Save stays focusable while saving, and Undo and Redo with nothing left
+  to undo or redo (`aria-disabled`, not `disabled`); discarding all
+  changes puts focus on Undo.
 - **Dialogs** are named by their titles (the save dialog is also described
   by what went wrong) and start on what's safe to press next, their first
   field, or themselves, never the Close button. The native ones

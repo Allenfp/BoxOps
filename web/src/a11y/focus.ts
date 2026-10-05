@@ -9,8 +9,15 @@ import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useLayoutEffe
 /** A place focus can go, looked up when it's needed (after the change). */
 export type Target = () => Element | null | undefined;
 
-/** Focus is nowhere in particular: on <body>, or on nothing. */
-export const focusLost = () => !document.activeElement || document.activeElement === document.body;
+/**
+ * Focus is nowhere in particular: on <body>, on nothing, or on something no
+ * longer shown (hidden while what replaces it loads: Firefox leaves focus
+ * there until it's removed, and then on <body>).
+ */
+export const focusLost = (): boolean => {
+  const el = document.activeElement;
+  return !el || el === document.body || !el.isConnected || !el.getClientRects().length;
+};
 
 /** The first of `targets` that's on the page and can take focus. */
 function first(targets: Target[]): HTMLElement | null {

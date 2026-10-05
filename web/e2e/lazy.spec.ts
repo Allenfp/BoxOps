@@ -1,5 +1,5 @@
 import type { Page, Route } from "@playwright/test";
-import { DAGSTER, dragDays, expect, save, test, toolbar } from "./helpers";
+import { DAGSTER, dragDays, expect, heard, save, test, toolbar } from "./helpers";
 
 // Code fetched when it's first needed: what saving needs (with the yaml
 // library) once someone starts editing, never just to show the roadmap; a
@@ -110,21 +110,26 @@ test("a view whose code can't load (offline, or a deploy replaced it) says so; T
   const tab = page.getByRole("button", { name: "Table", exact: true });
   await tab.click();
   table.drop();
-  const alert = page.getByRole("alert");
-  await expect(alert).toContainText(FIRST);
-  await expect(alert.getByRole("button", { name: "Reload" })).toBeVisible();
+  const banner = page.locator(".banner", { hasText: "This part of BoxOps couldn’t load" });
+  await expect(banner).toContainText(FIRST);
+  await expect(banner.getByRole("button", { name: "Reload" })).toBeVisible();
+  await expect.poll(() => heard(page)).toContain(FIRST);
 
   await table.restore();
-  await alert.getByRole("button", { name: "Try again" }).click();
+  await banner.getByRole("button", { name: "Try again" }).focus();
+  await page.keyboard.press("Enter");
   if (browserName === "firefox") {
     await expect(page.locator(".box-table")).toBeVisible();
-    await expect(alert).toHaveCount(0);
+    await expect(banner).toHaveCount(0);
   } else {
     // WebKit and Chromium keep a module file that failed to load until the page reloads.
-    await expect(alert).toContainText(AGAIN);
-    await expect(alert.getByRole("button", { name: "Try again" })).toHaveCount(0);
-    await expect(alert.getByRole("button", { name: "Reload" })).toBeVisible();
+    await expect(banner).toContainText(AGAIN);
+    await expect(banner.getByRole("button", { name: "Try again" })).toHaveCount(0);
+    await expect(banner.getByRole("button", { name: "Reload" })).toBeVisible();
+    await expect.poll(() => heard(page)).toContain(AGAIN);
   }
+  // The banner it was in has gone: focus is on the roadmap, not the page.
+  await expect(page.getByRole("main")).toBeFocused();
   // The other views work either way.
   await page.getByRole("button", { name: "Timeline", exact: true }).click();
   await expect(page.locator(".box").first()).toBeVisible();
@@ -141,10 +146,10 @@ test("a view fetched ahead while offline: showing it fetches it again where the 
   await page.getByRole("button", { name: "Table", exact: true }).click();
   if (browserName === "firefox") {
     await expect(page.locator(".box-table")).toBeVisible();
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.locator(".banner")).toHaveCount(0);
   } else {
     // WebKit and Chromium keep the failure until the page reloads: so it says.
-    await expect(page.getByRole("alert")).toContainText(AGAIN);
+    await expect(page.locator(".banner")).toContainText(AGAIN);
   }
 });
 

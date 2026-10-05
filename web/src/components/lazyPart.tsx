@@ -10,6 +10,7 @@
 
 import { type ComponentType, lazy, useSyncExternalStore } from "react";
 import { reloadApp } from "../site";
+import { Banner } from "./Banner";
 
 /** `T`: any component, whatever its props, as React.lazy takes. */
 export function lazyPart<T extends ComponentType<any>>(load: () => Promise<T>): T & { preload(): void } {
@@ -55,20 +56,24 @@ export function lazyPart<T extends ComponentType<any>>(load: () => Promise<T>): 
   return Object.assign(Part as unknown as T, { preload: () => void fetch().catch(() => {}) });
 }
 
-/** `again`: it failed before too, so only reloading is offered. */
+/**
+ * `again`: it failed before too, so only reloading is offered. Said as it
+ * appears; Try again, once the part is here (or fails again), leaves focus
+ * on the roadmap.
+ */
 function Unavailable({ again, onRetry }: { again: boolean; onRetry(): void }) {
   if (again) {
     return (
-      <div className="banner" role="alert">
+      <Banner live="assertive">
         <span>This part of BoxOps couldn’t load. Once you’re connected, reload the page.</span>
         <button className="primary" onClick={() => reloadApp("")}>
           Reload
         </button>
-      </div>
+      </Banner>
     );
   }
   return (
-    <div className="banner" role="alert">
+    <Banner live="assertive">
       <span>
         This part of BoxOps couldn’t load. Check your connection and try again; if the site was updated since this page
         opened, reload.
@@ -77,6 +82,6 @@ function Unavailable({ again, onRetry }: { again: boolean; onRetry(): void }) {
         Try again
       </button>
       <button onClick={() => reloadApp("")}>Reload</button>
-    </div>
+    </Banner>
   );
 }
