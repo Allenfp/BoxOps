@@ -4,7 +4,7 @@ import { readBundle } from "../model/bundle";
 import { EXECUTABLE } from "../model/paths";
 import { GitHubClient } from "./api";
 import { gitBlobSha, textBlobSha } from "./git-objects";
-import { FolderProblems, MAX_BLOB_FETCHES, NeedsToken, type Snapshot, TooManyChanges, forgetBlobs, fromBundle, readSnapshot } from "./read";
+import { FolderProblems, LaggingHead, MAX_BLOB_FETCHES, NeedsToken, type Snapshot, TooManyChanges, forgetBlobs, fromBundle, readSnapshot } from "./read";
 
 const FILES = {
   "settings.yaml": "format: 1\n",
@@ -271,6 +271,39 @@ describe("readSnapshot", () => {
     const before = g.calls("ref");
     expect(await readSnapshot(client(g, TOKEN, lagging), base)).toBe(base);
     expect(g.calls("ref") - before).toBe(1); // the second ask reached the fake
+  });
+
+  it("stops, rather than step back, when the head is still older after asking again", async () => {
+    const g = await FakeGitHub.create(FILES);
+    const first = g.root;
+    g.otherSave({ "boxes/a.yaml": () => "id: a2\n" });
+    const base = await readSnapshot(client(g), await snapshot(g, first));
+    const lagging = (async (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).includes("/git/ref/") ? new Response(JSON.stringify({ object: { sha: first } }), { status: 200 }) : g.fetch(input, init)) as typeof fetch;
+    const before = g.calls();
+    const e = await readSnapshot(client(g, TOKEN, lagging), base).catch((x) => x);
+    expect(e).toBeInstanceOf(LaggingHead);
+    expect(e.message).toBe("GitHub’s answer is behind; try again in a few seconds.");
+    expect(g.calls()).toBe(before); // the old commit isn't read
+  });
+
+  it("counts a commit the tab has seen as behind too, though it's in no history the tab has", async () => {
+    const g = await FakeGitHub.create(FILES);
+    const shown = g.otherSave({ "boxes/a.yaml": () => "id: a2\n" });
+    g.otherSave({ "boxes/b.yaml": () => "id: b2\n" });
+    // A snapshot that knows nothing of its commit's past (one from before schema 1, say).
+    const at = await snapshot(g);
+    const base: Snapshot = { ...at, source: { ...at.source, history: [at.source.commit] } };
+    const seen = new Set([shown]);
+    let lag = 1;
+    const lagging = (async (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).includes("/git/ref/") && lag-- > 0 ? new Response(JSON.stringify({ object: { sha: shown } }), { status: 200 }) : g.fetch(input, init)) as typeof fetch;
+    expect(await readSnapshot(client(g, TOKEN, lagging), base, { seen })).toBe(base);
+    lag = 2;
+    await expect(readSnapshot(client(g, TOKEN, lagging), base, { seen })).rejects.toBeInstanceOf(LaggingHead);
+    // Without `seen`, it's simply another commit, read as the branch's head.
+    lag = 1;
+    expect((await readSnapshot(client(g, TOKEN, lagging), base)).source.commit).toBe(shown);
   });
 
   it("previews another branch, fetching only the blobs that differ from base", async () => {

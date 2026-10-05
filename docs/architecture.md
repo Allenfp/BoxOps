@@ -111,8 +111,10 @@ both.
   folder's listing if its tree SHA changed, then only blobs whose SHA the
   tab doesn't hold, 4 at a time, from a cache kept for the session and at
   most 300 per read. Whether roadmap files changed is decided from their
-  blob SHAs, never from the tree SHA alone. A head older than one the tab
-  has seen is asked for once more. The folder is held to the build's rules
+  blob SHAs, never from the tree SHA alone. A head older than what the tab
+  has (its commit's parent, a commit in its history, or one it has seen:
+  GitHub's answer lagging) is asked for once more; still older, the read
+  stops rather than step back. The folder is held to the build's rules
   (plain files, the same limits, UTF-8 with any BOM kept). The newer roadmap
   comes in like a poll's, through the draft's rebase, with the usual notice
   of who saved what; not if the tab has moved on or is saving meanwhile. If
@@ -275,8 +277,10 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
 3. **Pre-save check.** First the app re-fetches `roadmap.json`: if a newer
    BoxOps was deployed that the poll hasn't seen, the tab goes read-only
    instead of saving (see [Tabs left open](#tabs-left-open)). It waits 5 s
-   at most; one that can't be had says nothing. Then it reads
-   the head of `main` as on load. If its `settings.yaml` states a newer data
+   at most; one that can't be had says nothing. Then it reads the head of
+   `main` as on load; one still older than the tab's copy stops the save,
+   "GitHub's answer is behind; try again in a few seconds", rather than be
+   taken for newer saves. If the head's `settings.yaml` states a newer data
    format than this BoxOps writes (an upgrade was merged and is deploying),
    nothing is written: "BoxOps is being upgraded; reload in a minute". If someone
    saved roadmap changes since the tab loaded (by blob SHA: a commit to other

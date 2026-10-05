@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FakeGitHub, OTHER_OWNER_TOKEN, READ_TOKEN, TOKEN } from "../../e2e/fake-github";
 import { GitHubClient, GitHubFailure, TIMEOUTS } from "./api";
 import { failureMessage } from "./messages";
-import { forgetBlobs, fromBundle } from "./read";
+import { LaggingHead, forgetBlobs, fromBundle } from "./read";
 import { NewerFormat, NewerSaves, SaveConflict, type SaveRequest, commitParts, saveRoadmap } from "./save";
 
 const FILES = {
@@ -141,6 +141,21 @@ describe("saveRoadmap", () => {
     expect(g.calls("blob")).toBe(1);
     expect(slept).toEqual([1000]);
     expect(steps).toEqual(["checking", "writing", "verifying", "retrying", "writing"]);
+  });
+
+  it("takes a head GitHub still names from before the edits' base for a lagging answer, not for newer saves", async () => {
+    let lagging = false;
+    const { g, save } = await setup({
+      wrap: (g) => async (input, init) =>
+        lagging && String(input).includes("/git/ref/") ? new Response(JSON.stringify({ object: { sha: g.root } }), { status: 200 }) : g.fetch(input, init),
+    });
+    // The edits were made on a later commit, whose parent GitHub keeps naming as the head.
+    const base = await fromBundle(await g.bundle(g.otherSave({ "boxes/c.yaml": () => "id: c\n" })));
+    lagging = true;
+    const e = await save({ base, review: true }).catch((x) => x);
+    expect(e).toBeInstanceOf(LaggingHead);
+    expect(e.message).toBe("GitHub’s answer is behind; try again in a few seconds.");
+    expect(g.calls("graphql")).toBe(0);
   });
 
   it("stops on a racing save to the same file", async () => {

@@ -74,6 +74,18 @@ export class FolderProblems extends Error {
   }
 }
 
+/**
+ * GitHub named a branch head older than what this tab already has (its
+ * commit's parent, a commit in its history, or one it has seen), asked twice:
+ * a lagging answer. Taking it would roll the screen back, and a save would
+ * take it for newer saves, so the read stops; a moment later it's right.
+ */
+export class LaggingHead extends Error {
+  constructor(readonly head: string) {
+    super("GitHub’s answer is behind; try again in a few seconds.");
+  }
+}
+
 /** The repository is private (or not known to be public) and there's no token: reading it would only fail. */
 export class NeedsToken extends Error {
   constructor(readonly repo: string) {
@@ -117,7 +129,7 @@ export function sameBlobs(a: Record<string, string>, b: Record<string, string>):
 export interface ReadOptions {
   /** A branch other than base's (a preview); base's files still spare fetches. */
   branch?: string;
-  /** Commits the tab has already shown or moved past: a head among them is a stale answer, read again once. */
+  /** Commits the tab has already shown or moved past: a head among them is a stale answer, read again once (LaggingHead if still). */
   seen?: ReadonlySet<string>;
 }
 
@@ -134,9 +146,13 @@ export async function readSnapshot(gh: GitHubClient, base: Snapshot, o: ReadOpti
   const retry = retrier(gh);
 
   let head = await retry(() => gh.head(repo, branch));
-  const old = (sha: string) => sha === base.source.parent || base.source.history.slice(1).includes(sha) || (o.seen?.has(sha) ?? false);
-  // Behind what this tab already has: a lagging answer. Ask once more, then believe it.
-  if (branch === base.source.branch && head !== base.source.commit && old(head)) head = await retry(() => gh.head(repo, branch));
+  const behind = (sha: string) =>
+    branch === base.source.branch &&
+    sha !== base.source.commit &&
+    (sha === base.source.parent || base.source.history.slice(1).includes(sha) || (o.seen?.has(sha) ?? false));
+  // Behind what this tab already has: a lagging answer. Ask once more (each ask is a URL no cache has seen).
+  if (behind(head)) head = await retry(() => gh.head(repo, branch));
+  if (behind(head)) throw new LaggingHead(head);
   if (head === base.source.commit) return branch === base.source.branch ? base : { ...base, source: { ...base.source, branch } };
 
   const commit = await retry(() => gh.commit(repo, head));

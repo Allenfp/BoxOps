@@ -280,6 +280,31 @@ test("someone else's save to another engineer in people.yaml, racing ours: no qu
   expect(people).toContain("    name: Priya Shah\n    role: Analyst\n");
 });
 
+test("a head GitHub still names from before this tab's last save stops the save, rolling nothing back", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  const saved = github.head;
+  // GitHub's answer for the head lags behind the save this tab just made.
+  const ref = /^https:\/\/api\.github\.com\/repos\/acme\/roadmap\/git\/ref\//;
+  await page.route(ref, (route) =>
+    route.fulfill({ status: 200, headers: { "access-control-allow-origin": "*" }, contentType: "application/json", body: JSON.stringify({ object: { sha: github.root } }) }),
+  );
+  await dragDays(page, CDC, 5);
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator(".callout.error")).toHaveText("GitHub’s answer is behind; try again in a few seconds.");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  expect(github.head).toBe(saved);
+
+  await page.unroute(ref);
+  await dialog.getByRole("button", { name: "Try again" }).click();
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.headCommit().parent).toBe(saved);
+  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+});
+
 test("a box with no title can't be saved: the problem is shown, and nothing is written", async ({ page, github }) => {
   await page.getByRole("button", { name: "Table" }).click();
   await page.locator("tbody tr").filter({ has: page.locator('input[aria-label="Title"][value="Dagster 2.x upgrade"]') }).getByLabel("Title").fill("");

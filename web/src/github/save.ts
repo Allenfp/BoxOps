@@ -7,7 +7,9 @@
 // Before writing, the head is read (read.ts) and compared, file by file and
 // by blob SHA, with the copy the edits were made on. Someone else's saves to
 // other files stay and ours go on top; a file both of us changed is a
-// conflict the user settles. The roadmap as it would be after the save is
+// conflict the user settles. A head older than that copy is GitHub's answer
+// lagging: the save stops, to be tried again a moment later, rather than take
+// it for newer saves and roll the screen back. The roadmap as it would be after the save is
 // validated first. Files the head already holds exactly as ours are left
 // out, and an empty change is never sent. A head in a newer data format (an
 // upgrade merged, its deploy still running) is never written to.
