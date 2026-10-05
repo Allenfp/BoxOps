@@ -63,6 +63,8 @@ export interface GridFocus {
   onKey(e: KeyboardEvent): boolean;
   /** The key of the cell after `cell` in its row, else the one before, else the row's first, else the nearest in the row above: where focus goes once it's deleted. */
   neighbour(cell: HTMLElement): string | null;
+  /** Write what's said about `cell` beyond its name again, as it's changed (a box being moved). */
+  describe(cell: HTMLElement): void;
   /** Scroll the timeline so `cell` isn't hidden; for a box wider than the view, its start (or its end) shows. */
   reveal(cell: HTMLElement, edge?: "start" | "end"): void;
 }
@@ -255,6 +257,7 @@ export function useGridFocus(
       kept.current = key;
     },
     neighbour: (el) => keysBeside(el)[0] ?? null,
+    describe,
     reveal,
     onKey: (e) => {
       const key = navKey(e);

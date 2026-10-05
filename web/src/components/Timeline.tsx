@@ -261,8 +261,11 @@ export function Timeline(props: Props) {
       const over = dept ? overCapacity(dept, p.allBoxes ?? p.roadmap.boxes) : [];
       return over.length ? `Over capacity: ${overloadText(over)}.` : "Never over capacity.";
     }
-    const b = kind === "box" && p.roadmap.boxes.find((x) => x.id === id);
-    if (!b) return "";
+    const found = kind === "box" && p.roadmap.boxes.find((x) => x.id === id);
+    if (!found) return "";
+    // Being moved from the keyboard: where it's got to (its lane, its scale).
+    const m = move.current;
+    const b = m?.kind === "box" && m.id === id ? { ...found, ...m.at } : found;
     const clash = p.conflictIds?.has(b.id);
     return [
       `${laneName(p.roadmap.departments, b.lane)}.`,
@@ -757,11 +760,16 @@ export function Timeline(props: Props) {
     if (readOnly) dropNow.current();
   }, [readOnly]);
   useEffect(() => () => dropNow.current(), []);
-  // Each step keeps what moves on screen: its start, or its end while that's what moves.
+  // Each step keeps what moves on screen: its start, or its end while that's what moves. What's
+  // said about it beyond its name follows it (its lane, its scale), and goes back if it's put back.
+  const wasMoving = useRef(false);
   useLayoutEffect(() => {
     const m = move.current;
     const el = m && gridRef.current?.querySelector<HTMLElement>(`[data-cell="${CSS.escape(m.kind === "box" ? `box:${m.id}` : `pto:${m.key}`)}"]`);
     if (el) grid.reveal(el, m.edge);
+    const focused = (m || wasMoving.current) && cellOf(document.activeElement);
+    if (focused && gridRef.current?.contains(focused)) grid.describe(focused);
+    wasMoving.current = !!m;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- after each step, not each render: grid's functions don't change what they do
   }, [preview, ptoPreview]);
 

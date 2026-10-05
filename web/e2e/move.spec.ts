@@ -64,6 +64,8 @@ test("Option or Alt with ← → moves the end date, never before the start; Esc
   await page.keyboard.press("Space");
   await page.keyboard.press("Alt+ArrowRight");
   await saysLast(page, "Ends 2026-10-26, 31 working days. Data Engineering is over capacity then: 5 FTE against 3.5, 2026-10-26.");
+  // What's said about it beyond its name follows it.
+  await expect(box(page, DAGSTER)).toHaveAccessibleDescription(/^Data Engineering \/ FTE 2\. Scale 31 \(1 FTE × 31 working days\)/);
   for (let i = 0; i < 7; i++) await page.keyboard.press("Alt+Shift+ArrowLeft");
   await expect(dragDates(page)).toContainText("2026-09-14 – 2026-09-14 · 1 working day");
   await page.keyboard.press("Alt+ArrowLeft");
@@ -71,6 +73,7 @@ test("Option or Alt with ← → moves the end date, never before the start; Esc
   expect(page.url()).toContain("zoom=months"); // Alt+← is no Back
   await page.keyboard.press("Escape");
   await saysLast(page, "Move cancelled: Dagster 2.x upgrade is back at 2026-09-14 to 2026-10-23.");
+  await expect(box(page, DAGSTER)).toHaveAccessibleDescription(/^Data Engineering \/ FTE 2\. Scale 30 \(1 FTE × 30 working days\)/);
   await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
   await expect(toolbar(page)).toContainText("No changes");
@@ -115,6 +118,7 @@ test("↑ ↓ change the lane, into the next department, saying when it's busy t
   await saysLast(page, "Data Engineering / FTE 3. Busy then: it will be drawn in the nearest free space.");
   await expect(page.locator('.lane-row.drop-target [data-lane="de-3"]')).toHaveCount(1);
   await expect(box(page, DAGSTER)).toBeFocused(); // drawn in that lane's row now
+  await expect(box(page, DAGSTER)).toHaveAccessibleDescription(/^Data Engineering \/ FTE 3\. /);
   await page.keyboard.press("ArrowDown");
   await saysLast(page, "Data Engineering / Contractor. Busy then: it will be drawn in the nearest free space.");
   // Into Analytics: a new code; Data Engineering is no longer over capacity while it runs.
@@ -128,6 +132,7 @@ test("↑ ↓ change the lane, into the next department, saying when it's busy t
   await expect(box(page, DAGSTER).locator("xpath=ancestor::*[@data-dept-track][1]")).toHaveAttribute("data-dept-track", "analytics");
   await expect(box(page, DAGSTER)).toHaveAccessibleName(/^Dagster 2\.x upgrade, AN-D9U, /);
   await expect(box(page, DAGSTER)).toBeFocused();
+  await expect(box(page, DAGSTER)).toHaveAccessibleDescription(/^Analytics \/ Open req \(Q1\)\. /);
   // ⌘S saves it.
   await page.keyboard.press("ControlOrMeta+s");
   await expect(toolbar(page)).toContainText("No changes");
