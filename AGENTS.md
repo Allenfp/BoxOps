@@ -65,8 +65,8 @@ a commit on `main`. So:
    does (see [Commit messages](#commit-messages)). Commits use the local git
    identity. If you normally add a trailer such as `Co-Authored-By:`, add it
    after a blank line at the end.
-6. **Push:** `git push origin main`. Changes to `roadmap/` deploy in about 30
-   seconds, and open browser tabs pick them up within a few minutes.
+6. **Push:** `git push origin main`. Changes to `roadmap/` usually deploy
+   within a minute, and open browser tabs pick them up within a few minutes.
 7. **If the push is rejected** because someone saved meanwhile:
    `git pull --rebase`, then validate again and push. If the rebase conflicts
    in a file someone else also changed, stop and ask the user whose version to

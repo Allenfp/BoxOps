@@ -74,9 +74,12 @@ npm run report     # capacity and staffing summary
 ```
 
 Every branch and pull request runs validation, the unit tests, a build and the
-browser tests. On `main`, a push that only changes `roadmap/` (as a save from
-the app does) skips the browser tests so it goes live in about 30 seconds. Any
-other push must pass them before deploying.
+browser tests. On `main`, the deploy lints, type-checks, validates, runs the
+unit tests and builds, and skips the browser tests only when nothing outside
+`roadmap/` has changed since the version that is live. So a save from the app
+usually goes live within a minute (a few minutes if an app change is deploying
+at the same time), and anything else must pass the browser tests before it
+deploys.
 
 - [docs/architecture.md](docs/architecture.md): how loading, saving, conflicts,
   polling, layout and CI work.

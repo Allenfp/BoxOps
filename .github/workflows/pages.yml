@@ -1,6 +1,8 @@
 # Builds the roadmap app (with roadmap/ baked in) and publishes it to GitHub Pages.
-# Saves from the app only change roadmap/, so they skip the browser tests and go
-# live quickly; any change to the app itself must pass them before deploying.
+# The browser tests are skipped only when nothing outside roadmap/ has changed
+# since the commit the live site was built from, so saves from the app go live
+# quickly and app code never goes live untested, even when its own run failed
+# or was cancelled.
 name: Deploy roadmap to Pages
 
 on:
@@ -8,64 +10,109 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# Each job asks for only what it needs (see the jobs).
+permissions: {}
 
+# One run at a time, and a running deploy is never cancelled (GitHub's Pages
+# starter workflows do the same). A burst of saves still deploys at most twice:
+# the run already going, then the newest push, which replaces any run that was
+# waiting. The group covers the whole run, not just the build, so each run
+# starts after the previous deploy has finished and sees it as the live commit.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned on purpose: ubuntu-latest moves to Ubuntu 26.04 between 2026-10-19
+    # and 2026-11-19. Move to ubuntu-26.04 in its own pull request.
+    runs-on: ubuntu-24.04
+    # Runs are no longer cancelled by the next push, so a hung run would hold up
+    # every later deploy; cap it.
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the repo
+      pages: read # find the site's address, to read the commit it was built from
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-      - name: Did anything besides roadmap data change?
+          fetch-depth: 0 # the live commit must be in the clone to diff against it
+          persist-credentials: false
+
+      - name: Did anything besides roadmap data change since the live version?
         id: changes
+        working-directory: .
         env:
-          BEFORE: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event_name }}" != "push" ] || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
-            app=true
-          elif git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qv '^roadmap/'; then
-            app=true
+          set -euo pipefail
+
+          # The commit the live site was built from, from its roadmap.json
+          # (source.commit). Prints nothing if it can't be read.
+          live_commit() {
+            local site
+            site=$(curl -fsS --max-time 30 \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/pages" | jq -r '.html_url // empty') || return 0
+            [ -n "$site" ] || return 0
+            # A query string the CDN hasn't cached yet, so the answer is current.
+            curl -fsSL --max-time 30 "${site%/}/roadmap.json?run=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" |
+              jq -r '.source.commit // empty' || true
+          }
+
+          app=true
+          if [ "$GITHUB_EVENT_NAME" != push ]; then
+            why="started by $GITHUB_EVENT_NAME: always run the browser tests"
           else
-            app=false
+            base=$(live_commit)
+            if ! [[ "$base" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::warning::Couldn't read the commit the live site was built from; running the browser tests."
+              why="live commit unknown"
+            elif ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+              why="the live commit $base isn't in the history (force-push?)"
+            else
+              # --no-renames: a file moved from web/ into roadmap/ still counts.
+              outside=$(git diff --no-renames --name-only "$base" "$GITHUB_SHA" -- ':(top)' ':(top,exclude)roadmap/')
+              if [ -z "$outside" ]; then
+                app=false
+                why="nothing outside roadmap/ changed since the live commit ${base:0:7}"
+              else
+                why="changed outside roadmap/ since ${base:0:7}: $(head -n 3 <<<"$outside" | paste -sd ' ' -)"
+              fi
+            fi
           fi
           echo "app=$app" >> "$GITHUB_OUTPUT"
-          echo "App changed: $app"
-      - uses: actions/setup-node@v5
+          echo "App changed: $app ($why)"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
       - run: npm run validate
       - run: npm test
       - run: npm run build
 
-      - name: Cache Playwright browsers
-        if: steps.changes.outputs.app == 'true'
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+      # No browser cache: the WebKit download is a few seconds of this step,
+      # and a cache keyed only on runner.os restores the wrong Ubuntu's build.
       - name: Install WebKit
         if: steps.changes.outputs.app == 'true'
         run: npx playwright install --with-deps webkit
       - name: Browser tests
         if: steps.changes.outputs.app == 'true'
+        timeout-minutes: 10
         run: npx playwright test
       - name: Upload browser test report
         if: failure() && steps.changes.outputs.app == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
           path: |
@@ -73,16 +120,20 @@ jobs:
             web/test-results
           retention-days: 14
 
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: web/dist
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15 # deploy-pages gives up by itself after 10 minutes
+    permissions:
+      pages: write # publish the site
+      id-token: write # prove the deploy comes from this workflow
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
