@@ -2,9 +2,11 @@ import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from
 
 /**
  * A spreadsheet-style text cell: edits locally, saves on Enter or when focus
- * leaves, Esc puts the old value back. One saved edit = one undo step. What's
- * saved has no spaces at either end, as `invalid` and `required` check it.
- * `multiline` cells wrap and grow to fit; Shift+Enter adds a line break there.
+ * leaves, Esc puts the old value back. Either way focus stays in the cell
+ * (losing it would send the next Tab back to the top of the page). One saved
+ * edit = one undo step. What's saved has no spaces at either end, as
+ * `invalid` and `required` check it. `multiline` cells wrap and grow to fit;
+ * Shift+Enter adds a line break there.
  */
 export function TextCell({
   value,
@@ -55,6 +57,14 @@ export function TextCell({
   }, [multiline, text]);
 
   const bad = (required && !text.trim()) || invalid?.(text.trim());
+  /** Save what's typed if it's changed: without spaces at either end, and spaces alone are no change. */
+  const commit = () => {
+    const next = text.trim();
+    if (next !== value.trim()) {
+      setText(next);
+      onCommit(next);
+    } else setText(value); // the value as it stands (spaces and all, if the file has them)
+  };
   const props = {
     ref,
     className: `cell-input${multiline ? " multiline" : ""}${bad ? " invalid" : ""}`,
@@ -67,26 +77,16 @@ export function TextCell({
     onChange: (e: { target: { value: string } }) => setText(e.target.value),
     onBlur: () => {
       editing.current = false;
-      // Saved without spaces at either end; spaces alone are no change, so the
-      // cell shows the value as it stands (spaces and all, if the file has them).
-      const next = text.trim();
-      if (next !== value.trim()) {
-        setText(next);
-        onCommit(next);
-      } else setText(value);
+      commit();
       onBlur();
     },
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
       if (e.key === "Enter" && !(multiline && e.shiftKey)) {
         e.preventDefault();
-        e.currentTarget.blur();
+        commit();
+        onBlur(); // the edit is one undo step, as if focus had left
       }
-      if (e.key === "Escape") {
-        setText(value);
-        editing.current = false;
-        // Let the blur that follows see the restored value.
-        requestAnimationFrame(() => ref.current?.blur());
-      }
+      if (e.key === "Escape") setText(value);
     },
   };
   return multiline ? <textarea rows={1} {...props} /> : <input {...props} />;

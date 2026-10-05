@@ -27,6 +27,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
   const [draft, setDraft] = useState<string | null>(null);
   const [calendar, setCalendar] = useState<{ month: Day; style: CSSProperties } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
+  const field = useRef<HTMLInputElement>(null);
   const shown = draft ?? value;
   const invalid = draft !== null && draft !== "" && !(ISO.test(draft) && parseDay(draft) !== null);
 
@@ -42,6 +43,11 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
     setCalendar({ month: startOfMonth(parseDay(value) ?? today()), style });
   };
   const close = () => setCalendar(null);
+  /** Closed from inside (a day picked, or Esc): focus goes back to the field, not to the page. */
+  const closeToField = () => {
+    close();
+    field.current?.focus();
+  };
 
   // Close on a click elsewhere, on scroll, or when the window changes size.
   useEffect(() => {
@@ -61,7 +67,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
   const pick = (day: Day) => {
     onChange(formatDay(day));
     setDraft(null);
-    close();
+    closeToField();
     onBlur?.();
   };
 
@@ -73,11 +79,12 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
         // Esc closes the calendar first, without also closing the editor around it.
         if (e.key === "Escape" && calendar) {
           e.stopPropagation();
-          close();
+          closeToField();
         }
       }}
     >
       <input
+        ref={field}
         type="text"
         inputMode="numeric"
         placeholder={placeholder ?? "YYYY-MM-DD"}
@@ -104,7 +111,11 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
             e.stopPropagation();
             setDraft(null);
           }
-          if (e.key === "Enter") e.currentTarget.blur();
+          // Enter settles the field as leaving it would (a part-typed date is dropped), but stays in it.
+          if (e.key === "Enter") {
+            setDraft(null);
+            onBlur?.();
+          }
         }}
       />
       {!disabled && (

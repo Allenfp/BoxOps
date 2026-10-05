@@ -16,6 +16,7 @@ import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { useReorder } from "./useReorder";
 import { useAnnounceResults } from "../a11y/announce";
+import { focusAfterRow } from "../a11y/focus";
 
 interface Props {
   roadmap: Roadmap;
@@ -600,7 +601,15 @@ export function TableView(props: Props) {
                   </td>
                   <td className="col-actions">
                     {!readOnly && (
-                      <button className="icon-button row-delete" title="Delete box" aria-label={`Delete ${b.title}`} onClick={() => onDelete(b.id)}>
+                      <button
+                        className="icon-button row-delete"
+                        title="Delete box"
+                        aria-label={`Delete ${b.title}`}
+                        onClick={(e) => {
+                          focusAfterRow(e.currentTarget, ".row-delete");
+                          onDelete(b.id);
+                        }}
+                      >
                         <Icon name="x" size={14} />
                       </button>
                     )}
@@ -666,7 +675,10 @@ export function TableView(props: Props) {
                               className="icon-button row-delete"
                               title="Delete PTO"
                               aria-label={`Delete PTO for ${person.name}`}
-                              onClick={() => props.onRemovePto?.(ref)}
+                              onClick={(e) => {
+                                focusAfterRow(e.currentTarget, ".row-delete");
+                                props.onRemovePto?.(ref);
+                              }}
                             >
                               <Icon name="x" size={14} />
                             </button>

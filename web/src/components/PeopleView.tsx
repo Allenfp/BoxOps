@@ -6,6 +6,7 @@ import type { Person, Roadmap } from "../model/types";
 import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
 import { useAnnounceResults } from "../a11y/announce";
+import { focusAfterRow } from "../a11y/focus";
 
 interface Props {
   roadmap: Roadmap;
@@ -88,12 +89,13 @@ export function PeopleView(props: Props) {
     q && !shown ? `No engineers match “${query.trim()}”.` : `${shown === people.length ? "" : `${shown} of `}${people.length} engineer${people.length === 1 ? "" : "s"}.`,
   );
 
-  const remove = (p: Person) => {
+  const remove = (p: Person, button: HTMLElement) => {
     const n = boxCount.get(p.id) ?? 0;
     if (
       n === 0 ||
       confirm(`Remove ${p.name}? They're on ${n} box${n === 1 ? "" : "es"} and will be unassigned. You can undo this.`)
     ) {
+      focusAfterRow(button, ".row-delete");
       onRemove(p.id);
     }
   };
@@ -276,7 +278,7 @@ export function PeopleView(props: Props) {
                               className="icon-button row-delete"
                               title={`Remove ${p.name}`}
                               aria-label={`Remove ${p.name}`}
-                              onClick={() => remove(p)}
+                              onClick={(e) => remove(p, e.currentTarget)}
                             >
                               <Icon name="x" size={14} />
                             </button>

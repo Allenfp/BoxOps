@@ -38,6 +38,7 @@ import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
 import { UseChart } from "./UseChart";
 import { useReorder } from "./useReorder";
+import { focusLater } from "../a11y/focus";
 
 const LABEL_W = 240;
 /** Height of half an FTE; a 1-FTE lane is two of these. */
@@ -801,7 +802,11 @@ function Grid({ scale, fine, coarse, zoom }: { scale: Scale; fine: Segment[]; co
   );
 }
 
-/** Click the lane name to rename it in place. Enter or click away saves; Esc cancels; empty resets to "FTE n". */
+/**
+ * Click the lane name to rename it in place. Enter or click away saves; Esc
+ * cancels; empty resets to "FTE n". After Enter or Esc, focus is back on the
+ * name (the field it was in has gone).
+ */
 function LaneName({
   label,
   named,
@@ -814,12 +819,21 @@ function LaneName({
   readOnly?: boolean;
 }) {
   const [text, setText] = useState<string | null>(null);
+  /** Enter or Esc ended the rename: focus goes back to the name. */
+  const back = useRef(false);
+  const button = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (text !== null || !back.current) return;
+    back.current = false;
+    // After the key's own events: Enter's keypress would press the button were it focused now.
+    focusLater([() => button.current]);
+  }, [text]);
 
   if (readOnly) return <span className="lane-name static">{label}</span>;
 
   if (text === null) {
     return (
-      <button className="lane-name" title="Click to rename this lane" onClick={() => setText(named ? label : "")}>
+      <button ref={button} className="lane-name" title="Click to rename this lane" onClick={() => setText(named ? label : "")}>
         {label}
         <span className="edit-icon" aria-hidden>
           <Icon name="pencil" size={12} />
@@ -844,6 +858,7 @@ function LaneName({
       onChange={(e) => setText(e.target.value)}
       onBlur={save}
       onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === "Escape") back.current = true;
         if (e.key === "Enter") e.currentTarget.blur();
         if (e.key === "Escape") setText(null);
       }}

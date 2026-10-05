@@ -2,7 +2,7 @@ import { type RefObject, Suspense, useCallback, useEffect, useMemo, useRef, useS
 import type { DepartmentEditorTarget } from "./components/DepartmentEditor";
 import type { Resume, SaveProblem } from "./components/SaveDialog";
 import { lazyPart } from "./components/lazyPart";
-import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
+import { type PtoRef, ptoClashes, ptoEntries, ptoKey, ptoRange } from "./model/pto";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
 import { TOKEN_KINDS, failureMessage } from "./github/messages";
@@ -18,7 +18,7 @@ import { Popover } from "./components/Popover";
 import { Banner } from "./components/Banner";
 import { announce, useAnnounce } from "./a11y/announce";
 import { shortcut, undoHint } from "./a11y/keys";
-import { main } from "./a11y/focus";
+import { focusLater, focusLost, main, onPage } from "./a11y/focus";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
 import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
@@ -765,6 +765,38 @@ function RoadmapView(props: ViewProps) {
     if (box) announce(`Deleted “${box.title || "Untitled"}”. ${undoHint()}`);
   };
 
+  /** A department's heading on the timeline (its toggle). */
+  const deptHeading = (id: string | undefined) => (id ? document.querySelector<HTMLElement>(`[data-dept-id="${CSS.escape(id)}"] .dept-toggle`) : null);
+  const deptOfLane = (laneId: string) => draft.departments.find((d) => d.lanes.some((l) => l.id === laneId))?.id;
+  /** Once box `id` is deleted from the timeline, focus goes to the next box in its department (by start), else the one before, else its heading. */
+  const focusAfterBox = (id: string) => {
+    const box = draft.boxes.find((b) => b.id === id);
+    if (!box) return;
+    const dept = deptOfLane(box.lane);
+    const same = draft.boxes.filter((b) => deptOfLane(b.lane) === dept).sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
+    const i = same.findIndex((b) => b.id === id);
+    const near = [same[i + 1], same[i - 1]].filter((b) => b !== undefined);
+    focusLater([...near.map((b) => () => document.querySelector(`[data-box-id="${CSS.escape(b.id)}"]`)), () => deptHeading(dept), main]);
+  };
+  /** Once PTO `ref` is deleted, focus goes to the next block in its department's row (by start), else the one before, else Add PTO there. */
+  const focusAfterPto = (ref: PtoRef) => {
+    const dept = draft.people.find((p) => p.id === ref.personId)?.department;
+    const row = ptoEntries(draft.people)
+      .filter((e) => e.person.department === dept)
+      .sort((a, b) => a.pto.start - b.pto.start);
+    const i = row.findIndex((e) => e.person.id === ref.personId && e.index === ref.index);
+    // The owner's later entries move up one place in their list.
+    const keyAfter = (e: (typeof row)[number]) =>
+      ptoKey({ personId: e.person.id, index: e.person.id === ref.personId && e.index > ref.index ? e.index - 1 : e.index });
+    const near = [row[i + 1], row[i - 1]].filter((e) => e !== undefined);
+    focusLater([
+      ...near.map((e) => () => document.querySelector(`[data-pto-key="${CSS.escape(keyAfter(e))}"]`)),
+      () => (dept ? document.querySelector(`[data-dept-id="${CSS.escape(dept)}"] .pto-add`) : null),
+      () => deptHeading(dept),
+      main,
+    ]);
+  };
+
   // PTO lives on the person; a block is picked out by its owner and position.
   const [selectedPto, setSelectedPto] = useState<(PtoRef & { session: number }) | null>(null);
   const ptoOf = (ref: PtoRef) => draft.people.find((p) => p.id === ref.personId)?.pto?.[ref.index];
@@ -836,6 +868,7 @@ function RoadmapView(props: ViewProps) {
       // A table or people cell keeps what's typed until it loses focus: commit
       // it, then save on the next tick, once the draft has it.
       if (isTyping(document.activeElement)) {
+        focusBeforeSave.current = document.activeElement;
         (document.activeElement as HTMLElement).blur();
         setTimeout(() => saveRef.current(), 0);
       } else saveRef.current();
@@ -851,9 +884,11 @@ function RoadmapView(props: ViewProps) {
       redo();
     } else if ((e.key === "Delete" || e.key === "Backspace") && selected) {
       e.preventDefault();
+      focusAfterBox(selected.id);
       removeBox(selected.id);
     } else if ((e.key === "Delete" || e.key === "Backspace") && selectedPto) {
       e.preventDefault();
+      focusAfterPto(selectedPto);
       removePto(selectedPto);
     }
   };
@@ -1063,6 +1098,7 @@ function RoadmapView(props: ViewProps) {
     select(null);
     draft.flush();
     announce(`Saving ${count} change${count === 1 ? "" : "s"}…`);
+    if (!onPage(focusBeforeSave.current)) focusBeforeSave.current = focusLost() ? null : document.activeElement;
     setBusy(true);
     try {
       // A new BoxOps deployed that the poll hasn't seen yet: this tab's code
@@ -1097,6 +1133,7 @@ function RoadmapView(props: ViewProps) {
       onSaved(result, othersIn(result, props.blobs, changes));
       // A save is announced by its banner; one with nothing left to write has none.
       if (result.status === "noop") announce("Nothing needed saving: GitHub already has these changes.");
+      setSaved((n) => n + 1);
     } catch (e) {
       if (e instanceof s.NewerSaves) {
         const head = e.head;
@@ -1136,6 +1173,19 @@ function RoadmapView(props: ViewProps) {
   };
   const saveRef = useRef(save);
   saveRef.current = save;
+
+  // While saving, fields are disabled, and once it's saved the Save button
+  // gives way to "No changes": focus went to the page. Once the saved roadmap
+  // is on screen it goes back where it was (a cell ⌘S was pressed in), else to
+  // the saved banner.
+  const focusBeforeSave = useRef<Element | null>(null);
+  const [saved, setSaved] = useState(0);
+  useEffect(() => {
+    if (!saved) return;
+    const before = focusBeforeSave.current;
+    focusBeforeSave.current = null;
+    focusLater([() => onPage(before), () => document.querySelector("[data-saved]"), main]);
+  }, [saved]);
 
   /** A save to go on with once the draft has the user's choice for the clashes they were shown. */
   const [resumeSave, setResumeSave] = useState<Resume | null>(null);
@@ -1225,7 +1275,11 @@ function RoadmapView(props: ViewProps) {
   const goToDepartment = (id: string) => {
     setView("timeline");
     setCollapsed((prev) => new Set([...prev].filter((x) => x !== id)));
-    requestAnimationFrame(() => document.querySelector(`[data-dept-id="${id}"]`)?.scrollIntoView({ block: "nearest" }));
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-dept-id="${id}"]`)?.scrollIntoView({ block: "nearest" });
+      // Focus on its heading, where the warning pointed (the menu item that was focused has gone).
+      deptHeading(id)?.focus({ preventScroll: true });
+    });
   };
 
   // Departments over capacity now or later (past overloads are history, not a
@@ -1732,7 +1786,10 @@ function RoadmapView(props: ViewProps) {
               const ref = reassignPto(selectedPto, toId, `pto:${selectedPto.session}:person`);
               setSelectedPto({ ...ref, session: selectedPto.session });
             }}
-            onDelete={() => removePto(selectedPto)}
+            onDelete={() => {
+              focusAfterPto(selectedPto);
+              removePto(selectedPto);
+            }}
             onClose={() => selectPto(null)}
           />
         </Suspense>
@@ -1758,6 +1815,7 @@ function RoadmapView(props: ViewProps) {
             onAddPerson={(name, department) => draft.addPerson(name, department)}
             onChange={editBox}
             onDelete={() => {
+              focusAfterBox(selectedBox.id);
               removeBox(selectedBox.id);
             }}
             onClose={() => select(null)}

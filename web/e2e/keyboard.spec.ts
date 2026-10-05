@@ -1,4 +1,4 @@
-import { DAGSTER, box, dragDays, expect, save, test } from "./helpers";
+import { CDC, DAGSTER, box, dragDays, expect, said, save, test, toolbar } from "./helpers";
 
 // Working by keyboard: where focus goes, and what keys do. WebKit's Tab, like
 // Safari's by default, skips buttons and links unless they have a tabindex,
@@ -147,4 +147,85 @@ test("the Engineers list: its button says who's on the box; arrows, Space and Es
   await page.keyboard.press("Enter");
   await expect(list).toHaveCount(0);
   await expect(editor.getByRole("button", { name: /^Engineers: / })).toBeFocused();
+});
+
+// Focus is never dropped on the page: after an action removes or disables what had it, it goes somewhere sensible.
+
+test("Save from the keyboard: the button keeps focus while saving, then the saved banner has it", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 5);
+  github.inject("graphql", "hang");
+  const saveButton = page.getByRole("button", { name: "Save · 1 change" });
+  await saveButton.focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => github.calls("graphql")).toBe(1);
+  await expect(page.getByRole("button", { name: "Saving…" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Saving…" })).toHaveAttribute("aria-disabled", "true");
+  await page.clock.fastForward(31_000);
+  await expect(page.locator(".banner.success [data-saved]")).toBeFocused();
+});
+
+test("in the table: Enter and Esc leave focus in the cell, and ⌘S there gives it back after saving", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const title = page.locator('input[aria-label="Title"][value="Dagster 2.x upgrade"]');
+  await title.fill("Dagster 2.x upgrade (phase 1)");
+  await page.keyboard.press("Enter");
+  const cell = page.locator('input[aria-label="Title"]:focus');
+  await expect(cell).toHaveValue("Dagster 2.x upgrade (phase 1)");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await page.keyboard.type(" and more");
+  await page.keyboard.press("Escape");
+  await expect(cell).toHaveValue("Dagster 2.x upgrade (phase 1)");
+  // Tab goes on to the next cell in the row, not back to the top of the page.
+  await page.keyboard.press("Tab");
+  await expect(page.locator('select[aria-label="Lane"]:focus')).toHaveCount(1);
+
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("ArrowRight"); // to the end of the text Tab selected
+  await page.keyboard.type("!");
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(page.locator('input[aria-label="Title"]:focus')).toHaveValue("Dagster 2.x upgrade (phase 1)!");
+});
+
+test("a date picked from the calendar leaves focus in its field", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await page.getByRole("group", { name: "Dates" }).getByRole("button", { name: "Pick a date" }).first().click();
+  await page.getByRole("dialog", { name: "Choose a date" }).getByRole("button", { name: "2026-10-12" }).click();
+  await expect(page.getByLabel("From date")).toHaveValue("2026-10-12");
+  await expect(page.getByLabel("From date")).toBeFocused();
+});
+
+test("deleting a table row puts focus on the next row's Delete; deleting from an editor, on the next box or block", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await page.getByRole("button", { name: "Delete Dagster 2.x upgrade" }).click();
+  await expect(page.getByRole("button", { name: "Delete CDC pipeline for orders DB" })).toBeFocused();
+
+  await page.getByRole("button", { name: "Timeline", exact: true }).click();
+  await box(page, CDC).click();
+  await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: "Delete" }).click();
+  await expect(page.locator(".box:focus")).toHaveCount(1);
+  await expect.poll(() => said(page)).toContainEqual(expect.stringMatching(/^Deleted “CDC pipeline for orders DB”\. Undo with (⌘|Ctrl\+)Z\./));
+
+  await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+  await page.getByRole("dialog", { name: /^Edit PTO/ }).getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByRole("button", { name: "Add PTO in Data Engineering" })).toBeFocused();
+});
+
+test("renaming a lane leaves focus on its name, after Enter and after Esc", async ({ page, github: _ }) => {
+  const name = page.locator(".lane-label .lane-name").nth(1);
+  await name.click();
+  await page.keyboard.type("Platform team");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".lane-label .lane-name").nth(1)).toBeFocused();
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Nope");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".lane-label .lane-name").nth(1)).toBeFocused();
+  await expect(page.locator(".lane-label .lane-name").nth(1)).toContainText("Platform team");
+});
+
+test("a department picked from the warnings gets focus", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+  await page.getByRole("dialog", { name: /warning/ }).getByRole("button", { name: /^Data Engineering: / }).click();
+  await expect(page.locator('[data-dept-id="data-eng"] .dept-toggle')).toBeFocused();
 });
