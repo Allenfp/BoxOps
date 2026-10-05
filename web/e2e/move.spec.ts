@@ -16,6 +16,9 @@ async function press(page: Page, ...keys: string[]) {
 }
 
 test("Space picks a box up; ← → move it a working day, Shift a week; Enter drops it, one change", async ({ page, github: _ }) => {
+  // Nothing else moves while it does: CDC stays the same element, in the same place.
+  const cdc = await box(page, CDC).elementHandle();
+  const cdcAt = await box(page, CDC).boundingBox();
   await box(page, DAGSTER).focus();
   await page.keyboard.press("Space");
   await expect.poll(() => lastSaid(page)).toMatch(
@@ -36,6 +39,8 @@ test("Space picks a box up; ← → move it a working day, Shift a week; Enter d
   // Nothing is changed yet, and focus stayed on the box throughout.
   await expect(toolbar(page)).toContainText("No changes");
   await expect(box(page, DAGSTER)).toBeFocused();
+  expect(await cdc!.evaluate((el) => el.isConnected)).toBe(true);
+  expect(await box(page, CDC).boundingBox()).toEqual(cdcAt);
   await page.keyboard.press("Enter");
   await expect(toolbar(page)).toContainText("Save · 1 change");
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-21 – 2026-10-30");

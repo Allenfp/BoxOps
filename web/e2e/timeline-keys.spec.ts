@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { CDC, DAGSTER, box, boxFile, expect, heard, pollNow, said, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, boxFile, dragDays, expect, heard, pollNow, said, save, test, toolbar } from "./helpers";
 
 // The timeline from the keyboard: a grid with one Tab stop, the arrow keys
 // between its cells, Enter to open a box and focus back on it after. Start
@@ -375,4 +375,13 @@ test("a box's scale card can be hovered, shows while the box has keyboard focus,
   await page.keyboard.press("Space");
   await expect(pop).toHaveCount(0);
   await page.keyboard.press("Escape");
+});
+
+test("⌘S with focus on a lane's name keeps focus there, though it's only text while saving", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 5);
+  await cell(page, "lane:de-1").focus();
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(cell(page, "lane:de-1")).toBeFocused();
+  await expect(cell(page, "lane:de-1")).toHaveJSProperty("tagName", "BUTTON");
 });
