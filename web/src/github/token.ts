@@ -46,7 +46,7 @@ export function setToken(repo: string, token: string | null): void {
  * mark) anywhere, and quotes around it.
  */
 export const pastedToken = (text: string) =>
-  text.replace(/[\s​-‍⁠﻿]/g, "").replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "");
+  text.replace(/[\s\u200B-\u200D\u2060\uFEFF]/g, "").replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "");
 
 /** Whether text can be a GitHub token: letters, digits and underscores, as in github_pat_…, ghp_… and the old 40-digit ones. */
 export const isTokenText = (text: string) => /^[A-Za-z0-9_]+$/.test(text);

@@ -72,7 +72,7 @@ test.describe("signed out", () => {
     await input.fill(`Your token: ${TOKEN}`);
     await expect(dialog(page).locator(".not-token")).toHaveText("That isn’t a GitHub token: copy it again from GitHub.");
     await expect(submit).toBeDisabled();
-    await input.fill(` “${TOKEN}”​ `);
+    await input.fill(` “${TOKEN}”\u200B `);
     await expect(dialog(page).locator(".not-token")).toHaveCount(0);
     await submit.click();
     await expect(toolbar(page)).toContainText("No changes");

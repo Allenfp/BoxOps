@@ -142,7 +142,7 @@ test.describe("private repository, signed out", () => {
 
   test("a branch preview whose kept token no header can carry asks for another, sending nothing", async ({ page, github }) => {
     featureBranch(github);
-    await page.evaluate(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, `${TOKEN}​`]);
+    await page.evaluate(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, `${TOKEN}\u200B`]);
     await page.goto("./?ref=feature&zoom=months");
     const form = page.locator(".load-token");
     await expect(form.locator("h2")).toHaveText("Connect to GitHub to preview");

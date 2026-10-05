@@ -149,7 +149,7 @@ describe("requests", () => {
   it("take a token no header can carry for a rejected one, sending nothing: not for being offline", async () => {
     // As browsers do: a header value outside ISO-8859-1 makes fetch throw a TypeError before sending.
     const f = fake((_url, init) => (new Headers(init.headers), json(200, { object: { sha: SHA } })));
-    for (const token of ["“github_pat_TEST”", "github_pat_TEST​", "github_pat_TEST "]) {
+    for (const token of ["“github_pat_TEST”", "github_pat_TEST\u200B", "github_pat_TEST "]) {
       const gh = new GitHubClient({ token, fetch: f.fetchImpl });
       await expect(gh.head("acme/roadmap", "main"), token).rejects.toMatchObject({ kind: "unauthorized", ambiguous: false });
       // Nothing was sent, so a save that fails this way certainly wasn't made.

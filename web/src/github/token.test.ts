@@ -10,9 +10,9 @@ describe("a pasted token", () => {
       "‘github_pat_TEST’",
       '"github_pat_TEST"',
       "`github_pat_TEST`",
-      "github_pat_TEST​",
-      "﻿github_pat_‍TEST ",
-      " “github_pat_TEST⁠” ",
+      "github_pat_TEST\u200B",
+      "\uFEFFgithub_pat_\u200DTEST\u00A0",
+      " “github_pat_TEST\u2060” ",
     ]) {
       expect(pastedToken(pasted), JSON.stringify(pasted)).toBe("github_pat_TEST");
     }
