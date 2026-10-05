@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatDay, parseDay } from "./dates";
-import { overStretches } from "./report";
+import { buildReport, formatReport, levelStretches, overStretches } from "./report";
+import type { Roadmap } from "./types";
 
 const d = (s: string) => parseDay(s)!;
 const item = (start: string, end: string, fte: number) => ({ start: d(start), end: d(end), fte });
@@ -32,32 +33,55 @@ describe("overStretches", () => {
     expect(fmt(overStretches(items, 1))).toEqual([["2026-10-08", "2026-10-13", 2]]);
   });
 
-  it("finds stretches at exactly a level (a full department)", async () => {
-    const { levelStretches } = await import("./report");
+  it("finds stretches at exactly a level (a full department)", () => {
     const items = [item("2026-10-05", "2026-10-16", 1), item("2026-10-12", "2026-10-23", 1)];
     expect(fmt(levelStretches(items, (f) => f === 2))).toEqual([["2026-10-12", "2026-10-16", 2]]);
   });
 });
 
 describe("formatReport", () => {
-  it("lists every engineer's bookings with their share, even when nobody is over", async () => {
-    const { buildReport, formatReport } = await import("./report");
+  const roadmap = (people: Roadmap["people"], boxes: Roadmap["boxes"]): Roadmap => ({
+    format: 1,
+    settings: { title: "t", fiscal_year_start_month: 1, default_zoom: "months", types: [], statuses: [] },
+    departments: [{ id: "eng", code: "EN", name: "Eng", color: "#000", order: 1, collapsed: false, lanes: [{ id: "e1", fte: 1 }] }],
+    people,
+    boxes,
+  });
+  const pipes = { id: "b1", code: "PIP", title: "Pipes", lane: "e1", start: d("2026-10-05"), end: d("2026-10-16"), fte: 1.5, type: "p", status: "s" };
+
+  it("lists every engineer's bookings with their share, even when nobody is over", () => {
     const text = formatReport(
-      buildReport({
-        format: 1,
-        settings: { title: "t", fiscal_year_start_month: 1, default_zoom: "months", types: [], statuses: [] },
-        departments: [{ id: "eng", code: "EN", name: "Eng", color: "#000", order: 1, collapsed: false, lanes: [{ id: "e1", fte: 1 }] }],
-        people: [
-          { id: "sam", name: "Sam", department: "eng" },
-          { id: "ana", name: "Ana" },
-        ],
-        boxes: [
-          { id: "b1", code: "PIP", title: "Pipes", lane: "e1", start: d("2026-10-05"), end: d("2026-10-16"), fte: 1.5, engineers: ["sam", "ana"], type: "p", status: "s" },
-        ],
-      }),
+      buildReport(
+        roadmap(
+          [
+            { id: "sam", name: "Sam", department: "eng" },
+            { id: "ana", name: "Ana" },
+          ],
+          [{ ...pipes, engineers: ["sam", "ana"] }],
+        ),
+      ),
     );
-    expect(text).toContain("Engineer bookings (FTE is their share of the box)\n  Sam (sam), eng\n    2026-10-05 – 2026-10-16  0.75 FTE  Pipes (PIP)\n  Ana (ana)\n");
+    // Department names, full box codes, and "1 box".
+    expect(text).toContain("Engineer bookings and PTO, by date (FTE is their share of the box)\n  Sam (sam), Eng\n    2026-10-05 – 2026-10-16  0.75 FTE  Pipes (EN-PIP)\n  Ana (ana)\n");
     expect(text).toContain("Engineers over 1 FTE\n  none");
-    expect(text).toContain("Eng (eng): 1 FTE of lanes, 1 boxes\n    OVER CAPACITY 2026-10-05 – 2026-10-16: 1.5 FTE planned of 1");
+    expect(text).toContain("Eng (eng): 1 FTE of lanes, 1 box\n    OVER CAPACITY 2026-10-05 – 2026-10-16: 1.5 FTE planned of 1");
+    expect(text).toContain("Engineers booked during PTO\n  none");
+  });
+
+  it("shows PTO among the bookings, lists boxes it overlaps, and never depends on the day it's run", () => {
+    const people = [
+      { id: "sam", name: "Sam", department: "eng", pto: [{ start: d("2026-10-12"), end: d("2026-10-14"), note: "Trip" }] },
+      { id: "ana", name: "Ana", department: "gone", pto: [{ start: d("2026-09-01"), end: d("2026-09-01") }] },
+    ];
+    const r = buildReport(roadmap(people, [{ ...pipes, fte: 1, engineers: ["sam"] }, { ...pipes, id: "b2", code: "TAP", title: "Taps", engineers: [] }]));
+    const text = formatReport(r);
+    expect(text).toContain(
+      "  Sam (sam), Eng\n    2026-10-05 – 2026-10-16  1 FTE  Pipes (EN-PIP)\n    2026-10-12 – 2026-10-14  PTO (Trip)\n" +
+        "  Ana (ana), gone\n    2026-09-01 – 2026-09-01  PTO\n",
+    );
+    expect(text).toContain("Engineers booked during PTO\n  Sam (sam): PTO 2026-10-12 – 2026-10-14 (Trip), on Pipes (EN-PIP), 2026-10-05 – 2026-10-16\n");
+    expect(text).toContain("Boxes with no engineer\n  Taps (EN-TAP), 2026-10-05 – 2026-10-16\n");
+    // PTO isn't work: it never makes anyone over 1 FTE.
+    expect(r.people[0].over).toEqual([]);
   });
 });

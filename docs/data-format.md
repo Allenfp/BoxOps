@@ -213,7 +213,10 @@ not an error: it's allowed, and the app shows it in red. An engineer is
 **overloaded** when their share of the boxes they're on is more than 1 FTE on
 some day; a box's FTE is split evenly across its engineers.
 
-`cd web && npm run report` lists both, plus boxes with no engineer.
+`cd web && npm run report` lists both, past and future, plus engineers on a box
+during their PTO, every engineer's bookings and PTO by date, boxes with no
+engineer and broken rules. (The app warns about over capacity and PTO from
+today on.)
 
 ## people.yaml
 
@@ -314,8 +317,8 @@ Departments and boxes:
 - a `department` that doesn't exist, or an `email` that doesn't look like one
 - PTO with malformed dates\* or `end` before `start`\*; weekend PTO dates
 
-Over capacity, overloaded engineers and broken rules are not validation
-errors; `npm run report` lists them.
+Over capacity, overloaded engineers, engineers booked during PTO and broken
+rules are not validation errors; `npm run report` lists them.
 
 `npm run validate -- <folder>` (and `npm run report -- <folder>`) checks a
 roadmap folder other than `../roadmap`; a relative `<folder>` is relative to

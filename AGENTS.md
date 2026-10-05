@@ -48,9 +48,10 @@ a commit on `main`. So:
    last between your commands:
    `B=$(mktemp) && npm run report --silent > "$B" && echo "$B"`.
    The report shows over-capacity and fully booked departments, engineers over
-   1 FTE (one line per stretch, at that stretch's level), unassigned boxes,
-   broken rules, and every engineer's bookings by date (use that to answer
-   "who's free then?").
+   1 FTE (one line per stretch, at that stretch's level), engineers booked on
+   a box during their PTO, every engineer's bookings and PTO by date (use that
+   to answer "who's free then?": nobody is free while on PTO), unassigned
+   boxes and broken rules. It covers all dates, past ones too.
 3. **Edit the YAML files** (recipes below). Change only what you need: don't
    reformat files, reorder fields, or rewrite unrelated lines, and keep comments.
 4. **Check your work** from `web/`:
@@ -58,8 +59,8 @@ a commit on `main`. So:
      16 boxes — OK`). It lists any problem and exits non-zero.
    - `npm run report --silent | diff <before file> -` compares with step 2.
      Tell the user about anything your change made worse: a department newly
-     over capacity or full, someone newly over 1 FTE or at a higher level, a
-     rule now broken.
+     over capacity or full, someone newly over 1 FTE or at a higher level,
+     someone newly booked during their PTO, a rule now broken.
 5. **Commit to `main`.** Always `git pull --ff-only` right before committing
    (validate again if anything came in). Stage only the roadmap
    (`git add roadmap/`), never `git add -A`. Write the message the way the app
@@ -184,8 +185,8 @@ capacity.
 
 *Choosing engineers:* usually one per started FTE (one for 0.5–1, two for
 1.5–2), from the same department. Use the bookings in `npm run report` to find
-who's free over the box's dates. If several are equally free, say who you
-picked and why, and offer the alternatives.
+who's free over the box's dates; someone with PTO then isn't. If several are
+equally free, say who you picked and why, and offer the alternatives.
 
 *When nobody is free:* if the only candidates would go over 1 FTE, and the user
 asked you to staff it ("sort out their work" counts), assign the least loaded
@@ -245,8 +246,8 @@ trip is `start` Friday, `end` Monday) and an optional short `note`:
 
 PTO shows in the engineer's department on the timeline and table. It doesn't
 reduce capacity, but an engineer on a box during PTO is a warning: tell the
-user about any boxes it overlaps. Delete the `pto:` key when removing the last
-entry.
+user about any boxes it overlaps (`npm run report` lists them under "Engineers
+booked during PTO"). Delete the `pto:` key when removing the last entry.
 
 **A lane that comes or goes.** For a new hire, give a new lane `start:` (their
 first day); for a contractor or someone leaving, give their lane `end:` (the
@@ -293,9 +294,9 @@ file. For a department, also delete `department:` from people who had it.
 Renumber the remaining departments' `order` 1, 2, 3… if you like; only the
 order matters.
 
-**Answer questions.** `npm run report` covers capacity, overloads, unassigned
-boxes and each engineer's bookings by date. The files are small and greppable
-too: `grep -l "sam-lee" roadmap/boxes/*` finds Sam's boxes.
+**Answer questions.** `npm run report` covers capacity, overloads, PTO clashes,
+unassigned boxes and each engineer's bookings and PTO by date. The files are
+small and greppable too: `grep -l "sam-lee" roadmap/boxes/*` finds Sam's boxes.
 
 ## Rules
 

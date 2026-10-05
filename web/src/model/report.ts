@@ -1,10 +1,16 @@
-// Plain-text checks a person or tool can run without the app: where a
-// department has more FTE planned than its lanes, who is over 1 FTE, and which
-// boxes have nobody assigned. Mirrors the warnings the app shows.
+// The roadmap as plain text, for a person or tool without the app (`npm run
+// report`): each department's capacity, with where it's over capacity or
+// full; engineers over 1 FTE; engineers booked on a box during their PTO;
+// every engineer's bookings and PTO by date; boxes with nobody assigned; and
+// broken rules. Over all time, past included, so it never depends on the day
+// it's run and two reports can be compared with diff. (The app warns about
+// over capacity and PTO from today on; it doesn't list overloaded engineers
+// or unassigned boxes.)
 
 import { type Day, dayOfWorkIndex, prettyDay, workIndex } from "./dates";
-import { findViolations } from "./relations";
-import type { Box, Lane, Roadmap } from "./types";
+import { ptoClashes } from "./pto";
+import { findViolations, fullCode } from "./relations";
+import type { Box, Lane, Roadmap, TimeOff } from "./types";
 
 export interface Stretch {
   from: Day;
@@ -96,17 +102,30 @@ export function capacityStretches(
   return out;
 }
 
+/** One line of an engineer's calendar: a box they're on (with their share of it), or their PTO. */
+export type Booking = { box: Box; code: string; fte: number } | { pto: TimeOff };
+
 export interface Report {
   departments: { id: string; name: string; fte: number; boxes: number; over: CapacityStretch[]; full: CapacityStretch[] }[];
-  /** Every engineer's bookings, and where they're over 1 FTE (a box's FTE is split evenly across its engineers). */
-  people: { id: string; name: string; department?: string; bookings: { box: Box; fte: number }[]; over: Stretch[] }[];
-  unassigned: Box[];
+  /**
+   * Every engineer's bookings and PTO, by date, and where they're over 1 FTE
+   * (a box's FTE is split evenly across its engineers; PTO doesn't count).
+   * `department` is the department's name (its id if there's no such department).
+   */
+  people: { id: string; name: string; department?: string; bookings: Booking[]; over: Stretch[] }[];
+  /** Engineers on a box while they're on PTO. */
+  onPto: { person: { id: string; name: string }; pto: TimeOff; box: Box; code: string }[];
+  unassigned: { box: Box; code: string }[];
   /** Broken rules between boxes, in words. */
   ruleWarnings: string[];
 }
 
+const start = (b: Booking) => ("pto" in b ? b.pto.start : b.box.start);
+
 export function buildReport(roadmap: Roadmap): Report {
   const deptOf = new Map(roadmap.departments.flatMap((d) => d.lanes.map((l) => [l.id, d.id] as const)));
+  const deptName = new Map(roadmap.departments.map((d) => [d.id, d.name]));
+  const code = (box: Box) => fullCode(box, roadmap.departments);
   return {
     departments: roadmap.departments.map((d) => {
       const boxes = roadmap.boxes.filter((b) => deptOf.get(b.lane) === d.id);
@@ -121,24 +140,34 @@ export function buildReport(roadmap: Roadmap): Report {
       };
     }),
     people: roadmap.people.map((p) => {
-      const bookings = roadmap.boxes
+      const boxes = roadmap.boxes
         .filter((b) => b.engineers?.includes(p.id))
-        .sort((a, b) => a.start - b.start)
-        .map((box) => ({ box, fte: round(box.fte / box.engineers!.length) }));
-      const shares = bookings.map(({ box, fte }) => ({ start: box.start, end: box.end, fte }));
-      return { id: p.id, name: p.name, department: p.department, bookings, over: overStretches(shares, 1) };
+        .map((box) => ({ box, code: code(box), fte: round(box.fte / box.engineers!.length) }));
+      const shares = boxes.map(({ box, fte }) => ({ start: box.start, end: box.end, fte }));
+      // PTO first on a day both start: they're away from it.
+      const bookings: Booking[] = [...(p.pto ?? []).map((pto) => ({ pto })), ...boxes].sort((a, b) => start(a) - start(b));
+      const department = p.department === undefined ? undefined : (deptName.get(p.department) ?? p.department);
+      return { id: p.id, name: p.name, department, bookings, over: overStretches(shares, 1) };
     }),
-    unassigned: roadmap.boxes.filter((b) => !b.engineers?.length).sort((a, b) => a.start - b.start),
+    onPto: ptoClashes(roadmap.boxes, roadmap.people)
+      .map(({ person, pto, box }) => ({ person: { id: person.id, name: person.name }, pto, box, code: code(box) }))
+      .sort((a, b) => a.pto.start - b.pto.start || a.person.name.localeCompare(b.person.name) || a.box.start - b.box.start),
+    unassigned: roadmap.boxes
+      .filter((b) => !b.engineers?.length)
+      .sort((a, b) => a.start - b.start)
+      .map((box) => ({ box, code: code(box) })),
     ruleWarnings: findViolations(roadmap.boxes, roadmap.departments).map((v) => v.message),
   };
 }
 
 const range = (s: Stretch) => `${prettyDay(s.from)} – ${prettyDay(s.to)}`;
+const dates = (x: { start: Day; end: Day }) => `${prettyDay(x.start)} – ${prettyDay(x.end)}`;
+const note = (pto: TimeOff) => (pto.note?.trim() ? ` (${pto.note.trim()})` : "");
 
 export function formatReport(r: Report): string {
   const lines: string[] = ["Departments"];
   for (const d of r.departments) {
-    lines.push(`  ${d.name} (${d.id}): ${d.fte} FTE of lanes, ${d.boxes} boxes`);
+    lines.push(`  ${d.name} (${d.id}): ${d.fte} FTE of lanes, ${d.boxes} box${d.boxes === 1 ? "" : "es"}`);
     if (d.over.length === 0) lines.push("    within capacity");
     for (const s of d.over) lines.push(`    OVER CAPACITY ${range(s)}: ${s.fte} FTE planned of ${s.capacity}`);
     for (const s of d.full) lines.push(`    full (no spare FTE) ${range(s)}`);
@@ -149,17 +178,22 @@ export function formatReport(r: Report): string {
   for (const p of overloaded) {
     for (const s of p.over) lines.push(`  ${p.name} (${p.id}): ${s.fte} FTE, ${range(s)}`);
   }
-  lines.push("", "Engineer bookings (FTE is their share of the box)");
+  lines.push("", "Engineers booked during PTO");
+  if (r.onPto.length === 0) lines.push("  none");
+  for (const c of r.onPto) {
+    lines.push(`  ${c.person.name} (${c.person.id}): PTO ${dates(c.pto)}${note(c.pto)}, on ${c.box.title} (${c.code}), ${dates(c.box)}`);
+  }
+  lines.push("", "Engineer bookings and PTO, by date (FTE is their share of the box)");
   for (const p of r.people) {
     lines.push(`  ${p.name} (${p.id})${p.department ? `, ${p.department}` : ""}`);
     if (p.bookings.length === 0) lines.push("    no boxes");
-    for (const { box, fte } of p.bookings) {
-      lines.push(`    ${prettyDay(box.start)} – ${prettyDay(box.end)}  ${fte} FTE  ${box.title} (${box.code})`);
+    for (const b of p.bookings) {
+      lines.push("pto" in b ? `    ${dates(b.pto)}  PTO${note(b.pto)}` : `    ${dates(b.box)}  ${b.fte} FTE  ${b.box.title} (${b.code})`);
     }
   }
   lines.push("", "Boxes with no engineer");
   if (r.unassigned.length === 0) lines.push("  none");
-  for (const b of r.unassigned) lines.push(`  ${b.title} (${b.code}), ${prettyDay(b.start)} – ${prettyDay(b.end)}`);
+  for (const { box, code } of r.unassigned) lines.push(`  ${box.title} (${code}), ${dates(box)}`);
   lines.push("", "Broken rules between boxes");
   if (r.ruleWarnings.length === 0) lines.push("  none");
   for (const w of r.ruleWarnings) lines.push(`  ${w}`);

@@ -66,8 +66,10 @@ pushed to `main`; every push is validated before it deploys.
 - [AGENTS.md](AGENTS.md): step-by-step instructions for AI assistants, with
   recipes.
 - From `web/`: `npm run validate` checks the files; `npm run report` lists
-  over-capacity departments, overloaded engineers and unassigned boxes. Both
-  take another roadmap folder as an argument: `npm run validate -- <folder>`.
+  over-capacity and full departments, overloaded engineers, engineers booked
+  during their PTO, everyone's bookings and PTO by date, unassigned boxes and
+  broken rules. Both take another roadmap folder as an argument:
+  `npm run validate -- <folder>`.
 
 ## Developing the app
 
