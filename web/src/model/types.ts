@@ -48,6 +48,9 @@ export interface Department {
 /** FTE a box can take; it sets how many lanes the box covers. */
 export const BOX_FTE_OPTIONS = [0.5, 1, 1.5, 2] as const;
 
+/** FTE a lane can hold: a lane is two half-FTE slots or one. */
+export const LANE_FTE_OPTIONS = [0.5, 1] as const;
+
 /** A stretch of paid time off (PTO). Inclusive weekday dates, like a box. */
 export interface TimeOff {
   start: Day;

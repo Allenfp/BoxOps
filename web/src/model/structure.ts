@@ -6,6 +6,7 @@
 
 import { slugify } from "./draft";
 import type { DraftState } from "./draft";
+import { WINDOWS_RESERVED } from "./load";
 import { deriveDeptCode } from "./relations";
 import type { Department, Lane } from "./types";
 
@@ -40,7 +41,8 @@ export function addDepartment(
   code?: string,
 ): { state: DraftState; id: string } {
   const taken = new Set(state.departments.map((d) => d.id));
-  const slug = slugify(name).replace(/^box$/, "department");
+  // The id names the file, which Windows wouldn't allow for "aux", "con" and the like.
+  const slug = slugify(name).replace(/^box$/, "department").replace(WINDOWS_RESERVED, "$&-dept");
   let id = slug;
   for (let n = 2; taken.has(id); n++) id = `${slug}-${n}`;
   const used = new Set(state.departments.map((d) => d.color));

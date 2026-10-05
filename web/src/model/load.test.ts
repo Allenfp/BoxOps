@@ -51,6 +51,11 @@ const ROWS: Row[] = [
   ["fiscal_year_start_month outside 1-12", { "settings.yaml": settings({ fiscal_year_start_month: "13" }) }, [["settings.yaml", "fiscal_year_start_month: expected a month number from 1 to 12", "lossy"]]],
   ["default_zoom not weeks, months or quarters", { "settings.yaml": settings({ default_zoom: "days" }) }, [["settings.yaml", "default_zoom: expected one of weeks, months, quarters", "lossy"]]],
   ["a type without a colour", { "settings.yaml": settings({ types: "[{id: project, name: Project}]" }) }, [["settings.yaml", 'type "project", color: required text is missing', "lossy"]]],
+  ["a type colour that is a CSS name", { "settings.yaml": settings({ types: "[{id: project, name: Project, color: red}]" }) }, [["settings.yaml", 'type "project", color: "red" must be a hex colour like "#4f7cff"', "lossy"]]],
+  ["a type colour in short hex", { "settings.yaml": settings({ types: '[{id: project, name: Project, color: "#abc"}]' }) }, [["settings.yaml", 'type "project", color: "#abc" must be a hex colour like "#4f7cff"', "lossy"]]],
+  ["a type colour that is a url()", { "settings.yaml": settings({ types: '[{id: project, name: Project, color: "url(https://x.example/p.png)"}]' }) }, [["settings.yaml", 'type "project", color: "url(https://x.example/p.png)" must be a hex colour like "#4f7cff"', "lossy"]]],
+  ["a type id used twice", { "settings.yaml": settings({ types: '[{id: project, name: Project, color: "#4f7cff"}, {id: project, name: Other, color: "#8a94a6"}]' }) }, [["settings.yaml", 'type "project", id: "project" appears twice, so the second one is skipped', "lossy"]]],
+  ["a flag id used twice", { "settings.yaml": settings({ statuses: "[{id: late, name: Late}, {id: late, name: Later}]" }) }, [["settings.yaml", 'flag "late", id: "late" appears twice, so the second one is skipped', "lossy"]]],
   ["types that aren't a list", { "settings.yaml": settings({ types: "project" }) }, [["settings.yaml", "types: expected a list", "lossy"]]],
   ["a type id that isn't valid", { "settings.yaml": settings({ types: '[{id: project, name: Project, color: "#4f7cff"}, {id: Big Bet, name: Big bet, color: "#8a94a6"}]' }) }, [["settings.yaml", 'type "Big Bet", id: "Big Bet" must be lowercase letters, digits, dashes or underscores', "lossy"]]],
   ["title that YAML reads as true or false", { "settings.yaml": settings({ title: "True" }) }, [["settings.yaml", 'title: YAML reads True as true or false, not text; put it in quotes: title: "True"', "lossy"]]],
@@ -61,14 +66,17 @@ const ROWS: Row[] = [
   ["a department without a code", { "departments/eng.yaml": dept({ code: null }) }, [["departments/eng.yaml", "code: required text is missing"]]],
   ["a malformed department code", { "departments/eng.yaml": dept({ code: "e" }) }, [["departments/eng.yaml", 'code: "e" must be 2–4 capital letters or digits, starting with a letter']]],
   ["a department code used twice", { "departments/ops.yaml": dept({ id: "ops", name: "Ops", lanes: "[{id: o1}]" }) }, [["departments/eng.yaml", 'code: "EN" is also used by department "ops"'], ["departments/ops.yaml", 'code: "EN" is also used by department "eng"']]],
+  ["a department colour that isn't #rrggbb", { "departments/eng.yaml": dept({ color: "blue" }) }, [["departments/eng.yaml", 'color: "blue" must be a hex colour like "#4f7cff"', "lossy"]]],
   ["a department order that isn't a number", { "departments/eng.yaml": dept({ order: "first" }) }, [["departments/eng.yaml", "order: expected a number", "lossy"]]],
   ["collapsed that isn't true or false", { "departments/eng.yaml": dept({ collapsed: "yes" }) }, [["departments/eng.yaml", "collapsed: expected true or false", "lossy"]]],
+  ["a lane fte other than 0.5 or 1", { "departments/eng.yaml": dept({ lanes: "[{id: e1, fte: 0.75}, {id: e2, fte: 2}]" }) }, [["departments/eng.yaml", 'lane "e1", fte: expected 0.5 or 1', "lossy"], ["departments/eng.yaml", 'lane "e2", fte: expected 0.5 or 1', "lossy"]]],
   ["a malformed lane date", { "departments/eng.yaml": dept({ lanes: "[{id: e1, start: 2026-13-01}, {id: e2}]" }) }, [["departments/eng.yaml", 'lane "e1", start: "2026-13-01" is not a valid YYYY-MM-DD date', "lossy"]]],
   ["a lane date on a weekend", { "departments/eng.yaml": dept({ lanes: "[{id: e1, end: 2026-01-31}, {id: e2}]" }) }, [["departments/eng.yaml", 'lane "e1", end: Saturday — roadmap dates must be weekdays']]],
   ["a lane end before its start", { "departments/eng.yaml": dept({ lanes: "[{id: e1, start: 2026-02-02, end: 2026-01-30}, {id: e2}]" }) }, [["departments/eng.yaml", 'lane "e1", end is before start, so the end is left out', "lossy"]]],
   ["a lane that isn't a mapping", { "departments/eng.yaml": dept({ lanes: "[{id: e1}, e2]" }) }, [["departments/eng.yaml", "lane 2: expected a mapping", "lossy"]]],
   ["a lane id used twice in a department", { "departments/eng.yaml": dept({ lanes: "[{id: e1}, {id: e1, fte: 0.5}]" }) }, [["departments/eng.yaml", 'lane "e1", id: "e1" appears twice in this department, so the second one is skipped', "lossy"]]],
   ["a lane id used in two departments", { "departments/ops.yaml": dept({ id: "ops", code: "OP", name: "Ops", lanes: "[{id: e2}]" }) }, [["departments/ops.yaml", "lane \"e2\" is already used in department \"eng\", so it's left out here", "lossy"], ["departments/eng.yaml", 'lane "e2" is also used in department "ops"']]],
+  ["a file name Windows reserves", { "departments/aux.yaml": dept({ id: "aux", code: "AX", name: "Aux", lanes: "[{id: x1}]" }) }, [["departments/aux.yaml", "id: \"aux\" can't be a file name on Windows, so the repo can't be checked out there"]]],
   // boxes
   ["a box without a title", { "boxes/b1.yaml": box({ title: null }) }, [["boxes/b1.yaml", "title: required text is missing", "lossy"]]],
   ["a box id that doesn't match the file name", { "boxes/b1.yaml": box({ id: "b9" }) }, [["boxes/b1.yaml", "id: \"b9\" doesn't match the file name \"b1\", so this file is skipped", "lossy"]]],
@@ -84,11 +92,15 @@ const ROWS: Row[] = [
   ["a box status that isn't in settings", { "boxes/b1.yaml": box({ status: "done" }) }, [["boxes/b1.yaml", 'status: "done" is not defined in settings.yaml']]],
   ["a box fte other than 0.5, 1, 1.5 or 2", { "boxes/b1.yaml": box({ fte: "3" }) }, [["boxes/b1.yaml", "fte: expected one of 0.5, 1, 1.5, 2", "lossy"]]],
   ["engineers who aren't in people.yaml", { "boxes/b1.yaml": box({ engineers: "[ghost]" }) }, [["boxes/b1.yaml", 'engineers: "ghost" is not in people.yaml']]],
+  ["an engineer listed twice", { "boxes/b1.yaml": box({ engineers: "[sam, sam]" }) }, [["boxes/b1.yaml", 'engineers: "sam" is listed twice']]],
   ["an engineer id YAML reads as a number", { "boxes/b1.yaml": box({ engineers: "[1042]" }) }, [["boxes/b1.yaml", 'engineers: YAML reads 1042 as a number, not text; put it in quotes: "1042"', "lossy"]]],
   ["a rule with an unknown type", { "boxes/b1.yaml": box({ relations: "[{type: soon, box: B2X}]" }) }, [["boxes/b1.yaml", 'rule "soon B2X", type: "soon" must be one of before, after, during, starts_with, ends_with, overlaps, apart', "lossy"]]],
   ["a rule whose box isn't a code", { "boxes/b1.yaml": box({ relations: "[{type: before, box: second}]" }) }, [["boxes/b1.yaml", "rule \"before second\", box: \"second\" isn't a box code", "lossy"]]],
   ["a rule pointing at a code no box has", { "boxes/b1.yaml": box({ relations: "[{type: before, box: ZZZ}]" }) }, [["boxes/b1.yaml", 'relations: no box has code "ZZZ"']]],
   ["a rule pointing at its own box", { "boxes/b1.yaml": box({ relations: "[{type: before, box: EN-B1X}]" }) }, [["boxes/b1.yaml", "relations: a box can't have a rule about itself"]]],
+  ["the same rule twice", { "boxes/b1.yaml": box({ relations: "[{type: before, box: B2X}, {type: before, box: EN-B2X}]" }) }, [["boxes/b1.yaml", 'rule "before EN-B2X": the same rule is listed twice']]],
+  ["an epic that isn't an http(s) link", { "boxes/b1.yaml": box({ epic: "jira.example.com/browse/X-1" }) }, [["boxes/b1.yaml", "epic: \"jira.example.com/browse/X-1\" isn't an http(s) link", "lossy"]]],
+  ["a link that isn't an http(s) link", { "boxes/b1.yaml": box({ links: '[https://example.com, "javascript:alert(1)"]' }) }, [["boxes/b1.yaml", "links: \"javascript:alert(1)\" isn't an http(s) link", "lossy"]]],
   ["tags that aren't a list", { "boxes/b1.yaml": box({ tags: "cost" }) }, [["boxes/b1.yaml", "tags: expected a list of text", "lossy"]]],
   ["a title YAML reads as a number", { "boxes/b1.yaml": box({ title: "1.10" }) }, [["boxes/b1.yaml", 'title: YAML reads 1.10 as a number, not text; put it in quotes: title: "1.10"', "lossy"]]],
   ["a description that is a mapping", { "boxes/b1.yaml": box({ description: "{a: b}" }) }, [["boxes/b1.yaml", "description: expected text, not a mapping", "lossy"]]],
@@ -125,16 +137,17 @@ describe("what the validator checks", () => {
 describe("what the loader makes of it", () => {
   it("drops invalid values (the file is then lossy) and treats empty ones as not set", () => {
     const { roadmap } = load({
-      "settings.yaml": settings({ title: '""' }),
-      "departments/eng.yaml": dept({ color: '""', lanes: '[{id: e1, name: ""}]' }),
-      "boxes/b1.yaml": box({ fte: "3", status: '""' }),
+      "settings.yaml": settings({ title: '""', types: "[{id: project, name: Project, color: red}]" }),
+      "departments/eng.yaml": dept({ color: '""', lanes: '[{id: e1, fte: 0.75, name: ""}]' }),
+      "boxes/b1.yaml": box({ fte: "3", status: '""', epic: "ftp://example.com/x", links: "[https://example.com, javascript:void(0)]" }),
       "people.yaml": "people:\n",
     });
     expect(roadmap.settings.title).toBe("Roadmap");
+    expect(roadmap.settings.types).toEqual([{ id: "project", name: "Project", color: "#8a94a6" }]);
     expect(roadmap.departments[0].color).toBe("#8a94a6");
     expect(roadmap.departments[0].lanes).toEqual([{ id: "e1", name: undefined, fte: 1 }]);
     const b1 = roadmap.boxes.find((b) => b.id === "b1")!;
-    expect([b1.fte, b1.status]).toEqual([1, undefined]);
+    expect([b1.fte, b1.status, b1.epic, b1.links]).toEqual([1, undefined, undefined, ["https://example.com"]]);
     expect(roadmap.people).toEqual([]);
   });
 

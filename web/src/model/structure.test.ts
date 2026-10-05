@@ -40,6 +40,12 @@ describe("departments", () => {
     expect(addDepartment(s, "Data platform").id).toBe("data-platform-2");
   });
 
+  it("never gets an id Windows can't use as a file name", () => {
+    expect(addDepartment(state, "Aux").id).toBe("aux-dept");
+    expect(addDepartment(state, "COM1").id).toBe("com1-dept");
+    expect(addDepartment(state, "Auxiliary").id).toBe("auxiliary");
+  });
+
   it("moves up and down by swapping neighbours", () => {
     const s = moveDepartment(state, "ops", -1);
     expect(s.departments.map((d) => [d.id, d.order])).toEqual([

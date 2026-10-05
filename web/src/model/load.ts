@@ -21,13 +21,19 @@ import type {
   Settings,
   TimeOff,
 } from "./types";
-import { BOX_FTE_OPTIONS, ZOOM_LEVELS } from "./types";
+import { BOX_FTE_OPTIONS, LANE_FTE_OPTIONS, ZOOM_LEVELS } from "./types";
 
 const ID = /^[a-z0-9][a-z0-9_-]*$/;
 /** Department codes: 2–4 capital letters/digits, starting with a letter. */
 export const DEPT_CODE = /^[A-Z][A-Z0-9]{1,3}$/;
 /** Box codes: exactly 3 capital letters/digits. */
 export const BOX_CODE = /^[A-Z0-9]{3}$/;
+/** Colours are `#rrggbb`, as the app's colour pickers write them; nothing else reaches CSS. */
+export const COLOR = /^#[0-9a-fA-F]{6}$/;
+/** Epic links and other links: http(s) only. */
+export const LINK = /^https?:\/\/\S+$/;
+/** File names Windows reserves even with an extension: a repo with one can't be checked out there. */
+export const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 const RELATION_TYPES: RelationType[] = ["before", "after", "during", "starts_with", "ends_with", "overlaps", "apart"];
 
 export const DEFAULT_DEPT_COLOR = "#8a94a6";
@@ -225,6 +231,14 @@ class Reader {
     return false;
   }
 
+  /** An optional `#rrggbb` colour; anything else is reported and replaced by `fallback`. */
+  color(at: At, key: string, fallback: string, value = this.optStr(at, key)): string {
+    if (value === undefined) return fallback;
+    if (COLOR.test(value)) return value;
+    this.drop(`${at.label}${key}: "${value}" must be a hex colour like "#4f7cff"`, at.obj, key);
+    return fallback;
+  }
+
   strList(at: At, key: string): string[] | undefined {
     const v = at.obj[key];
     if (unset(v)) return undefined;
@@ -287,9 +301,12 @@ function fileId(path: string): string {
 
 /** A department or box is loaded only from the file named after it, so a save can never write it into another file. */
 function matchesFile(r: Reader, top: At, id: string, path: string): boolean {
-  if (id === fileId(path)) return true;
-  r.drop(`id: "${id}" doesn't match the file name "${fileId(path)}", so this file is skipped`, top.obj, "id");
-  return false;
+  if (id !== fileId(path)) {
+    r.drop(`id: "${id}" doesn't match the file name "${fileId(path)}", so this file is skipped`, top.obj, "id");
+    return false;
+  }
+  if (WINDOWS_RESERVED.test(id)) r.fail(`id: "${id}" can't be a file name on Windows, so the repo can't be checked out there`, top.obj, "id");
+  return true;
 }
 
 export function loadRoadmap(files: RoadmapFiles): LoadResult {
@@ -467,13 +484,23 @@ function loadSettings(text: string | undefined, r: Reader): Settings {
     const id = r.id(at, "id");
     const name = r.str(at, "name");
     const color = r.str(at, "color");
-    if (id && name && color) types.push({ id, name, color });
+    if (!id || !name || !color) continue;
+    if (types.some((t) => t.id === id)) {
+      r.drop(`${at.label}id: "${id}" appears twice, so the second one is skipped`, at.obj, "id");
+      continue;
+    }
+    types.push({ id, name, color: r.color(at, "color", DEFAULT_DEPT_COLOR, color) });
   }
   const statuses: BoxStatus[] = [];
   for (const at of r.entries(top, "statuses", "flag")) {
     const id = r.id(at, "id");
     const name = r.str(at, "name");
-    if (id && name) statuses.push({ id, name });
+    if (!id || !name) continue;
+    if (statuses.some((s) => s.id === id)) {
+      r.drop(`${at.label}id: "${id}" appears twice, so the second one is skipped`, at.obj, "id");
+      continue;
+    }
+    statuses.push({ id, name });
   }
 
   return {
@@ -504,12 +531,7 @@ function loadDepartment(r: Reader, path: string, text: string): Department | nul
       r.drop(`${at.label}id: "${laneId}" appears twice in this department, so the second one is skipped`, at.obj, "id");
       continue;
     }
-    const fte = unset(at.obj.fte) ? 1 : at.obj.fte;
-    if (typeof fte !== "number" || fte <= 0 || fte > 1) {
-      r.drop(`${at.label}fte: expected a number greater than 0 and at most 1`, at.obj, "fte");
-      continue;
-    }
-    const lane: Lane = { id: laneId, name: r.optStr(at, "name"), fte };
+    const lane: Lane = { id: laneId, name: r.optStr(at, "name"), fte: r.oneOf(at, "fte", LANE_FTE_OPTIONS, 1, "0.5 or 1") };
     for (const field of ["start", "end"] as const) {
       const day = r.date(at, field, false);
       if (day === null || day === undefined) continue;
@@ -531,7 +553,7 @@ function loadDepartment(r: Reader, path: string, text: string): Department | nul
     id,
     code: code ?? "",
     name,
-    color: r.optStr(top, "color") ?? DEFAULT_DEPT_COLOR,
+    color: r.color(top, "color", DEFAULT_DEPT_COLOR),
     order: goodOrder ? order : 0,
     collapsed: r.bool(top, "collapsed"),
     lanes,
@@ -566,11 +588,26 @@ function loadBox(r: Reader, path: string, text: string): Box | null {
 
   const fte = r.oneOf(top, "fte", BOX_FTE_OPTIONS, 1, `one of ${BOX_FTE_OPTIONS.join(", ")}`);
 
-  const engineers = r.strList(top, "engineers");
+  let engineers = r.strList(top, "engineers");
+  if (engineers) {
+    // A name listed twice would halve their share of the box in the report.
+    const twice = engineers.filter((e, i) => engineers!.indexOf(e) !== i);
+    for (const e of new Set(twice)) r.fail(`engineers: "${e}" is listed twice`, top.obj, "engineers");
+    engineers = [...new Set(engineers)];
+  }
+
   const relations = readRelations(r, top);
 
-  const epic = r.optStr(top, "epic");
-  if (epic !== undefined && !/^https?:\/\//.test(epic)) r.fail(`epic: "${epic}" should be an http(s) link`, top.obj, "epic");
+  let epic = r.optStr(top, "epic");
+  if (epic !== undefined && !LINK.test(epic)) {
+    r.drop(`epic: "${epic}" isn't an http(s) link`, top.obj, "epic");
+    epic = undefined;
+  }
+  const links = r.strList(top, "links")?.filter((link) => {
+    if (LINK.test(link)) return true;
+    r.drop(`links: "${link}" isn't an http(s) link`, top.obj, "links");
+    return false;
+  });
 
   return {
     id,
@@ -587,7 +624,7 @@ function loadBox(r: Reader, path: string, text: string): Box | null {
     epic,
     description: r.optStr(top, "description"),
     tags: r.strList(top, "tags"),
-    links: r.strList(top, "links"),
+    links,
   };
 }
 
@@ -608,6 +645,8 @@ function readRelations(r: Reader, top: At): Relation[] | undefined {
       r.drop(`${at.label}box: "${box}" isn't a box code`, at.obj, "box");
       continue;
     }
+    // Kept (not merged) so the rules stay in step with the file's own list.
+    if (out.some((x) => x.type === type && x.box === ref)) r.fail(`${at.label.slice(0, -2)}: the same rule is listed twice`, at.obj);
     out.push({ type: type as RelationType, box: ref });
   }
   return out;

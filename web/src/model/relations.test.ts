@@ -77,6 +77,10 @@ describe("codes", () => {
     const seq = [0, 0, 0, 0, 0, 1]; // first candidate "AAA" is taken, then "AAB"
     expect(newBoxCode(new Set(["AAA"]), () => seq[i++] / 32)).toBe("AAB");
     for (let n = 0; n < 500; n++) expect(newBoxCode(new Set())).toMatch(/^[A-HJ-NP-Z2-9]{3}$/); // never 0, O, 1, I
+    // Never a code YAML reads as a number: "234" and "2E4" are skipped, "2EA" is fine.
+    const digits = [24, 25, 26, 24, 4, 26, 24, 4, 0];
+    let k = 0;
+    expect(newBoxCode(new Set(), () => digits[k++] / 32)).toBe("2EA");
   });
 
   it("derives department codes from names", () => {

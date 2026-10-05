@@ -151,11 +151,14 @@ const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** Codes that read as words, including ones that mean something else here. */
 const AVOID = new Set(["FTE", "WIP", "TBD", "ASS", "SEX", "FUK", "FUC", "KKK", "NAZ", "XXX"]);
 
+/** Codes YAML would read as numbers (234, 2E5), which would need quotes in the file. */
+const NUMERIC = /^\d+$|^\d+E\d+$/;
+
 /** A fresh 3-character code no box uses, easy to read aloud and type. */
 export function newBoxCode(taken: Set<string>, random: () => number = Math.random): string {
   for (;;) {
     const code = Array.from({ length: 3 }, () => CODE_CHARS[Math.floor(random() * CODE_CHARS.length)]).join("");
-    if (!taken.has(code) && !AVOID.has(code)) return code;
+    if (!taken.has(code) && !AVOID.has(code) && !NUMERIC.test(code)) return code;
   }
 }
 

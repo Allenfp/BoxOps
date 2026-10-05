@@ -4,6 +4,7 @@ import { boxScale, SCALE_HELP } from "../model/scale";
 import { NO_FLAG } from "../model/status";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import { jiraKey } from "../model/jira";
+import { LINK } from "../model/load";
 import { RELATION_ORDER, RELATION_TYPES, type Violation, fullCode, incoming } from "../model/relations";
 import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type RelationType, type Settings } from "../model/types";
 import { EngineerPicker } from "./EngineerPicker";
@@ -111,7 +112,8 @@ export function BoxEditor(props: Props) {
     ) : null;
   });
 
-  const epicValid = !box.epic || /^https?:\/\/\S+$/.test(box.epic);
+  const epicValid = !box.epic || LINK.test(box.epic);
+  const linksValid = (box.links ?? []).every((link) => LINK.test(link));
   const jira = epicValid ? jiraKey(box.epic) : undefined;
   const days = workdays(box.start, box.end);
 
@@ -299,7 +301,9 @@ export function BoxEditor(props: Props) {
                     setLinksText(e.target.value);
                     onChange({ links: splitList(e.target.value, /\n/) }, "links");
                   }}
+                  aria-invalid={!linksValid || undefined}
                 />
+                {!linksValid && <span className="field-error">Use full http(s) links.</span>}
               </label>
             )}
           </div>
