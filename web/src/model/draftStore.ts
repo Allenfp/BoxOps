@@ -213,9 +213,10 @@ export function wasReloaded(): boolean {
  * sessionStorage), so this tab takes a new one; unless this page is a reload
  * (`reloaded`) of the tab: a page that closes marks its draft closed, so one
  * still alive was left by a page that crashed, and is this tab's own. The old
- * shared draft, if any, becomes this tab's own when it has none (it was every
- * tab's before), or else one left by a tab that's gone; `fromShared` turns it
- * into a record (null if it can't: then it's kept as it was, to download).
+ * shared draft, if any, moves to a key of its own, closed, to be offered like
+ * one left by a tab that's gone (a tab running an older BoxOps may still be
+ * editing it); `fromShared` turns it into a record (null if it can't: then
+ * it's kept as it was, to download).
  */
 export function openTab(
   scope: string,
@@ -238,9 +239,8 @@ export function openTab(
   const shared = read(local, sharedKey(scope));
   if (shared) {
     const record = fromShared(shared.value);
-    const into = record && !read(local, key) ? key : draftKey(scope, newTabId());
-    // Closed (alive 0): to whoever opens it next, this tab included, it's one left behind.
-    if (put(local, into, record ? JSON.stringify({ ...record, alive: 0 }) : JSON.stringify(shared.value))) put(local, sharedKey(scope), null);
+    const text = record ? JSON.stringify({ ...record, alive: 0 }) : JSON.stringify(shared.value);
+    if (put(local, draftKey(scope, newTabId()), text)) put(local, sharedKey(scope), null);
   }
 
   return { key, own: read(local, key), orphans: leftBehind(scope, key, now, local) };

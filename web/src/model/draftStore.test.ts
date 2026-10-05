@@ -96,20 +96,20 @@ describe("which drafts a tab finds", () => {
     expect(otherTabs(SCOPE, t.key, NOW, s.local)).toBe(0);
   });
 
-  it("the old shared draft moves over once: this tab's if it has none, else one left behind; one it can't read stays to download", () => {
+  it("the old shared draft moves over once, offered like one left behind (an older BoxOps may still have it open); one it can't read stays to download", () => {
     const shared = "boxops-draft:acme/roadmap@main";
     const s = stores();
     s.local.setItem(shared, JSON.stringify({ baseHash: "1", base: {}, boxes: [] }));
     const t = openTab(SCOPE, NOW, s, () => record());
     expect(s.local.getItem(shared)).toBeNull();
-    expect(t.own?.record).toEqual(record({ alive: 0 }));
-    expect(t.orphans).toEqual([]);
+    expect(t.own).toBeNull();
+    expect(t.orphans.map((o) => o.record)).toEqual([record({ alive: 0 })]);
 
     s.local.setItem(shared, JSON.stringify({ baseHash: "1", base: {}, boxes: [] }));
     const again = openTab(SCOPE, NOW, s, () => record({ savedAt: "2026-10-03T08:30:00.000Z" }));
     expect(again.key).toBe(t.key);
     expect(s.local.getItem(shared)).toBeNull();
-    expect(again.orphans.map((o) => o.record?.savedAt)).toEqual(["2026-10-03T08:30:00.000Z"]);
+    expect(again.orphans.map((o) => o.record?.savedAt)).toEqual(["2026-10-03T08:30:00.000Z", "2026-10-03T08:00:00.000Z"]);
 
     const old = stores();
     old.local.setItem(shared, JSON.stringify({ baseHash: "1", boxes: [] }));

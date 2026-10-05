@@ -207,7 +207,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
   changes have all been saved since is just removed. A tab that was only
   asleep keeps its changes: when it wakes it writes its draft again, and
   whichever tab saves first makes the other's the same as the saved roadmap.
-  The single key every tab shared before 0.1.0 moves over once.
+  The single key every tab shared before 0.1.0 moves over once, and is
+  offered like one left by a tab that's gone (a tab still running the older
+  BoxOps may have it open).
 - **Other versions.** A draft in another data format (or one that can't be
   read) is never opened: "Download my unsaved edits (JSON)" or Discard.
 - **Limits.** Safari deletes a site's storage after 7 days of use without a
