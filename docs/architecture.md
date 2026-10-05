@@ -297,8 +297,10 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    digits and underscores) isn't taken. The token is kept as soon as it's
    submitted, in `sessionStorage` under `boxops-github-token:<owner>/<repo>`
    (the old tab-wide key moves over once) and in memory, and it's forgotten
-   only on a 401 or Forget token, so Try again and the automatic re-save
-   after a clash never ask again. A kept token holding a character no HTTP
+   only on a 401 or Forget token (in the gear menu whenever one is kept,
+   read-only tabs too, such as a private branch's preview, which asks for
+   one), so Try again and the automatic re-save after a clash never ask
+   again. A kept token holding a character no HTTP
    header can carry (a curly quote, say), which the browser won't send,
    counts as a 401, never as being offline. A choice already made (keep mine
    or keep theirs) is carried through the token form. The key names the
