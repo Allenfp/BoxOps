@@ -5,7 +5,8 @@
 // and takes the repository's visibility from the event payload. A local build
 // reads it from git objects at HEAD too, unless the working tree's roadmap
 // differs, in which case it uses the files on disk and marks the bundle
-// local. The dev server always uses the files on disk.
+// local. The dev server always uses the files on disk. The repository is
+// named only on github.com, the one GitHub the app talks to.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -68,16 +69,22 @@ export function appInfo(webDir: string, repoDir = resolve(webDir, "..")): AppInf
 }
 
 /**
- * "owner/repo" from a remote URL on any host (github.com, GHE.com, GHES), or
- * "" if it doesn't name one. As in git, a URL without a scheme names a host
- * only before a colon (`git@host:owner/repo`); otherwise, like a file:// URL,
- * it's a local path.
+ * The host and "owner/repo" a remote URL names, or null if it names none. As
+ * in git, a URL without a scheme names a host only before a colon
+ * (`git@host:owner/repo`); otherwise, like a file:// URL, it's a local path.
  */
-export function repoFromRemote(url: string): string {
-  if (/^file:/i.test(url.trim())) return "";
-  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?[^/:]+(?::\d+)?\/|(?:[^@/]+@)?[^/:]+:)\/*(.+?)(?:\.git)?\/*$/i.exec(url.trim());
-  return m && /^[^/]+\/[^/]+$/.test(m[1]) ? m[1] : "";
+export function repoFromRemote(url: string): { host: string; repo: string } | null {
+  if (/^file:/i.test(url.trim())) return null;
+  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?\/|(?:[^@/]+@)?([^/:]+):)\/*(.+?)(?:\.git)?\/*$/i.exec(url.trim());
+  return m && /^[^/]+\/[^/]+$/.test(m[3]) ? { host: (m[1] ?? m[2]).toLowerCase(), repo: m[3] } : null;
 }
+
+/**
+ * The app talks to github.com only (api.github.com, raw.githubusercontent.com,
+ * and nothing else in the CSP): GitHub Enterprise Server and GHE.com aren't
+ * supported in BoxOps 0.1. ssh.github.com is GitHub's SSH over port 443.
+ */
+const GITHUB_HOSTS = new Set(["github.com", "ssh.github.com"]);
 
 /** A remote URL fit for a log: without the user and password (a token) a URL may carry. */
 export const withoutCredentials = (url: string) => url.replace(/^([a-z][a-z0-9+.-]*:\/\/)?[^@/]+@/i, "$1");
@@ -190,7 +197,7 @@ export interface BuildOptions {
   app: AppInfo;
   /** Default: process.env. */
   env?: Env;
-  /** Told about a local build from uncommitted files, a remote that names no repository, or an executable roadmap file. */
+  /** Told about a local build from uncommitted files, a remote that names no github.com repository, or an executable roadmap file. */
   warn?(message: string): void;
   /**
    * Put the files in parsed (the default, under a build id that names a
@@ -206,6 +213,11 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
   const dir = o.dir ?? "roadmap";
   const warn = o.warn ?? ((message: string) => console.warn(message));
   const actions = env.GITHUB_ACTIONS === "true";
+  // Elsewhere the app would read, and save to, a repository of that name on github.com.
+  const server = actions ? env.GITHUB_SERVER_URL?.replace(/\/+$/, "") : undefined;
+  if (server && server.toLowerCase() !== "https://github.com") {
+    throw new Error(`This runs on ${server}: GitHub Enterprise Server and GHE.com aren't supported in BoxOps 0.1`);
+  }
   let folder: RoadmapFolder;
   let commit = "";
   let local = false;
@@ -247,8 +259,11 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
   if (!actions) {
     // Outside a repository (a dev server on some folder) there's nothing to name.
     const remote = commit ? localGit(o.repoDir, ["remote", "get-url", "origin"]) : "";
-    repo = repoFromRemote(remote);
-    if (commit && !repo) {
+    const named = repoFromRemote(remote);
+    repo = named && GITHUB_HOSTS.has(named.host) ? named.repo : "";
+    if (commit && named && !repo) {
+      warn(`origin is on ${named.host}; BoxOps 0.1 works with github.com only: source.repo is empty`);
+    } else if (commit && !repo) {
       warn(`Can't tell the repository from the origin remote${remote ? ` (${withoutCredentials(remote)})` : ""}: source.repo is empty`);
     }
     branch = commit ? gitPlumbing(o.repoDir, "rev-parse", ["--abbrev-ref", "HEAD"]).toString().trim() : "";

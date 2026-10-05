@@ -19,14 +19,14 @@ afterEach(() => {
 const APP = { version: "0.1.0", build: "0.1.0+0123456789ab", time: "2026-10-01T00:00:00Z" };
 const ROADMAP = { "roadmap/settings.yaml": "format: 1\n", "roadmap/people.yaml": "people: []\n", "roadmap/boxes/b1.yaml": "id: b1\n" };
 
-/** A repo with two commits on main, the second checked out; an origin remote on a GitHub Enterprise host. */
+/** A repo with two commits on main, the second checked out; an origin remote on github.com. */
 function repo(): { repo: TestRepo; first: string; second: string } {
   const r = new TestRepo();
   repos.push(r);
   const first = r.commit({ ...ROADMAP, "web/package.json": "{}\n" }, "Initial roadmap", undefined, "Setup");
   const second = r.commit({ ...ROADMAP, "roadmap/boxes/b1.yaml": "id: b1\ntitle: B1\n", "web/package.json": "{}\n" }, "B1: renamed\n\nSaved from the BoxOps web app.");
   r.checkout();
-  r.git(["remote", "add", "origin", "git@ghe.acme.example:planning/roadmap.git"]);
+  r.git(["remote", "add", "origin", "git@github.com:planning/roadmap.git"]);
   return { repo: r, first, second };
 }
 
@@ -122,6 +122,18 @@ describe("buildBundle in GitHub Actions", () => {
     expect(warnings).toEqual([`roadmap/boxes/b1.yaml ${EXECUTABLE}`]);
   });
 
+  it("stops on GitHub Enterprise Server or GHE.com: the app would read, and save to, github.com", async () => {
+    const { repo: r, second } = repo();
+    for (const server of ["https://ghe.acme.example", "https://octocorp.ghe.com"]) {
+      const env = { ...actions(second), GITHUB_SERVER_URL: server };
+      await expect(buildBundle({ repoDir: r.dir, app: APP, env })).rejects.toThrow(
+        `This runs on ${server}: GitHub Enterprise Server and GHE.com aren't supported in BoxOps 0.1`,
+      );
+    }
+    const { source } = await buildBundle({ repoDir: r.dir, app: APP, env: { ...actions(second), GITHUB_SERVER_URL: "https://GitHub.com/" } });
+    expect(source.repo).toBe("acme/roadmap");
+  });
+
   it("stops on a symlink or submodule in the commit", async () => {
     const r = new TestRepo();
     repos.push(r);
@@ -132,7 +144,7 @@ describe("buildBundle in GitHub Actions", () => {
 });
 
 describe("buildBundle locally", () => {
-  it("reads HEAD's git objects when roadmap/ is as committed; the repository comes from origin on any host", async () => {
+  it("reads HEAD's git objects when roadmap/ is as committed; the repository comes from a github.com origin", async () => {
     const { repo: r, first, second } = repo();
     writeFileSync(join(r.dir, "roadmap", ".DS_Store"), "\0"); // hidden: doesn't count as a change
     const warnings: string[] = [];
@@ -211,6 +223,24 @@ describe("buildBundle locally", () => {
     expect(warnings).toEqual(["Can't tell the repository from the origin remote (https://gitlab.example/group/sub/roadmap.git): source.repo is empty"]);
   });
 
+  it("names no repository when origin is on another host: the app talks to github.com only", async () => {
+    const { repo: r } = repo();
+    for (const [url, host] of [
+      ["git@ghe.acme.example:planning/roadmap.git", "ghe.acme.example"],
+      ["https://octocorp.ghe.com/planning/roadmap.git", "octocorp.ghe.com"],
+      ["https://sam:ghp_s3cret@gitlab.com/planning/roadmap.git", "gitlab.com"],
+    ]) {
+      r.git(["remote", "set-url", "origin", url]);
+      const warnings: string[] = [];
+      const { source } = await buildBundle({ repoDir: r.dir, app: APP, env: {}, warn: (m) => warnings.push(m) });
+      expect(source.repo).toBe("");
+      expect(warnings).toEqual([`origin is on ${host}; BoxOps 0.1 works with github.com only: source.repo is empty`]);
+    }
+    // GitHub's SSH over port 443 is github.com.
+    r.git(["remote", "set-url", "origin", "ssh://git@ssh.github.com:443/planning/roadmap.git"]);
+    expect((await buildBundle({ repoDir: r.dir, app: APP, env: {}, warn: () => {} })).source.repo).toBe("planning/roadmap");
+  });
+
   it("caps the history at 50 commits", async () => {
     const { repo: r, second } = repo();
     // 52 more commits of the same tree, quickly.
@@ -266,15 +296,16 @@ describe("appInfo", () => {
 });
 
 describe("repoFromRemote", () => {
-  it("names owner/repo on any host", () => {
+  it("names the host and owner/repo (buildBundle keeps github.com's only)", () => {
     const cases: Record<string, string> = {
-      "git@github.com:acme/roadmap.git": "acme/roadmap",
-      "https://github.com/acme/roadmap": "acme/roadmap",
-      "https://github.com/acme/roadmap.git/": "acme/roadmap",
-      "https://x-access-token:abc@github.com/acme/roadmap.git": "acme/roadmap",
-      "git@ghe.acme.internal:planning/roadmap.git": "planning/roadmap",
-      "ssh://git@ghe.acme.internal:2222/planning/roadmap.git": "planning/roadmap",
-      "https://octocorp.ghe.com/planning/roadmap.git": "planning/roadmap",
+      "git@github.com:acme/roadmap.git": "github.com acme/roadmap",
+      "https://github.com/acme/roadmap": "github.com acme/roadmap",
+      "https://github.com/acme/roadmap.git/": "github.com acme/roadmap",
+      "https://x-access-token:abc@GitHub.com/acme/roadmap.git": "github.com acme/roadmap",
+      "github.com:acme/roadmap": "github.com acme/roadmap",
+      "git@ghe.acme.internal:planning/roadmap.git": "ghe.acme.internal planning/roadmap",
+      "ssh://git@ghe.acme.internal:2222/planning/roadmap.git": "ghe.acme.internal planning/roadmap",
+      "https://octocorp.ghe.com/planning/roadmap.git": "octocorp.ghe.com planning/roadmap",
       "/srv/git/roadmap.git": "",
       "file:///srv/git/roadmap.git": "",
       "file:///acme/roadmap.git": "", // a local path, however short
@@ -283,11 +314,13 @@ describe("repoFromRemote", () => {
       "../roadmap/x": "",
       "foo/bar/baz": "", // relative local paths
       "acme/roadmap": "",
-      "github.com:acme/roadmap": "acme/roadmap",
       "https://gitlab.example/group/sub/roadmap.git": "",
       "": "",
     };
-    for (const [url, name] of Object.entries(cases)) expect([url, repoFromRemote(url)]).toEqual([url, name]);
+    for (const [url, name] of Object.entries(cases)) {
+      const named = repoFromRemote(url);
+      expect([url, named ? `${named.host} ${named.repo}` : ""]).toEqual([url, name]);
+    }
   });
 });
 

@@ -74,7 +74,11 @@ both.
   - `source`: repo, branch, commit, `dir`, the folder's `tree` SHA, the
     commit's author, subject and date, `history` (its last 50 first-parent
     commits), and in Actions the run's link. `visibility` and `private` come
-    from the Actions event; when unknown the site counts as private;
+    from the Actions event; when unknown the site counts as private. The
+    repo is `GITHUB_REPOSITORY` in Actions, else the origin remote's, and
+    only on github.com, the one GitHub the app talks to: a build in Actions
+    elsewhere (GitHub Enterprise Server, GHE.com) stops, and another
+    remote's host leaves the repo empty;
   - `app`: version, build id and time. The build id is the version plus
     `web/`'s tree at HEAD, so roadmap-only saves keep it (`.dirty` with
     uncommitted app changes, `+unknown` outside a git checkout). Both are put
