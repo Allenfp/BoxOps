@@ -277,6 +277,8 @@ export function App() {
   /** Why newer saves on GitHub aren't on screen (newerProblem), until the tab moves on. */
   const [behind, setBehind] = useState<string | null>(null);
   const saving = useRef(false);
+  /** A box or PTO block is being moved from the keyboard: others' saves wait, as for a save. */
+  const moving = useRef(false);
 
   /** A newer BoxOps built the site: this tab is read-only until it reloads. */
   const [update, setUpdate] = useState<AppUpdate | null>(null);
@@ -407,7 +409,7 @@ export function App() {
     };
     const check = async () => {
       if (stopped || checking) return;
-      if (document.hidden || saving.current) return schedule();
+      if (document.hidden || saving.current || moving.current) return schedule();
       checking = true;
       lastCheck = Date.now();
       try {
@@ -417,11 +419,11 @@ export function App() {
         setLost(false);
         noteSite(bundle);
         const current = onScreen.current;
-        if (!current || !movesForward(bundle.source, current.source, seen) || saving.current) return;
+        if (!current || !movesForward(bundle.source, current.source, seen) || saving.current || moving.current) return;
         const next = await snapshotOf(bundle);
         const loaded = await fromSnapshot(next);
         // Not if a save showed its commit meanwhile.
-        if (stopped || saving.current || onScreen.current !== current) return;
+        if (stopped || saving.current || moving.current || onScreen.current !== current) return;
         show(loaded);
         if (changesScreen(next, current)) setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
@@ -492,6 +494,7 @@ export function App() {
       onDismissSave={() => setLastSave(null)}
       onDismissRemote={() => setRemote(null)}
       onSavingChange={(busy) => (saving.current = busy)}
+      onMovingChange={(on) => (moving.current = on)}
       onReload={(snapshot) => show(fromSaveSnapshot(snapshot))}
       onSaved={(result, others) => {
         if (result.status === "saved") seen.add(result.parent);
@@ -588,6 +591,8 @@ interface ViewProps extends Loaded {
   onDismissSave(): void;
   onDismissRemote(): void;
   onSavingChange(busy: boolean): void;
+  /** A keyboard move on the timeline started or ended. */
+  onMovingChange(moving: boolean): void;
   /** Show this newer commit; the draft is carried over onto it. */
   onReload(snapshot: Snapshot): void;
   /** `others`: someone else's saves that came in with it (it went on top of them, or found them on top of it). */
@@ -1828,6 +1833,7 @@ function RoadmapView(props: ViewProps) {
               onDeleteBox={removeBox}
               onDeletePto={removePto}
               onShowShortcuts={() => setModal("shortcuts")}
+              onMoveSession={props.onMovingChange}
               onCreatePto={(departmentId, dates) => {
                 const ref = addPto(dates, { departmentId });
                 if (ref) selectPto(ref);

@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -42,8 +43,9 @@ import { focusLater } from "../a11y/focus";
 import { followPointer } from "./followPointer";
 import { cellOf, useGridFocus } from "./useGridFocus";
 import { announce } from "../a11y/announce";
-import { letter } from "../a11y/keys";
-import { boxName, laneName, ptoName, spokenRange } from "../timeline/keyboard";
+import { APPLE, letter, undoHint } from "../a11y/keys";
+import { boxName, fitsInLane, laneName, laneSequence, ptoName, spokenRange, workingDays } from "../timeline/keyboard";
+import { type Facts, boxFacts, consequences, ptoFacts } from "../timeline/consequences";
 
 const LABEL_W = 240;
 /** The gap (px) between a box and the edges of the slots it's drawn in. */
@@ -55,6 +57,26 @@ const EDGE = 40;
 const EDGE_STEP = 12;
 
 export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
+
+/** A keyboard move under way: what's moving, from where, to where now, and what's been said about it. */
+type Move = (
+  | { kind: "box"; id: string; from: BoxPlacement; at: BoxPlacement }
+  | { kind: "pto"; ref: PtoRef; key: string; from: { start: Day; end: Day }; at: { start: Day; end: Day } }
+) & {
+  /** What held as last read out, and the message on its way (with what held then). */
+  said: Facts;
+  pending?: { facts: Facts; takeBack(): boolean };
+  /** The end that moved last, kept on screen. */
+  edge: "start" | "end";
+};
+
+/** The keys of a keyboard move are said the first time one starts, not every time. */
+let toldMoveKeys = false;
+const ALT_KEY = APPLE ? "Option" : "Alt";
+
+/** The keys of a keyboard move, beside its dates while it lasts (said when it starts). */
+const moveKeysHint = (lanes: boolean) =>
+  ` · ← → dates · ${APPLE ? "⌥" : "Alt+"}← → end${lanes ? " · ↑ ↓ lane" : ""} · Enter drop · Esc cancel`;
 
 /** The row of a department's extra area, below its lanes. */
 const OVERFLOW = "overflow";
@@ -124,6 +146,8 @@ interface Props {
   onDeletePto?(ref: PtoRef): void;
   /** ? in the timeline: the list of keys. */
   onShowShortcuts?(): void;
+  /** A keyboard move started (true) or ended: others' saves wait meanwhile. */
+  onMoveSession?(moving: boolean): void;
 }
 
 /** Working days a box added from the keyboard (or its lane's +) runs, by zoom: a week, two, or about a month. */
@@ -273,7 +297,7 @@ export function Timeline(props: Props) {
   };
 
   const onGridKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.defaultPrevented || isTyping(e.target)) return;
+    if (e.defaultPrevented || isTyping(e.target) || move.current) return;
     const cell = cellOf(e.target);
     if (!cell || grid.onKey(e.nativeEvent)) return;
     const [kind, id] = splitKey(cell.dataset.cell!);
@@ -283,6 +307,11 @@ export function Timeline(props: Props) {
       if (readOnly) return say(readOnlyWhy);
       if (kind === "box") onSelect(id);
       else props.onSelectPto?.(ptoRefOf(id));
+    } else if (e.key === " " && plain && (kind === "box" || kind === "pto")) {
+      e.preventDefault();
+      if (!e.repeat) pickUp(kind, id);
+    } else if (e.key === " " && plain && kind === "chart") {
+      e.preventDefault(); // not a scroll
     } else if ((e.key === "Delete" || e.key === "Backspace") && plain && (kind === "box" || kind === "pto")) {
       // Only the focused box or block, once a press: a key held down would go on to delete its neighbours.
       e.preventDefault();
@@ -515,6 +544,214 @@ export function Timeline(props: Props) {
     }
     return out;
   }, [people]);
+
+  // ---- Moving from the keyboard -----------------------------------------------
+  // Space picks a box or PTO block up; the arrow keys move what's drawn (a
+  // preview, as a pointer drag does: nothing is laid out again, nothing else
+  // moves); Enter or Space drops it, one change; Escape or ⌘Z puts it back.
+  // Tab, a click anywhere, ⌘S, another view or going read-only drop it too.
+  // Each step says the dates, and what they'd do (consequences.ts). While it
+  // lasts, others' saves wait (App's polling).
+
+  const move = useRef<Move | null>(null);
+  const [keyMoving, setKeyMoving] = useState(false);
+
+  /** The roadmap as it would be with the move dropped where it is now, and what holds for what's moved then. */
+  const factsNow = (m: Move): Facts => {
+    const p = latest.current.props;
+    const all = p.allBoxes ?? p.roadmap.boxes;
+    if (m.kind === "pto") {
+      const person = p.roadmap.people.find((x) => x.id === m.ref.personId)!;
+      return ptoFacts(all, person, { ...person.pto![m.ref.index], ...m.at });
+    }
+    const box = { ...all.find((b) => b.id === m.id)!, ...m.at };
+    const deptOf = (lane: string) => p.roadmap.departments.find((d) => d.lanes.some((l) => l.id === lane))?.id ?? "";
+    const state = { boxes: all.map((b) => (b.id === m.id ? box : b)), departments: p.roadmap.departments, people: p.roadmap.people };
+    return boxFacts(state, box, [deptOf(m.from.lane), deptOf(m.at.lane)]);
+  };
+
+  /**
+   * Say where it's got to (`lead`) and what changed since what was last said. A message not
+   * yet read is taken back (a key held down says only where it ends up), so what changed is
+   * counted from what was read.
+   */
+  const step = (m: Move, lead: string) => {
+    if (m.pending && !m.pending.takeBack()) m.said = m.pending.facts;
+    const facts = factsNow(m);
+    m.pending = { facts, takeBack: announce([lead, ...consequences(m.said, facts)].join(" ")) };
+  };
+
+  const show = (m: Move) => {
+    if (m.kind === "box") setPreview({ id: m.id, ...m.at });
+    else setPtoPreview({ key: m.key, ...m.at });
+  };
+
+  const end = () => {
+    const m = move.current;
+    move.current = null;
+    setPreview(null);
+    setPtoPreview(null);
+    setKeyMoving(false);
+    latest.current.props.onMoveSession?.(false);
+    m?.pending?.takeBack();
+    return m;
+  };
+
+  /** What's moving, in words: its title, or whose PTO. */
+  const movingName = (m: Move) => {
+    const p = latest.current.props;
+    if (m.kind === "box") return p.roadmap.boxes.find((b) => b.id === m.id)?.title || "Untitled";
+    return `PTO for ${p.roadmap.people.find((x) => x.id === m.ref.personId)?.name ?? "an engineer"}`;
+  };
+
+  const pickUp = (kind: string, id: string) => {
+    if (readOnly) return say(readOnlyWhy);
+    if (endDrag.current || move.current) return;
+    let m: Move;
+    if (kind === "box") {
+      const b = boxes.find((x) => x.id === id);
+      const dept = b && departments.find((d) => d.lanes.some((l) => l.id === b.lane));
+      if (!b || !dept) return;
+      if (collapsed.has(dept.id)) return say(`Expand ${dept.name} to move its boxes.`);
+      const from = { lane: b.lane, start: b.start, end: b.end };
+      m = { kind: "box", id, from, at: from, said: new Map(), edge: "start" };
+    } else {
+      const ref = ptoRefOf(id);
+      const pto = people.find((x) => x.id === ref.personId)?.pto?.[ref.index];
+      if (!pto) return;
+      const from = { start: pto.start, end: pto.end };
+      m = { kind: "pto", ref, key: id, from, at: from, said: new Map(), edge: "start" };
+    }
+    m.said = factsNow(m);
+    move.current = m;
+    show(m);
+    setKeyMoving(true);
+    props.onMoveSession?.(true);
+    const lanes = m.kind === "box" ? " Up and Down change the lane." : "";
+    say(
+      toldMoveKeys
+        ? `Moving ${movingName(m)}.`
+        : `Moving ${movingName(m)}, ${spokenRange(m.from.start, m.from.end)}. Left and Right move it a working day, Shift for a week. ${ALT_KEY} with Left or Right changes the end date.${lanes} Enter to drop, Escape to cancel.`,
+    );
+    toldMoveKeys = true;
+  };
+
+  const drop = () => {
+    const m = end();
+    if (!m) return;
+    const p = latest.current.props;
+    const changed = m.at.start !== m.from.start || m.at.end !== m.from.end || (m.kind === "box" && m.at.lane !== m.from.lane);
+    if (!changed) return say(`Dropped where it was: ${movingName(m)}.`);
+    if (m.kind === "box") {
+      p.onPlaceBox(m.id, m.at);
+      say(`Dropped: ${movingName(m)}, ${spokenRange(m.at.start, m.at.end)}, ${laneName(p.roadmap.departments, m.at.lane)}. ${undoHint()}`);
+    } else {
+      p.onPlacePto?.(m.ref, m.at);
+      say(`Dropped: ${movingName(m)}, ${spokenRange(m.at.start, m.at.end)}. ${undoHint()}`);
+    }
+  };
+
+  const cancel = () => {
+    const m = end();
+    if (m) say(`Move cancelled: ${movingName(m)} is back at ${spokenRange(m.from.start, m.from.end)}.`);
+  };
+
+  /** ← → (a day; Shift, a week), and with Alt the end date only. */
+  const stepDates = (m: Move, mode: "move" | "end", delta: number) => {
+    const at = { ...m.at, ...movedDates(m.at, mode, delta) };
+    if (at.start === m.at.start && at.end === m.at.end) return say("It can’t end before it starts.");
+    m.at = at as typeof m.at;
+    m.edge = mode === "end" ? "end" : "start";
+    show(m);
+    step(m, mode === "end" ? `Ends ${prettyDay(at.end)}, ${workingDays(at.start, at.end)}.` : `${spokenRange(at.start, at.end)}.`);
+  };
+
+  /** ↑ ↓: the lane above or below, into the next open department; it says when the lane is busy then. */
+  const stepLane = (m: Move, dir: -1 | 1) => {
+    if (m.kind === "pto") return say("PTO moves only in time; change whose it is in its editor.");
+    const { props: p, layouts: l } = latest.current;
+    const lanes = laneSequence(p.roadmap.departments, p.collapsed);
+    const i = lanes.findIndex((x) => x.lane === m.at.lane) + dir;
+    if (i < 0 || i >= lanes.length) return say(dir < 0 ? "It’s in the top lane." : "It’s in the bottom lane.");
+    const was = lanes[i - dir]?.dept;
+    const { lane, dept: deptId } = lanes[i];
+    m.at = { ...m.at, lane };
+    show(m);
+    const dept = p.roadmap.departments.find((d) => d.id === deptId)!;
+    const box = { ...p.roadmap.boxes.find((b) => b.id === m.id)!, ...m.at };
+    const fits = fitsInLane(dept, l.get(deptId)!, p.allBoxes ?? p.roadmap.boxes, box, lane);
+    step(
+      m,
+      [
+        `${laneName(p.roadmap.departments, lane)}.`,
+        deptId !== was && `Code now ${dept.code}-${box.code}.`,
+        !fits && "Busy then: it will be drawn in the nearest free space.",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    );
+  };
+
+  const onMoveKey = (e: KeyboardEvent) => {
+    const m = move.current;
+    if (!m) return;
+    const mod = e.metaKey || e.ctrlKey;
+    const key = letter(e);
+    // ⌘S saves it dropped: the drop reaches the draft before the app's own ⌘S reads it.
+    if (mod && key === "s") return flushSync(drop);
+    // Tab drops it, and goes on.
+    if (e.key === "Tab") return drop();
+    const arrow = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1 }[e.key] as -1 | 1 | undefined;
+    const ours =
+      (mod && (key === "z" || key === "y")) ||
+      (!mod && (arrow !== undefined || ["Escape", "Enter", " ", "Delete", "Backspace", "Home", "End", "PageUp", "PageDown"].includes(e.key) || key === "n"));
+    if (!ours) return;
+    // Nothing behind the move acts on these: not the app's undo, nor the browser's Back (Alt+← on Windows).
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.isComposing) return;
+    if (e.key === "Escape" || (mod && key === "z" && !e.shiftKey)) cancel();
+    else if ((e.key === "Enter" || e.key === " ") && !e.repeat) drop();
+    else if (arrow && (e.key === "ArrowLeft" || e.key === "ArrowRight") && !mod) stepDates(m, e.altKey ? "end" : "move", arrow * (e.shiftKey ? 5 : 1));
+    else if (arrow && !mod && !e.altKey && !e.shiftKey) stepLane(m, arrow);
+  };
+  const moveKey = useRef(onMoveKey);
+  const dropNow = useRef(drop);
+  useLayoutEffect(() => {
+    moveKey.current = onMoveKey;
+    dropNow.current = drop;
+  });
+
+  // From the render that starts it, so not a key is missed.
+  useLayoutEffect(() => {
+    if (!keyMoving) return;
+    const onKey = (e: KeyboardEvent) => moveKey.current(e);
+    // A press anywhere drops it first, then does what it does; so does focus going elsewhere.
+    const onDown = () => dropNow.current();
+    const onFocus = (e: FocusEvent) => {
+      if (!gridRef.current?.contains(e.target as Node)) dropNow.current();
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("focusin", onFocus, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("focusin", onFocus, true);
+    };
+  }, [keyMoving]);
+  // Going read-only (a newer BoxOps, say) drops it; so does the timeline going (another view).
+  useEffect(() => {
+    if (readOnly) dropNow.current();
+  }, [readOnly]);
+  useEffect(() => () => dropNow.current(), []);
+  // Each step keeps what moves on screen: its start, or its end while that's what moves.
+  useLayoutEffect(() => {
+    const m = move.current;
+    const el = m && gridRef.current?.querySelector<HTMLElement>(`[data-cell="${CSS.escape(m.kind === "box" ? `box:${m.id}` : `pto:${m.key}`)}"]`);
+    if (el) grid.reveal(el, m.edge);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- after each step, not each render: grid's functions don't change what they do
+  }, [preview, ptoPreview]);
 
   // ---- Rendering ------------------------------------------------------------
 
@@ -866,6 +1103,7 @@ export function Timeline(props: Props) {
                                   <div key="drag-dates" className="drag-dates" aria-hidden style={{ left: scale.x(moving.start), top: boxTop(at.slot - l.slot) - 21 }}>
                                     {prettyDay(moving.start)} – {prettyDay(moving.end)} · {workdays(moving.start, moving.end)} working day
                                     {workdays(moving.start, moving.end) === 1 ? "" : "s"}
+                                    {keyMoving && <span className="drag-keys">{moveKeysHint(true)}</span>}
                                   </div>
                                 ) : null,
                               )}
@@ -955,6 +1193,7 @@ export function Timeline(props: Props) {
                             <div className="drag-dates" aria-hidden style={{ left: scale.x(ptoPreview.start), top: -18 }}>
                               {prettyDay(ptoPreview.start)} – {prettyDay(ptoPreview.end)} · {workdays(ptoPreview.start, ptoPreview.end)} working day
                               {workdays(ptoPreview.start, ptoPreview.end) === 1 ? "" : "s"}
+                              {keyMoving && <span className="drag-keys">{moveKeysHint(false)}</span>}
                             </div>
                           )}
                         </div>
