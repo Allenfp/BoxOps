@@ -45,6 +45,9 @@ const LABEL_W = 240;
 const BOX_PAD = 3;
 /** Pointer travel (px) before a press on a box becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 4;
+/** How near the timeline's edges (px, inside the labels and header) a drag scrolls it, and how far each frame. */
+const EDGE = 40;
+const EDGE_STEP = 12;
 
 export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
 
@@ -214,41 +217,86 @@ export function Timeline(props: Props) {
   const endDrag = useRef<(() => void) | null>(null);
   useEffect(() => () => endDrag.current?.(), []);
 
+  /**
+   * While a drag is on, scrolling (a wheel, a trackpad, or the pointer
+   * resting near an edge, which scrolls by itself) carries what's dragged
+   * along, as if it were held under the pointer: `follow` runs again with
+   * how far the content has scrolled since the press. Call `moved` after
+   * each pointer move; `stop` when the drag ends.
+   */
+  const scrollWithDrag = (pointer: { x: number; y: number }, follow: () => void) => {
+    const el = scrollRef.current!;
+    const from = { x: el.scrollLeft, y: el.scrollTop };
+    let frame = 0;
+    const edge = () => {
+      frame = 0;
+      const r = el.getBoundingClientRect();
+      const head = el.querySelector(".tl-head")?.getBoundingClientRect().height ?? 0;
+      const dx = pointer.x < r.left + LABEL_W + EDGE ? -EDGE_STEP : pointer.x > r.left + el.clientWidth - EDGE ? EDGE_STEP : 0;
+      const dy = pointer.y < r.top + head + EDGE ? -EDGE_STEP : pointer.y > r.top + el.clientHeight - EDGE ? EDGE_STEP : 0;
+      const before = [el.scrollLeft, el.scrollTop];
+      el.scrollBy(dx, dy);
+      // On until the pointer leaves the edge, or there's no further to go.
+      if (el.scrollLeft !== before[0] || el.scrollTop !== before[1]) frame = requestAnimationFrame(edge);
+    };
+    el.addEventListener("scroll", follow);
+    return {
+      scrolled: () => ({ x: el.scrollLeft - from.x, y: el.scrollTop - from.y }),
+      moved: () => {
+        if (!frame) frame = requestAnimationFrame(edge);
+      },
+      stop: () => {
+        el.removeEventListener("scroll", follow);
+        cancelAnimationFrame(frame);
+      },
+    };
+  };
+
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>, box: Box) => {
     if (e.button !== 0 || endDrag.current) return;
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
     const y0 = e.clientY;
-    let moved = false;
+    const pointer = { x: x0, y: y0 };
+    let scrolling: ReturnType<typeof scrollWithDrag> | null = null;
     let placement: BoxPlacement = { lane: box.lane, start: box.start, end: box.end };
     // Which of its half-FTE slots it was held by: it's the box's top that lands in a lane.
     const need = slotsOf(box.fte);
     const held = Math.floor((y0 - e.currentTarget.getBoundingClientRect().top + BOX_PAD) / SLOT_H);
     const grab = { need, own: box.lane, slot: Math.min(need - 1, Math.max(0, held)) };
 
+    /** Where it goes, held under the pointer, the content scrolled or not. */
+    const follow = () => {
+      const { props: p, scale: s } = latest.current;
+      const scrolled = scrolling!.scrolled();
+      const dates = movedDates(box, mode, dragDays(pointer.x - x0 + scrolled.x, s.pxPerDay, p.zoom));
+      const under = mode === "move" ? slotAt(pointer.x, pointer.y) : undefined;
+      const lane = under && dropLane(under.layout, { slot: under.slot, dy: pointer.y - y0 + scrolled.y }, grab, SLOT_H);
+      placement = { lane: mode === "move" ? (lane ?? placement.lane) : box.lane, ...dates };
+      setPreview({ id: box.id, ...placement });
+    };
+
     endDrag.current = followPointer(e, scrollRef.current, {
       move: (ev) => {
-        const dx = ev.clientX - x0;
-        if (!moved && Math.hypot(dx, ev.clientY - y0) < DRAG_THRESHOLD) return false;
-        if (!moved) {
-          moved = true;
+        pointer.x = ev.clientX;
+        pointer.y = ev.clientY;
+        if (!scrolling) {
+          if (Math.hypot(pointer.x - x0, pointer.y - y0) < DRAG_THRESHOLD) return false;
+          scrolling = scrollWithDrag(pointer, follow);
           document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
         }
-        const { props: p, scale: s } = latest.current;
-        const dates = movedDates(box, mode, dragDays(dx, s.pxPerDay, p.zoom));
-        const under = mode === "move" ? slotAt(ev.clientX, ev.clientY) : undefined;
-        const lane = under && dropLane(under.layout, { slot: under.slot, dy: ev.clientY - y0 }, grab, SLOT_H);
-        placement = { lane: mode === "move" ? (lane ?? placement.lane) : box.lane, ...dates };
-        setPreview({ id: box.id, ...placement });
+        follow();
+        scrolling.moved();
         return true;
       },
       end: (released) => {
         endDrag.current = null;
+        scrolling?.stop();
         document.body.classList.remove("dragging-move", "dragging-resize");
         setPreview(null);
         if (!released) return;
-        if (!moved) {
+        if (!scrolling) {
           latest.current.props.onSelect(box.id);
           return;
         }
@@ -276,29 +324,36 @@ export function Timeline(props: Props) {
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
-    let moved = false;
+    const pointer = { x: x0, y: e.clientY };
+    let scrolling: ReturnType<typeof scrollWithDrag> | null = null;
     let dates = { start: pto.start, end: pto.end };
+    const follow = () => {
+      const { props: p, scale: s } = latest.current;
+      dates = movedDates(pto, mode, dragDays(pointer.x - x0 + scrolling!.scrolled().x, s.pxPerDay, p.zoom));
+      setPtoPreview({ key: ptoKey(ref), ...dates });
+    };
 
     endDrag.current = followPointer(e, scrollRef.current, {
       move: (ev) => {
-        const dx = ev.clientX - x0;
-        if (!moved && Math.abs(dx) < DRAG_THRESHOLD) return false;
-        if (!moved) {
-          moved = true;
+        pointer.x = ev.clientX;
+        pointer.y = ev.clientY;
+        if (!scrolling) {
+          if (Math.abs(pointer.x - x0) < DRAG_THRESHOLD) return false;
+          scrolling = scrollWithDrag(pointer, follow);
           document.body.classList.add(mode === "move" ? "dragging-move" : "dragging-resize");
         }
-        const { props: p, scale: s } = latest.current;
-        dates = movedDates(pto, mode, dragDays(dx, s.pxPerDay, p.zoom));
-        setPtoPreview({ key: ptoKey(ref), ...dates });
+        follow();
+        scrolling.moved();
         return true;
       },
       end: (released) => {
         endDrag.current = null;
+        scrolling?.stop();
         document.body.classList.remove("dragging-move", "dragging-resize");
         setPtoPreview(null);
         if (!released) return;
         const p = latest.current.props;
-        if (!moved) p.onSelectPto?.(ref);
+        if (!scrolling) p.onSelectPto?.(ref);
         else if (dates.start !== pto.start || dates.end !== pto.end) p.onPlacePto?.(ref, dates);
       },
     });

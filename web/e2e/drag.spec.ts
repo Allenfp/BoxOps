@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { PX_PER_DAY } from "../src/timeline/scale";
 import type { FakeGitHub } from "./fake-github";
 import { CDC, DAGSTER, MONTH_PX, box, boxDates, boxFile, expect, pollNow, save, test, toolbar } from "./helpers";
 
@@ -132,4 +133,44 @@ test("Escape cancels a drag, and doesn't also close an editor open beside it", a
   await page.mouse.up();
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
   await expect(toolbar(page)).toContainText("No changes");
+});
+
+const scrollLeft = (page: Page) => page.evaluate(() => document.querySelector(".timeline")!.scrollLeft);
+
+test("scrolling mid-drag carries the box along, and near an edge the timeline scrolls by itself", async ({ page, github: _ }) => {
+  // A trackpad or wheel scroll while holding the box: it stays under the pointer.
+  await hold(page, DAGSTER, MONTH_PX * 5, 0);
+  await page.evaluate((px) => (document.querySelector(".timeline")!.scrollLeft += px), MONTH_PX * 10);
+  await expect(page.locator(".drag-dates")).toContainText("2026-10-05 – 2026-11-13");
+  await page.mouse.up();
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-10-05 – 2026-11-13");
+
+  // Resting near the right edge, it scrolls on, and the box goes with it.
+  const before = await scrollLeft(page);
+  const view = (await page.locator(".timeline").boundingBox())!;
+  await hold(page, DAGSTER, 0, 0);
+  await page.mouse.move(view.x + view.width - 30, view.y + 200, { steps: 5 });
+  await expect.poll(() => scrollLeft(page)).toBeGreaterThan(before + 300);
+  await page.mouse.move(view.x + view.width / 2, view.y + 200, { steps: 2 }); // off the edge: it stops
+  const after = await scrollLeft(page);
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+  expect(await scrollLeft(page)).toBe(after);
+  const moved = (await boxDates(page, DAGSTER)).split(" – ")[0];
+  expect(moved > "2026-11-01").toBe(true);
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+});
+
+test("a PTO block dragged at quarters zoom moves whole weeks", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Quarters" }).click();
+  await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+  await page.keyboard.press("Escape");
+  const block = page.locator(".pto-block").first();
+  await expect(block).toHaveAttribute("title", /2026-10-05 – 2026-10-09/);
+  const b = (await block.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + PX_PER_DAY.quarters * 8, b.y + b.height / 2, { steps: 6 }); // 8 days: 2 weeks
+  await page.mouse.up();
+  await expect(block).toHaveAttribute("title", /2026-10-19 – 2026-10-23/);
 });
