@@ -1610,6 +1610,7 @@ function RoadmapView(props: ViewProps) {
             source={source}
             lines={lines}
             busy={busy}
+            kept={draft.kept}
             onSubmitToken={(token) => {
               setProblem(null);
               void save({ ...(problem.kind === "token" ? problem.resume : {}), token });

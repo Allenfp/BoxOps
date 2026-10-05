@@ -232,8 +232,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
   on), never on every keystroke; at once when nothing is left to keep, and
   before a save starts, when the tab is hidden or closed. A write the browser
   refuses (full storage, or site data blocked) shows a warning once, and the
-  save menu says changes aren't being kept until a write goes through: the
-  heartbeat tries again rather than marking the older copy alive.
+  save menu, and any save dialog, says changes aren't being kept until a
+  write goes through: the heartbeat tries again rather than marking the older
+  copy alive.
 - **Tabs that are gone.** A draft also carries a heartbeat: marked alive every
   minute while its tab is open, and closed when the tab closes (`pagehide`).
   A page that crashed never marked its draft closed, so a reload (navigation

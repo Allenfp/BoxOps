@@ -298,4 +298,13 @@ test("a browser that won't keep the draft (full or blocked storage) says so, onc
   await expect(warning).toHaveCount(0);
   await page.getByRole("button", { name: "More save options" }).click();
   await expect(note).toHaveText("This browser isn’t keeping unsaved changes right now: save before you close the tab.");
+  await page.keyboard.press("Escape");
+
+  // Nor does a save that fails say they're kept.
+  await page.route(/^https:\/\/api\.github\.com\//, (route) => route.abort("internetdisconnected"));
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("Couldn’t reach GitHub");
+  await expect(dialog).toContainText("Your changes are still here, but this browser isn’t keeping them: don’t close this tab until they’re saved.");
+  await expect(dialog).not.toContainText(/(kept|saved) in this browser/);
 });

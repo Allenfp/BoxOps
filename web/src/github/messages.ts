@@ -97,14 +97,15 @@ export function failureMessage(f: GitHubFailure, { repo, branch }: FailurePlace,
         : `This token can read ${repo} but not write to it. Edit the token and set Contents to Read and write.`;
     case "stale":
       return "Others kept saving while BoxOps was saving. Try again in a moment.";
+    // Not where the changes are kept: the save dialog says that, knowing whether this browser keeps them.
     case "offline":
       return f.ambiguous
-        ? "Couldn’t reach GitHub, so BoxOps can’t tell whether this save went through. Your changes are kept in this browser; trying again checks first, so nothing is saved twice."
-        : "Couldn’t reach GitHub: you may be offline, or a network filter may be blocking api.github.com. Your changes are kept in this browser; save again once you’re connected.";
+        ? "Couldn’t reach GitHub, so BoxOps can’t tell whether this save went through. Trying again checks first, so nothing is saved twice."
+        : "Couldn’t reach GitHub: you may be offline, or a network filter may be blocking api.github.com. Save again once you’re connected.";
     case "timeout":
       return f.ambiguous
-        ? "GitHub didn’t answer in time, so BoxOps can’t tell whether this save went through. Your changes are kept in this browser; trying again checks first, so nothing is saved twice."
-        : "GitHub didn’t answer in time. Your changes are kept in this browser.";
+        ? "GitHub didn’t answer in time, so BoxOps can’t tell whether this save went through. Trying again checks first, so nothing is saved twice."
+        : "GitHub didn’t answer in time. Try again in a moment.";
     case "server":
       return `GitHub had a problem${d.status && d.status !== 200 ? ` (HTTP ${d.status})` : ""}. Try again in a minute.${id}`;
     case "unknown":

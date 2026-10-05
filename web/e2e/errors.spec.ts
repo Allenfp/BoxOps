@@ -116,7 +116,10 @@ test("offline: says GitHub can't be reached, then saves once it can be", async (
   await page.route(offline, (route) => route.abort("internetdisconnected"));
   await save(page);
   await expect(dialog(page).locator("h2")).toHaveText("Couldn’t reach GitHub");
-  await expect(dialog(page).locator(".callout.error")).toContainText("you may be offline, or a network filter may be blocking api.github.com");
+  await expect(dialog(page).locator(".callout.error")).toHaveText(
+    "Couldn’t reach GitHub: you may be offline, or a network filter may be blocking api.github.com. Save again once you’re connected.",
+  );
+  await expect(dialog(page)).toContainText("Your changes are still here and still saved in this browser.");
   await page.unroute(offline);
   await dialog(page).getByRole("button", { name: "Try again" }).click();
   await expect(toolbar(page)).toContainText("No changes");

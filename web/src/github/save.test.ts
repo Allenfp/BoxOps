@@ -397,7 +397,11 @@ describe("failureMessage", () => {
     expect(failureMessage(new GitHubFailure("no-access", "x", { visible: true, push: true }), where)).toContain("This token can see acme/roadmap but can’t save to it.");
     expect(failureMessage(new GitHubFailure("rules", "Commits must have verified signatures."), where)).toContain("main only accepts signed commits");
     expect(failureMessage(new GitHubFailure("timeout", "x", {}, true), where)).toContain("can’t tell whether this save went through");
-    expect(failureMessage(new GitHubFailure("timeout", "x", {}, false), where)).toBe("GitHub didn’t answer in time. Your changes are kept in this browser.");
+    expect(failureMessage(new GitHubFailure("timeout", "x", {}, false), where)).toBe("GitHub didn’t answer in time. Try again in a moment.");
+    // Whether the changes are kept is the save dialog's to say: this browser may not be keeping them.
+    for (const kind of ["offline", "timeout"] as const) {
+      for (const ambiguous of [false, true]) expect(failureMessage(new GitHubFailure(kind, "x", {}, ambiguous), where)).not.toMatch(/kept|browser/);
+    }
     expect(failureMessage(new GitHubFailure("unknown", "Weird", { requestId: "R:1" }), where)).toBe("GitHub said: “Weird” (GitHub request id R:1)");
   });
 });

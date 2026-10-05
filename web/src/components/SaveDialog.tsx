@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import type { FailureKind, GitHubFailure } from "../github/api";
 import { TOKEN_KINDS, failureMessage } from "../github/messages";
 import type { Source } from "../github/read";
@@ -39,6 +39,8 @@ interface Props {
   source: Source;
   lines: ChangeLine[];
   busy: boolean;
+  /** This browser is keeping the unsaved changes (its storage takes them). */
+  kept: boolean;
   onSubmitToken(token: string): void;
   /** Keep this version of the clashes listed (`keys`), then save. */
   onResolve(keep: "mine" | "theirs", keys: string[]): void;
@@ -87,7 +89,7 @@ function Bolded({ text }: { text: string }) {
   );
 }
 
-export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onResolve, onSaveNow, onRetry, onNewToken, onReloadApp, onClose }: Props) {
+export function SaveDialog({ problem, source, lines, busy, kept, onSubmitToken, onResolve, onSaveNow, onRetry, onNewToken, onReloadApp, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = dialogRef.current;
@@ -186,10 +188,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
               ))}
             </ul>
           </div>
-          <p className="hint">
-            Your changes are still here and still saved in this browser. To save the rest now, undo the changes to these
-            files.
-          </p>
+          <Kept kept={kept}> To save the rest now, undo the changes to these files.</Kept>
           <footer className="dialog-foot">
             <button className="primary" onClick={onClose}>
               Back to editing
@@ -224,7 +223,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
       {problem.kind === "updated" && <Updated problem={problem} busy={busy} onResolve={onResolve} onSaveNow={onSaveNow} onClose={onClose} />}
 
       {problem.kind === "github" && (
-        <Failure failure={problem.failure} source={source} busy={busy} onRetry={onRetry} onNewToken={onNewToken} onClose={onClose} />
+        <Failure failure={problem.failure} source={source} busy={busy} kept={kept} onRetry={onRetry} onNewToken={onNewToken} onClose={onClose} />
       )}
 
       {problem.kind === "upgrading" && (
@@ -233,7 +232,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
             BoxOps is being upgraded; reload in a minute. The roadmap on GitHub now uses data format {problem.format}, which
             this version of BoxOps doesn’t write, so nothing was saved.
           </div>
-          <p className="hint">Your changes are still here and still saved in this browser.</p>
+          <Kept kept={kept} />
           <footer className="dialog-foot">
             <button onClick={onClose}>Close</button>
             <button className="primary" onClick={onReloadApp}>
@@ -246,7 +245,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
       {problem.kind === "error" && (
         <>
           <div className="callout error">{problem.message}</div>
-          <p className="hint">Your changes are still here and still saved in this browser.</p>
+          <Kept kept={kept} />
           <footer className="dialog-foot">
             <button onClick={onClose} disabled={busy}>
               Close
@@ -261,11 +260,24 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
   );
 }
 
+/** Where the changes a save didn't write are: still saved in this browser, unless it won't keep them. */
+function Kept({ kept, children }: { kept: boolean; children?: ReactNode }) {
+  return (
+    <p className="hint">
+      {kept
+        ? "Your changes are still here and still saved in this browser."
+        : "Your changes are still here, but this browser isn’t keeping them: don’t close this tab until they’re saved."}
+      {children}
+    </p>
+  );
+}
+
 /** A GitHub failure in words, what to do about it, and GitHub's own answer for whoever helps. */
 function Failure({
   failure: f,
   source,
   busy,
+  kept,
   onRetry,
   onNewToken,
   onClose,
@@ -273,6 +285,7 @@ function Failure({
   failure: GitHubFailure;
   source: Source;
   busy: boolean;
+  kept: boolean;
   onRetry(): void;
   onNewToken(): void;
   onClose(): void;
@@ -297,7 +310,7 @@ function Failure({
         </p>
       )}
       {newToken && f.kind !== "sso" && <TokenHelp repo={source.repo} />}
-      <p className="hint">Your changes are still here and still saved in this browser.</p>
+      <Kept kept={kept} />
       {said.length > 0 && (
         <details className="files">
           <summary>Details</summary>
