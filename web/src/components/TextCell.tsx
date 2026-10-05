@@ -67,9 +67,13 @@ export function TextCell({
     onChange: (e: { target: { value: string } }) => setText(e.target.value),
     onBlur: () => {
       editing.current = false;
+      // Saved without spaces at either end; spaces alone are no change, so the
+      // cell shows the value as it stands (spaces and all, if the file has them).
       const next = text.trim();
-      if (next !== text) setText(next);
-      if (next !== value.trim()) onCommit(next);
+      if (next !== value.trim()) {
+        setText(next);
+        onCommit(next);
+      } else setText(value);
       onBlur();
     },
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
