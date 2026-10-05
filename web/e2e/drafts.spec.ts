@@ -123,20 +123,34 @@ test("unsaved edits another data format wrote can be downloaded or discarded, ne
 });
 
 test("a browser that won't keep the draft (full or blocked storage) says so, once", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 10);
+  await stored(page);
+  // Storage fills up: the draft of one change was kept, one of two no longer fits.
   await page.evaluate(() => {
+    const kept = Object.keys(localStorage).find((k) => k.startsWith("boxops-draft:"))!;
+    const limit = localStorage.getItem(kept)!.length + 100;
     const setItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key: string, value: string) {
-      if (key.startsWith("boxops-draft:")) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      if (key.startsWith("boxops-draft:") && value.length > limit) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
       return setItem.call(this, key, value);
     };
   });
-  await dragDays(page, DAGSTER, 10);
   const warning = page.locator(".banner", { hasText: "This browser isn’t keeping your unsaved changes" });
+  await expect(warning).toHaveCount(0);
+  await dragDays(page, CDC, 5);
   await expect(warning).toContainText("so they’d be lost if this tab closed. Save soon.");
+  // A minute on, the heartbeat tries again: it doesn't vouch for the older copy still stored.
+  await page.clock.fastForward(MINUTE + 1000);
+  await page.getByRole("button", { name: "More save options" }).click();
+  const note = page.locator(".menu-note");
+  await expect(note).toHaveText("This browser isn’t keeping unsaved changes right now: save before you close the tab.");
+  await page.keyboard.press("Escape");
+  await expect(warning).toBeVisible();
+
   await warning.getByRole("button", { name: "Dismiss" }).click();
   await dragDays(page, DAGSTER, 5);
   await page.waitForTimeout(600); // long enough to try to write it again
   await expect(warning).toHaveCount(0);
   await page.getByRole("button", { name: "More save options" }).click();
-  await expect(page.locator(".menu-note")).toHaveText("This browser isn’t keeping unsaved changes right now: save before you close the tab.");
+  await expect(note).toHaveText("This browser isn’t keeping unsaved changes right now: save before you close the tab.");
 });

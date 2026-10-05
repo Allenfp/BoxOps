@@ -570,7 +570,7 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
   const changes = useMemo(() => diffDraft(base, present), [base, present]);
 
   // Kept in storage: this tab's draft, as a delta (draftStore.ts).
-  /** Whether the last write to storage worked (a full or blocked storage refuses them). */
+  /** Whether storage holds the draft as it is (a full or blocked storage refuses writes). */
   const [kept, setKept] = useState(true);
   const [writer] = useState(() => new DraftWriter(opened.key, stores.local, setKept));
   // A pause after the last change writes it; nothing left to keep removes it at once.
@@ -592,8 +592,7 @@ export function useDraft(base: DraftState, { scope, commit, build }: DraftOption
     const { local } = stores;
     const count = () => setOthers(otherTabs(scope, writer.key, Date.now(), local));
     const beat = () => {
-      if (writer.pending) writer.flush();
-      else writer.mark(Date.now());
+      writer.beat(Date.now());
       count();
     };
     const close = () => {

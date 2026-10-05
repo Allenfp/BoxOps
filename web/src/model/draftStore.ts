@@ -259,27 +259,27 @@ export function isLeft(key: string, now: number, local: Store): boolean {
  * Keeps one tab's draft in storage. A change is written a moment after
  * editing pauses (WRITE_AFTER_MS), or WRITE_AT_MOST_MS into a long burst,
  * never on every keystroke; `track()` says what to write then (null:
- * nothing to keep, so the key is removed). `onResult` hears whether each
- * write worked, since a full or blocked storage refuses them.
+ * nothing to keep, so the key is removed). `onResult` hears whether storage
+ * holds the draft, since a full or blocked storage refuses writes; one that
+ * was refused is tried again on the next heartbeat or flush.
  */
 export class DraftWriter {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private first = 0;
+  /** The last write was refused: what's stored, if anything, is older than the draft. */
+  private failed = false;
   private record: () => StoredDraft | null = () => null;
 
   constructor(
     readonly key: string,
     private readonly local: Store,
+    /** Whether storage holds the draft as it is: false once a write is refused, true again once one goes through. */
     private readonly onResult: (ok: boolean) => void,
   ) {}
 
   /** What to store from now on: the draft as it is now. */
   track(record: () => StoredDraft | null): void {
     this.record = record;
-  }
-
-  get pending(): boolean {
-    return this.timer !== undefined;
   }
 
   /** The draft changed: write it soon. */
@@ -292,26 +292,47 @@ export class DraftWriter {
 
   /** Write now. */
   write(): void {
-    clearTimeout(this.timer);
-    this.timer = undefined;
-    const r = this.record();
-    this.onResult(put(this.local, this.key, r === null ? null : JSON.stringify(r)));
+    this.store(this.record());
   }
 
-  /** Write now if a change is waiting. */
+  private store(r: StoredDraft | null): void {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    const ok = put(this.local, this.key, r === null ? null : JSON.stringify(r));
+    this.failed = !ok;
+    this.onResult(ok);
+  }
+
+  /** Write now if a change is waiting, or the last write was refused. */
   flush(): void {
-    if (this.timer !== undefined) this.write();
+    if (this.timer !== undefined || this.failed) this.write();
+  }
+
+  /** The heartbeat: write what's waiting (or was refused), or else mark the stored draft alive at `now`. */
+  beat(now: number): void {
+    if (this.timer !== undefined || this.failed) this.write();
+    else this.mark(now);
   }
 
   /**
    * Mark the stored draft as alive now (`at`) or closed (0), leaving the rest
    * as stored. Alive, with none stored (another tab restored it while this
-   * one slept), it's written again: this tab still has it.
+   * one slept), it's written again: this tab still has it. Only a refusal is
+   * reported: a mark that goes through says nothing about whether what's
+   * stored is the draft as it is.
    */
   mark(at: number): void {
     const found = read(this.local, this.key);
-    const value = found ? found.value : at ? this.record() : null;
-    if (isObject(value)) this.onResult(put(this.local, this.key, JSON.stringify({ ...value, alive: at })));
+    if (!found) {
+      const r = at ? this.record() : null;
+      if (r) this.store(r);
+      return;
+    }
+    if (!isObject(found.value)) return;
+    if (!put(this.local, this.key, JSON.stringify({ ...found.value, alive: at }))) {
+      this.failed = true;
+      this.onResult(false);
+    }
   }
 }
 

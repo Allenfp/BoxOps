@@ -2,19 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DraftWriter, RECORD, STALE_MS, type Store, type StoredDraft, asRecord, draftKey, openTab, otherTabs } from "./draftStore";
 import { FORMAT } from "./format";
 
-/** Storage in memory, like localStorage; `fail` makes writes throw (full or blocked). */
-function memory(): Store & { data: Map<string, string>; fail: boolean } {
+/** Storage in memory, like localStorage; `fail` makes writes throw (blocked), and so does a value longer than `limit` (full). */
+function memory(): Store & { data: Map<string, string>; fail: boolean; limit: number } {
   const data = new Map<string, string>();
   return {
     data,
     fail: false,
+    limit: Infinity,
     get length() {
       return data.size;
     },
     key: (i) => [...data.keys()][i] ?? null,
     getItem: (k) => data.get(k) ?? null,
     setItem(k, v) {
-      if (this.fail) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      if (this.fail || String(v).length > this.limit) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
       data.set(k, String(v));
     },
     removeItem: (k) => void data.delete(k),
@@ -193,11 +194,46 @@ describe("DraftWriter", () => {
     expect(results).toEqual([true, false, true]);
   });
 
-  it("marking alive or closed changes only that, keeping what's stored", () => {
-    const { local, w } = setup();
+  it("a write refused for size isn't covered up by the heartbeat: it's tried again, and only a write that goes through is kept", () => {
+    const { local, results, w } = setup();
+    let description = "short";
+    w.track(() => record({ items: { "box:a": { old: { id: "a" }, now: { id: "a", description } } } }));
+    w.write();
+    local.limit = local.data.get(w.key)!.length + 100;
+    description = "x".repeat(1000); // the user keeps typing: too big for what's left
+    w.write();
+    w.beat(NOW + 60_000); // a minute later: tried again, not just marked alive
+    expect(results).toEqual([true, false, false]);
+    expect(JSON.parse(local.getItem(w.key)!).items["box:a"].now.description).toBe("short");
+    w.mark(NOW + 60_000);
+    expect(results).toEqual([true, false, false]);
+
+    local.limit = Infinity; // room again
+    w.beat(NOW + 120_000);
+    expect(results).toEqual([true, false, false, true]);
+    expect(JSON.parse(local.getItem(w.key)!).items["box:a"].now.description).toBe(description);
+  });
+
+  it("flush tries a refused write again", () => {
+    const { local, results, w } = setup();
+    local.fail = true;
+    w.write();
+    local.fail = false;
+    w.flush();
+    expect(results).toEqual([false, true]);
+  });
+
+  it("marking alive or closed changes only that, keeping what's stored; it reports only a refusal", () => {
+    const { local, results, w } = setup();
+    w.write();
     local.setItem(w.key, JSON.stringify({ ...record(), extra: 1 }));
     w.mark(0);
     expect(JSON.parse(local.getItem(w.key)!)).toEqual({ ...record(), extra: 1, alive: 0 });
+    local.fail = true;
+    w.mark(NOW);
+    local.fail = false;
+    w.mark(NOW);
+    expect(results).toEqual([true, false]);
   });
 
   it("marking alive writes the draft again if it's gone (another tab restored it while this one slept)", () => {
