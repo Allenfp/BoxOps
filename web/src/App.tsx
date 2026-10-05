@@ -988,7 +988,9 @@ function RoadmapView(props: ViewProps) {
           boxes={draft.boxes}
           people={draft.people}
           onCreate={(name, color, code) => {
-            const id = draft.addDepartment(name, color, code);
+            // Not the id of a department file the app couldn't read: saving it would be refused.
+            const skipped = [...props.lossy.keys()].flatMap((p) => /^departments\/([^/]+)\.ya?ml$/.exec(p)?.[1] ?? []);
+            const id = draft.addDepartment(name, color, code, skipped);
             setCollapsed((prev) => {
               const next = new Set(prev);
               next.delete(id);
