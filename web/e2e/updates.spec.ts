@@ -65,3 +65,17 @@ test("a save while an upgrade to a newer data format deploys is refused, nothing
   expect(github.calls("graphql")).toBe(0);
   expect(github.file(boxFile(DAGSTER))).not.toContain("start: 2026-09-28");
 });
+
+test("the site's notices show as plain text, and can be put away", async ({ page, github }) => {
+  const text = "BoxOps v0.1.1 fixes a security problem; this site runs v0.1.0. <b>Ask an admin</b> to merge the upgrade.";
+  github.patchBundle = (b) => ({ ...b, notices: [{ level: "security", text }] });
+  await page.reload();
+  const notice = page.locator(".banner.notice-security");
+  await expect(notice).toHaveText(text);
+  await expect(notice.locator("b")).toHaveCount(0);
+  await notice.getByRole("button", { name: "Dismiss" }).click();
+  await expect(notice).toHaveCount(0);
+  await pollNow(page);
+  await expect(page.locator(".box").first()).toBeVisible();
+  await expect(notice).toHaveCount(0);
+});

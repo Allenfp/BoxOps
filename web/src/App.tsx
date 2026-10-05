@@ -23,7 +23,7 @@ import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
-import type { AppInfo, Bundle } from "./model/bundle";
+import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
 import { type LoadResult, loadRoadmap } from "./model/load";
 import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
@@ -144,8 +144,11 @@ export function App() {
 
   /** A newer BoxOps built the site: this tab is read-only until it reloads. */
   const [update, setUpdate] = useState<AppInfo | null>(null);
-  /** Read what a fetched roadmap.json says about the app behind it; true if it's newer than this tab's. */
+  /** The site's notices for everyone (security releases and the like), from the latest roadmap.json. */
+  const [notices, setNotices] = useState<Notice[]>([]);
+  /** Read what a fetched roadmap.json says beyond the roadmap: its notices, and whether a newer BoxOps built it (true). */
   const noteSite = useCallback((bundle: Bundle): boolean => {
+    setNotices((cur) => (JSON.stringify(cur) === JSON.stringify(bundle.notices) ? cur : bundle.notices));
     if (!isNewerApp(bundle.app)) return false;
     // Going read-only: commit a field being typed in first, so the draft has it.
     if (document.activeElement instanceof HTMLElement && isTyping(document.activeElement)) document.activeElement.blur();
@@ -296,6 +299,7 @@ export function App() {
     <RoadmapView
       {...state}
       seen={seen}
+      notices={notices}
       update={update}
       onSite={noteSite}
       connectionLost={lost}
@@ -342,6 +346,8 @@ function SaveProgress({ step }: { step: SaveStep }) {
 interface ViewProps extends Loaded {
   /** Commits the tab has already shown or moved past (see App). */
   seen: ReadonlySet<string>;
+  /** Shown as plain text, never as HTML. */
+  notices: Notice[];
   /** A newer BoxOps built the site (read-only until reloaded). */
   update: AppInfo | null;
   /** A roadmap.json fetched before saving: true if a newer BoxOps built it. */
@@ -414,6 +420,8 @@ function RoadmapView(props: ViewProps) {
     onSavingChange(b);
   };
   const [problem, setProblem] = useState<SaveProblem | null>(null);
+  /** Notices dismissed in this page view (by text). */
+  const [dismissed, setDismissed] = useState<string[]>([]);
   /** A save found newer saves on GitHub; once the draft is carried over, ask about any clashes. */
   const askAfterRebase = useRef(false);
   /** The next roadmap change is our own save, not someone else's. */
@@ -950,6 +958,16 @@ function RoadmapView(props: ViewProps) {
         </div>
       </header>
 
+      {props.notices
+        .filter((n) => !dismissed.includes(n.text))
+        .map((n) => (
+          <div key={n.text} className={`banner notice-${n.level}`} role={n.level === "info" ? "status" : "alert"}>
+            <span>{n.text}</span>
+            <button className="icon-button" onClick={() => setDismissed((d) => [...d, n.text])} aria-label="Dismiss">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        ))}
       {props.preview && (
         <div className="banner">
           Previewing branch <code>{source.branch}</code> (read-only). <a href={liveUrl()}>Back to the live roadmap</a>

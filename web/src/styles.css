@@ -1059,6 +1059,14 @@ button.primary:hover:not(:disabled) {
 .banner.success {
   background: color-mix(in srgb, #21a67a 14%, var(--surface));
 }
+/* Notices from roadmap.json, in plain text: a security release and the like. */
+.banner.notice-security,
+.banner.notice-warning {
+  background: var(--warn-bg);
+}
+.banner.notice-security > span {
+  font-weight: 600;
+}
 .banner a {
   color: var(--accent);
   font-weight: 600;
