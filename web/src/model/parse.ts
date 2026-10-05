@@ -6,7 +6,7 @@
 // app loads the yaml library: only when it has a file to parse, or a save to
 // write.
 
-import { type Document, isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
+import { type Alias, type Document, isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, visit, type YAMLMap, type YAMLSeq } from "yaml";
 import { type Day, dayParts, formatDay, isWeekend, parseDay } from "./dates.ts"; // with .ts: vite.config.ts imports this file
 import { FORMAT } from "./format.ts";
 import {
@@ -129,6 +129,14 @@ class Reader {
       // "<what> at line 3, column 5:", then a code excerpt: keep the first line, without the colon.
       this.report(`YAML syntax error: ${error.message.split("\n")[0].replace(/:$/, "")}`, error.linePos?.[0].line, true);
       return null;
+    }
+    // `*name` stands for the value marked `&name`: the file reads fine, but an
+    // edit to one would change the other too, so the app doesn't write it.
+    const alias = firstAlias(doc);
+    if (alias) {
+      const line = alias.range ? this.lines.linePos(alias.range[0]).line : undefined;
+      const name = alias.source;
+      this.report(`*${name} is a YAML alias of the value marked &${name}: the app can't edit one without the other, so it doesn't save this file; write the value out in full`, line, true);
     }
     let value: unknown;
     try {
@@ -262,6 +270,18 @@ class Reader {
       yield { obj: item, label: `${at.label}${noun} ${label}, ` };
     }
   }
+}
+
+/** The first alias (`*name`) in the document, if any. */
+function firstAlias(doc: Document): Alias | undefined {
+  let found: Alias | undefined;
+  visit(doc, {
+    Alias(_, node) {
+      found = node;
+      return visit.BREAK;
+    },
+  });
+  return found;
 }
 
 function isObj(v: unknown): v is Obj {

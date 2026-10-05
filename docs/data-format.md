@@ -272,6 +272,9 @@ problem.
 Any file:
 
 - YAML that doesn't parse, or a file that isn't a mapping at the top level\*
+- a YAML alias (`*name`, standing for the value marked `&name`)\*: nothing is
+  left out, but the app won't save the file either, as an edit to one would
+  change the other too
 - a text field that YAML reads as something else: a number (`2E5`, `1.10`),
   `true`/`false`, a date (under a `%YAML 1.1` header), a list or a mapping\*;
   or a required one it reads as empty (`title: Null`, `name: ~`)\*
