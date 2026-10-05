@@ -118,3 +118,13 @@ test("an empty roadmap says where to start; nothing offers to collapse, or to ad
   await page.getByRole("button", { name: "Table" }).click();
   await expect(page.getByRole("button", { name: "Add box" })).toBeEnabled();
 });
+
+test("a roadmap without settings.yaml opens read-only, saying the file is missing", async ({ page }) => {
+  const github = await FakeGitHub.create({ "people.yaml": "people: []\n" });
+  await page.clock.install({ time: TODAY });
+  await github.install(page);
+  await page.goto("./");
+  const banner = page.locator(".banner", { hasText: "Read-only" });
+  await expect(banner).toContainText("the roadmap has no roadmap/settings.yaml");
+  await expect(banner).toContainText("Add one holding format: 1");
+});

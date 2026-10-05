@@ -1238,7 +1238,12 @@ function RoadmapView(props: ViewProps) {
       {source.readonly && !source.local && !props.preview && <div className="banner">Read-only: this site doesn’t save.</div>}
       {props.formatStatus !== "current" && (
         <div className="banner">
-          {props.formatStatus === "older" ? (
+          {props.formatStatus === "older" && files["settings.yaml"] === undefined ? (
+            <>
+              Read-only: the roadmap has no <code>roadmap/settings.yaml</code>, which says which data format the files
+              use. Add one holding <code>format: {FORMAT}</code> to edit the roadmap here.
+            </>
+          ) : props.formatStatus === "older" ? (
             <>
               Read-only: <code>roadmap/settings.yaml</code> doesn’t say which data format the files use. Add{" "}
               <code>format: {FORMAT}</code> to it to edit the roadmap here.
