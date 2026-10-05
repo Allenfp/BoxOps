@@ -20,7 +20,7 @@ const source = (commit: string, date: string, history: string[]): BundleSource =
 
 describe("movesForward", () => {
   const [c1, c2, c3] = [sha("1"), sha("2"), sha("3")];
-  const onC2 = { commit: c2, date: "2026-10-02T16:02:00Z" };
+  const onC2 = { commit: c2, date: "2026-10-02T16:02:00Z", history: [c2, c1] };
 
   it("takes a deploy whose history holds the commit on screen", () => {
     expect(movesForward(source(c3, "2026-10-02T16:03:00Z", [c3, c2, c1]), onC2, new Set())).toBe(true);
@@ -35,13 +35,19 @@ describe("movesForward", () => {
     expect(movesForward(source(c1, "2026-10-02T16:01:00Z", [c1]), onC2, new Set([c2]))).toBe(false);
   });
 
+  it("ignores a commit the one on screen came after, even one made the same second", () => {
+    // The tab loaded C1's deploy, read C3 from GitHub, then C2's deploy finished.
+    const onC3 = { commit: c3, date: "2026-10-02T16:02:00Z", history: [c3, c2] };
+    expect(movesForward(source(c2, "2026-10-02T16:02:00Z", [c2, c1]), onC3, new Set([c1, c3]))).toBe(false);
+  });
+
   it("takes a newer commit outside the history it knows (more than 50 behind, or a rewritten branch)", () => {
     expect(movesForward(source(c3, "2026-10-02T16:09:00Z", [c3]), onC2, new Set())).toBe(true);
   });
 
   it("takes an unseen bundle it can't date (from before schema 1)", () => {
     expect(movesForward(source(c3, "", [c3]), onC2, new Set())).toBe(true);
-    expect(movesForward(source(c3, "2026-10-02T16:01:00Z", [c3]), { commit: c2, date: "" }, new Set())).toBe(true);
+    expect(movesForward(source(c3, "2026-10-02T16:01:00Z", [c3]), { commit: c2, date: "", history: [c2] }, new Set())).toBe(true);
   });
 });
 

@@ -75,14 +75,19 @@ export async function fetchBundle(timeoutMs?: number): Promise<Bundle> {
  * Whether a polled roadmap.json moves the tab forward from the commit on
  * screen: its history (the deploy's last 50 first-parent commits) holds that
  * commit. Deploys finish out of order and the tab may have read a newer head
- * from GitHub, so anything else is ignored if the tab has seen it or it's
- * older; a bundle without a usable date or history (one from before schema 1)
- * counts as newer unless seen.
+ * from GitHub, so anything else is ignored if the tab has seen it, if the
+ * commit on screen's own history holds it (even one made the same second),
+ * or if it's older; a bundle without a usable date or history (one from
+ * before schema 1) counts as newer unless seen.
  */
-export function movesForward(next: BundleSource, current: { commit: string; date: string }, seen: ReadonlySet<string>): boolean {
+export function movesForward(
+  next: BundleSource,
+  current: Pick<BundleSource, "commit" | "date" | "history">,
+  seen: ReadonlySet<string>,
+): boolean {
   if (next.commit === current.commit) return false;
   if (next.history.includes(current.commit)) return true;
-  if (seen.has(next.commit)) return false;
+  if (seen.has(next.commit) || current.history.includes(next.commit)) return false;
   return !(Date.parse(next.date) < Date.parse(current.date));
 }
 

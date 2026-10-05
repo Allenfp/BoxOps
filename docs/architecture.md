@@ -119,7 +119,8 @@ both.
   API, whose anonymous limit (60 requests an hour per IP) counts 304s too.
   It only ever moves forward (`movesForward` in `site.ts`): a bundle is
   taken only if its `history` holds the commit on screen; otherwise it's
-  ignored if the tab has seen it or it's older by commit time. So a deploy
+  ignored if the tab has seen it, if the history on screen holds it (two
+  commits can share a second), or if it's older by commit time. So a deploy
   that finishes late (deploys aren't cancelled, and the tab may have read a
   newer head from GitHub) never rolls the tab back. A newer commit is merged
   into the screen in place, and a notice says who saved what. A failed check
