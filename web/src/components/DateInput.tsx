@@ -88,8 +88,10 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
       ref={ref}
       className={`date-input${invalid ? " invalid" : ""}`}
       onKeyDown={(e) => {
-        // Esc closes the calendar first, without also closing the editor around it.
+        // Esc closes the calendar first, without also closing the editor around it (nor a
+        // native dialog, whose Escape is a default action).
         if (e.key === "Escape" && calendar) {
+          e.preventDefault();
           e.stopPropagation();
           closeToField();
         }
@@ -119,6 +121,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
         onBlur={settle}
         onKeyDown={(e) => {
           if (e.key === "Escape" && draft !== null) {
+            e.preventDefault();
             e.stopPropagation();
             setDraft(null);
           }
