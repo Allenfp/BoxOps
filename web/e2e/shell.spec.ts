@@ -6,12 +6,14 @@ import { DAGSTER, dragDays, expect, test, toolbar } from "./helpers";
 test("a stored draft that crashes the app can be downloaded and discarded", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 10);
   await expect(toolbar(page)).toContainText("Save · 1 change");
-  // A stored draft the app can't render (a bug, or a draft from another version).
+  // A stored draft the app can't render (a bug, or a draft from another version), and
+  // another roadmap's draft on the same origin (project sites on <owner>.github.io share one).
   await page.evaluate(() => {
     const key = Object.keys(localStorage).find((k) => k.startsWith("boxops-draft:"))!;
     const draft = JSON.parse(localStorage.getItem(key)!);
     draft.boxes[0].engineers = 5;
     localStorage.setItem(key, JSON.stringify(draft));
+    localStorage.setItem("boxops-draft:acme/other@main", JSON.stringify({ baseHash: "0", boxes: [] }));
   });
   await page.reload();
   const crash = page.locator(".crash");
@@ -21,7 +23,7 @@ test("a stored draft that crashes the app can be downloaded and discarded", asyn
 
   // The same crash after reloading: the draft is the likely cause.
   await crash.getByRole("button", { name: "Reload" }).click();
-  await expect(crash).toContainText("It happened again after reloading");
+  await expect(crash).toContainText("It happened again after reloading. Your unsaved changes to acme/roadmap, kept in this browser,");
   const downloading = page.waitForEvent("download");
   await crash.getByRole("button", { name: "Download unsaved changes" }).click();
   const download = await downloading;
@@ -33,6 +35,14 @@ test("a stored draft that crashes the app can be downloaded and discarded", asyn
   await crash.getByRole("button", { name: "Discard unsaved changes and reload" }).click();
   await expect(page.locator(".box").first()).toBeVisible();
   await expect(toolbar(page)).toContainText("No changes");
+  expect(await page.evaluate(() => localStorage.getItem("boxops-draft:acme/other@main"))).not.toBeNull();
+});
+
+test("once the app has run a few seconds, an earlier crash is forgotten: a later one isn't \"again\"", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 10);
+  await page.evaluate(() => sessionStorage.setItem("boxops-crashed-at", String(Date.now())));
+  await page.clock.fastForward(6_000);
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem("boxops-crashed-at"))).toBeNull();
 });
 
 test("the built page enforces a strict Content-Security-Policy, and tests catch violations", async ({ page, csp, github: _ }) => {

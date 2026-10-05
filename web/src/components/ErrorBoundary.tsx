@@ -2,34 +2,64 @@
 // blank page. Unsaved changes are restored from localStorage before the first
 // render, so if they're what trips the app up, every reload crashes again; the
 // second time in a row, the screen offers to download them and discard them.
+// Only the draft of the roadmap on screen: every project site on
+// <owner>.github.io shares one origin, and so one localStorage.
 
 import { Component, type ReactNode } from "react";
 
 const DRAFT_PREFIX = "boxops-draft:";
-/** When this tab last crashed (ms since 1970), in sessionStorage. */
+/** When this tab last crashed (ms since 1970), in sessionStorage; removed once the app has run a while. */
 const CRASH_KEY = "boxops-crashed-at";
 /** A crash this soon after the last one counts as the same crash again. */
 const AGAIN_MS = 5 * 60_000;
 
-/** Every stored draft (key → its JSON, parsed when it parses). */
-function storedDrafts(): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key?.startsWith(DRAFT_PREFIX)) continue;
-      const raw = localStorage.getItem(key) ?? "";
-      try {
-        out[key] = JSON.parse(raw);
-      } catch {
-        out[key] = raw;
-      }
-    }
-  } catch {
-    // Storage blocked: there are no drafts to offer.
-  }
-  return out;
+/** The localStorage key of the draft of the roadmap on screen, once the app has one. */
+let shownDraft: string | null = null;
+
+/** The roadmap on screen keeps its draft under `key` (model/draft.ts): the one a crash offers. */
+export function noteDraft(key: string): void {
+  shownDraft = key;
 }
+
+/** The app has been running fine: a crash from now on isn't the same one again. */
+export function runningFine(): void {
+  try {
+    sessionStorage.removeItem(CRASH_KEY);
+  } catch {
+    // Storage blocked: nothing was remembered.
+  }
+}
+
+/** Whether any roadmap has a stored draft. */
+function anyDrafts(): boolean {
+  try {
+    for (let i = 0; i < localStorage.length; i++) if (localStorage.key(i)?.startsWith(DRAFT_PREFIX)) return true;
+  } catch {
+    // Storage blocked: there are no drafts.
+  }
+  return false;
+}
+
+/** The stored draft of the roadmap on screen (key → its JSON, parsed when it parses), or null. */
+function storedDraft(): Record<string, unknown> | null {
+  const key = shownDraft;
+  if (key === null) return null;
+  let raw: string | null;
+  try {
+    raw = localStorage.getItem(key);
+  } catch {
+    return null; // storage blocked: no draft to offer
+  }
+  if (raw === null) return null;
+  try {
+    return { [key]: JSON.parse(raw) };
+  } catch {
+    return { [key]: raw };
+  }
+}
+
+/** "acme/roadmap" from `boxops-draft:acme/roadmap@main`. */
+const draftRepo = (key: string) => key.slice(DRAFT_PREFIX.length).split("@")[0];
 
 function crashedRecently(): boolean {
   try {
@@ -41,8 +71,8 @@ function crashedRecently(): boolean {
 
 const two = (n: number) => String(n).padStart(2, "0");
 
-function downloadDrafts(): void {
-  const json = JSON.stringify(storedDrafts(), null, 2);
+function downloadDraft(): void {
+  const json = JSON.stringify(storedDraft() ?? {}, null, 2);
   const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
   const d = new Date();
   const a = document.createElement("a");
@@ -52,9 +82,9 @@ function downloadDrafts(): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function discardDrafts(): void {
+function discardDraft(): void {
   try {
-    for (const key of Object.keys(storedDrafts())) localStorage.removeItem(key);
+    if (shownDraft !== null) localStorage.removeItem(shownDraft);
   } catch {
     // Nothing more to do: reload anyway.
   }
@@ -85,21 +115,21 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   render(): ReactNode {
     const { error, again } = this.state;
     if (!error) return this.props.children;
-    const drafts = Object.keys(storedDrafts()).length > 0;
+    const draft = shownDraft !== null && storedDraft() ? draftRepo(shownDraft) : null;
     return (
       <div className="crash" role="alert">
         <h1>Something went wrong</h1>
         <p>BoxOps hit a problem it couldn’t recover from:</p>
         <pre className="crash-message">{error.message || error.name}</pre>
-        {again && drafts ? (
+        {again && draft ? (
           <>
             <p>
-              It happened again after reloading. Your unsaved changes, kept in this browser, may be what trips it up.
-              Download a copy of them (a JSON file), then discard them to start from the saved roadmap.
+              It happened again after reloading. Your unsaved changes to {draft}, kept in this browser, may be what trips
+              it up. Download a copy of them (a JSON file), then discard them to start from the saved roadmap.
             </p>
             <div className="crash-actions">
-              <button onClick={downloadDrafts}>Download unsaved changes</button>
-              <button className="danger-text" onClick={discardDrafts}>
+              <button onClick={downloadDraft}>Download unsaved changes</button>
+              <button className="danger-text" onClick={discardDraft}>
                 Discard unsaved changes and reload
               </button>
               <button className="primary" onClick={() => location.reload()}>
@@ -109,7 +139,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
           </>
         ) : (
           <>
-            {drafts && <p>Your unsaved changes are kept in this browser.</p>}
+            {anyDrafts() && <p>Your unsaved changes are kept in this browser.</p>}
             <div className="crash-actions">
               <button className="primary" onClick={() => location.reload()}>
                 Reload

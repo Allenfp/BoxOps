@@ -214,7 +214,8 @@ function tagOf(id: string): string {
   return /^bx-([0-9a-f]{4})-/.exec(id)?.[1] ?? randomTag();
 }
 
-const storageKey = (scope: string) => `boxops-draft:${scope}`;
+/** Where a roadmap's draft is kept in localStorage; `scope` is `owner/repo@branch`. */
+export const draftKey = (scope: string) => `boxops-draft:${scope}`;
 
 interface Stored {
   baseHash: string;
@@ -229,7 +230,7 @@ interface Stored {
 /** The saved draft, carried onto `base` if someone saved since it was written. */
 function readStored(scope: string, baseHash: string, base: DraftState): { draft: DraftState; conflicts: string[] } | null {
   try {
-    const raw = localStorage.getItem(storageKey(scope));
+    const raw = localStorage.getItem(draftKey(scope));
     if (!raw) return null;
     const saved = JSON.parse(raw) as Stored;
     if (!Array.isArray(saved.boxes)) return null;
@@ -256,8 +257,8 @@ function readStored(scope: string, baseHash: string, base: DraftState): { draft:
 
 function writeStored(scope: string, baseHash: string, base: DraftState, draft: DraftState | null): void {
   try {
-    if (draft === null) localStorage.removeItem(storageKey(scope));
-    else localStorage.setItem(storageKey(scope), JSON.stringify({ baseHash, base, ...draft } satisfies Stored));
+    if (draft === null) localStorage.removeItem(draftKey(scope));
+    else localStorage.setItem(draftKey(scope), JSON.stringify({ baseHash, base, ...draft } satisfies Stored));
   } catch {
     // Private browsing or full storage: the draft just won't survive a refresh.
   }

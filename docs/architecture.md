@@ -277,7 +277,9 @@ against data the new code wrote.
 - **Errors.** An error boundary around the app shows a recovery screen with
   Reload instead of a blank page. A second crash in a row (a stored draft can
   make every reload crash) also offers to download the unsaved changes as
-  JSON and discard them.
+  JSON and discard them: only the roadmap on screen's, since project sites on
+  `<owner>.github.io` share one `localStorage`. A crash counts as the same one
+  again within 5 minutes, unless the app ran for a few seconds in between.
 
 ## Timeline layout
 

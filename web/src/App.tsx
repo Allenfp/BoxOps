@@ -21,7 +21,7 @@ import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
-import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
+import { type DraftState, diffBoxes, draftKey, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
@@ -32,6 +32,7 @@ import { commitMessage, describeChanges } from "./model/summary";
 import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types";
 import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
+import { noteDraft, runningFine } from "./components/ErrorBoundary";
 import { LoadProblem, PreviewToken, liveUrl } from "./components/LoadScreen";
 import { SiteError, fetchBundle, isNewerApp, movesForward, reloadApp } from "./site";
 
@@ -482,7 +483,15 @@ function RoadmapView(props: ViewProps) {
     () => ({ boxes: base.boxes, departments: base.departments, people: base.people, settings: base.settings }),
     [base],
   );
-  const draft = useDraft(draftBase, `${source.repo}@${source.branch}`, baseHash);
+  const scope = `${source.repo}@${source.branch}`;
+  // Should anything below crash, the recovery screen offers this draft (and no other roadmap's).
+  noteDraft(draftKey(scope));
+  const draft = useDraft(draftBase, scope, baseHash);
+  // Up and running a few seconds: a crash after this isn't "the same one again" (ErrorBoundary).
+  useEffect(() => {
+    const t = setTimeout(runningFine, 5000);
+    return () => clearTimeout(t);
+  }, []);
   const draftState: DraftState = useMemo(
     () => ({ boxes: draft.boxes, departments: draft.departments, people: draft.people, settings: draft.settings }),
     [draft.boxes, draft.departments, draft.people, draft.settings],
