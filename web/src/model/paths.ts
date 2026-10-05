@@ -1,6 +1,14 @@
 // Which files in a roadmap folder are roadmap files. One rule for the loader,
-// the build, the command-line tools and (later) the app's reader from GitHub,
-// so they all read the same files and report the same ones as unexpected.
+// the build, the command-line tools and the app's reader from GitHub
+// (github/read.ts), so they all read the same files and report the same ones
+// as unexpected.
+
+/** How big a roadmap folder may be, for every reader: files listed (hidden ones aside), bytes per roadmap file, bytes in all. */
+export const READ_LIMITS: Readonly<{ files: number; fileBytes: number; totalBytes: number }> = {
+  files: 20_000,
+  fileBytes: 1024 * 1024,
+  totalBytes: 64 * 1024 * 1024,
+};
 
 /** departments/<id>.yaml, also .yml; never a hidden name or a subfolder. */
 export const DEPARTMENT_PATH = /^departments\/[^./][^/]*\.ya?ml$/;

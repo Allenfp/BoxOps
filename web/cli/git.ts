@@ -21,11 +21,11 @@ import { closeSync, constants, fstatSync, lstatSync, openSync, readdirSync, read
 import { join } from "node:path";
 import { gitBlobSha } from "../src/github/git-objects.ts";
 import type { RoadmapFolder } from "../src/model/bundle.ts";
-import { isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
+import { READ_LIMITS, isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
 import type { RoadmapFiles } from "../src/model/types.ts";
 
-/** Changeable only so tests can reach them. */
-export const LIMITS = { files: 20_000, fileBytes: 1024 * 1024, totalBytes: 64 * 1024 * 1024 };
+/** READ_LIMITS, changeable only so tests can reach them. */
+export const LIMITS = { ...READ_LIMITS };
 
 export interface ReadProblem {
   /** Relative to the roadmap folder; "" for the folder itself. */
