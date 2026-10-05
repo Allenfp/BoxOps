@@ -39,7 +39,8 @@ web/
                             conflicts, retries), messages (errors in words),
                             git-objects (git blob and tree SHAs, base64)
   cli/                      Node-only: git.ts (reads a roadmap folder from git
-                            objects or from disk), site.ts (builds roadmap.json)
+                            objects or from disk), site.ts (builds roadmap.json),
+                            csp.ts (the built page's Content-Security-Policy)
   scripts/                  validate.ts, report.ts (command-line checks; an
                             optional argument names another roadmap folder),
                             gen-roadmap.ts (synthetic roadmaps of any size)
@@ -398,7 +399,8 @@ against data the new code wrote.
   headers), straight after `<meta charset>` and before anything it governs:
   `default-src 'none'`; scripts and styles only from the site,
   plus the two inline scripts by their SHA-256 hashes (computed by
-  `vite.config.ts` from the built page); `connect-src` the site,
+  `cli/csp.ts` from the built page, over the text as a browser hashes it,
+  CRLF line ends read as LF); `connect-src` the site,
   `api.github.com` and `raw.githubusercontent.com`; images from the site and
   `data:`; no base URL, forms or plugins. React's style props go through the
   CSSOM, which the policy doesn't govern. The dev server has no CSP.

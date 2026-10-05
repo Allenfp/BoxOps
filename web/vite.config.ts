@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
 import { relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import { withContentSecurityPolicy } from "./cli/csp.ts";
 import { appInfo, buildBundle, findRepo } from "./cli/site.ts";
 
 const WEB_DIR = fileURLToPath(new URL(".", import.meta.url));
@@ -75,41 +75,12 @@ function roadmapData(): Plugin {
   };
 }
 
-/**
- * The built page's Content-Security-Policy, as a meta tag (Pages can't send
- * headers): scripts and styles only from the site, except index.html's inline
- * scripts, allowed by their hashes; network calls only to the site, the
- * GitHub API and raw.githubusercontent.com (anonymous reads of a public
- * repository). React's style props go through the CSSOM, which style-src
- * doesn't govern. Not in dev, whose server injects scripts and a websocket.
- * It goes straight after <meta charset>, which must stay in the first 1024
- * bytes, and before anything it governs.
- */
+/** The built page's Content-Security-Policy (cli/csp.ts). Not in dev, whose server injects scripts and a websocket. */
 function contentSecurityPolicy(): Plugin {
   return {
     name: "boxops-csp",
     apply: "build",
-    transformIndexHtml: {
-      order: "post",
-      handler(html) {
-        const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
-          (m) => `'sha256-${createHash("sha256").update(m[1]).digest("base64")}'`,
-        );
-        const policy = [
-          "default-src 'none'",
-          `script-src 'self' ${inline.join(" ")}`.trim(),
-          "style-src 'self'",
-          "img-src 'self' data:",
-          "connect-src 'self' https://api.github.com https://raw.githubusercontent.com",
-          "base-uri 'none'",
-          "form-action 'none'",
-          "object-src 'none'",
-        ].join("; ");
-        const charset = /<meta charset="[^"]*"\s*\/?>/i;
-        if (!charset.test(html)) throw new Error("index.html has no <meta charset> to put the Content-Security-Policy after.");
-        return html.replace(charset, (tag) => `${tag}\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`);
-      },
-    },
+    transformIndexHtml: { order: "post", handler: withContentSecurityPolicy },
   };
 }
 

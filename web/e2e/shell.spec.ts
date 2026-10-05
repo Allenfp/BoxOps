@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { withContentSecurityPolicy } from "../cli/csp";
 import { FakeGitHub, REPO, TOKEN } from "./fake-github";
 import { DAGSTER, TODAY, dragDays, expect, test, toolbar } from "./helpers";
 
@@ -83,6 +84,13 @@ test("the built page enforces a strict Content-Security-Policy, and tests catch 
   await expect.poll(() => csp.length).toBe(1);
   expect(csp[0]).toContain("connect-src blocked https://example.com/collect");
   csp.length = 0; // expected here; any other test with a violation fails
+});
+
+test("an index.html with CRLF line ends (a Windows checkout) still runs its inline scripts under the policy", async ({ page, csp: _ }) => {
+  const html = withContentSecurityPolicy('<!doctype html>\r\n<html>\r\n<head>\r\n<meta charset="UTF-8" />\r\n<script>\r\n  window.ran = true;\r\n</script>\r\n</head>\r\n</html>\r\n');
+  await page.route("**/crlf.html", (route) => route.fulfill({ contentType: "text/html", body: html }));
+  await page.goto("./crlf.html");
+  expect(await page.evaluate(() => (window as unknown as { ran?: boolean }).ran)).toBe(true);
 });
 
 test("the theme is applied before the app's JavaScript runs", async ({ page, github: _ }) => {
