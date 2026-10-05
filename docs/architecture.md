@@ -116,14 +116,19 @@ yours but are flagged as clashes.
   doesn't support TypeScript 7 yet.) A deliberate exception is a
   `// eslint-disable-next-line <rule> -- <reason>` comment, which oxlint
   honours; one that no longer hides anything is an error.
-- **CI.** `checks` (`validate.yml`) runs validation, unit tests, the build and
-  the browser tests on every branch push and pull request. The Pages deploy
-  (`pages.yml`) runs lint, the type check, validation, unit tests and the
-  build on every push to `main`. It runs the browser tests too, before
-  deploying, unless nothing outside `roadmap/` has changed since the commit
-  the live site was built from (its `roadmap.json` says which), so saves from
-  the app go live quickly and an app change whose run failed or was cancelled
-  is still tested before it goes out. If that commit can't be read, the
-  browser tests run. Deploys run one at a time and are never cancelled midway;
-  a burst of saves deploys at most twice. Jobs get only the permissions they
-  need, and actions are pinned to commits.
+- **CI.** `CI` (`ci.yml`) runs lint, the type check, the unit tests (again
+  with `TZ=America/Los_Angeles` and with `TZ=Pacific/Kiritimati`, UTC−8/−7
+  and UTC+14, so nothing depends on the runner's time zone), validation, the
+  build and the browser tests on every pull request and every push to a branch
+  other than `main`, whatever it changes. A pull request from a branch of this
+  repo is covered by that branch's push run, so only pull requests from forks
+  run it again.
+- **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
+  validation, unit tests and the build on every push to `main`. It runs the
+  browser tests too, before deploying, unless nothing outside `roadmap/` has
+  changed since the commit the live site was built from (its `roadmap.json` says
+  which), so saves from the app go live quickly and an app change whose run
+  failed or was cancelled is still tested before it goes out. If that commit
+  can't be read, the browser tests run. Deploys run one at a time and are never
+  cancelled midway; a burst of saves deploys at most twice. Jobs get only the
+  permissions they need, and actions are pinned to commits.
