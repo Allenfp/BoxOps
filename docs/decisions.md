@@ -21,12 +21,3 @@ replaced an earlier one.
 | Box codes (2026-10-03) | Every box has a 3-character code, unique and permanent, shown with its department's code: `DE-A1F`. The prefix follows the department when a box moves. Files store only the 3 characters. | Short, speakable references. A department code change relabels its boxes without rewriting their files. |
 | Rules between boxes (2026-10-03) | Boxes can be related: finishes before, starts after, happens during, starts/ends when, runs at the same time as, doesn't overlap. A broken rule shows a popup, red marks and a toolbar list, and never blocks anything. | Dependencies are guidance for planning, like capacity. Plans are sometimes knowingly out of order. |
 | Repo scope (2026-10-03) | The repo contains only the roadmap. The earlier Python knowledge-coverage tool (`src/`, `config/`) was removed; it's in history before commit `3d9b821`. | Keep the repo focused. |
-
-## Not built yet
-
-- A Changes panel listing each unsaved edit with per-item discard.
-- Milestones (single-date markers), and arrows drawing rules on the timeline.
-- Filters by type, status, tag or engineer; PNG/PDF export.
-- Comparing against a past commit to show schedule slip.
-- A sign-in button (OAuth proxy) instead of pasting a token.
-- Saving for people without write access (fork and pull request).
