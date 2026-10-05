@@ -248,7 +248,8 @@ export function Timeline(props: Props) {
 
   // ---- Keyboard ---------------------------------------------------------------
   // The timeline is a grid: one Tab stop, the arrow keys between cells
-  // (useGridFocus.ts). Enter opens a box or PTO block.
+  // (useGridFocus.ts). On a box or PTO block, Enter opens it, Space picks it
+  // up to move it (below), Delete deletes it; N adds one in the row.
 
   const gridRef = useRef<HTMLDivElement>(null);
   /** What's said about a focused cell beyond its name: a box's lane, scale, progress and warnings; a chart's overloads. */
@@ -331,8 +332,8 @@ export function Timeline(props: Props) {
     } else if (kind === "dept" && e.altKey) {
       // Alt+↑ or Alt+↓ on a heading moves the department; focus stays on it.
       const order = latest.current.props.roadmap.departments;
-      const move = readOnly ? undefined : props.onMoveDepartment;
-      if (reorderByKey(e, order, id, move, readOnlyWhy) !== null) grid.keep(`dept:${id}`);
+      const place = readOnly ? undefined : props.onMoveDepartment;
+      if (reorderByKey(e, order, id, place, readOnlyWhy) !== null) grid.keep(`dept:${id}`);
     } else if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
       props.onShowShortcuts?.();
