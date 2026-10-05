@@ -60,7 +60,7 @@ test("density, PTO rows, finished boxes, zoom and the opening view", async ({ pa
   const comfortable = await laneHeight();
   await openMenu(page);
   await menu(page).getByRole("group", { name: "Density" }).getByRole("button", { name: "Compact" }).click();
-  expect(await laneHeight()).toBeLessThan(comfortable);
+  await expect.poll(laneHeight).toBeLessThan(comfortable);
 
   await expect(page.locator(".pto-row")).not.toHaveCount(0);
   await toggle(page, "Show PTO rows").click();
@@ -123,8 +123,18 @@ test("team settings are a change like any other, saved to settings.yaml for ever
 
   await expect(page.locator(".box-table, .timeline")).toBeVisible();
   await expect(toolbar(page)).toContainText("Save · 1 change");
-  await page.keyboard.press("Meta+z");
-  await page.keyboard.press("Meta+Shift+z");
+  // Undo takes back the last edit (the new flag's name), and redo puts it back.
+  const lastFlag = async () => {
+    await openMenu(page);
+    await menu(page).getByRole("button", { name: "Team settings…" }).click();
+    const name = await dialog.getByLabel(/^Flag \d name$/).last().inputValue();
+    await dialog.getByRole("button", { name: "Done" }).click();
+    return name;
+  };
+  await page.keyboard.press("ControlOrMeta+z");
+  expect(await lastFlag()).toBe("New flag");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  expect(await lastFlag()).toBe("Needs review");
 
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");

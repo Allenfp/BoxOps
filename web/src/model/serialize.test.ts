@@ -248,11 +248,8 @@ statuses:
         ...r.settings,
         fiscal_year_start_month: 2,
         types: [...r.settings.types.map((t) => (t.id === "project" ? { ...t, name: "Feature" } : t)), { id: "ops", name: "Ops", color: "#8a94a6" }],
-        statuses: [],
       },
     };
-    // Statuses can't be emptied from the app, but an empty list must not crash the writer.
-    d.settings.statuses = r.settings.statuses;
     const out = serializeChanges(files, b, d)["settings.yaml"]!;
     expect(out).toContain("# Global roadmap settings.");
     expect(out).toContain("fiscal_year_start_month: 2 # calendar quarters");
@@ -262,6 +259,14 @@ statuses:
     expect(describeChanges(b, d).map((l) => l.text)).toEqual([
       "Team settings: fiscal year starts in February (was January); renamed type Project to Feature; added type Ops",
     ]);
+  });
+
+  it("writes an emptied flag list as no list: the file then has the default flags", () => {
+    // The app always keeps one flag, but the writer takes an empty list: as when the file has no `statuses:`.
+    const out = serializeChanges(files, b, { ...b, settings: { ...r.settings, statuses: [] } })["settings.yaml"]!;
+    expect(out).not.toContain("statuses");
+    expect(out).toContain("types:\n  - id: project\n");
+    expect(loadRoadmap({ "settings.yaml": out }).roadmap.settings.statuses).toEqual(DEFAULT_SETTINGS.statuses);
   });
 
   it("is untouched when settings don't change", () => {

@@ -43,7 +43,7 @@ test("records a manager and wrapping notes", async ({ page, github }) => {
   await page.keyboard.press("Shift+Enter");
   await page.keyboard.type("Prefers async updates.");
   await page.keyboard.press("Enter");
-  expect((await notes.boundingBox())!.height).toBeGreaterThan(40); // wrapped onto several lines
+  await expect.poll(async () => (await notes.boundingBox())!.height).toBeGreaterThan(40); // wrapped onto several lines
 
   await page.locator(".table-search").fill("dana");
   await expect(page.locator('input[aria-label="Name"]')).toHaveCount(1);

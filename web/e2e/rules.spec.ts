@@ -103,16 +103,20 @@ test("a broken rule warns (popup, marks, list) but blocks nothing", async ({ pag
 });
 
 test("removing a rule from the other box, and deleting a box, clean up rules", async ({ page, github }) => {
-  for (const other of ["C4P", "W1M"]) {
+  const own = (dialog: Locator) => dialog.locator(".rule-list li:not(.incoming)");
+  for (const [n, other] of [[1, "C4P"], [2, "W1M"]] as const) {
     const dialog = await editorFor(page, DAGSTER);
     await showRules(dialog);
     await dialog.getByLabel("New rule").selectOption("overlaps");
     await dialog.getByLabel("Add a rule with").selectOption(other);
+    await expect(own(dialog)).toHaveCount(n);
     await page.keyboard.press("Escape");
   }
   // Remove the CDC rule from CDC's side.
   const dialog = await editorFor(page, CDC);
   await dialog.getByRole("button", { name: "Remove rule set on DE-D9U" }).click();
+  await page.keyboard.press("Escape");
+  await expect(own(await editorFor(page, DAGSTER))).toHaveCount(1); // the warehouse one is left
   await page.keyboard.press("Escape");
   // Delete the warehouse box: Dagster's rule pointing at it goes too.
   await box(page, "bx-a1f0-warehouse-migration").locator(".box-name").click();
@@ -121,6 +125,7 @@ test("removing a rule from the other box, and deleting a box, clean up rules", a
   await save(page);
   await expect(toolbar(page)).toContainText("No changes");
   expect(github.file(boxFile(DAGSTER))).not.toContain("relations");
+  expect(github.file(boxFile("bx-a1f0-warehouse-migration"))).toBeUndefined();
 });
 
 test("a rule someone else's save breaks is listed, without the popup meant for your own edits", async ({ page, github }) => {
