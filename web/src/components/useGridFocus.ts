@@ -12,7 +12,9 @@
 // nothing; Chromium fires a blur), so after each render focus that was in
 // the grid goes back to the same cell, or else its neighbour. And focus is
 // never left under the sticky header or label column (WCAG 2.4.11), nor
-// under the broken-rule popup: the timeline scrolls to show it.
+// under the broken-rule popup: the timeline scrolls to show it. Focus that
+// follows a press (on a box about to be dragged, or put back after a drop)
+// is the pointer's: it scrolls nothing and shows no ring (focusByPress).
 
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 import { focusLost } from "../a11y/focus";
@@ -21,6 +23,15 @@ import { type NavKey, navigate } from "../timeline/keyboard";
 
 /** The cell that last had focus, kept across view switches: coming back to the timeline, Tab goes to it again. */
 let remembered: string | null = null;
+/** A pointer was pressed in the grid since the last key. */
+let pressed = false;
+
+/**
+ * Focus in the timeline now comes from a pointer pressed in it, not the
+ * keyboard: no ring, no scale card. Browsers draw a ring (:focus-visible)
+ * whenever a script moves focus, so it's told by the last input instead.
+ */
+export const focusByPress = (): boolean => pressed;
 
 /** Room (px) kept around a cell scrolled into view. */
 const MARGIN = 8;
@@ -101,8 +112,6 @@ export function useGridFocus(
   const anchor = useRef<Day | null>(null);
   /** The focus move under way is up or down: the anchor stays. */
   const vertical = useRef(false);
-  /** Focus comes from a press (on a box about to be dragged, say): it's where the pointer is, so nothing scrolls. */
-  const pressed = useRef(false);
   /** A cell to put focus back on after the next render (keep). */
   const kept = useRef<string | null>(null);
 
@@ -185,7 +194,8 @@ export function useGridFocus(
 
   const focus = (el: HTMLElement) => {
     describe(el);
-    el.focus({ preventScroll: true }); // focusin (below) shows it
+    // focusin (below) shows it. Put back after a drop, it's still the pointer's: no ring.
+    el.focus({ preventScroll: true, focusVisible: pressed ? false : undefined });
   };
 
   useEffect(() => {
@@ -202,7 +212,8 @@ export function useGridFocus(
       // Focused by Tab or a click: said with its details too.
       if (!el.hasAttribute("aria-describedby")) describe(el);
       if (el.dataset.start !== undefined && !vertical.current) anchor.current = dayOf(el);
-      if (!pressed.current) reveal(el);
+      // From a press, it's where the pointer is: nothing scrolls.
+      if (!pressed) reveal(el);
     };
     const onOut = (e: FocusEvent) => {
       const from = e.target as HTMLElement;
@@ -211,8 +222,9 @@ export function useGridFocus(
       // Somewhere else on the page; going nowhere is told apart after the next render (below).
       if (to && !g.contains(to)) owns.current = false;
     };
-    const onPress = () => (pressed.current = true);
-    const onKey = () => (pressed.current = false);
+    pressed = false;
+    const onPress = () => (pressed = true);
+    const onKey = () => (pressed = false);
     g.addEventListener("focusin", onIn);
     g.addEventListener("focusout", onOut);
     g.addEventListener("pointerdown", onPress, true);

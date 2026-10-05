@@ -402,6 +402,16 @@ export function Timeline(props: Props) {
   // pointer goes (followPointer.ts). Everything moves in working days; a box
   // keeps its number of working days when moved.
 
+  /**
+   * Focus on what was pressed (it wouldn't take it otherwise, the press being kept from selecting
+   * text), without the keyboard's ring: browsers draw one when a script moves focus, unless told.
+   * One the keyboard had focused is focused again, so its ring (and its scale card) goes.
+   */
+  const focusPressed = (el: HTMLElement) => {
+    if (document.activeElement === el) el.blur();
+    el.focus({ preventScroll: true, focusVisible: false });
+  };
+
   /** Cancels the drag under way, if any: one at a time, and none left behind when the timeline goes. */
   const endDrag = useRef<(() => void) | null>(null);
   useEffect(() => () => endDrag.current?.(), []);
@@ -443,8 +453,7 @@ export function Timeline(props: Props) {
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>, box: Box) => {
     if (e.button !== 0 || endDrag.current) return;
-    // Focus on what was pressed (it wouldn't take it otherwise, the press being kept from selecting text).
-    e.currentTarget.focus({ preventScroll: true });
+    focusPressed(e.currentTarget);
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;
@@ -510,7 +519,7 @@ export function Timeline(props: Props) {
 
   const startPtoDrag = (e: ReactPointerEvent<HTMLDivElement>, ref: PtoRef, pto: TimeOff) => {
     if (e.button !== 0 || endDrag.current) return;
-    e.currentTarget.focus({ preventScroll: true });
+    focusPressed(e.currentTarget);
     e.preventDefault();
     const mode = ((e.target as HTMLElement).dataset.handle as DragMode | undefined) ?? "move";
     const x0 = e.clientX;

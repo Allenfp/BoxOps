@@ -9,6 +9,7 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { amount, boxScale, percent, scaleStats } from "../model/scale";
 import type { Box, Department } from "../model/types";
+import { focusByPress } from "./useGridFocus";
 
 const WIDTH = 300;
 /** How long (ms) the card waits after the pointer leaves the number, so it can reach the card. */
@@ -45,12 +46,13 @@ export function ScaleBadge({ box, departments, className }: Props) {
   };
   useEffect(() => () => clearTimeout(leaving.current), []);
 
-  // Keyboard focus on the box (or cell) it's in: shown while it lasts.
+  // Keyboard focus on the box (or cell) it's in: shown while it lasts. Not focus from pressing
+  // the box (to drag it, say), which browsers may well draw a ring for (:focus-visible) all the same.
   useEffect(() => {
     const host = ref.current?.closest<HTMLElement>("[data-cell]");
     if (!host) return;
     const onIn = (e: FocusEvent) => {
-      if (e.target !== host || !host.matches(":focus-visible")) return;
+      if (e.target !== host || focusByPress()) return;
       place();
       setFocused(true);
       setAway(false);

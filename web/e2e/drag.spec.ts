@@ -212,6 +212,72 @@ test("Escape cancels a drag, and doesn't also close an editor open beside it", a
   await expect(toolbar(page)).toContainText("No changes");
 });
 
+test("a box or PTO block pressed and dragged has focus, but not the keyboard's ring, nor the box its scale card", async ({ page, github }) => {
+  const card = page.getByRole("tooltip");
+  const ring = (l: Locator) => l.evaluate((el) => el.matches(":focus-visible"));
+  /** Released, and the pointer gone elsewhere. */
+  const release = async () => {
+    await page.mouse.up();
+    await page.mouse.move(1300, 850);
+    await page.waitForTimeout(300);
+  };
+  // Sideways: focus stays on it, with no ring and no card.
+  await hold(page, DAGSTER, -MONTH_PX * 5, 0);
+  await expect(card).toHaveCount(0);
+  await release();
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-07 – 2026-10-16");
+  await expect(box(page, DAGSTER)).toBeFocused();
+  expect(await ring(box(page, DAGSTER))).toBe(false);
+  await expect(card).toHaveCount(0);
+  // The keyboard's next cell has both; and back, so has the box.
+  await page.keyboard.press("ArrowRight");
+  await expect(box(page, CDC)).toBeFocused();
+  expect(await ring(box(page, CDC))).toBe(true);
+  await expect(card).toContainText("Scale");
+  await page.keyboard.press("ArrowLeft");
+  await expect(box(page, DAGSTER)).toBeFocused();
+  expect(await ring(box(page, DAGSTER))).toBe(true);
+  await expect(card).toContainText("Scale 30");
+  // Pressed, both go.
+  await hold(page, DAGSTER, MONTH_PX * 5, 0);
+  await expect(card).toHaveCount(0);
+  expect(await ring(box(page, DAGSTER))).toBe(false);
+  await release();
+  await expect(box(page, DAGSTER)).toBeFocused();
+  expect(await ring(box(page, DAGSTER))).toBe(false);
+  await expect(card).toHaveCount(0);
+
+  // A 2-FTE box dragged down a lane is drawn in another row, a new element: focus is put back on it, still with neither.
+  await twoFteDashboards(page, github);
+  const before = await box(page, DASHBOARDS).elementHandle();
+  await hold(page, DASHBOARDS, 0, 44);
+  await release();
+  await expect(page.locator(`[data-row="lane:an-2"] [data-box-id="${DASHBOARDS}"]`)).toHaveCount(1);
+  expect(await before!.evaluate((el) => el.isConnected)).toBe(false);
+  await expect(box(page, DASHBOARDS)).toBeFocused();
+  expect(await ring(box(page, DASHBOARDS))).toBe(false);
+  await expect(card).toHaveCount(0);
+
+  // A PTO block, focused from the keyboard, then dragged.
+  await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+  await expect(page.getByRole("dialog", { name: /Edit PTO/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  const block = page.locator(".pto-block").first();
+  await expect(block).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowRight");
+  await expect(block).toBeFocused();
+  expect(await ring(block)).toBe(true);
+  const b = (await block.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + MONTH_PX * 5, b.y + b.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await expect(block).toHaveAttribute("title", /2026-10-12 – 2026-10-16/);
+  await expect(block).toBeFocused();
+  expect(await ring(block)).toBe(false);
+});
+
 const scrollLeft = (page: Page) => page.evaluate(() => document.querySelector(".timeline")!.scrollLeft);
 
 test("scrolling mid-drag carries the box along, and near an edge the timeline scrolls by itself", async ({ page, github: _ }) => {

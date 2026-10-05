@@ -576,13 +576,16 @@ when a focused element is removed.
   engineer on PTO then), only the last of a key held down; others' saves
   wait meanwhile, and Alt+← and Alt+→ are never the browser's Back and
   Forward, on any cell (on a box not picked up, they say to pick it up
-  first). While
-  the timeline is read-only (a preview, or saving), its cells stay, as
-  text or `aria-disabled` buttons, and keys that would change something
-  say why they don't. The dates along the top, grid lines, hatching and
-  drag labels are hidden from screen readers. A box's scale card shows on
-  hover and while the box has keyboard focus; the pointer can move onto it
-  and Escape puts it away (WCAG 1.4.13).
+  first). While the timeline is read-only (a preview, or saving), its cells
+  stay, as text or `aria-disabled` buttons, and keys that would change
+  something say why they don't. The dates along the top, grid lines,
+  hatching and drag labels are hidden from screen readers. A box's scale
+  card shows on hover and while the box has keyboard focus; the pointer
+  can move onto it and Escape puts it away (WCAG 1.4.13). Pressing a box or
+  PTO block (to drag it, say) focuses it without the keyboard's ring or
+  the card, and so does putting focus back on it after a drop: browsers
+  draw a ring whenever a script moves focus, so it's told by whether a key
+  or a press came last (`focusByPress`).
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to

@@ -137,7 +137,7 @@ test("Enter opens a box or PTO block, and closing puts focus back on it; so does
   await expect(page.getByRole("dialog", { name: "Edit CDC pipeline for orders DB" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(box(page, CDC)).toBeFocused();
-  // A click opens it too; afterwards focus is on the box, without a ring.
+  // A click opens it too; afterwards focus is on the box.
   await box(page, DAGSTER).click({ position: { x: 20, y: 10 } });
   await expect(editor).toBeVisible();
   await page.keyboard.press("Escape");
