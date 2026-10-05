@@ -70,8 +70,12 @@ export function BoxEditor(props: Props) {
     if (!same(linksText, /\n/, box.links)) setLinksText((box.links ?? []).join("\n"));
   }
 
-  // Closed (or gone some other way: saved, undone, someone else's save): focus goes back to the box.
-  useReturnFocus(ref, (opener) => document.querySelector(`[data-box-id="${CSS.escape(box.id)}"]`) ?? onPage(opener) ?? main());
+  // Closed (or gone some other way: saved, undone, someone else's save): focus goes back to the
+  // box. Not after a click elsewhere, which is where the user went (focus going back would scroll).
+  const clickedAway = useRef(false);
+  useReturnFocus(ref, (opener) =>
+    clickedAway.current ? null : (document.querySelector(`[data-box-id="${CSS.escape(box.id)}"]`) ?? onPage(opener) ?? main()),
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -80,7 +84,10 @@ export function BoxEditor(props: Props) {
     const onDown = (e: PointerEvent) => {
       const t = e.target as HTMLElement;
       // Clicking another box re-targets the editor instead of closing it.
-      if (!ref.current?.contains(t) && !t.closest("[data-box-id]")) onClose();
+      if (!ref.current?.contains(t) && !t.closest("[data-box-id]")) {
+        clickedAway.current = true;
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onDown, true);

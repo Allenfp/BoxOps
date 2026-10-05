@@ -32,8 +32,12 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
   const key = ptoKey(target);
   const pos = useAnchor(ref, `[data-pto-key="${CSS.escape(key)}"]`, WIDTH, [key, pto]);
 
-  // Closed (or gone some other way): focus goes back to the PTO block.
-  useReturnFocus(ref, (opener) => document.querySelector(`[data-pto-key="${CSS.escape(key)}"]`) ?? onPage(opener) ?? main());
+  // Closed (or gone some other way): focus goes back to the PTO block. Not after a click
+  // elsewhere, which is where the user went (focus going back would scroll).
+  const clickedAway = useRef(false);
+  useReturnFocus(ref, (opener) =>
+    clickedAway.current ? null : (document.querySelector(`[data-pto-key="${CSS.escape(key)}"]`) ?? onPage(opener) ?? main()),
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -42,7 +46,10 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
     const onDown = (e: PointerEvent) => {
       const t = e.target as HTMLElement;
       // Clicking another PTO block re-targets the editor instead of closing it.
-      if (!ref.current?.contains(t) && !t.closest("[data-pto-key]")) onClose();
+      if (!ref.current?.contains(t) && !t.closest("[data-pto-key]")) {
+        clickedAway.current = true;
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onDown, true);

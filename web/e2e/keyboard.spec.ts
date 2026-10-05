@@ -72,6 +72,14 @@ test("the box editor keeps Tab inside, and Escape puts focus back on the box", a
   await expect(box(page, DAGSTER)).toBeFocused();
 });
 
+test("a click away from the box editor closes it and leaves focus where the click put it", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  await page.locator(".tl-corner").click();
+  await expect(page.getByRole("dialog", { name: /^Edit / })).toHaveCount(0);
+  await page.waitForTimeout(100); // past the frame focus would have been put back in
+  await expect(box(page, DAGSTER)).not.toBeFocused();
+});
+
 test("the PTO editor starts on whose time off it is, and Escape puts focus back on the block", async ({ page, github: _ }) => {
   const add = page.getByRole("button", { name: "Add PTO in Data Engineering" });
   await add.focus();
