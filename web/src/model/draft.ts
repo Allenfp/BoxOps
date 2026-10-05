@@ -178,7 +178,8 @@ function mergeById<T extends { id: string }>(
 /**
  * Move a draft onto a newer roadmap (someone else saved). Their changes come in
  * for everything we haven't touched; our edits stay. Items both of us changed
- * keep our version and are reported, so the user decides before saving.
+ * keep our version and are reported, so the user decides before saving. Then
+ * what the merge left pointing at nothing is put right (see repair).
  */
 export function rebaseDraft(oldBase: DraftState, draft: DraftState, newBase: DraftState) {
   const conflicts: string[] = [];
@@ -186,15 +187,94 @@ export function rebaseDraft(oldBase: DraftState, draft: DraftState, newBase: Dra
   const oursSettings = !same(oldBase.settings, draft.settings);
   const theirsSettings = !same(oldBase.settings, newBase.settings);
   if (oursSettings && theirsSettings && !same(draft.settings, newBase.settings)) conflicts.push(SETTINGS_KEY);
-  return {
-    draft: {
-      boxes: mergeById(oldBase.boxes, draft.boxes, newBase.boxes, "box", conflicts),
-      departments: mergeById(oldBase.departments, draft.departments, newBase.departments, "dept", conflicts),
-      people: mergeById(oldBase.people, draft.people, newBase.people, "person", conflicts),
-      settings: oursSettings ? draft.settings : newBase.settings,
-    },
-    conflicts,
+  const merged = {
+    boxes: mergeById(oldBase.boxes, draft.boxes, newBase.boxes, "box", conflicts),
+    // In the order they're shown: ours may have moved one their list has where it was.
+    departments: departmentOrder(mergeById(oldBase.departments, draft.departments, newBase.departments, "dept", conflicts)),
+    people: mergeById(oldBase.people, draft.people, newBase.people, "person", conflicts),
+    settings: oursSettings ? draft.settings : newBase.settings,
   };
+  return { draft: repair(merged, [oldBase, draft, newBase], draft, oldBase, newBase, conflicts), conflicts };
+}
+
+/**
+ * What a merge can leave pointing at nothing, when one side deleted what the
+ * other still used, put right in `merged`:
+ * - an engineer no longer on the roster comes off their boxes, and a rule
+ *   about a box that's gone is dropped: the deletion stands;
+ * - a box whose lane is gone moves to where that lane's other boxes went, else
+ *   to the first lane of its department, else to the first lane there is, and
+ *   clashes (added to `conflicts`), so the user sees it and can choose;
+ * - a box this tab added that has the same code as a new box of theirs takes
+ *   a fresh code, and this tab's own rules follow it (nobody else can know
+ *   the code of a box that was never saved).
+ * Only what one of `versions` had counts as gone: a reference that pointed at
+ * nothing in all of them is the files' own problem, left as it is.
+ */
+function repair(merged: DraftState, versions: DraftState[], draft: DraftState, oldBase: DraftState, newBase: DraftState, conflicts: string[]): DraftState {
+  const all = <T>(pick: (s: DraftState) => T[]) => versions.flatMap(pick);
+  const knownPeople = new Set(all((s) => s.people.map((p) => p.id)));
+  const people = new Set(merged.people.map((p) => p.id));
+  const knownLanes = new Set(all((s) => s.departments.flatMap((d) => d.lanes.map((l) => l.id))));
+  const lanes = new Set(merged.departments.flatMap((d) => d.lanes.map((l) => l.id)));
+
+  // Codes: a box nobody has saved yet gives way to a saved one with its code.
+  const saved = new Set([...oldBase.boxes, ...newBase.boxes].map((b) => b.id));
+  const theirs = new Map(newBase.boxes.map((b) => [b.code, b.id]));
+  const taken = new Set([...merged.boxes, ...newBase.boxes].map((b) => b.code));
+  const recoded = new Map<string, string>();
+  for (const b of merged.boxes) {
+    if (saved.has(b.id) || theirs.get(b.code) === undefined || theirs.get(b.code) === b.id) continue;
+    const code = newBoxCode(taken);
+    taken.add(code);
+    recoded.set(b.code, code);
+  }
+  // Our boxes: new, or changed from what we loaded.
+  const before = new Map(oldBase.boxes.map((b) => [b.id, b]));
+  const ours = new Set(draft.boxes.filter((b) => !sameOrBothMissing(before.get(b.id), b)).map((b) => b.id));
+  const knownCodes = new Set([...all((s) => s.boxes.map((b) => b.code)), ...recoded.values()]);
+  const codes = new Set(merged.boxes.map((b) => (saved.has(b.id) ? b.code : (recoded.get(b.code) ?? b.code))));
+
+  /** Where a box whose lane is gone goes. */
+  const laneFor = (b: Box): string | undefined => {
+    const went = new Set(
+      all((s) => s.boxes.filter((x) => x.lane === b.lane && x.id !== b.id).map((x) => x.id)).flatMap((id) => {
+        const lane = merged.boxes.find((x) => x.id === id)?.lane;
+        return lane !== undefined && lanes.has(lane) ? [lane] : [];
+      }),
+    );
+    if (went.size === 1) return [...went][0];
+    const deptId = versions.flatMap((s) => s.departments).find((d) => d.lanes.some((l) => l.id === b.lane))?.id;
+    const dept = merged.departments.find((d) => d.id === deptId && d.lanes.length);
+    return (dept ?? departmentOrder(merged.departments).find((d) => d.lanes.length))?.lanes[0]?.id;
+  };
+
+  let changed = false;
+  const boxes = merged.boxes.map((b) => {
+    let next = b;
+    if (!saved.has(b.id) && recoded.has(b.code)) next = { ...next, code: recoded.get(b.code)! };
+    // (Only lists: a stored draft from another build may hold anything, and isn't this pass's to judge.)
+    const engineers = Array.isArray(next.engineers) ? next.engineers : [];
+    if (engineers.some((e) => knownPeople.has(e) && !people.has(e))) {
+      next = { ...next, engineers: engineers.filter((e) => !knownPeople.has(e) || people.has(e)) };
+    }
+    const rules = Array.isArray(next.relations)
+      ? next.relations.map((r) => (ours.has(b.id) && recoded.has(r.box) ? { ...r, box: recoded.get(r.box)! } : r))
+      : undefined;
+    if (rules && rules.some((r, i) => r !== next.relations![i] || (knownCodes.has(r.box) && !codes.has(r.box)))) {
+      next = { ...next, relations: rules.filter((r) => !knownCodes.has(r.box) || codes.has(r.box)) };
+    }
+    if (knownLanes.has(b.lane) && !lanes.has(b.lane)) {
+      const lane = laneFor(b);
+      if (lane !== undefined) {
+        next = { ...next, lane };
+        conflicts.push(`box:${b.id}`);
+      }
+    }
+    if (next !== b) changed = true;
+    return next;
+  });
+  return changed ? { ...merged, boxes } : merged;
 }
 
 /** The conflict key for team settings. */

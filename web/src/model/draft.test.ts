@@ -8,6 +8,7 @@ import {
   diffDraft,
   fromSharedDraft,
   openDraft,
+  SETTINGS_KEY,
   rebaseDraft,
   reduceHistory,
   restoreDelta,
@@ -18,7 +19,7 @@ import {
 } from "./draft";
 import type { DeltaItem } from "./draftStore";
 import { addDepartment, moveDepartment, removeDepartment } from "./structure";
-import type { Box, Department } from "./types";
+import type { Box, Department, Person } from "./types";
 import { DEFAULT_SETTINGS } from "./load";
 import { describeChanges } from "./summary";
 
@@ -470,5 +471,104 @@ describe("departments added, removed and reordered", () => {
     // Lane 1 named what it showed anyway.
     const named = state([{ ...dept("a", 1), lanes: [{ id: "a-1", fte: 1, name: "FTE 1" }] }]);
     expect(describeChanges(base, named).map((l) => l.text)).toEqual(["Updated department **a**"]);
+  });
+});
+
+describe("merging people, team settings and deletions", () => {
+  const st = (boxes: Box[], people: Person[] = [], settings = DEFAULT_SETTINGS): DraftState => ({ boxes, departments: [], people, settings });
+  const ann = { id: "ann", name: "Ann" };
+  const bob = { id: "bob", name: "Bob" };
+
+  it("people merge one by one: each side's edits come in, and both editing one person clashes", () => {
+    const oldBase = st([], [ann, bob]);
+    const draft = st([], [{ ...ann, role: "Lead" }, bob]);
+    const r = rebaseDraft(oldBase, draft, st([], [ann, { ...bob, role: "Analyst" }]));
+    expect(r.conflicts).toEqual([]);
+    expect(r.draft.people).toEqual([{ ...ann, role: "Lead" }, { ...bob, role: "Analyst" }]);
+    const both = rebaseDraft(oldBase, draft, st([], [{ ...ann, role: "Manager" }, bob]));
+    expect(both.conflicts).toEqual(["person:ann"]);
+    expect(revertItems(both.draft, st([], [{ ...ann, role: "Manager" }, bob]), both.conflicts).people[0].role).toBe("Manager");
+  });
+
+  it("team settings are one item: a clash only when both changed them differently", () => {
+    const oldBase = st([]);
+    const ours = st([], [], { ...DEFAULT_SETTINGS, title: "Ours" });
+    expect(rebaseDraft(oldBase, ours, st([], [], { ...DEFAULT_SETTINGS, fiscal_year_start_month: 4 })).conflicts).toEqual([SETTINGS_KEY]);
+    expect(rebaseDraft(oldBase, ours, st([], [], { ...DEFAULT_SETTINGS, title: "Ours" })).conflicts).toEqual([]);
+    expect(rebaseDraft(oldBase, oldBase, st([], [], { ...DEFAULT_SETTINGS, title: "Theirs" })).draft.settings.title).toBe("Theirs");
+  });
+
+  it("we edit what they deleted: ours stays, as a clash; keep theirs deletes it", () => {
+    const newBase = st([box("b")]);
+    const r = rebaseDraft(st([box("a"), box("b")]), st([box("a", { title: "A mine" }), box("b")]), newBase);
+    expect(r.conflicts).toEqual(["box:a"]);
+    expect(r.draft.boxes.map((b) => b.id)).toEqual(["b", "a"]);
+    expect(revertItems(r.draft, newBase, r.conflicts).boxes.map((b) => b.id)).toEqual(["b"]);
+  });
+
+  it("we delete what they edited: it stays deleted, as a clash; keep theirs brings theirs back in its place", () => {
+    const newBase = st([box("a", { title: "A theirs" }), box("b")]);
+    const r = rebaseDraft(st([box("a"), box("b")]), st([box("b")]), newBase);
+    expect(r.conflicts).toEqual(["box:a"]);
+    expect(r.draft.boxes.map((b) => b.id)).toEqual(["b"]);
+    expect(revertItems(r.draft, newBase, r.conflicts).boxes.map((b) => [b.id, b.title])).toEqual([["a", "A theirs"], ["b", "b"]]);
+  });
+});
+
+describe("what a merge leaves pointing at nothing", () => {
+  const dept: Department = {
+    id: "eng",
+    code: "EN",
+    name: "Eng",
+    color: "#000000",
+    order: 1,
+    collapsed: false,
+    lanes: [
+      { id: "l1", fte: 1 },
+      { id: "l2", fte: 1 },
+    ],
+  };
+  const people: Person[] = [
+    { id: "sam", name: "Sam" },
+    { id: "ana", name: "Ana" },
+  ];
+  const st = (boxes: Box[], departments = [dept], who = people): DraftState => ({ boxes, departments, people: who, settings: DEFAULT_SETTINGS });
+
+  it("puts right what one side deleted and the other still used", () => {
+    const oldBase = st([box("a"), box("b", { lane: "l2" })]);
+    // We removed lane l2 (its box going to l1) and Ana, and deleted box a.
+    const draft = st([box("b", { lane: "l1" })], [{ ...dept, lanes: [dept.lanes[0]] }], [people[0]]);
+    // They added a box in l2, a box with Ana on it, and a rule about box a; one box already named people and boxes that never were.
+    const odd = box("f", { engineers: ["ghost"], relations: [{ type: "after", box: "ZZZ" }] });
+    const newBase = st([
+      box("a"),
+      box("b", { lane: "l2" }),
+      box("c", { lane: "l2" }),
+      box("d", { engineers: ["ana", "sam"] }),
+      box("e", { relations: [{ type: "before", box: "AXX" }] }),
+      odd,
+    ]);
+    const r = rebaseDraft(oldBase, draft, newBase);
+    const byId = Object.fromEntries(r.draft.boxes.map((b) => [b.id, b]));
+    expect(byId.c.lane).toBe("l1"); // where the lane's other box went…
+    expect(r.conflicts).toEqual(["box:c"]); // …and the user is asked about it
+    expect(byId.d.engineers).toEqual(["sam"]);
+    expect(byId.e.relations).toEqual([]);
+    expect(byId.f).toBe(odd); // the files' own problems, left as they are
+    expect(byId.a).toBeUndefined();
+  });
+
+  it("a box we added that has the code of one they added takes a fresh one, and our rules follow it", () => {
+    const oldBase = st([box("a")]);
+    const draft = st([box("a", { relations: [{ type: "before", box: "K7P" }] }), box("ours", { code: "K7P" })]);
+    const newBase = st([box("a"), box("theirs", { code: "K7P" }), box("other", { relations: [{ type: "during", box: "K7P" }] })]);
+    const r = rebaseDraft(oldBase, draft, newBase);
+    const byId = Object.fromEntries(r.draft.boxes.map((b) => [b.id, b]));
+    expect(byId.ours.code).not.toBe("K7P");
+    expect(byId.theirs.code).toBe("K7P");
+    expect(byId.a.relations).toEqual([{ type: "before", box: byId.ours.code }]);
+    expect(byId.other.relations).toEqual([{ type: "during", box: "K7P" }]); // theirs means their box
+    expect(new Set(r.draft.boxes.map((b) => b.code)).size).toBe(4);
+    expect(r.conflicts).toEqual([]);
   });
 });
