@@ -49,7 +49,10 @@ isn't UTF-8 text or is over 1 MiB. A roadmap file git has as executable (mode
 - Fields the app doesn't know about are kept untouched when the app edits a
   file, and so are comments. (A comment at the end of a line that starts a
   list, like `statuses: # flags`, moves to its own line above the list, and
-  the spacing before an end-of-line comment becomes one space.)
+  the spacing before an end-of-line comment becomes one space. A PTO entry
+  moved to dates that don't overlap where it was, or a rule pointed at
+  another box, is written as a new entry, without the old one's extra fields
+  and comments.)
 - `settings.yaml` says which version of this format the files use: see
   [Format versions](#format-versions).
 

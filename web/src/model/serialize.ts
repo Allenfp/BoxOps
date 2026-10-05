@@ -59,13 +59,21 @@ const SETTINGS_KEYS = ["format", "title", "fiscal_year_start_month", "default_zo
 interface ListSpec {
   keys: string[];
   byId?: boolean;
+  /** Without ids: whether an entry edited in the place of one that's gone is still that entry (else it's a new one). */
+  same?(was: Plain, now: Plain): boolean;
   lists?: Lists;
 }
 type Lists = Record<string, ListSpec>;
 
-const BOX_LISTS: Lists = { relations: { keys: ["type", "box"] } };
+// A rule is about its other box: one given another type is the same rule, one pointing elsewhere a new one.
+const BOX_LISTS: Lists = { relations: { keys: ["type", "box"], same: (was, now) => was.box === now.box } };
 const DEPT_LISTS: Lists = { lanes: { keys: LANE_KEYS, byId: true } };
-const PEOPLE_LISTS: Lists = { people: { keys: PERSON_KEYS, byId: true, lists: { pto: { keys: ["start", "end", "note"] } } } };
+// PTO moved or resized still overlaps where it was (dates are YYYY-MM-DD here, so compare as text), or keeps its note.
+const PTO: ListSpec = {
+  keys: ["start", "end", "note"],
+  same: (was, now) => (String(was.start) <= String(now.end) && String(now.start) <= String(was.end)) || (!!was.note && was.note === now.note),
+};
+const PEOPLE_LISTS: Lists = { people: { keys: PERSON_KEYS, byId: true, lists: { pto: PTO } } };
 const SETTINGS_LISTS: Lists = {
   types: { keys: ["id", "name", "color"], byId: true },
   statuses: { keys: ["id", "name"], byId: true },
@@ -212,17 +220,20 @@ function mergeList(doc: Document, seq: YAMLSeq, items: Plain[], base: Plain[], s
     const baseById = new Map(base.map((b) => [String(b.id), b]));
     next = items.map((item) => merge(item, nodeById.get(String(item.id)), baseById.get(String(item.id))));
   } else {
-    // No ids: an entry that's unchanged keeps its node as it is, and an edited
-    // one takes over the node of one that's gone.
+    // No ids: an entry that's unchanged keeps its node as it is, and one
+    // edited in its place (same position, still the same entry: spec.same)
+    // takes over the node of the one that was there. Any other is new, so
+    // hand-added fields and comments never pass to an entry that merely came
+    // in where a removed one was.
     const used = new Set<number>();
     const unchanged = items.map((item) => {
       const j = base.findIndex((b, i) => !used.has(i) && same(b, item));
       if (j >= 0) used.add(j);
       return j;
     });
-    const spare = base.map((_, i) => i).filter((i) => !used.has(i));
     next = items.map((item, k) => {
-      const j = unchanged[k] >= 0 ? unchanged[k] : spare.shift();
+      const edited = k < base.length && !used.has(k) && !!spec.same?.(base[k], item);
+      const j = unchanged[k] >= 0 ? unchanged[k] : edited ? k : undefined;
       return j === undefined ? merge(item, undefined, undefined) : merge(item, nodes[j], base[j]);
     });
   }

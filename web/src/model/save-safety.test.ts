@@ -228,6 +228,22 @@ describe("PTO and rules are merged entry by entry", () => {
     expect(added).toBe(roster.replace("        note: Holidays\n", "        note: Holidays\n      - start: 2027-02-01\n        end: 2027-02-05\n"));
   });
 
+  it("keeping them on an entry moved in its place, which still overlaps where it was", () => {
+    const moved = save(files, (s) => editPerson(s, "sam", { pto: [{ ...pto(s, "sam")[0], start: d("2026-07-08"), end: d("2026-07-14") }, pto(s, "sam")[1]] }));
+    expect(moved["people.yaml"]).toBe(roster.replace("start: 2026-07-06 # summer", "start: 2026-07-08 # summer").replace("end: 2026-07-10", "end: 2026-07-14"));
+  });
+
+  it("never handing a removed entry's fields or comments to one added in the same save", () => {
+    const wedding = { start: d("2027-05-03"), end: d("2027-05-07"), note: "Wedding" };
+    const entry = "      - start: 2027-05-03\n        end: 2027-05-07\n        note: Wedding\n";
+    // The first entry goes: the new one comes last, where the second entry now is.
+    const first = save(files, (s) => editPerson(s, "sam", { pto: [pto(s, "sam")[1], wedding] }))["people.yaml"];
+    expect(first).toBe(roster.replace(/      - start: 2026-07-06[^]*?dana # not an app field\n/, "").replace("        note: Holidays\n", `        note: Holidays\n${entry}`));
+    // The last one goes: the new one comes in where it was.
+    const last = save(files, (s) => editPerson(s, "sam", { pto: [pto(s, "sam")[0], wedding] }))["people.yaml"];
+    expect(last).toBe(roster.replace("      - start: 2026-12-21 # holidays\n        end: 2026-12-31\n        note: Holidays\n", entry));
+  });
+
   it("leaving everyone else's entries alone", () => {
     const out = save(files, (s) => editPerson(s, "sam", { role: "Lead" }))["people.yaml"];
     expect(out).toBe(roster.replace("    name: Sam\n", "    name: Sam\n    role: Lead\n"));
@@ -241,6 +257,28 @@ describe("PTO and rules are merged entry by entry", () => {
       return editBox(s, "b1", { relations: [...b1.relations!, { type: "before", box: "B3X" }] });
     })["boxes/b1.yaml"];
     expect(out).toBe(box("b1", "B1X", `${rules}  - type: before\n    box: B3X\n`));
+  });
+
+  describe("a rule removed and another added in one save", () => {
+    const after = "  - type: after # vendor contract signed first, see LEGAL-7\n    box: B2X\n    reviewed: 2026-09-01\n";
+    const during = "  - type: during # while B3X runs\n    box: B3X\n    reviewed: 2026-09-02\n";
+    const rules = `relations:\n${after}${during}`;
+    const withRules = { ...ROADMAP, "boxes/b1.yaml": box("b1", "B1X", rules), "boxes/b3.yaml": box("b3", "B3X"), "boxes/b4.yaml": box("b4", "B4X") };
+    const relations = (s: DraftState) => s.boxes.find((b) => b.id === "b1")!.relations!;
+
+    it("the new one is written as new, wherever the removed one was", () => {
+      // Deleting box B2X takes the first rule with it.
+      const first = save(withRules, (s) => editBox({ ...s, boxes: s.boxes.filter((b) => b.id !== "b2") }, "b1", { relations: [relations(s)[1], { type: "before", box: "B4X" }] }));
+      expect(first["boxes/b1.yaml"]).toBe(box("b1", "B1X", `relations:\n${during}  - type: before\n    box: B4X\n`));
+      // The last one goes, and a rule of the same type comes in where it was.
+      const last = save(withRules, (s) => editBox(s, "b1", { relations: [relations(s)[0], { type: "during", box: "B4X" }] }));
+      expect(last["boxes/b1.yaml"]).toBe(box("b1", "B1X", `relations:\n${after}  - type: during\n    box: B4X\n`));
+    });
+
+    it("but one given another type is the same rule, comment and all", () => {
+      const out = save(withRules, (s) => editBox(s, "b1", { relations: [{ ...relations(s)[0], type: "starts_with" }, relations(s)[1]] }));
+      expect(out["boxes/b1.yaml"]).toBe(box("b1", "B1X", rules.replace("type: after #", "type: starts_with #")));
+    });
   });
 });
 
