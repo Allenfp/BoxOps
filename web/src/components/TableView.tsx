@@ -527,6 +527,7 @@ export function TableView(props: Props) {
                     <DateInput
                       value={formatDay(b.start)}
                       disabled={readOnly}
+                      pickerTabStop={false}
                       aria-label="Start"
                       onChange={(v) => setStart(b, v)}
                       onBlur={onCheckpoint}
@@ -536,6 +537,7 @@ export function TableView(props: Props) {
                     <DateInput
                       value={formatDay(b.end)}
                       disabled={readOnly}
+                      pickerTabStop={false}
                       aria-label="End"
                       onChange={(v) => setEnd(b, v)}
                       onBlur={onCheckpoint}
@@ -696,6 +698,7 @@ export function TableView(props: Props) {
                           <DateInput
                             value={formatDay(pto.start)}
                             disabled={readOnly}
+                            pickerTabStop={false}
                             aria-label="PTO start"
                             onChange={(v) => ptoDates(ref, pto, "start", v)}
                             onBlur={onCheckpoint}
@@ -705,6 +708,7 @@ export function TableView(props: Props) {
                           <DateInput
                             value={formatDay(pto.end)}
                             disabled={readOnly}
+                            pickerTabStop={false}
                             aria-label="PTO end"
                             onChange={(v) => ptoDates(ref, pto, "end", v)}
                             onBlur={onCheckpoint}

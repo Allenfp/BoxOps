@@ -322,6 +322,24 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
     ],
   },
   {
+    title: "In a date field",
+    rows: [
+      [`${ALT}↓`, "Open the calendar (or its button beside the date)"],
+      ["Esc", "Put back what was typed"],
+    ],
+  },
+  {
+    title: "In the calendar",
+    rows: [
+      ["← →", "The working day before or after (weekends can't be picked)"],
+      ["↑ ↓", "A week earlier or later"],
+      ["Home, End", "Monday or Friday of that week"],
+      ["Page Up, Page Down", `The month before or after; with ${SHIFT}, the year`],
+      ["Enter or Space", "Pick the day"],
+      ["Esc", "Close the calendar, not the editor it's in"],
+    ],
+  },
+  {
     title: "In the Engineers list",
     rows: [
       ["↑ ↓", "Previous or next engineer"],

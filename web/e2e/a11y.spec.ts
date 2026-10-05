@@ -41,6 +41,14 @@ const PARTS: [string, (page: Page) => Promise<void>][] = [
     },
   ],
   [
+    "the calendar of a date field",
+    async (page) => {
+      await box(page, DAGSTER).click();
+      await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: "Choose date" }).first().click();
+      await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+    },
+  ],
+  [
     "the PTO editor",
     async (page) => {
       await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
@@ -191,7 +199,7 @@ test("the box editor's fields are labelled, and a missing title or a moved weeke
   const start = editor.getByRole("textbox", { name: "Start", exact: true });
   await start.fill("2026-10-10"); // a Saturday
   await expect(start).toHaveValue("2026-10-12");
-  await expect(start).toHaveAccessibleDescription("Moved to 2026-10-12: boxes start on a weekday.");
+  await expect(start).toHaveAccessibleDescription(/^Moved to 2026-10-12: boxes start on a weekday\. Written YYYY-MM-DD\./);
   await expect.poll(() => heard(page)).toContain("Moved to 2026-10-12: boxes start on a weekday.");
 
   // The same correction again is said again.

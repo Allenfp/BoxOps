@@ -233,12 +233,13 @@ test("in the table: Enter and Esc leave focus in the cell, and ⌘S there gives 
   await expect(page.locator('input[aria-label="Title"]:focus')).toHaveValue("Dagster 2.x upgrade (phase 1)!");
 });
 
-test("a date picked from the calendar leaves focus in its field", async ({ page, github: _ }) => {
+test("a date picked from the calendar puts focus back on the calendar's button", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: "Table", exact: true }).click();
-  await page.getByRole("group", { name: "Dates" }).getByRole("button", { name: "Pick a date" }).first().click();
-  await page.getByRole("dialog", { name: "Choose a date" }).getByRole("button", { name: "2026-10-12" }).click();
+  const choose = page.getByRole("group", { name: "Dates" }).getByRole("button", { name: "Choose date" }).first();
+  await choose.click();
+  await page.getByRole("dialog", { name: "Choose date" }).getByRole("gridcell", { name: "2026-10-12, Monday" }).click();
   await expect(page.getByLabel("From date")).toHaveValue("2026-10-12");
-  await expect(page.getByLabel("From date")).toBeFocused();
+  await expect(choose).toBeFocused();
 });
 
 test("deleting a table row puts focus on the next row's Delete; deleting from an editor, on the next box or block", async ({ page, github: _ }) => {

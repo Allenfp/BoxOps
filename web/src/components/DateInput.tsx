@@ -1,18 +1,55 @@
 // A date field that reads as plain YYYY-MM-DD text, the same format as the
 // files, instead of the browser's locale format. Typing a full valid date
-// applies it, and in an `optional` field clearing the text clears the date;
-// the calendar button opens a small month calendar of our own (the
-// browser's picker can't be closed reliably when its input is hidden).
+// applies it, and in an `optional` field clearing the text clears the date.
+// Text that more typing can't make a date says why just under the field
+// (tied to it, and announced); leaving the field without a date puts its
+// value back.
+//
+// Beside it, "Choose date" (or Option/Alt+↓ in the field) opens a month
+// calendar of our own, an APG date-picker dialog: the browser's picker can't
+// be closed reliably when its input is hidden. Its days are a grid with one
+// Tab stop: ← → move a working day (weekends show, but can't be picked),
+// ↑ ↓ a week, Home and End to Monday and Friday, Page Up and Page Down a
+// month (with Shift, a year), as calendarMove (model/dates.ts) says; Enter or
+// Space picks. Tab goes round the calendar's own controls, buttons too (Safari's
+// Tab skips them). Escape closes the calendar and nothing else: not the
+// editor or native dialog it's in. Closing gives focus back to what opened it.
 
-import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent, type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { announce } from "../a11y/announce";
-import { addMonths, type Day, dayParts, formatDay, monthName, parseDay, startOfMonth, startOfWeek, today } from "../model/dates";
+import { focusLost, loopTab } from "../a11y/focus";
+import { APPLE } from "../a11y/keys";
+import {
+  calendarMove,
+  type Day,
+  dayParts,
+  formatDay,
+  isWeekend,
+  makeDay,
+  monthName,
+  nextWorkday,
+  parseDay,
+  sameDayMonthsOn,
+  spokenDay,
+  startOfWeek,
+  today,
+  WEEKDAYS,
+  workdayInMonth,
+} from "../model/dates";
+import { describedBy, FieldError } from "./FieldError";
 import { Icon } from "./Icon";
 
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
-const CAL_W = 232;
-const CAL_H = 262;
-const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
+/** A date's shape, d for a digit. */
+const SHAPE = "dddd-dd-dd";
+/** How to write a date here, and how to open the calendar from the keyboard (said with the field). */
+const HINT = `Written YYYY-MM-DD. ${APPLE ? "Option" : "Alt"} with Down opens a calendar.`;
+
+/** Why `text`, typed in a date field, can't become a date however it goes on (half a date will do), or null. */
+function problem(text: string): string | null {
+  const shaped = [...text].every((c, i) => (SHAPE[i] === "-" ? c === "-" : SHAPE[i] === "d" && c >= "0" && c <= "9"));
+  if (!shaped) return "Dates are written YYYY-MM-DD.";
+  return text.length === SHAPE.length && parseDay(text) === null ? `${text} isn’t a date.` : null;
+}
 
 interface Props {
   /** YYYY-MM-DD, or "" for no date. */
@@ -21,8 +58,10 @@ interface Props {
   onBlur?(): void;
   disabled?: boolean;
   autoFocus?: boolean;
-  /** The date can be left out: clearing the text clears it (onChange("")). */
+  /** The date can be left out: clearing the text clears it (onChange("")), and the calendar has Clear. */
   optional?: boolean;
+  /** The calendar button is a Tab stop. Not in a table's rows, where two more a row would be too many: Option/Alt+↓ opens it there. */
+  pickerTabStop?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
   /** Notes about the field (a weekend date moved to a weekday, say). */
@@ -30,78 +69,71 @@ interface Props {
   placeholder?: string;
 }
 
-export function DateInput({ value, onChange, onBlur, disabled, autoFocus, optional, placeholder, ...rest }: Props) {
+export function DateInput({ value, onChange, onBlur, disabled, autoFocus, optional, pickerTabStop = true, placeholder, ...rest }: Props) {
   const [draft, setDraft] = useState<string | null>(null);
-  const [calendar, setCalendar] = useState<{ month: Day; style: CSSProperties } | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
-  const field = useRef<HTMLInputElement>(null);
+  /**
+   * The open calendar: the field's box, to show it by; what opened it, which focus goes back
+   * to; and whether a key did, when focus in it shows its ring at once.
+   */
+  const [calendar, setCalendar] = useState<{ anchor: DOMRect; opener: HTMLElement; byKey: boolean } | null>(null);
+  const field = useRef<HTMLSpanElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  const ids = { error: useId(), hint: useId(), value: useId(), dialog: useId() };
+  const day = parseDay(value);
   const shown = draft ?? value;
-  const invalid = draft !== null && draft !== "" && !(ISO.test(draft) && parseDay(draft) !== null);
-  const formatId = useId();
+  const wrong = draft === null ? null : problem(draft);
 
-  const open = () => {
-    const box = ref.current?.getBoundingClientRect();
-    if (!box) return;
-    // Below the field, or above it when there's no room; kept inside the window.
-    const below = box.bottom + 4 + CAL_H <= window.innerHeight;
-    const style: CSSProperties = {
-      left: Math.max(8, Math.min(box.left, window.innerWidth - CAL_W - 8)),
-      top: below ? box.bottom + 4 : Math.max(8, box.top - 4 - CAL_H),
-    };
-    setCalendar({ month: startOfMonth(parseDay(value) ?? today()), style });
+  const open = (opener: HTMLElement, byKey: boolean) => {
+    const anchor = field.current?.getBoundingClientRect();
+    if (anchor) setCalendar({ anchor, opener, byKey });
   };
-  const close = () => setCalendar(null);
-  /** Closed from inside (a day picked, or Esc): focus goes back to the field, not to the page. */
-  const closeToField = () => {
-    close();
-    field.current?.focus();
+  /** Put the calendar away; `refocus`: focus was in it, and goes back to what opened it. */
+  const close = (refocus: boolean) => {
+    if (refocus) calendar?.opener.focus();
+    setCalendar(null);
   };
 
-  // Close on a click elsewhere, on scroll, or when the window changes size.
+  // A press elsewhere closes it, leaving focus where the press put it; so do a scroll or a
+  // resize, which would leave it adrift.
   useEffect(() => {
     if (!calendar) return;
-    const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && close();
-    const onScroll = (e: Event) => !ref.current?.contains(e.target as Node) && close();
+    const inCalendar = (t: EventTarget | null) => t instanceof Node && !!dialog.current?.contains(t);
+    const away = (e: PointerEvent) => !inCalendar(e.target) && !button.current?.contains(e.target as Node) && setCalendar(null);
+    const adrift = (e: Event) => {
+      if (inCalendar(e.target)) return;
+      if (inCalendar(document.activeElement)) calendar.opener.focus({ preventScroll: true });
+      setCalendar(null);
+    };
     document.addEventListener("pointerdown", away, true);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", close);
+    window.addEventListener("scroll", adrift, true);
+    window.addEventListener("resize", adrift);
     return () => {
       document.removeEventListener("pointerdown", away, true);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", adrift, true);
+      window.removeEventListener("resize", adrift);
     };
   }, [calendar]);
 
   /** Done typing (focus left, or Enter): text that isn't a date is dropped, and the field shows its value again. */
   const settle = () => {
-    if (invalid) announce(`“${draft}” isn’t a date, so the field is back to ${value || "empty"}.`);
+    if (draft === "") announce(`A date is needed here, so the field is back to ${value}.`);
+    else if (draft !== null) announce(`“${draft}” isn’t a date, so the field is back to ${value || "empty"}.`);
     setDraft(null);
     onBlur?.();
   };
 
-  const pick = (day: Day) => {
-    onChange(formatDay(day));
+  /** A day picked in the calendar, or null: the date cleared. */
+  const pick = (picked: Day | null) => {
+    onChange(picked === null ? "" : formatDay(picked));
     setDraft(null);
-    closeToField();
+    close(true);
     onBlur?.();
   };
 
   return (
-    <span
-      ref={ref}
-      className={`date-input${invalid ? " invalid" : ""}`}
-      onKeyDown={(e) => {
-        // Esc closes the calendar first, without also closing the editor around it (nor a
-        // native dialog, whose Escape is a default action).
-        if (e.key === "Escape" && calendar) {
-          e.preventDefault();
-          e.stopPropagation();
-          closeToField();
-        }
-      }}
-    >
+    <span ref={field} className={`date-input${wrong ? " invalid" : ""}`}>
       <input
-        ref={field}
         type="text"
         inputMode="numeric"
         placeholder={placeholder ?? "YYYY-MM-DD"}
@@ -111,55 +143,72 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
         autoFocus={autoFocus}
         aria-label={rest["aria-label"]}
         aria-labelledby={rest["aria-labelledby"]}
-        aria-invalid={invalid || undefined}
-        aria-describedby={[invalid && formatId, rest["aria-describedby"]].filter(Boolean).join(" ") || undefined}
+        aria-invalid={!!wrong || undefined}
+        aria-describedby={describedBy(wrong && ids.error, rest["aria-describedby"], !disabled && ids.hint)}
+        aria-keyshortcuts={disabled ? undefined : "Alt+ArrowDown"}
         onChange={(e) => {
           const text = e.target.value;
-          setDraft(text);
-          if ((ISO.test(text) && parseDay(text) !== null) || (optional && text === "")) {
+          if (parseDay(text) !== null || (optional && text === "")) {
             onChange(text);
             setDraft(null);
-          }
+          } else setDraft(text);
         }}
         onBlur={settle}
         onKeyDown={(e) => {
           if (e.key === "Escape" && draft !== null) {
+            // What was typed goes, and nothing else: not the editor, nor a native dialog (whose Escape is a default action).
             e.preventDefault();
             e.stopPropagation();
             setDraft(null);
           }
           // Enter settles the field as leaving it would, but stays in it.
           if (e.key === "Enter") settle();
+          if (e.key === "ArrowDown" && e.altKey && !disabled) {
+            e.preventDefault();
+            open(e.currentTarget, true);
+          }
         }}
       />
-      {invalid && (
-        <span id={formatId} className="sr-only">
-          Dates are written YYYY-MM-DD.
-        </span>
-      )}
       {!disabled && (
         <button
+          ref={button}
           type="button"
           className="date-pick"
-          tabIndex={-1}
-          aria-label="Pick a date"
+          tabIndex={pickerTabStop ? undefined : -1}
+          aria-label="Choose date"
+          aria-describedby={day === null ? undefined : ids.value}
+          aria-haspopup="dialog"
           aria-expanded={!!calendar}
-          onClick={(e) => {
-            e.preventDefault(); // inside a <label>, don't also focus the text field
-            if (calendar) close();
-            else open();
-          }}
+          aria-controls={calendar ? ids.dialog : undefined}
+          // A click with no pointer (detail 0) is Enter or Space.
+          onClick={(e) => (calendar ? close(true) : open(e.currentTarget, e.detail === 0))}
         >
           <Icon name="calendar" size={14} />
         </button>
       )}
+      {!disabled && (
+        <span id={ids.hint} hidden>
+          {HINT}
+        </span>
+      )}
+      {day !== null && (
+        <span id={ids.value} hidden>
+          {spokenDay(day)}
+        </span>
+      )}
+      <FieldError id={ids.error} className="field-error date-problem">
+        {wrong}
+      </FieldError>
       {calendar && (
         <Calendar
-          month={calendar.month}
-          selected={parseDay(value)}
-          style={calendar.style}
-          onMonth={(month) => setCalendar({ ...calendar, month })}
+          ref={dialog}
+          id={ids.dialog}
+          anchor={calendar.anchor}
+          byKey={calendar.byKey}
+          value={value}
+          optional={optional}
           onPick={pick}
+          onClose={() => close(true)}
         />
       )}
     </span>
@@ -167,67 +216,165 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
 }
 
 function Calendar({
-  month,
-  selected,
-  style,
-  onMonth,
+  ref,
+  id,
+  anchor,
+  byKey,
+  value,
+  optional,
   onPick,
+  onClose,
 }: {
-  month: Day;
-  selected: Day | null;
-  style: CSSProperties;
-  onMonth(month: Day): void;
-  onPick(day: Day): void;
+  ref: RefObject<HTMLDivElement | null>;
+  id: string;
+  /** The field's box: the calendar shows below it, or above it without room there. */
+  anchor: DOMRect;
+  /** Opened from the keyboard. */
+  byKey: boolean;
+  value: string;
+  optional?: boolean;
+  /** A day picked, or null: the date cleared. */
+  onPick(day: Day | null): void;
+  onClose(): void;
 }) {
-  const { year, month: m } = dayParts(month);
-  const first = startOfWeek(month);
   const now = today();
-  const days = Array.from({ length: 42 }, (_, i) => first + i);
+  const selected = parseDay(value);
+  /** What Today picks: today, or Monday at a weekend. */
+  const todayPick = nextWorkday(now);
+  const todayText = isWeekend(now) ? "Next working day" : "Today";
+  // The day with the grid's Tab stop, which keys move: the field's date, else Today's. Its month is the one shown.
+  const [active, setActive] = useState(() => (selected === null ? todayPick : workdayInMonth(selected)));
+  const { year, month } = dayParts(active);
+  const headId = useId();
+  const grid = useRef<HTMLTableElement>(null);
+  /**
+   * Focus goes to the active day once it's drawn: on opening, and after a key in the grid; with
+   * its ring when a key moved it (browsers differ on that for a script's focus, and on Option/Alt+↓).
+   */
+  const focusDay = useRef<{ ring: boolean } | null>({ ring: byKey });
+
+  // Below the field, or above it when there's no room; kept inside the window.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const below = anchor.bottom + 4 + el.offsetHeight <= window.innerHeight;
+    el.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - el.offsetWidth - 8))}px`;
+    el.style.top = `${below ? anchor.bottom + 4 : Math.max(8, anchor.top - 4 - el.offsetHeight)}px`;
+  }, [ref, anchor]);
+
+  // Also when the day that had focus has gone: another month shown by a month button that
+  // took no focus (WebKit gives a clicked button none). One that has focus keeps it.
+  useLayoutEffect(() => {
+    if (focusDay.current || focusLost()) {
+      const focusVisible = focusDay.current?.ring || undefined;
+      grid.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus({ preventScroll: true, focusVisible });
+    }
+    focusDay.current = null;
+  }, [active]);
+
+  const onGridKey = (e: KeyboardEvent<HTMLTableElement>) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault(); // no click on the button focus goes back to, nor a scroll
+      onPick(active);
+      return;
+    }
+    const next = calendarMove(active, e.key, e.shiftKey);
+    if (next === null) return;
+    e.preventDefault();
+    if (next === active) return;
+    focusDay.current = { ring: true };
+    setActive(next);
+  };
+
+  const first = makeDay(year, month, 1);
+  const last = makeDay(year, month + 1, 0);
+  const weeks: Day[] = [];
+  for (let monday = startOfWeek(first); monday <= last; monday += 7) weeks.push(monday);
+
   return (
-    <div className="calendar" role="dialog" aria-label="Choose a date" style={style}>
+    <div
+      ref={ref}
+      id={id}
+      className="calendar"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose date"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          // The calendar only: not the editor it's in, nor a native dialog (whose Escape is a default action).
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        } else loopTab(e);
+      }}
+      // A press on a day, a weekend or the space between leaves focus where it is (on the day with the Tab stop).
+      onMouseDown={(e) => !(e.target as Element).closest("button") && e.preventDefault()}
+    >
       <div className="calendar-head">
-        <button type="button" className="icon-button" aria-label="Previous month" onClick={() => onMonth(addMonths(month, -1))}>
+        <button type="button" className="icon-button" aria-label="Previous month" onClick={() => setActive(sameDayMonthsOn(active, -1))}>
           <Icon name="chevron-right" size={14} className="flip" />
         </button>
-        <span className="calendar-title">
-          {monthName(m)} {year}
-        </span>
-        <button type="button" className="icon-button" aria-label="Next month" onClick={() => onMonth(addMonths(month, 1))}>
+        {/* Said when it changes: the grid's name, and the month a key or button went to. */}
+        <h2 id={headId} className="calendar-title" aria-live="polite">
+          {monthName(month)} {year}
+        </h2>
+        <button type="button" className="icon-button" aria-label="Next month" onClick={() => setActive(sameDayMonthsOn(active, 1))}>
           <Icon name="chevron-right" size={14} />
         </button>
       </div>
-      <div className="calendar-grid">
-        {WEEKDAYS.map((d, i) => (
-          <span key={i} className="calendar-weekday">
-            {d}
-          </span>
-        ))}
-        {days.map((day) => {
-          const p = dayParts(day);
-          const classes = [
-            "calendar-day",
-            p.month !== m && "outside",
-            p.weekday >= 5 && "weekend",
-            day === now && "today",
-            day === selected && "selected",
-          ];
-          return (
-            <button
-              key={day}
-              type="button"
-              className={classes.filter(Boolean).join(" ")}
-              aria-label={formatDay(day)}
-              aria-pressed={day === selected}
-              onClick={() => onPick(day)}
-            >
-              {p.day}
-            </button>
-          );
-        })}
+      <div className="calendar-days">
+        <table ref={grid} className="calendar-grid" role="grid" aria-labelledby={headId} onKeyDown={onGridKey}>
+          <thead>
+            <tr>
+              {WEEKDAYS.map((name) => (
+                <th key={name} scope="col">
+                  <span aria-hidden="true">{name[0]}</span>
+                  <span className="sr-only">{name}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {weeks.map((monday) => (
+              <tr key={monday}>
+                {WEEKDAYS.map((_, i) => {
+                  const d = monday + i;
+                  const p = dayParts(d);
+                  if (p.month !== month) return <td key={d} />;
+                  const weekend = p.weekday >= 5;
+                  const classes = ["calendar-day", weekend && "weekend", d === now && "today", d === selected && "selected"];
+                  return (
+                    <td
+                      key={d}
+                      role="gridcell"
+                      className={classes.filter(Boolean).join(" ")}
+                      // Weekends can't be picked, so keys never stop on them: no tabindex at all.
+                      tabIndex={weekend ? undefined : d === active ? 0 : -1}
+                      // Today and the field's date are said, not only shown.
+                      aria-label={[spokenDay(d), d === now && "today", d === selected && "selected"].filter(Boolean).join(", ")}
+                      aria-selected={d === selected || undefined}
+                      aria-current={d === now ? "date" : undefined}
+                      aria-disabled={weekend || undefined}
+                      onClick={weekend ? undefined : () => onPick(d)}
+                    >
+                      {p.day}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       <div className="calendar-foot">
-        <button type="button" className="add-button small" onClick={() => onPick(now)}>
-          Today
+        {optional && selected !== null && (
+          <button type="button" className="add-button small" onClick={() => onPick(null)}>
+            Clear
+          </button>
+        )}
+        <button type="button" className="add-button small" aria-label={`${todayText}, ${formatDay(todayPick)}`} onClick={() => onPick(todayPick)}>
+          {todayText}
         </button>
       </div>
     </div>

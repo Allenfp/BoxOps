@@ -344,7 +344,7 @@ export function DepartmentEditor(props: Props) {
                           aria-label={`${label} (lane ${i + 1} ${what})`}
                           onChange={(text) => {
                             const key = `${lane.id}:${field}`;
-                            // Cleared (its text deleted): undated, the empty field staying put.
+                            // Cleared (its text deleted, or the calendar's Clear): undated, the empty field staying put.
                             if (text === "") {
                               setShownDates((cur) => new Set([...cur, key]));
                               props.onUpdateLane(lane.id, { [field]: undefined }, key);
