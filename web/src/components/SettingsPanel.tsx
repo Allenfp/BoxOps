@@ -15,7 +15,7 @@ import {
 } from "../prefs";
 import { ZOOM_LEVELS, type ZoomLevel } from "../model/types";
 import { Icon } from "./Icon";
-import { shortcut } from "../a11y/keys";
+import { shifted, shortcut } from "../a11y/keys";
 
 const ZOOM_NAME: Record<ZoomLevel, string> = {
   weeks: "Weeks",
@@ -278,7 +278,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
   {
     title: "In an editor",
     rows: [
-      ["Tab, ⇧Tab", "Next or previous field, round the editor (buttons too)"],
+      [`Tab, ${shifted("Tab")}`, "Next or previous field, round the editor (buttons too)"],
       ["Delete button", "Delete the box or PTO (undo brings it back)"],
     ],
   },
@@ -287,7 +287,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
     rows: [
       ["Enter", "Keep what's typed in the cell, staying in it"],
       ["Esc", "Put the cell back as it was"],
-      ["⇧Enter", "New line in a description or notes"],
+      [shifted("Enter"), "New line in a description or notes"],
     ],
   },
   {

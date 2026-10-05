@@ -11,6 +11,9 @@ export function shortcut(key: string, shift = false, apple = APPLE): string {
   return apple ? `${shift ? "⇧" : ""}⌘${key}` : `Ctrl+${shift ? "Shift+" : ""}${key}`;
 }
 
+/** A key with Shift, as this platform writes it: ⇧Tab, or Shift+Tab. */
+export const shifted = (key: string, apple = APPLE) => (apple ? `⇧${key}` : `Shift+${key}`);
+
 /** "Undo with ⌘Z." (Ctrl+Z elsewhere), after something that can be undone. */
 export const undoHint = () => `Undo with ${shortcut("Z")}.`;
 

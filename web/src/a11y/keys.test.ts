@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { letter, shortcut } from "./keys";
+import { letter, shifted, shortcut } from "./keys";
 
 describe("shortcut", () => {
   it("writes ⌘ on Apple's platforms and Ctrl elsewhere", () => {
@@ -7,6 +7,8 @@ describe("shortcut", () => {
     expect(shortcut("Z", true, true)).toBe("⇧⌘Z");
     expect(shortcut("S", false, false)).toBe("Ctrl+S");
     expect(shortcut("Z", true, false)).toBe("Ctrl+Shift+Z");
+    expect(shifted("Tab", true)).toBe("⇧Tab");
+    expect(shifted("Tab", false)).toBe("Shift+Tab");
   });
 });
 
