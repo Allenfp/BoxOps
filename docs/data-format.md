@@ -344,10 +344,12 @@ roadmap is in. This BoxOps reads and writes format **1**, frozen as of BoxOps
   and fails validation until `format: 1` is added to `settings.yaml`. (Later
   releases will do that, and any other change of format, with a `migrate`
   command.)
-- A roadmap in a newer format opens read-only too, with a banner saying it
-  needs a newer BoxOps, and fails validation. A tab left open from before an
-  upgrade to a newer format won't save once the upgrade is merged: it says
-  "BoxOps is being upgraded; reload in a minute".
+- A roadmap in a newer format opens read-only too, and fails validation. A
+  tab left open from before an upgrade to a newer format won't save once the
+  upgrade is merged: it says "BoxOps is being upgraded; reload in a minute"
+  (its banner, that BoxOps is probably being upgraded). Unsaved changes made
+  in the old format can't be opened by the upgraded BoxOps: after reloading,
+  it offers them only as a download (JSON), to make again.
 - Anything an older BoxOps would read wrongly or damage needs a new format
   number: a new field or value it would drop or mangle, or a stricter rule.
   Only a minor release (0.2.0, not 0.1.1) may change the format.

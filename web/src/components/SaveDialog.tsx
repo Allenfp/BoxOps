@@ -55,6 +55,8 @@ interface Props {
   onNewToken(): void;
   /** Load the page again, for a newer BoxOps. */
   onReloadApp(): void;
+  /** Download the unsaved changes as JSON. */
+  onDownload(): void;
   onClose(): void;
 }
 
@@ -100,7 +102,22 @@ function Bolded({ text }: { text: string }) {
   );
 }
 
-export function SaveDialog({ problem, source, lines, busy, kept, onSubmitToken, onResolve, onSaveNow, onReviewed, onRetry, onNewToken, onReloadApp, onClose }: Props) {
+export function SaveDialog({
+  problem,
+  source,
+  lines,
+  busy,
+  kept,
+  onSubmitToken,
+  onResolve,
+  onSaveNow,
+  onReviewed,
+  onRetry,
+  onNewToken,
+  onReloadApp,
+  onDownload,
+  onClose,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = dialogRef.current;
@@ -262,9 +279,15 @@ export function SaveDialog({ problem, source, lines, busy, kept, onSubmitToken, 
             BoxOps is being upgraded; reload in a minute. The roadmap on GitHub now uses data format {problem.format}, which
             this version of BoxOps doesn’t write, so nothing was saved.
           </div>
-          <Kept kept={kept} />
+          {/* Made in this format, the changes can't be opened by the BoxOps that reads the new one (draftStore's asRecord). */}
+          <p className="hint">
+            {kept
+              ? "Your changes are still saved in this browser, but the upgraded BoxOps can’t open them: after reloading, it offers them as a download (JSON), so you can make them again."
+              : "Your changes are still here, but this browser isn’t keeping them, and the upgraded BoxOps couldn’t open them anyway: download them before reloading, or they’ll be lost."}
+          </p>
           <footer className="dialog-foot">
             <button onClick={onClose}>Close</button>
+            <button onClick={onDownload}>Download unsaved changes</button>
             <button className="primary" onClick={onReloadApp}>
               Reload
             </button>

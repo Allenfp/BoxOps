@@ -406,7 +406,10 @@ against data the new code wrote.
   instead of staying blank. The page shows "Loading…" until the app replaces
   it.
 - **An upgrade still deploying.** The pre-save check refuses to write to a
-  head in a newer data format (see Saving, step 3).
+  head in a newer data format (see Saving, step 3), and a tab that reads such
+  a head says BoxOps is probably being upgraded. Unsaved changes in the old
+  format come back after the reload only as a download, as the upgrade
+  dialog and banners say, each with Download unsaved changes.
 
 ## The page
 

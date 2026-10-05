@@ -97,6 +97,11 @@ function loadSaving(): Promise<Saving> {
   return savingLoad;
 }
 
+/** A newer BoxOps that built the site, and the data format it reads (0: unknown). */
+interface AppUpdate extends AppInfo {
+  format: number;
+}
+
 /** A save by someone else that just arrived in this tab. */
 interface RemoteUpdate {
   author?: string;
@@ -260,7 +265,7 @@ export function App() {
   const saving = useRef(false);
 
   /** A newer BoxOps built the site: this tab is read-only until it reloads. */
-  const [update, setUpdate] = useState<AppInfo | null>(null);
+  const [update, setUpdate] = useState<AppUpdate | null>(null);
   const outdated = useRef(false);
   /** The site's notices for everyone (security releases and the like), from the latest roadmap.json. */
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -272,7 +277,7 @@ export function App() {
       outdated.current = true;
       // Going read-only: commit a field being typed in first, so the draft has it.
       if (document.activeElement instanceof HTMLElement && isTyping(document.activeElement)) document.activeElement.blur();
-      setUpdate(bundle.app);
+      setUpdate({ ...bundle.app, format: bundle.format });
     }
     return true;
   }, []);
@@ -518,7 +523,7 @@ interface ViewProps extends Loaded {
   /** Shown as plain text, never as HTML. */
   notices: Notice[];
   /** A newer BoxOps built the site (read-only until reloaded). */
-  update: AppInfo | null;
+  update: AppUpdate | null;
   /** A roadmap.json fetched before saving: true if a newer BoxOps built it. */
   onSite(bundle: Bundle): boolean;
   /** Checks for others' saves keep failing. */
@@ -865,12 +870,18 @@ function RoadmapView(props: ViewProps) {
   const [storageWarned, setStorageWarned] = useState(false);
   const unsaved = `${count} unsaved change${count === 1 ? "" : "s"}`;
   const them = count === 1 ? "it" : "them";
+  // Unsaved changes in this data format, when the BoxOps an upgrade brings
+  // reads another: it won't open them (draftStore's asRecord), only offer
+  // them as a download.
+  const stranded = count > 0 && ((!!props.update?.format && props.update.format !== FORMAT) || props.formatStatus === "newer");
   /** What reloading for an update does to the unsaved changes, if there are any. */
   const keptOnReload = !count
     ? ""
-    : draft.kept
-      ? " Your unsaved changes are kept in this browser."
-      : ` This browser isn’t keeping your ${unsaved}: download ${them} first, or reloading loses ${them}.`;
+    : !draft.kept
+      ? ` This browser isn’t keeping your ${unsaved}: download ${them} first, or reloading loses ${them}.`
+      : stranded
+        ? " Your unsaved changes can’t come along: the new BoxOps uses another data format, so after reloading it offers them only as a download (JSON)."
+        : " Your unsaved changes are kept in this browser.";
   /** This tab's unsaved changes as a JSON file, as the crash screen and another version's offer give them. */
   const downloadDraft = () => downloadJson({ [draft.storageKey]: draft.record() });
   // Reloading loses unsaved changes this browser isn't keeping: every Reload
@@ -1333,7 +1344,8 @@ function RoadmapView(props: ViewProps) {
         </div>
       )}
       {source.readonly && !source.local && !props.preview && <div className="banner">Read-only: this site doesn’t save.</div>}
-      {props.formatStatus !== "current" && (
+      {/* A newer format with a newer BoxOps to reload onto: the update banner says what to do. */}
+      {props.formatStatus !== "current" && !(props.formatStatus === "newer" && props.update) && (
         <div className="banner">
           {props.formatStatus === "older" && files["settings.yaml"] === undefined ? (
             <>
@@ -1345,10 +1357,17 @@ function RoadmapView(props: ViewProps) {
               Read-only: <code>roadmap/settings.yaml</code> doesn’t say which data format the files use. Add{" "}
               <code>format: {FORMAT}</code> to it to edit the roadmap here.
             </>
-          ) : props.formatStatus === "newer" ? (
+          ) : props.formatStatus === "newer" && props.preview ? (
             <>
-              Read-only: this roadmap uses data format {base.format}, and this version of BoxOps reads format {FORMAT}.
-              Upgrade BoxOps to edit it here.
+              Read-only: this branch uses data format {base.format}, newer than this BoxOps reads ({FORMAT}).
+            </>
+          ) : props.formatStatus === "newer" ? (
+            // Merged on GitHub before the site has redeployed with the BoxOps that reads it.
+            <>
+              Read-only: the roadmap now uses data format {base.format}, newer than this BoxOps reads ({FORMAT}), so
+              BoxOps is probably being upgraded. Reload in a few minutes; if it stays like this, ask whoever looks after
+              the site.
+              {stranded && " Your unsaved changes were made in the old format: the upgraded BoxOps offers them only as a download (JSON)."}
             </>
           ) : (
             <>
@@ -1356,6 +1375,7 @@ function RoadmapView(props: ViewProps) {
               problems list) to edit the roadmap here.
             </>
           )}
+          {props.formatStatus === "newer" && !props.preview && stranded && <button onClick={downloadDraft}>Download unsaved changes</button>}
         </div>
       )}
       {lastSave && (
@@ -1376,7 +1396,7 @@ function RoadmapView(props: ViewProps) {
             <strong>{updatedText(props.update)}</strong>
             {keptOnReload}
           </span>
-          {count > 0 && !draft.kept && <button onClick={downloadDraft}>Download unsaved changes</button>}
+          {count > 0 && (!draft.kept || stranded) && <button onClick={downloadDraft}>Download unsaved changes</button>}
           <button className="primary" onClick={() => reloadApp(props.update!.build)}>
             Reload
           </button>
@@ -1685,6 +1705,7 @@ function RoadmapView(props: ViewProps) {
               void save({ ...(problem.kind === "review" ? problem.resume : {}), reviewed: true });
             }}
             onReloadApp={() => reloadApp("")}
+            onDownload={downloadDraft}
             onRetry={() => {
               setProblem(null);
               void save(problem.kind === "github" || problem.kind === "error" ? problem.resume : {});

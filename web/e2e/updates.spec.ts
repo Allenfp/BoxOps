@@ -157,9 +157,38 @@ test("a save while an upgrade to a newer data format deploys is refused, nothing
   await expect(dialog.locator("h2")).toHaveText("BoxOps is being upgraded");
   await expect(dialog).toContainText("BoxOps is being upgraded; reload in a minute.");
   await expect(dialog).toContainText("data format 2");
+  // The upgraded BoxOps won't open changes made in this format.
+  await expect(dialog).toContainText(
+    "Your changes are still saved in this browser, but the upgraded BoxOps can’t open them: after reloading, it offers them as a download (JSON), so you can make them again.",
+  );
+  const saved = await downloaded(page, dialog.getByRole("button", { name: "Download unsaved changes" }));
+  expect(movedBy(saved, DAGSTER)).toBe(14);
   expect(github.head).toBe(upgrade);
   expect(github.calls("graphql")).toBe(0);
   expect(github.file(boxFile(DAGSTER))).not.toContain("start: 2026-09-28");
+});
+
+test("a newer data format before its BoxOps deploys says an upgrade is likely under way; then edits come only as a download", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  github.deploy(github.otherSave({ "settings.yaml": (t) => t.replace(/^format: 1 /m, "format: 2 ") }, "Ada Admin", "Upgrade BoxOps to 0.2.0"));
+  await pollNow(page);
+  const format = page.locator(".banner", { hasText: "data format 2" });
+  await expect(format).toContainText(
+    "Read-only: the roadmap now uses data format 2, newer than this BoxOps reads (1), so BoxOps is probably being upgraded. Reload in a few " +
+      "minutes; if it stays like this, ask whoever looks after the site. Your unsaved changes were made in the old format: the upgraded " +
+      "BoxOps offers them only as a download (JSON).",
+  );
+  expect(movedBy(await downloaded(page, format.getByRole("button", { name: "Download unsaved changes" })), DAGSTER)).toBe(14);
+  // Then the site is rebuilt by the BoxOps that reads format 2: its banner says it all.
+  github.patchBundle = (b) => ({ ...newerApp(b), format: 2 });
+  await pollNow(page);
+  const banner = page.locator(".banner", { hasText: "BoxOps was updated" });
+  await expect(banner).toContainText(
+    "Your unsaved changes can’t come along: the new BoxOps uses another data format, so after reloading it offers them only as a download (JSON).",
+  );
+  await expect(format).toHaveCount(0);
+  const saved = await downloaded(page, banner.getByRole("button", { name: "Download unsaved changes" }));
+  expect(movedBy(saved, DAGSTER)).toBe(14);
 });
 
 test("the site's notices show as plain text, and can be put away", async ({ page, github }) => {
