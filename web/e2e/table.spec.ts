@@ -176,7 +176,6 @@ test("the calendar picks a date and closes; a click elsewhere or Esc closes it t
   await expect(calendar).toHaveCount(0);
 });
 
-
 test("⌘S while typing in a cell saves what's being typed", async ({ page, github }) => {
   await row(page, "Dagster 2.x upgrade").getByLabel("Title").fill("Dagster 2.x upgrade (phase 1)");
   await page.keyboard.press("ControlOrMeta+s"); // still in the cell

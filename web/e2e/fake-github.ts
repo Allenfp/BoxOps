@@ -19,12 +19,13 @@
 // `forbidden`, which every browser test checks is empty.
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Page } from "@playwright/test";
 import { readRoadmapDir } from "../cli/git";
 import { appInfo, assembleBundle, hashFolder } from "../cli/site";
 import { type GitFileMode, gitBlobSha, gitTreeSha } from "../src/github/git-objects";
-import type { Bundle } from "../src/model/bundle";
+import { type AppInfo, type Bundle, readBundle } from "../src/model/bundle";
 
 export const REPO = "acme/roadmap";
 export const BRANCH = "main";
@@ -95,8 +96,21 @@ export type FakeReply =
   | { hang: true };
 
 const FIXTURE = fileURLToPath(new URL("./fixtures/roadmap", import.meta.url));
-/** The app under test, as the build saw it (same build id as the JS). */
-const APP = appInfo(fileURLToPath(new URL("..", import.meta.url)));
+/**
+ * The app under test, as the build saw it (same build id as the JS): from the
+ * built site's roadmap.json, since a commit after `npm run build` changes what
+ * git says (and every test would then see a newer BoxOps). Without a build
+ * (unit tests may run first), git's answer.
+ */
+const APP = builtApp() ?? appInfo(fileURLToPath(new URL("..", import.meta.url)));
+
+function builtApp(): AppInfo | null {
+  try {
+    return readBundle(JSON.parse(readFileSync(new URL("../dist/roadmap.json", import.meta.url), "utf8"))).app;
+  } catch {
+    return null;
+  }
+}
 const utf8 = new TextEncoder();
 const strictUtf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
