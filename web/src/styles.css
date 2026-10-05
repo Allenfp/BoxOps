@@ -2449,8 +2449,7 @@ button.primary {
   font-size: 12px;
   color: var(--text-muted);
 }
-.save-dialog .form .lane-dates-row label,
-.lane-dates-row label {
+.lane-dates-row .lane-date {
   display: flex;
   flex-direction: row;
   align-items: center;

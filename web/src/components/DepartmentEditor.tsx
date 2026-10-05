@@ -331,8 +331,9 @@ export function DepartmentEditor(props: Props) {
                         </button>
                       );
                     }
+                    // Not a <label>: one around the calendar would take its clicks, and its buttons' names.
                     return (
-                      <label key={field}>
+                      <span key={field} className="lane-date">
                         {label}
                         <DateInput
                           autoFocus={lane[field] === undefined}
@@ -363,7 +364,7 @@ export function DepartmentEditor(props: Props) {
                         >
                           <Icon name="x" size={14} />
                         </button>
-                      </label>
+                      </span>
                     );
                   })}
                   {lane.start === undefined && lane.end === undefined && <span className="hint">Always open</span>}
