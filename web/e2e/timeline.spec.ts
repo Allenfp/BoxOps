@@ -39,6 +39,27 @@ test("today moves on at midnight in a tab left open", async ({ page, github: _ }
   await expect(flag).toHaveAttribute("title", "2026-10-04");
 });
 
+test("the box editor's tags follow an undo made while it's open", async ({ page, github }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /Edit/ });
+  await editor.getByRole("button", { name: "Tags", exact: true }).click();
+  const tags = editor.getByRole("textbox", { name: /Tags/ });
+  await tags.fill("iceberg, q4");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  // Focus off the field, onto the editor, so ⌘Z is the app's undo.
+  await editor.locator(".editor-foot .hint").click();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(tags).toHaveValue("");
+  // Typing again starts from what the box has, not the undone text.
+  await tags.fill("ml");
+  await page.keyboard.press("Escape");
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  expect(github.file(boxFile(DAGSTER))).toContain("tags:\n  - ml\n");
+  expect(github.file(boxFile(DAGSTER))).not.toContain("iceberg");
+});
+
 test("drag moves a box in time and across lanes; edges resize", async ({ page, github: _ }) => {
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
   await dragDays(page, DAGSTER, 10); // keeps its 30 working days
