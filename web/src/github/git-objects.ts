@@ -32,6 +32,35 @@ export function gitBlobSha(bytes: Uint8Array): Promise<string> {
   return objectSha("blob", bytes);
 }
 
+/** The blob SHA of a file holding this text as UTF-8 (a BOM, if the text starts with one, included). */
+export function textBlobSha(text: string): Promise<string> {
+  return gitBlobSha(utf8.encode(text));
+}
+
+const strictUtf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+
+/**
+ * A file's bytes as text, exactly: a BOM is kept (so the text hashes back to
+ * the same blob SHA), and bytes that aren't UTF-8 give null rather than
+ * replacement characters. Response.text() and a default TextDecoder drop the BOM.
+ */
+export function utf8Text(bytes: Uint8Array): string | null {
+  try {
+    return strictUtf8.decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/** Text as UTF-8 in base64 (RFC 4648, padded), as GitHub's GraphQL API takes file contents. */
+export function utf8ToBase64(text: string): string {
+  const bytes = utf8.encode(text);
+  let bin = "";
+  // In slices: String.fromCharCode(...bytes) overflows the stack on a large file.
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
 /** git sorts a tree by name bytes, comparing a subfolder as if its name ended in "/". */
 function compareBytes(a: Uint8Array, b: Uint8Array): number {
   for (let i = 0; i < a.length && i < b.length; i++) if (a[i] !== b[i]) return a[i] - b[i];

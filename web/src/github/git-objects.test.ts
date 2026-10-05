@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { TestRepo } from "../../cli/test-repo";
-import { type GitTreeEntry, gitBlobSha, gitTreeSha } from "./git-objects";
+import { type GitTreeEntry, gitBlobSha, gitTreeSha, textBlobSha, utf8Text, utf8ToBase64 } from "./git-objects";
 
 const repo = new TestRepo();
 afterAll(() => repo.remove());
@@ -96,5 +96,26 @@ describe("gitTreeSha", () => {
     await expect(gitTreeSha([{ path: "a/../b", mode: "100644", sha }])).rejects.toThrow("isn't a path git can store");
     await expect(gitTreeSha([{ path: "a", mode: "100644", sha }, { path: "a/b", mode: "100644", sha }])).rejects.toThrow("is a file");
     await expect(gitTreeSha([{ path: "a/b", mode: "100644", sha }, { path: "a", mode: "100644", sha }])).rejects.toThrow("listed twice");
+  });
+});
+
+describe("text", () => {
+  it("hashes text as its UTF-8 bytes, BOM included", async () => {
+    for (const text of ["", "title: Zoë\n", "\uFEFFid: a\r\n"]) {
+      expect(await textBlobSha(text)).toBe(repo.git(["hash-object", "--stdin"], { input: utf8.encode(text) }));
+    }
+  });
+
+  it("decodes UTF-8 exactly: a BOM kept, anything else refused", () => {
+    expect(utf8Text(utf8.encode("\uFEFFid: a\n"))).toBe("\uFEFFid: a\n");
+    expect(utf8Text(Uint8Array.from([0x69, 0x64, 0x3a, 0x20, 0xe9, 0x0a]))).toBeNull();
+  });
+
+  it("encodes base64 as RFC 4648 asks (padded), for big files and any character", () => {
+    for (const text of ["", "a", "ab", "abc", "Zoë’s café 🚀\n", "\uFEFFid: a\n"]) {
+      expect(utf8ToBase64(text)).toBe(Buffer.from(text, "utf8").toString("base64"));
+    }
+    const big = "title: Zoë’s café 🚀\n".repeat(150_000); // over 3 MB
+    expect(utf8ToBase64(big)).toBe(Buffer.from(big, "utf8").toString("base64"));
   });
 });
