@@ -144,6 +144,16 @@ async function loadPreview(base: Snapshot, branch: string): Promise<Exclude<Load
   }
 }
 
+/**
+ * Whether a newer snapshot changes anything on screen: a roadmap file, or the
+ * other files in the folder (reported as unexpected). A commit elsewhere in
+ * the repository (the app, its README) doesn't, and gets no notice.
+ */
+function changesScreen(next: Pick<Snapshot, "blobs" | "ignored">, current: Pick<Snapshot, "blobs" | "ignored">): boolean {
+  const others = (s: Pick<Snapshot, "ignored">) => [...s.ignored].sort().join("\n");
+  return !sameBlobs(next.blobs, current.blobs) || others(next) !== others(current);
+}
+
 /** The ignored files (a snapshot lists them) are reported as unexpected. */
 function fromSnapshot(s: Snapshot, preview = false): Loaded {
   return { ...loadRoadmap(s.files, s.ignored), ...s, preview };
@@ -160,8 +170,8 @@ export function App() {
    * lags behind saves, so a bundle we've seen is old news, never an update.
    */
   const [seen] = useState(() => new Set<string>());
-  /** Where what's on screen came from, and its files' blob SHAs. */
-  const onScreen = useRef<Pick<Snapshot, "source" | "blobs"> | null>(null);
+  /** Where what's on screen came from, and its files (blob SHAs, and the folder's other files). */
+  const onScreen = useRef<Pick<Snapshot, "source" | "blobs" | "ignored"> | null>(null);
   const saving = useRef(false);
 
   /** A newer BoxOps built the site: this tab is read-only until it reloads. */
@@ -184,7 +194,7 @@ export function App() {
 
   const show = useCallback(
     (loaded: Loaded) => {
-      onScreen.current = { source: loaded.source, blobs: loaded.blobs };
+      onScreen.current = { source: loaded.source, blobs: loaded.blobs, ignored: loaded.ignored };
       seen.add(loaded.source.commit);
       setState({ status: "ready", ...loaded });
     },
@@ -241,8 +251,7 @@ export function App() {
         // Not once the tab has moved on (a poll, a save) or while it's saving.
         if (!live || fresh === base || saving.current || onScreen.current?.source.commit !== base.source.commit) return;
         show(fromSnapshot(fresh));
-        // A commit to other files changes nothing on screen: no notice.
-        if (!sameBlobs(fresh.blobs, base.blobs)) setRemote({ author: fresh.source.author, subject: fresh.source.subject });
+        if (changesScreen(fresh, base)) setRemote({ author: fresh.source.author, subject: fresh.source.subject });
       } catch (e) {
         // The deployed copy stays. A token GitHub rejects is forgotten; the next save asks for one.
         if (e instanceof GitHubFailure && e.kind === "unauthorized") setToken(base.source.repo, null);
@@ -291,8 +300,7 @@ export function App() {
         if (!current || !movesForward(bundle.source, current.source, seen) || saving.current) return;
         const next = remember(await fromBundle(bundle));
         show(fromSnapshot(next));
-        // A commit to other files (a README, the app) changes nothing on screen: no notice.
-        if (!sameBlobs(next.blobs, current.blobs)) setRemote({ author: bundle.source.author, subject: bundle.source.subject });
+        if (changesScreen(next, current)) setRemote({ author: bundle.source.author, subject: bundle.source.subject });
       } catch {
         failures++;
         if (!stopped && failures >= LOST_AFTER) setLost(true);
