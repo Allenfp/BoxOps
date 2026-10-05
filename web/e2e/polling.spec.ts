@@ -184,7 +184,7 @@ test("a check that never gets an answer gives up after a while, and backs off li
   await page.clock.fastForward(15_000);
   await expect.poll(() => fetches).toBe(2);
   await page.clock.fastForward(20_000);
-  await expect(page.locator(".banner", { hasText: "Lost the connection to the site" })).toBeVisible();
+  await expect(page.locator(".banner", { hasText: "Can’t reach the site" })).toBeVisible();
 });
 
 test("checks that keep failing say the site is lost, back off, and recover; saving still works", async ({ page, github }) => {
@@ -203,8 +203,10 @@ test("checks that keep failing say the site is lost, back off, and recover; savi
   expect(fetches).toBe(1);
   await page.clock.fastForward(2 * 60_000);
   await expect.poll(() => fetches).toBe(2);
-  const lost = page.locator(".banner", { hasText: "Lost the connection to the site" });
-  await expect(lost).toBeVisible();
+  const lost = page.locator(".banner", { hasText: "Can’t reach the site" });
+  await expect(lost.locator("span")).toHaveText(
+    "Can’t reach the site, so others’ saves aren’t coming in. BoxOps keeps trying; if this goes on, reload (a private site may want you to sign in again).",
+  );
   await expect(lost.getByRole("button", { name: "Reload" })).toBeVisible();
 
   // A failed check never stops a save.

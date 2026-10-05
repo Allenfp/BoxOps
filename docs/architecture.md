@@ -157,8 +157,9 @@ both.
   (offline, mid-deploy, a private site whose sign-in expired: the
   same-origin request is then redirected to github.com and fails, or no
   answer within 20 s) waits longer each time, 4, 8, then 15 minutes; two in
-  a row show a calm notice, "Lost the connection to the site", with Reload,
-  until a check succeeds. Coming back online checks at once. A failed check
+  a row show a calm notice, "Can't reach the site", saying the tab keeps
+  trying and to reload if it goes on (a private site may want a new
+  sign-in), until a check succeeds. Coming back online checks at once. A failed check
   never counts as an app update. Every `roadmap.json` fetched also brings
   the site's `notices`, shown as plain-text banners (never HTML; the same
   one once) that can be put away.

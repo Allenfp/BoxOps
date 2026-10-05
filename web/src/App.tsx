@@ -1440,9 +1440,11 @@ function RoadmapView(props: ViewProps) {
       )}
       {props.connectionLost && (
         <div className="banner" role="status">
+          {/* The poll keeps trying, and coming back online checks at once: reloading offline would lose the page. */}
           <span>
-            Lost the connection to the site, so others’ saves aren’t coming in. Reload to reconnect
-            {count > 0 && draft.kept ? "; your unsaved changes are kept in this browser" : ""}.
+            Can’t reach the site, so others’ saves aren’t coming in. BoxOps keeps trying; if this goes on, reload (a
+            private site may want you to sign in again).
+            {count > 0 && draft.kept ? " Your unsaved changes are kept in this browser." : ""}
           </span>
           <button onClick={() => reloadApp("")}>Reload</button>
         </div>
