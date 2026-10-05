@@ -146,6 +146,21 @@ describe("requests", () => {
     expect(e.detail.anonymous).toBeUndefined();
   });
 
+  it("take a token no header can carry for a rejected one, sending nothing: not for being offline", async () => {
+    // As browsers do: a header value outside ISO-8859-1 makes fetch throw a TypeError before sending.
+    const f = fake((_url, init) => (new Headers(init.headers), json(200, { object: { sha: SHA } })));
+    for (const token of ["“github_pat_TEST”", "github_pat_TEST​", "github_pat_TEST "]) {
+      const gh = new GitHubClient({ token, fetch: f.fetchImpl });
+      await expect(gh.head("acme/roadmap", "main"), token).rejects.toMatchObject({ kind: "unauthorized", ambiguous: false });
+      // Nothing was sent, so a save that fails this way certainly wasn't made.
+      await expect(gh.createCommitOnBranch(commitInput), token).rejects.toMatchObject({ kind: "unauthorized", ambiguous: false });
+    }
+    expect(f.calls).toHaveLength(0);
+    // Without its token, raw.githubusercontent.com is asked all the same.
+    await new GitHubClient({ token: "“github_pat_TEST”", fetch: f.fetchImpl }).rawFile("acme/roadmap", SHA, "roadmap/boxes/a.yaml");
+    expect(f.calls).toHaveLength(1);
+  });
+
   it("report a network failure as offline; after a mutation, as ambiguous", async () => {
     const gh = new GitHubClient({ token: "t", fetch: fake(() => Promise.reject(new TypeError("Load failed"))).fetchImpl });
     await expect(gh.head("acme/roadmap", "main")).rejects.toMatchObject({ kind: "offline", ambiguous: false });

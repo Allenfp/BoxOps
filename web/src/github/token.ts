@@ -1,12 +1,13 @@
 // The pasted GitHub token, one per repository ("owner/repo"). It's kept as
 // soon as it's submitted, in sessionStorage (it survives reloads; the browser
 // forgets it with the tab's session) and in memory (for when storage is
-// blocked), and it's forgotten only when GitHub rejects it (401) or the user
-// says so. It's never written into the repo or the URL, and only ever sent
-// to api.github.com. Every project site on <owner>.github.io shares one
-// origin, so the key names the repository: two roadmaps there don't share a
-// token. (Scripts of the other sites, opened in the same tab, could still
-// read it; private Pages and custom domains get an origin of their own.)
+// blocked), and it's forgotten only when GitHub rejects it (401, or it can't
+// be sent at all) or the user says so. It's never written into the repo or
+// the URL, and only ever sent to api.github.com. Every project site on
+// <owner>.github.io shares one origin, so the key names the repository: two
+// roadmaps there don't share a token. (Scripts of the other sites, opened in
+// the same tab, could still read it; private Pages and custom domains get an
+// origin of their own.)
 
 const PREFIX = "boxops-github-token:";
 /** Before tokens were kept per repository, one key held the only one. */

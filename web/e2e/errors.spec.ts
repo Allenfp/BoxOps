@@ -1,5 +1,5 @@
 import { type Page } from "@playwright/test";
-import { type Endpoint, type Injected, OTHER_OWNER_TOKEN, READ_TOKEN, TOKEN } from "./fake-github";
+import { type Endpoint, type Injected, OTHER_OWNER_TOKEN, READ_TOKEN, REPO, TOKEN } from "./fake-github";
 import { DAGSTER, boxFile, dragDays, expect, save, test, toolbar } from "./helpers";
 
 // A save GitHub refuses, or can't be reached for, says why in plain words and
@@ -44,6 +44,24 @@ test.describe("private repository, signed out", () => {
     await pasteToken(page, TOKEN);
     await expect(toolbar(page)).toContainText("No changes");
     expect(github.calls("graphql")).toBe(2);
+  });
+});
+
+test.describe("signed out", () => {
+  test.use({ signedIn: false });
+
+  test("a kept token no header can carry is asked for again, never taken for being offline", async ({ page, github }) => {
+    // Kept with curly quotes around it, as pasted from a document.
+    const key = `boxops-github-token:${REPO}`;
+    await page.evaluate((key) => sessionStorage.setItem(key, "“github_pat_TEST”"), key);
+    await dragDays(page, DAGSTER, 10);
+    await save(page);
+    await expect(dialog(page).locator("h2")).toHaveText("Connect to GitHub to save");
+    await expect(dialog(page).locator(".callout.error")).toContainText("rejected that token");
+    expect(await page.evaluate((key) => sessionStorage.getItem(key), key)).toBeNull();
+    await pasteToken(page, TOKEN);
+    await expect(toolbar(page)).toContainText("No changes");
+    expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
   });
 });
 

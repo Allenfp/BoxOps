@@ -278,12 +278,14 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    submitted, in `sessionStorage` under `boxops-github-token:<owner>/<repo>`
    (the old tab-wide key moves over once) and in memory, and it's forgotten
    only on a 401 or Forget token, so Try again and the automatic re-save
-   after a clash never ask again. A choice already made (keep mine or keep
-   theirs) is carried through the token form. The key names the repository
-   because every project site on `<owner>.github.io` shares one origin;
-   scripts of those other sites, opened in the same tab, could read it, which
-   private Pages (a subdomain of its own) or a custom domain avoid. It's sent
-   only to GitHub.
+   after a clash never ask again. A kept token holding a character no HTTP
+   header can carry (a curly quote, say), which the browser won't send,
+   counts as a 401, never as being offline. A choice already made (keep mine
+   or keep theirs) is carried through the token form. The key names the
+   repository because every project site on `<owner>.github.io` shares one
+   origin; scripts of those other sites, opened in the same tab, could read
+   it, which private Pages (a subdomain of its own) or a custom domain avoid.
+   It's sent only to GitHub.
 3. **Pre-save check.** First the app re-fetches `roadmap.json`: if a newer
    BoxOps was deployed that the poll hasn't seen, the tab goes read-only
    instead of saving (see [Tabs left open](#tabs-left-open)). It waits 5 s

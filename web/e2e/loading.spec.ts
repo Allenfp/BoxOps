@@ -140,6 +140,20 @@ test.describe("private repository, signed out", () => {
     await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
   });
 
+  test("a branch preview whose kept token no header can carry asks for another, sending nothing", async ({ page, github }) => {
+    featureBranch(github);
+    await page.evaluate(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, `${TOKEN}​`]);
+    await page.goto("./?ref=feature&zoom=months");
+    const form = page.locator(".load-token");
+    await expect(form.locator("h2")).toHaveText("Connect to GitHub to preview");
+    await expect(form.locator(".callout.error")).toContainText("rejected that token");
+    expect(github.calls()).toBe(0);
+    await form.locator('input[type="password"]').fill(TOKEN);
+    await form.getByRole("button", { name: "Preview" }).click();
+    await expect(page.locator(".banner")).toContainText("Previewing branch feature (read-only).");
+    await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  });
+
   test("a branch preview whose kept token can't see the repository offers a different token", async ({ page, github }) => {
     featureBranch(github);
     await page.evaluate(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, OTHER_OWNER_TOKEN]);

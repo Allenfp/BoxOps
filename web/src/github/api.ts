@@ -272,6 +272,9 @@ const SAVE_MUTATION = `mutation BoxOpsSave($input: CreateCommitOnBranchInput!) {
 
 let busted = 0;
 
+/** What a token sent in a header may hold: visible ASCII. */
+const TOKEN_TEXT = /^[\x21-\x7E]+$/;
+
 export class GitHubClient {
   private readonly token: string | null;
   private readonly signal?: AbortSignal;
@@ -299,7 +302,13 @@ export class GitHubClient {
     if (c.url.startsWith(`${API}/`)) {
       headers.Accept = c.accept ?? "application/vnd.github+json";
       if (!c.url.startsWith(`${API}/graphql`)) headers["X-GitHub-Api-Version"] = API_VERSION;
-      if (this.token) headers.Authorization = `Bearer ${this.token}`;
+      if (this.token) {
+        // A character a header can't carry (a curly quote, a zero-width space,
+        // pasted with it) makes fetch throw before sending: that's the token,
+        // not the network, and a 401 is what makes the app ask for another.
+        if (!TOKEN_TEXT.test(this.token)) throw new GitHubFailure("unauthorized", "That token can’t be sent to GitHub.");
+        headers.Authorization = `Bearer ${this.token}`;
+      }
     }
     if (c.json !== undefined) headers["Content-Type"] = "application/json";
     // setTimeout rather than AbortSignal.timeout(), so a fake clock (the browser tests') drives it.
