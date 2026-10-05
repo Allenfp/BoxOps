@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
-import { CDC, DAGSTER, REVENUE, TODAY, boxDates, boxFile, boxTitle, dragDays, expect, openTab, pollNow, save, storedDrafts, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, REVENUE, TODAY, box, boxDates, boxFile, boxTitle, dragDays, expect, openTab, pollNow, save, storedDrafts, test, toolbar } from "./helpers";
 
 // Unsaved drafts are kept per tab: other tabs never take, overwrite or remove
 // them, and one left by a tab that's gone is offered, never taken silently.
@@ -123,6 +123,30 @@ test("a reload the page didn't see coming (after a crash) restores the tab's own
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
   await expect(page.locator(".banner", { hasText: "unsaved changes in another tab" })).toHaveCount(0);
   expect(Object.keys(await storedDrafts(page))).toHaveLength(1);
+});
+
+test("unsaved edits kept over a reload after someone else saved: theirs come in, a box both changed clashes", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 10);
+  await stored(page);
+  github.deploy(
+    github.otherSave(
+      {
+        [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked"),
+        [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3"),
+      },
+      "Priya Shah",
+      "Two boxes",
+    ),
+  );
+  await page.reload();
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
+  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+  await expect(page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: "Clashes with someone else’s save" })).toContainText(
+    "Box “Dagster 2.x upgrade”: you’ll choose whose version to keep when you save",
+  );
 });
 
 test("a draft left by a tab that's no longer open can be discarded for good", async ({ page, github }) => {

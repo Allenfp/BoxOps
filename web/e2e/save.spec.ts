@@ -262,3 +262,50 @@ for (const visibility of ["public", "private"] as const) {
     });
   });
 }
+
+test("someone else's save to another engineer in people.yaml, racing ours: no question, both kept", async ({ page, github }) => {
+  await page.getByRole("button", { name: "People" }).click();
+  const sam = page.locator("tbody tr").filter({ has: page.locator('input[aria-label="Name"][value="Sam Lee"]') });
+  await sam.getByLabel("Role").fill("Tech lead");
+  await sam.getByLabel("Role").press("Enter");
+  // The same file, someone else's engineer: a clash for the file, none for the items.
+  github.beforeRefUpdate = () => {
+    github.otherSave({ "people.yaml": (t) => t.replace("    name: Priya Shah\n", "    name: Priya Shah\n    role: Analyst\n") });
+  };
+  await save(page);
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(page.locator(".save-dialog[open]")).toHaveCount(0);
+  const people = github.file("people.yaml")!;
+  expect(people).toContain("    name: Sam Lee\n    department: data-eng\n    role: Tech lead\n");
+  expect(people).toContain("    name: Priya Shah\n    role: Analyst\n");
+});
+
+test("a box with no title can't be saved: the problem is shown, and nothing is written", async ({ page, github }) => {
+  await page.getByRole("button", { name: "Table" }).click();
+  await page.locator("tbody tr").filter({ has: page.locator('input[aria-label="Title"][value="Dagster 2.x upgrade"]') }).getByLabel("Title").fill("");
+  await page.keyboard.press("Enter"); // the row's locator matched the old title, so on whatever has focus
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("Can’t save yet");
+  await expect(dialog.locator(".callout.error")).toContainText(`roadmap/${boxFile(DAGSTER)}`);
+  await expect(dialog.locator(".callout.error")).toContainText("title: required text is missing");
+  await dialog.getByRole("button", { name: "Back to editing" }).click();
+  expect(github.head).toBe(github.root);
+});
+
+test("a save someone else's racing save would leave invalid fails, says why, and writes nothing", async ({ page, github }) => {
+  // Dagster into the Contractor lane, while someone else removes that lane.
+  await box(page, DAGSTER).click();
+  await page.getByRole("dialog", { name: /Edit/ }).getByLabel("Lane").selectOption("de-4");
+  await page.keyboard.press("Escape");
+  let theirs = "";
+  github.beforeRefUpdate = () => {
+    theirs = github.otherSave({ "departments/data-eng.yaml": (t) => t.replace("  - id: de-4\n    name: Contractor\n    fte: 0.5\n", "") });
+  };
+  await save(page);
+  const dialog = page.locator(".save-dialog[open]");
+  await expect(dialog.locator("h2")).toHaveText("Save failed");
+  await expect(dialog).toContainText("This save would leave the roadmap invalid");
+  await expect(dialog).toContainText(`lane: "de-4" does not exist`);
+  expect(github.head).toBe(theirs);
+});
