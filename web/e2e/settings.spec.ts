@@ -79,6 +79,18 @@ test("the key and the keyboard shortcuts open from the menu", async ({ page, git
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toContainText("Undo");
 });
 
+test("in team settings, a flag moved from the keyboard keeps the focus, place after place", async ({ page, github: _ }) => {
+  await openMenu(page);
+  await menu(page).getByRole("button", { name: "Team settings…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Team settings" });
+  const flags = () => dialog.getByLabel(/^Flag \d name$/).evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  await dialog.getByRole("button", { name: "Move At risk down" }).focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(flags).toEqual(["Late", "At risk", "Blocked"]);
+  await page.keyboard.press("Enter"); // the same button, still At risk's
+  await expect.poll(flags).toEqual(["Late", "Blocked", "At risk"]);
+});
+
 test("team settings are a change like any other, saved to settings.yaml for everyone", async ({ page, github }) => {
   await openMenu(page);
   await menu(page).getByRole("button", { name: "Team settings…" }).click();

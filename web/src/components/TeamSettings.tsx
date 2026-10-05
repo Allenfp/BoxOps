@@ -1,6 +1,7 @@
 // Team settings: what's in roadmap/settings.yaml. Edits go into the draft like
 // any other change (undo, unsaved count) and are saved as a commit for everyone.
 
+import { useRef } from "react";
 import { slugify } from "../model/draft";
 import {
   type Box,
@@ -83,6 +84,13 @@ function ListEditor<T extends BoxType | BoxStatus>({
 }) {
   const set = (next: T[], key: string) =>
     onChange({ [field]: next } as Partial<Settings>, `${field}:${key}`);
+  // Each row keeps its React key through moves, removals and renames (an
+  // unsaved item's id follows its name), so focus stays with its item.
+  const keys = useRef(new Map<string, number>());
+  const keyOf = (id: string) => {
+    if (!keys.current.has(id)) keys.current.set(id, keys.current.size);
+    return keys.current.get(id)!;
+  };
   const rename = (i: number, name: string) => {
     const item = items[i];
     // An item that isn't saved yet, and that no box uses, takes its id from its name.
@@ -91,6 +99,7 @@ function ListEditor<T extends BoxType | BoxStatus>({
     const id = followName
       ? idFor(name, new Set(items.filter((_, j) => j !== i).map((x) => x.id)))
       : item.id;
+    if (id !== item.id && !keys.current.has(id)) keys.current.set(id, keyOf(item.id));
     set(
       items.map((x, j) => (j === i ? { ...x, id, name } : x)),
       `name:${i}`,
@@ -103,11 +112,13 @@ function ListEditor<T extends BoxType | BoxStatus>({
   };
   return (
     <ul className="team-list">
+      {/* keyOf reads keys while rendering, on purpose; it only ever adds an id, so a second render is harmless. */}
+      {/* eslint-disable-next-line react-hooks/refs -- stable row keys, see above */}
       {items.map((item, i) => {
         const n = uses(item.id);
         const canRemove = n === 0 && items.length > minimum;
         return (
-          <li key={i}>
+          <li key={keyOf(item.id)}>
             {"color" in item && (
               <input
                 type="color"
