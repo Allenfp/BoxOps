@@ -466,19 +466,19 @@ export function fromSharedDraft(value: unknown, current: DraftState, now: Date):
     return null;
   }
   const fte = (boxes: Box[]) => boxes.map((b) => ({ ...b, fte: b.fte ?? 1 }));
-  const oldBase: DraftState = {
-    boxes: fte(v.base.boxes),
-    departments: v.base.departments ?? current.departments,
-    people: v.base.people ?? [],
-    settings: v.base.settings ?? current.settings,
-  };
-  const draft: DraftState = {
-    boxes: fte(v.boxes),
-    departments: v.departments ?? oldBase.departments,
-    people: v.people ?? oldBase.people,
-    settings: v.settings ?? oldBase.settings,
-  };
   try {
+    const oldBase: DraftState = {
+      boxes: fte(v.base.boxes),
+      departments: v.base.departments ?? current.departments,
+      people: v.base.people ?? [],
+      settings: v.base.settings ?? current.settings,
+    };
+    const draft: DraftState = {
+      boxes: fte(v.boxes),
+      departments: v.departments ?? oldBase.departments,
+      people: v.people ?? oldBase.people,
+      settings: v.settings ?? oldBase.settings,
+    };
     const items = changedItems(oldBase, draft, diffDraft(oldBase, draft));
     return { v: RECORD, format: FORMAT, build: "", baseCommit: "", savedAt: now.toISOString(), alive: 0, items, conflicts: [] };
   } catch {

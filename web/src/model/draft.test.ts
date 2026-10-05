@@ -366,6 +366,8 @@ describe("stored drafts", () => {
     expect(diffDraft(edited(base), restoreRecord(record, base).draft).count).toBe(0);
     // Without what it was made against, it can't be carried onto anything.
     expect(fromSharedDraft({ baseHash: "abc", boxes: [] }, base, new Date(0))).toBeNull();
+    // Nor with something that isn't a box in it: kept as it was, to download, rather than crashing every load.
+    expect(fromSharedDraft({ base: { boxes: [null] }, boxes: [] }, base, new Date(0))).toBeNull();
   });
 
   describe("opening a tab", () => {
