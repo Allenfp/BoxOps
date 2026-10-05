@@ -19,8 +19,8 @@
 // text hashes to its git blob SHA.
 
 import { execFileSync } from "node:child_process";
-import { closeSync, constants, fstatSync, lstatSync, openSync, readdirSync, readSync } from "node:fs";
-import { join } from "node:path";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { gitBlobSha } from "../src/github/git-objects.ts";
 import type { RoadmapFolder } from "../src/model/bundle.ts";
 import { EXECUTABLE, READ_LIMITS, isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
@@ -122,14 +122,24 @@ function gitEnv(): NodeJS.ProcessEnv {
   };
 }
 
-/** The repository's own .git folder; a .git file (a worktree or submodule checkout) or a symlink is refused. */
-function gitDir(repo: string): string {
+/**
+ * The repository's own .git folder; a .git file (a worktree or submodule
+ * checkout) or a symlink is refused. With `checkout`, a .git file that names
+ * a git folder (`gitdir: …`, as `git worktree add` writes) is followed: only
+ * for what identifies the app being built, never for roadmap data.
+ */
+function gitDir(repo: string, checkout = false): string {
   const dir = join(repo, ".git");
   let st;
   try {
     st = lstatSync(dir);
   } catch {
     throw new Error(`${repo} isn't a git repository (it has no .git folder)`);
+  }
+  if (checkout && st.isFile() && st.size < 4096) {
+    const target = /^gitdir: (.+)$/.exec(readFileSync(dir, "utf8").trim())?.[1];
+    const real = target === undefined ? undefined : resolve(repo, target);
+    if (real && lstatSync(real, { throwIfNoEntry: false })?.isDirectory()) return real;
   }
   if (!st.isDirectory()) {
     const what = st.isSymbolicLink() ? "a symlink" : "a file (a worktree or submodule checkout)";
@@ -138,9 +148,19 @@ function gitDir(repo: string): string {
   return dir;
 }
 
+/** `checkout`: the repository may be a worktree's checkout (see gitDir); for the app's build id only. */
+export interface GitOptions {
+  checkout?: boolean;
+}
+
 /** Runs one plumbing command against the repository whose top level is `repo`; returns its output. */
-export function gitPlumbing(repo: string, command: Plumbing, args: string[], o: { input?: string; maxBuffer?: number } = {}): Buffer {
-  const argv = ["--git-dir", gitDir(repo), "-c", "core.hooksPath=/dev/null", command, ...args];
+export function gitPlumbing(
+  repo: string,
+  command: Plumbing,
+  args: string[],
+  o: { input?: string; maxBuffer?: number } & GitOptions = {},
+): Buffer {
+  const argv = ["--git-dir", gitDir(repo, o.checkout), "-c", "core.hooksPath=/dev/null", command, ...args];
   try {
     return execFileSync("git", argv, { cwd: repo, env: gitEnv(), input: o.input, maxBuffer: o.maxBuffer ?? 1024 * 1024, stdio: "pipe" });
   } catch (e) {
@@ -154,9 +174,9 @@ export function gitPlumbing(repo: string, command: Plumbing, args: string[], o: 
 }
 
 /** The full SHA of a commit (`rev`: HEAD, a branch or a SHA). */
-export function resolveCommit(repo: string, rev: string): string {
+export function resolveCommit(repo: string, rev: string, o: GitOptions = {}): string {
   if (rev.startsWith("-")) throw new Error(`"${rev}" isn't a commit`);
-  const sha = gitPlumbing(repo, "rev-parse", ["--verify", `${rev}^{commit}`]).toString().trim();
+  const sha = gitPlumbing(repo, "rev-parse", ["--verify", `${rev}^{commit}`], o).toString().trim();
   if (!SHA.test(sha)) throw new Error(`${rev} is ${sha}: BoxOps reads SHA-1 repositories only`);
   return sha;
 }
@@ -173,8 +193,8 @@ export interface CommitInfo {
 }
 
 /** A commit object, read with `git cat-file commit`. */
-export function readCommit(repo: string, sha: string): CommitInfo {
-  const raw = gitPlumbing(repo, "cat-file", ["commit", sha]).toString("utf8");
+export function readCommit(repo: string, sha: string, o: GitOptions = {}): CommitInfo {
+  const raw = gitPlumbing(repo, "cat-file", ["commit", sha], o).toString("utf8");
   const end = raw.indexOf("\n\n");
   const info: CommitInfo = { tree: "", parents: [], author: "", date: "", subject: "" };
   // Headers; a line starting with a space continues the one before (a signature).

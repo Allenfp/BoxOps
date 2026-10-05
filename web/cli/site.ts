@@ -50,15 +50,16 @@ export function findRepo(dir: string): string | null {
  * build id is the version plus the first 12 hex of web/'s tree at HEAD, which
  * roadmap-only saves leave alone; ".dirty" when web/ has uncommitted changes.
  * The time is HEAD's committer date, so rebuilding a commit gives the same id
- * and time.
+ * and time. A `git worktree` checkout (whose .git is a file) is read too.
  */
 export function appInfo(webDir: string, repoDir = resolve(webDir, "..")): AppInfo {
   const { version } = JSON.parse(readFileSync(join(webDir, "package.json"), "utf8")) as { version: string };
   let tree = "unknown";
   let time = "";
+  const checkout = { checkout: true };
   try {
-    tree = gitPlumbing(repoDir, "rev-parse", ["--verify", `HEAD:${posix(relative(repoDir, webDir))}`]).toString().trim().slice(0, 12);
-    time = readCommit(repoDir, resolveCommit(repoDir, "HEAD")).date;
+    tree = gitPlumbing(repoDir, "rev-parse", ["--verify", `HEAD:${posix(relative(repoDir, webDir))}`], checkout).toString().trim().slice(0, 12);
+    time = readCommit(repoDir, resolveCommit(repoDir, "HEAD", checkout), checkout).date;
   } catch {
     // Not a git checkout: the build can't be identified.
   }

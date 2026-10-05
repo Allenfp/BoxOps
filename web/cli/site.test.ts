@@ -234,6 +234,17 @@ describe("appInfo", () => {
     expect(appInfo(join(r.dir, "web")).build).toBe(`1.2.3+${tree}.dirty`);
   });
 
+  it("is known in a `git worktree` checkout too, whose .git is a file", () => {
+    const { repo: r } = repo();
+    r.commit({ ...ROADMAP, "web/package.json": JSON.stringify({ version: "1.2.3" }) });
+    const worktree = mkdtempSync(join(tmpdir(), "boxops-test-"));
+    temps.push(worktree);
+    rmSync(worktree, { recursive: true });
+    r.git(["worktree", "add", "-q", "--detach", worktree, "main"]);
+    const tree = r.git(["rev-parse", "HEAD:web"]).slice(0, 12);
+    expect(appInfo(join(worktree, "web"))).toEqual({ version: "1.2.3", build: `1.2.3+${tree}`, time: "2026-10-01T00:03:00Z" });
+  });
+
   it("outside a git repository the build is unknown", () => {
     const dir = mkdtempSync(join(tmpdir(), "boxops-test-"));
     temps.push(dir);
