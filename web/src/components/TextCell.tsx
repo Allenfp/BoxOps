@@ -6,11 +6,12 @@ import { FieldError } from "./FieldError";
  * leaves, Esc puts the old value back. Either way focus stays in the cell
  * (losing it would send the next Tab back to the top of the page), and until
  * something's typed, ⌘Z there is the app's undo (`data-settled`), not the
- * field's own, as once focus had left it. One saved edit = one undo step. What's saved has no spaces at either end, as
- * `invalid` and `required` check it. `multiline` cells wrap and grow to fit;
- * Shift+Enter adds a line break there. A cell that's invalid has a red edge
- * while it's typed in; once saved like that, `problem` says why under it
- * (tied to it, and announced), so the colour isn't all there is to go by.
+ * field's own, as once focus had left it. One saved edit = one undo step.
+ * What's saved has no spaces at either end, as `invalid` and `required` check
+ * it. `multiline` cells wrap and grow to fit; Shift+Enter adds a line break
+ * there. A cell that's invalid has a red edge while it's typed in; once saved
+ * like that, `problem` says why under it (tied to it, and announced), so the
+ * colour isn't all there is to go by.
  */
 export function TextCell({
   value,

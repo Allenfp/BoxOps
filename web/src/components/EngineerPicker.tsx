@@ -19,9 +19,10 @@ interface Props {
  * A button saying who's assigned, opening a small dialog: a checkbox per
  * engineer on the roster, plus a field to add someone new. The button's name
  * says who's assigned ("Engineers: Sam Lee, Robin Park"). Opening it focuses
- * the first ticked engineer; ↑ and ↓ move between engineers (Safari's Tab
- * skips checkboxes), Space ticks, Tab goes on to the new-engineer field, and
- * Enter or Escape closes it, back on the button.
+ * the first ticked engineer; ↑ and ↓ move between engineers, Space ticks, and
+ * Enter or Escape closes it, back on the button. Tab goes through the
+ * engineers to the new-engineer field (Safari's own Tab, which the box editor
+ * doesn't use, skips the checkboxes: hence ↑ and ↓).
  */
 export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, emptyLabel }: Props) {
   const label = "Engineers";
