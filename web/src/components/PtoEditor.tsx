@@ -1,7 +1,7 @@
 // Edit one PTO block: whose it is, its dates and a note. Opens from the block
 // on the timeline, like the box editor.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import { ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import type { Department, Person, TimeOff } from "../model/types";
@@ -9,6 +9,7 @@ import { useAnchor } from "./useAnchor";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { LiveRegion } from "../a11y/announce";
+import { FieldError, describedBy } from "./FieldError";
 import { loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
 
 const WIDTH = 360;
@@ -53,20 +54,24 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
 
   // Weekends don't exist on the roadmap: a weekend start moves to Monday, a weekend end to Friday.
   const [snapped, setSnapped] = useState<string | null>(null);
+  // The other end moves too when one passes it: said in the same note.
   const setStart = (text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const start = nextWorkday(picked);
-    setSnapped(isWeekend(picked) ? `Moved to ${prettyDay(start)}: PTO starts on a weekday.` : null);
+    const notes = [isWeekend(picked) && `Moved to ${prettyDay(start)}: PTO starts on a weekday.`, start > pto.end && `The end moved to ${prettyDay(start)} too.`];
+    setSnapped(notes.filter(Boolean).join(" ") || null);
     onChange(start > pto.end ? { start, end: start } : { start }, "start");
   };
   const setEnd = (text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const end = prevWorkday(picked);
-    setSnapped(isWeekend(picked) ? `Moved to ${prettyDay(end)}: PTO ends on a weekday.` : null);
+    const notes = [isWeekend(picked) && `Moved to ${prettyDay(end)}: PTO ends on a weekday.`, end < pto.start && `The start moved to ${prettyDay(end)} too.`];
+    setSnapped(notes.filter(Boolean).join(" ") || null);
     onChange(end < pto.start ? { end, start: end } : { end }, "end");
   };
+  const ids = { start: useId(), end: useId(), note: useId() };
 
   const person = people.find((p) => p.id === target.personId);
   const days = workdays(pto.start, pto.end);
@@ -114,15 +119,24 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
       </div>
 
       <div className="editor-grid">
-        {snapped && <p className="field-note span-2">{snapped}</p>}
-        <label>
-          Start
-          <DateInput value={formatDay(pto.start)} onChange={setStart} />
-        </label>
-        <label>
-          End
-          <DateInput value={formatDay(pto.end)} onChange={setEnd} />
-        </label>
+        {snapped && (
+          <FieldError id={ids.note} className="field-note span-2">
+            {snapped}
+          </FieldError>
+        )}
+        {/* Not <label>s: one around the calendar would take its clicks, and its buttons' names. */}
+        <div className="field">
+          <span className="field-label" id={ids.start}>
+            Start
+          </span>
+          <DateInput value={formatDay(pto.start)} onChange={setStart} aria-labelledby={ids.start} aria-describedby={describedBy(snapped && ids.note)} />
+        </div>
+        <div className="field">
+          <span className="field-label" id={ids.end}>
+            End
+          </span>
+          <DateInput value={formatDay(pto.end)} onChange={setEnd} aria-labelledby={ids.end} aria-describedby={describedBy(snapped && ids.note)} />
+        </div>
         <label className="span-2">
           Note
           <input

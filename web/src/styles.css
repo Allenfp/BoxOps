@@ -1608,6 +1608,16 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   align-items: center;
   gap: 4px;
 }
+/* Why a saved cell's value won't do, under it (TextCell). */
+.cell-problem {
+  display: block;
+  flex-basis: 100%;
+  padding: 0 7px 3px;
+  white-space: normal;
+}
+.epic-cell {
+  flex-wrap: wrap;
+}
 .type-cell .swatch {
   flex: none;
   margin-left: 6px;
@@ -2685,9 +2695,13 @@ kbd {
 }
 .team-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   padding: 2px 0;
+}
+.team-problem {
+  flex-basis: 100%;
 }
 .team-list .team-name {
   flex: 1;

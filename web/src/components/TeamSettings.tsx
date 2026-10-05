@@ -1,7 +1,8 @@
 // Team settings: what's in roadmap/settings.yaml. Edits go into the draft like
 // any other change (undo, unsaved count) and are saved as a commit for everyone.
 
-import { useRef } from "react";
+import { useId, useRef } from "react";
+import { FieldError } from "./FieldError";
 import { slugify } from "../model/draft";
 import {
   type Box,
@@ -135,6 +136,8 @@ function ListEditor<T extends BoxType | BoxStatus>({
   // the same keys, so a second render is harmless.
   // eslint-disable-next-line react-hooks/refs -- stable row keys, see above
   const rowKey = rowKeys(items);
+  /** Ids for the "name required" notes, one per row key. */
+  const problemId = useId();
   return (
     <ul className="team-list">
       {items.map((item, i) => {
@@ -160,6 +163,8 @@ function ListEditor<T extends BoxType | BoxStatus>({
             )}
             <input
               className={`team-name${item.name.trim() ? "" : " invalid"}`}
+              aria-invalid={!item.name.trim() || undefined}
+              aria-describedby={item.name.trim() ? undefined : `${problemId}-${rowKey[i]}`}
               value={item.name}
               placeholder={`${noun[0].toUpperCase()}${noun.slice(1)} name`}
               aria-label={`${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1} name`}
@@ -205,6 +210,11 @@ function ListEditor<T extends BoxType | BoxStatus>({
             >
               <Icon name="x" size={14} />
             </button>
+            {!item.name.trim() && (
+              <FieldError id={`${problemId}-${rowKey[i]}`} className="field-error team-problem">
+                A name is required.
+              </FieldError>
+            )}
           </li>
         );
       })}

@@ -11,6 +11,7 @@ import { EngineerPicker } from "./EngineerPicker";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { LiveRegion } from "../a11y/announce";
+import { FieldError, describedBy } from "./FieldError";
 import { loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
 
 const WIDTH = 440;
@@ -51,6 +52,7 @@ export function BoxEditor(props: Props) {
   const { box, settings, departments, people, boxes, violations, onAddPerson, onChange, onDelete, onClose } = props;
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const ids = { titleError: useId(), start: useId(), end: useId(), note: useId(), epicError: useId(), epicHint: useId(), linksError: useId() };
   // Sit below the box (or above if there's no room), and follow it while the timeline scrolls.
   const pos = useAnchor(ref, `[data-box-id="${CSS.escape(box.id)}"]`, WIDTH, [box]);
   // Free-text list fields keep their raw text while typing so commas and newlines aren't eaten.
@@ -90,18 +92,21 @@ export function BoxEditor(props: Props) {
 
   // Only weekdays exist on the roadmap: a weekend start moves to Monday, a weekend end to Friday.
   const [snapped, setSnapped] = useState<string | null>(null);
+  // The other end moves too when one passes it: said in the same note.
   const setStart = (text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const start = nextWorkday(picked);
-    setSnapped(isWeekend(picked) ? `Moved to ${prettyDay(start)}: boxes start on a weekday.` : null);
+    const notes = [isWeekend(picked) && `Moved to ${prettyDay(start)}: boxes start on a weekday.`, start > box.end && `The end moved to ${prettyDay(start)} too.`];
+    setSnapped(notes.filter(Boolean).join(" ") || null);
     onChange(start > box.end ? { start, end: start } : { start }, "start");
   };
   const setEnd = (text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const end = prevWorkday(picked);
-    setSnapped(isWeekend(picked) ? `Moved to ${prettyDay(end)}: boxes end on a weekday.` : null);
+    const notes = [isWeekend(picked) && `Moved to ${prettyDay(end)}: boxes end on a weekday.`, end < box.start && `The start moved to ${prettyDay(end)} too.`];
+    setSnapped(notes.filter(Boolean).join(" ") || null);
     onChange(end < box.start ? { end, start: end } : { end }, "end");
   };
   const department = departments.find((d) => d.lanes.some((l) => l.id === box.lane))?.id;
@@ -175,6 +180,8 @@ export function BoxEditor(props: Props) {
           id={titleId}
           className="editor-title"
           value={box.title}
+          aria-invalid={!box.title.trim() || undefined}
+          aria-describedby={describedBy(!box.title.trim() && ids.titleError)}
           placeholder="Box title"
           autoFocus
           onFocus={(e) => box.title === "New box" && e.currentTarget.select()}
@@ -186,20 +193,29 @@ export function BoxEditor(props: Props) {
         </button>
       </div>
       <div className="editor-body">
-        {!box.title.trim() && <p className="field-error">A title is required.</p>}
+        {!box.title.trim() && <FieldError id={ids.titleError}>A title is required.</FieldError>}
 
         <section className="editor-section">
           <h4>Schedule</h4>
           <div className="editor-grid">
-            <label>
-              Start
-              <DateInput value={formatDay(box.start)} onChange={setStart} />
-            </label>
-            <label>
-              End
-              <DateInput value={formatDay(box.end)} onChange={setEnd} />
-            </label>
-            {snapped && <p className="field-note span-2">{snapped}</p>}
+            {/* Not <label>s: one around the calendar would take its clicks, and its buttons' names. */}
+            <div className="field">
+              <span className="field-label" id={ids.start}>
+                Start
+              </span>
+              <DateInput value={formatDay(box.start)} onChange={setStart} aria-labelledby={ids.start} aria-describedby={describedBy(snapped && ids.note)} />
+            </div>
+            <div className="field">
+              <span className="field-label" id={ids.end}>
+                End
+              </span>
+              <DateInput value={formatDay(box.end)} onChange={setEnd} aria-labelledby={ids.end} aria-describedby={describedBy(snapped && ids.note)} />
+            </div>
+            {snapped && (
+              <FieldError id={ids.note} className="field-note span-2">
+                {snapped}
+              </FieldError>
+            )}
             <label>
               FTE
               <select aria-label="FTE" value={box.fte} onChange={(e) => onChange({ fte: Number(e.target.value) }, "fte")}>
@@ -299,6 +315,9 @@ export function BoxEditor(props: Props) {
                 <input
                   type="url"
                   placeholder="https://…"
+                  aria-label="Epic link"
+                  aria-invalid={!epicValid || undefined}
+                  aria-describedby={describedBy(!epicValid && ids.epicError, jira && ids.epicHint)}
                   value={box.epic ?? ""}
                   onChange={(e) => onChange({ epic: e.target.value.trim() || undefined }, "epic")}
                 />
@@ -308,9 +327,9 @@ export function BoxEditor(props: Props) {
                   </a>
                 )}
               </span>
-              {!epicValid && <span className="field-error">Use a full http(s) link.</span>}
+              {!epicValid && <FieldError id={ids.epicError}>Use a full http(s) link.</FieldError>}
               {jira && (
-                <span className="hint">
+                <span className="hint" id={ids.epicHint}>
                   Labelled {jira} on the timeline and table (BoxOps code {fullCode(box, departments)})
                 </span>
               )}
@@ -328,9 +347,11 @@ export function BoxEditor(props: Props) {
                     setLinksText(e.target.value);
                     onChange({ links: splitList(e.target.value, /\n/) }, "links");
                   }}
+                  aria-label="Other links, one per line"
                   aria-invalid={!linksValid || undefined}
+                  aria-describedby={describedBy(!linksValid && ids.linksError)}
                 />
-                {!linksValid && <span className="field-error">Use full http(s) links.</span>}
+                {!linksValid && <FieldError id={ids.linksError}>Use full http(s) links.</FieldError>}
               </label>
             )}
           </div>

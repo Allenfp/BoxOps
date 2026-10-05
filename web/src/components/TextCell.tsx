@@ -1,4 +1,5 @@
-import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { FieldError } from "./FieldError";
 
 /**
  * A spreadsheet-style text cell: edits locally, saves on Enter or when focus
@@ -6,7 +7,9 @@ import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from
  * (losing it would send the next Tab back to the top of the page). One saved
  * edit = one undo step. What's saved has no spaces at either end, as
  * `invalid` and `required` check it. `multiline` cells wrap and grow to fit;
- * Shift+Enter adds a line break there.
+ * Shift+Enter adds a line break there. A cell that's invalid has a red edge
+ * while it's typed in; once saved like that, `problem` says why under it
+ * (tied to it, and announced), so the colour isn't all there is to go by.
  */
 export function TextCell({
   value,
@@ -16,6 +19,7 @@ export function TextCell({
   placeholder,
   required,
   invalid,
+  problem,
   autoFocus,
   ariaLabel,
   multiline,
@@ -27,6 +31,8 @@ export function TextCell({
   placeholder?: string;
   required?: boolean;
   invalid?(value: string): boolean;
+  /** Why a value that's required (and blank) or invalid won't do. */
+  problem?: string;
   autoFocus?: boolean;
   ariaLabel: string;
   multiline?: boolean;
@@ -57,6 +63,9 @@ export function TextCell({
   }, [multiline, text]);
 
   const bad = (required && !text.trim()) || invalid?.(text.trim());
+  /** The value as saved won't do: it's what the message is about (not text half typed). */
+  const wrong = !!problem && ((required && !value.trim()) || invalid?.(value.trim()));
+  const problemId = useId();
   /** Save what's typed if it's changed: without spaces at either end, and spaces alone are no change. */
   const commit = () => {
     const next = text.trim();
@@ -73,6 +82,7 @@ export function TextCell({
     disabled: readOnly,
     "aria-label": ariaLabel,
     "aria-invalid": bad || undefined,
+    "aria-describedby": wrong ? problemId : undefined,
     onFocus: () => (editing.current = true),
     onChange: (e: { target: { value: string } }) => setText(e.target.value),
     onBlur: () => {
@@ -89,5 +99,14 @@ export function TextCell({
       if (e.key === "Escape") setText(value);
     },
   };
-  return multiline ? <textarea rows={1} {...props} /> : <input {...props} />;
+  return (
+    <>
+      {multiline ? <textarea rows={1} {...props} /> : <input {...props} />}
+      {wrong && (
+        <FieldError id={problemId} className="field-error cell-problem">
+          {problem}
+        </FieldError>
+      )}
+    </>
+  );
 }

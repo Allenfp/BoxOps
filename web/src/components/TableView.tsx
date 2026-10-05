@@ -4,7 +4,7 @@ import { boxScale } from "../model/scale";
 import { jiraKey } from "../model/jira";
 import { ScaleBadge } from "./ScaleBadge";
 import { CollapseAll } from "./CollapseAll";
-import { formatDay, nextWorkday, parseDay, prevWorkday, workdays } from "../model/dates";
+import { formatDay, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import { BOX_FTE_OPTIONS, type Box, type Roadmap, type TimeOff } from "../model/types";
 import { type PtoRef, ptoEntries, ptoKey } from "../model/pto";
 import { capacityOn, hasDates, laneDates } from "../model/lanes";
@@ -15,7 +15,7 @@ import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { useReorder } from "./useReorder";
-import { useAnnounceResults } from "../a11y/announce";
+import { announce, useAnnounceResults } from "../a11y/announce";
 import { focusAfterRow } from "../a11y/focus";
 
 interface Props {
@@ -225,15 +225,22 @@ export function TableView(props: Props) {
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fromDay and toDay stand in for inDates, as above
   }, [people, query, props.showPto, fromDay, toDay]);
+  /** A date that wasn't used as typed (a weekend), or that took the other end with it, is said: the cell just shows the result. */
+  const sayMoved = (picked: number, day: number, what: string, other: "start" | "end" | false) => {
+    const notes = [day !== picked && `Moved to ${prettyDay(day)}: ${what} on a weekday.`, other && `The ${other} moved to ${prettyDay(day)} too.`];
+    if (notes.some(Boolean)) announce(notes.filter(Boolean).join(" "));
+  };
   const ptoDates = (ref: PtoRef, pto: TimeOff, field: "start" | "end", text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const key = `table:${ptoKey(ref)}:${field}`;
     if (field === "start") {
       const start = nextWorkday(picked);
+      sayMoved(picked, start, "PTO starts", start > pto.end && "end");
       props.onUpdatePto?.(ref, start > pto.end ? { start, end: start } : { start }, key);
     } else {
       const end = prevWorkday(picked);
+      sayMoved(picked, end, "PTO ends", end < pto.start && "start");
       props.onUpdatePto?.(ref, end < pto.start ? { end, start: end } : { end }, key);
     }
   };
@@ -252,12 +259,14 @@ export function TableView(props: Props) {
     const picked = parseDay(text);
     if (picked === null) return;
     const start = nextWorkday(picked);
+    sayMoved(picked, start, "boxes start", start > b.end && "end");
     update(b.id, start > b.end ? { start, end: start } : { start }, `table:${b.id}:start`);
   };
   const setEnd = (b: Box, text: string) => {
     const picked = parseDay(text);
     if (picked === null) return;
     const end = prevWorkday(picked);
+    sayMoved(picked, end, "boxes end", end < b.start && "start");
     update(b.id, end < b.start ? { end, start: end } : { end }, `table:${b.id}:end`);
   };
 
@@ -456,6 +465,7 @@ export function TableView(props: Props) {
                       value={b.title}
                       readOnly={readOnly}
                       required
+                      problem="A title is required."
                       autoFocus={focusId === b.id}
                       onCommit={(title) => update(b.id, { title })}
                       onBlur={onCheckpoint}
@@ -568,6 +578,7 @@ export function TableView(props: Props) {
                         readOnly={readOnly}
                         placeholder="https://…"
                         invalid={(v) => v !== "" && !LINK.test(v)}
+                        problem="Use a full http(s) link."
                         onCommit={(v) => update(b.id, { epic: v || undefined })}
                         onBlur={onCheckpoint}
                         ariaLabel="Epic link"

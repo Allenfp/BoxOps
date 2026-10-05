@@ -68,3 +68,49 @@ test("an edit that breaks a rule is announced, and the same message twice is rea
   await page.getByRole("button", { name: "Undo" }).click();
   await expect.poll(undone).toBe(2);
 });
+
+// Fields: real labels, and problems (or changes made for the user) tied to them, shown and said.
+
+test("the box editor's fields are labelled, and a missing title or a moved weekend date is tied to its field and said", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / }); // "Edit box" while it has no title
+  const title = editor.getByRole("textbox", { name: "Title", exact: true });
+  await title.fill("");
+  await expect(title).toHaveAttribute("aria-invalid", "true");
+  await expect(title).toHaveAccessibleDescription("A title is required.");
+  await expect.poll(() => heard(page)).toContain("A title is required.");
+  await title.fill("Dagster 2.x upgrade");
+  await expect(title).not.toHaveAttribute("aria-invalid", /./);
+
+  // Named by its label alone, not the calendar button's name too.
+  const start = editor.getByRole("textbox", { name: "Start", exact: true });
+  await start.fill("2026-10-10"); // a Saturday
+  await expect(start).toHaveValue("2026-10-12");
+  await expect(start).toHaveAccessibleDescription("Moved to 2026-10-12: boxes start on a weekday.");
+  await expect.poll(() => heard(page)).toContain("Moved to 2026-10-12: boxes start on a weekday.");
+
+  await editor.getByRole("textbox", { name: "End", exact: true }).fill("2026-10-09");
+  await expect.poll(() => heard(page)).toContain("The start moved to 2026-10-09 too.");
+});
+
+test("a table cell saved with a value that won't do says why, under it", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const epic = page.locator("tbody tr").filter({ has: page.locator('input[value="Dagster 2.x upgrade"]') }).getByLabel("Epic link");
+  await epic.fill("not a link");
+  await expect(epic).toHaveAttribute("aria-invalid", "true");
+  await expect(epic).not.toHaveAccessibleDescription(/./); // not while it's being typed
+  await epic.press("Enter");
+  await expect(epic).toHaveAccessibleDescription("Use a full http(s) link.");
+  await expect(page.locator(".cell-problem")).toHaveText("Use a full http(s) link.");
+  await expect.poll(() => heard(page)).toContain("Use a full http(s) link.");
+});
+
+test("a blank type or flag name in team settings says it's required", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Team settings…" }).click();
+  const name = page.getByRole("dialog", { name: "Team settings" }).getByLabel("Flag 1 name");
+  await name.fill("");
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await expect(name).toHaveAccessibleDescription("A name is required.");
+  await expect.poll(() => heard(page)).toContain("A name is required.");
+});

@@ -3,7 +3,8 @@
 // applies it; the calendar button opens a small month calendar of our own
 // (the browser's picker can't be closed reliably when its input is hidden).
 
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
+import { announce } from "../a11y/announce";
 import { addMonths, type Day, dayParts, formatDay, monthName, parseDay, startOfMonth, startOfWeek, today } from "../model/dates";
 import { Icon } from "./Icon";
 
@@ -20,6 +21,9 @@ interface Props {
   disabled?: boolean;
   autoFocus?: boolean;
   "aria-label"?: string;
+  "aria-labelledby"?: string;
+  /** Notes about the field (a weekend date moved to a weekday, say). */
+  "aria-describedby"?: string;
   placeholder?: string;
 }
 
@@ -30,6 +34,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
   const field = useRef<HTMLInputElement>(null);
   const shown = draft ?? value;
   const invalid = draft !== null && draft !== "" && !(ISO.test(draft) && parseDay(draft) !== null);
+  const formatId = useId();
 
   const open = () => {
     const box = ref.current?.getBoundingClientRect();
@@ -64,6 +69,13 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
     };
   }, [calendar]);
 
+  /** Done typing (focus left, or Enter): text that isn't a date is dropped, and the field shows its value again. */
+  const settle = () => {
+    if (invalid) announce(`“${draft}” isn’t a date, so the field is back to ${value || "empty"}.`);
+    setDraft(null);
+    onBlur?.();
+  };
+
   const pick = (day: Day) => {
     onChange(formatDay(day));
     setDraft(null);
@@ -93,7 +105,9 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
         disabled={disabled}
         autoFocus={autoFocus}
         aria-label={rest["aria-label"]}
+        aria-labelledby={rest["aria-labelledby"]}
         aria-invalid={invalid || undefined}
+        aria-describedby={[invalid && formatId, rest["aria-describedby"]].filter(Boolean).join(" ") || undefined}
         onChange={(e) => {
           const text = e.target.value;
           setDraft(text);
@@ -102,22 +116,21 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, placeh
             setDraft(null);
           }
         }}
-        onBlur={() => {
-          setDraft(null);
-          onBlur?.();
-        }}
+        onBlur={settle}
         onKeyDown={(e) => {
           if (e.key === "Escape" && draft !== null) {
             e.stopPropagation();
             setDraft(null);
           }
-          // Enter settles the field as leaving it would (a part-typed date is dropped), but stays in it.
-          if (e.key === "Enter") {
-            setDraft(null);
-            onBlur?.();
-          }
+          // Enter settles the field as leaving it would, but stays in it.
+          if (e.key === "Enter") settle();
         }}
       />
+      {invalid && (
+        <span id={formatId} className="sr-only">
+          Dates are written YYYY-MM-DD.
+        </span>
+      )}
       {!disabled && (
         <button
           type="button"

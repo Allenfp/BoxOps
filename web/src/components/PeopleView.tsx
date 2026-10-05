@@ -206,6 +206,7 @@ export function PeopleView(props: Props) {
                           <TextCell
                             value={p.name}
                             required
+                            problem="A name is required."
                             readOnly={readOnly}
                             autoFocus={focusId === p.id}
                             onCommit={(name) => update(p.id, { name: name.trim() })}
@@ -244,6 +245,7 @@ export function PeopleView(props: Props) {
                             readOnly={readOnly}
                             placeholder="name@company.com"
                             invalid={(v) => v !== "" && !EMAIL.test(v)}
+                            problem="That isn’t an email address."
                             onCommit={(email) => update(p.id, { email: email.trim() || undefined })}
                             onBlur={onCheckpoint}
                             ariaLabel="Email"

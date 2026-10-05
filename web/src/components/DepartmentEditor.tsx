@@ -1,10 +1,11 @@
 import { useCallback, useId, useRef, useState } from "react";
-import { LiveRegion } from "../a11y/announce";
+import { LiveRegion, announce } from "../a11y/announce";
+import { FieldError, describedBy } from "./FieldError";
 import { main, onPage, useReturnFocus } from "../a11y/focus";
 import { DEPT_CODE } from "../model/load";
 import { deriveDeptCode } from "../model/relations";
 import { DEPARTMENT_COLORS } from "../model/structure";
-import { formatDay, nextWorkday, parseDay, prevWorkday } from "../model/dates";
+import { formatDay, nextWorkday, parseDay, prettyDay, prevWorkday } from "../model/dates";
 import type { Box, Department, Lane, Person } from "../model/types";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
@@ -93,6 +94,8 @@ export function DepartmentEditor(props: Props) {
     }
   }, []);
   const titleId = useId();
+  const nameError = useId();
+  const codeError = useId();
 
   const id = target.kind === "edit" ? target.id : created;
   // Closed: focus goes to the department's ✎ (one just added: its heading), in whichever view is
@@ -143,6 +146,7 @@ export function DepartmentEditor(props: Props) {
 
   if (!dept) {
     if (target.kind === "edit") return null; // removed (or undone) while open
+    const newCodeProblem = newName.trim() ? codeProblem(newCode ?? deriveDeptCode(newName, codesTakenExcept())) : null;
     return shell(
       "Add a department",
       <form
@@ -171,11 +175,11 @@ export function DepartmentEditor(props: Props) {
             value={newCode ?? deriveDeptCode(newName, codesTakenExcept())}
             onChange={(e) => setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
             aria-label="Department code"
+            aria-invalid={!!newCodeProblem || undefined}
+            aria-describedby={describedBy(newCodeProblem && codeError)}
             className="code-input"
           />
-          {newName.trim() && codeProblem(newCode ?? deriveDeptCode(newName, codesTakenExcept())) && (
-            <span className="field-error">{codeProblem(newCode ?? deriveDeptCode(newName, codesTakenExcept()))}</span>
-          )}
+          {newCodeProblem && <FieldError id={codeError}>{newCodeProblem}</FieldError>}
         </label>
         <div className="field">
           <span className="field-label">Colour</span>
@@ -214,8 +218,10 @@ export function DepartmentEditor(props: Props) {
           onChange={(e) => props.onUpdate(dept.id, { name: e.target.value }, `${dept.id}:name`)}
           onBlur={(e) => e.target.value.trim() !== e.target.value && props.onUpdate(dept.id, { name: e.target.value.trim() }, `${dept.id}:name`)}
           aria-label="Department name"
+          aria-invalid={!dept.name.trim() || undefined}
+          aria-describedby={describedBy(!dept.name.trim() && nameError)}
         />
-        {!dept.name.trim() && <span className="field-error">A name is required to save.</span>}
+        {!dept.name.trim() && <FieldError id={nameError}>A name is required to save.</FieldError>}
       </label>
       <label>
         <span>
@@ -227,11 +233,11 @@ export function DepartmentEditor(props: Props) {
             props.onUpdate(dept.id, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) }, `${dept.id}:code`)
           }
           aria-label="Department code"
+          aria-invalid={!!codeProblem(dept.code, dept.id) || undefined}
+          aria-describedby={describedBy(!!codeProblem(dept.code, dept.id) && codeError)}
           className="code-input"
         />
-        {codeProblem(dept.code, dept.id) && (
-          <span className="field-error">{codeProblem(dept.code, dept.id)} It must be fixed before saving.</span>
-        )}
+        {codeProblem(dept.code, dept.id) && <FieldError id={codeError}>{`${codeProblem(dept.code, dept.id)} It must be fixed before saving.`}</FieldError>}
       </label>
       <div className="field">
         <span className="field-label">Colour</span>
@@ -331,6 +337,7 @@ export function DepartmentEditor(props: Props) {
                             // A full, valid date (all DateInput gives). Weekends don't exist: opening moves to Monday, closing to Friday.
                             const picked = parseDay(text)!;
                             const day = field === "start" ? nextWorkday(picked) : prevWorkday(picked);
+                            if (day !== picked) announce(`Moved to ${prettyDay(day)}: a lane ${what} on a weekday.`);
                             const patch: Partial<Lane> = { [field]: day };
                             // Keep start ≤ end: moving one past the other takes it along.
                             if (field === "start" && lane.end !== undefined && day > lane.end) patch.end = day;
