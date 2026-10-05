@@ -636,6 +636,11 @@ function RoadmapView(props: ViewProps) {
 
   /** `keep`: whose version of clashing items to keep, once chosen. `token`: just pasted. */
   const save = async (opts: Resume & { token?: string } = {}) => {
+    // A pasted token is kept straight away, before anything below can stop
+    // the save (a clash that came in while the token form was open, say), so
+    // retries and the re-save after a choice never ask for it again; only a
+    // 401 forgets it.
+    if (opts.token) setToken(source.repo, opts.token);
     // Items someone else changed while we were editing them: the user picks first.
     const clashes = draft.conflicts;
     if (clashes.length && !opts.keep) return setProblem({ kind: "conflict", items: clashes.map(describeItem) });
@@ -657,9 +662,6 @@ function RoadmapView(props: ViewProps) {
       if (e instanceof UnsafeWrite) return setProblem({ kind: "unwritable", files: e.files });
       return setProblem({ kind: "error", message: (e as Error).message });
     }
-    // A pasted token is kept straight away, so retries and the automatic
-    // re-save after a clash never ask for it again; only a 401 forgets it.
-    if (opts.token) setToken(source.repo, opts.token);
     const token = opts.token ?? getToken(source.repo);
     // The choice just made comes back with the token, so it isn't asked again.
     if (!token) return setProblem({ kind: "token", resume });

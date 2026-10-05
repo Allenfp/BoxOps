@@ -88,6 +88,32 @@ for (const visibility of ["public", "private"] as const) {
         expect(github.calls("graphql")).toBe(1);
       });
 
+      test("a clash that comes in while the token form is open: the token is kept, Keep mine saves", async ({ page, github }) => {
+        await dragDays(page, DAGSTER, 10);
+        await page.getByRole("button", { name: /^Save · \d+ changes?$/ }).click();
+        const dialog = page.locator(".save-dialog[open]");
+        await expect(dialog.locator("h2")).toHaveText("Connect to GitHub to save");
+
+        // Making a token on GitHub takes a while; meanwhile a colleague's save to the same box deploys.
+        const theirs = github.otherSave({ [boxFile(DAGSTER)]: (t) => t.replace("status: at_risk", "status: blocked") });
+        github.deploy();
+        await pollNow(page);
+        await expect(box(page, DAGSTER)).toHaveClass(/conflict/);
+
+        await dialog.locator('input[type="password"]').fill(TOKEN);
+        await dialog.getByRole("button", { name: "Save" }).click();
+        await expect(dialog.locator("h2")).toHaveText("Someone else changed the same items");
+        expect(await page.evaluate((key) => sessionStorage.getItem(key), `boxops-github-token:${REPO}`)).toBe(TOKEN);
+        await dialog.getByRole("button", { name: "Keep mine" }).click();
+        await expect(page.locator(".banner.success")).toContainText("Saved to main");
+        await expect(toolbar(page)).toContainText("No changes");
+        await expect(page.locator(".save-dialog[open]")).toHaveCount(0);
+        expect(github.headCommit().parent).toBe(theirs);
+        expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-28");
+        expect(github.file(boxFile(DAGSTER))).toContain("status: at_risk");
+        expect(github.calls("graphql")).toBe(1);
+      });
+
       test("a classic token works, with a note that a fine-grained one is safer", async ({ page, github }) => {
         await dragDays(page, DAGSTER, 10);
         await page.getByRole("button", { name: /^Save · \d+ changes?$/ }).click();
