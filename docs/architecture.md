@@ -351,6 +351,18 @@ against data the new code wrote.
   `api.github.com` and `raw.githubusercontent.com`; images from the site and
   `data:`; no base URL, forms or plugins. React's style props go through the
   CSSOM, which the policy doesn't govern. The dev server has no CSP.
+- **App files.** The first paint loads one JavaScript file (about 350 kB,
+  115 kB gzipped): React, the timeline and the loader. The rest is fetched
+  on first use (`components/lazyPart.tsx`, `React.lazy`): Table and People
+  when the pointer or focus reaches their tab (the view on screen stays until
+  the new one is ready); the box, PTO and department editors and team
+  settings a second after the roadmap shows, unless it's read-only; the
+  settings menu's contents when the pointer reaches the gear; the save
+  dialog, saving's code and the YAML parser once someone starts editing.
+  File names change only with the app's code (the build time is in
+  `index.html`), so a tab left open across roadmap saves can still fetch
+  them. After an app deploy, a part that can't be fetched says so, with
+  Reload, and so does a save.
 - **Title.** `document.title` follows the team title in `settings.yaml`
   (plus the branch for a preview); `index.html` says "BoxOps" until then.
 - **Errors.** An error boundary around the app shows a recovery screen with

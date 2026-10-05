@@ -2,9 +2,10 @@ import type { Page } from "@playwright/test";
 import { DAGSTER, dragDays, expect, save, test, toolbar } from "./helpers";
 
 // Code fetched when it's first needed: what saving needs (with the yaml
-// library) once someone starts editing, never just to show the roadmap.
+// library) once someone starts editing, never just to show the roadmap; a
+// view when the pointer reaches its tab; editors once the roadmap is up.
 
-/** The app's JavaScript files the page has asked for, by name without the hash: "index", "parse", "saving"… */
+/** The app's JavaScript files the page has asked for, by name without the hash: "index", "parse", "saving", "TableView"… */
 function scripts(page: Page): string[] {
   const names: string[] = [];
   page.on("request", (r) => {
@@ -19,9 +20,11 @@ test("the deployed copy shows without the YAML parser; an edit fetches what savi
   await page.reload();
   await expect(page.locator(".box").first()).toBeVisible();
   await expect.poll(() => github.calls("ref")).toBe(2); // the check for newer saves is done too
-  expect(asked).toEqual(["index"]);
+  expect(asked[0]).toBe("index");
+  expect(asked).not.toContain("parse");
+  expect(asked).not.toContain("saving");
   await dragDays(page, DAGSTER, 10);
-  await expect.poll(() => asked.toSorted()).toEqual(["index", "parse", "saving"]);
+  await expect.poll(() => asked).toEqual(expect.arrayContaining(["parse", "saving", "SaveDialog"]));
   await save(page);
   await expect(page.locator(".banner.success")).toContainText("Saved to main");
 });
@@ -54,4 +57,26 @@ test("saving's code that can't load (a deploy replaced it): the save says so, an
   await dialog.locator(".dialog-foot").getByRole("button", { name: "Close" }).click();
   await expect(toolbar(page)).toContainText("Save · 1 change");
   expect(github.calls("graphql")).toBe(0);
+});
+
+test("a view's code is fetched when the pointer reaches its tab", async ({ page, github: _ }) => {
+  const asked = scripts(page);
+  await page.getByRole("button", { name: "People", exact: true }).hover();
+  await expect.poll(() => asked).toContain("PeopleView");
+  expect(asked).not.toContain("TableView");
+  await page.getByRole("button", { name: "Table", exact: true }).focus();
+  await expect.poll(() => asked).toContain("TableView");
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await expect(page.locator(".box-table")).toBeVisible();
+});
+
+test("a view whose code can't load (a deploy replaced it) says so, with Reload", async ({ page, github: _ }) => {
+  await page.route(/\/assets\/TableView-[\w-]+\.js$/, (route) => route.abort("connectionreset"));
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText("This part of BoxOps couldn’t load");
+  await expect(alert.getByRole("button", { name: "Reload" })).toBeVisible();
+  // The other views still work.
+  await page.getByRole("button", { name: "Timeline", exact: true }).click();
+  await expect(page.locator(".box").first()).toBeVisible();
 });

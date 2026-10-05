@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BoxEditor } from "./components/BoxEditor";
-import { DepartmentEditor, type DepartmentEditorTarget } from "./components/DepartmentEditor";
-import { type Resume, type SaveProblem, SaveDialog } from "./components/SaveDialog";
-import { PeopleView } from "./components/PeopleView";
-import { PtoEditor } from "./components/PtoEditor";
+import { Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DepartmentEditorTarget } from "./components/DepartmentEditor";
+import type { Resume, SaveProblem } from "./components/SaveDialog";
+import { lazyPart } from "./components/lazyPart";
 import { type PtoRef, ptoClashes, ptoKey, ptoRange } from "./model/pto";
-import { TableView } from "./components/TableView";
 import { type BoxPlacement, Timeline } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
 import { TOKEN_KINDS, failureMessage } from "./github/messages";
@@ -14,8 +11,7 @@ import type { SaveResult, SaveStep } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyMenu";
 import { Modal } from "./components/Modal";
-import { SettingsMenu, ShortcutsContent } from "./components/SettingsMenu";
-import { TeamSettings } from "./components/TeamSettings";
+import { SettingsMenu } from "./components/SettingsMenu";
 import { getPrefs, setPrefs, usePrefs, type ViewMode } from "./prefs";
 import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
@@ -62,6 +58,20 @@ const MAX_BACKOFF_MS = 15 * 60_000;
 const FRESHNESS_MS = 4000;
 /** How long saving waits for the site's roadmap.json (a check for a newer BoxOps) before going on without it. */
 const SITE_CHECK_MS = 5000;
+
+// Not needed to show the timeline: each fetched when first shown (lazyPart).
+const TableView = lazyPart(() => import("./components/TableView").then((m) => m.TableView));
+const PeopleView = lazyPart(() => import("./components/PeopleView").then((m) => m.PeopleView));
+const BoxEditor = lazyPart(() => import("./components/BoxEditor").then((m) => m.BoxEditor));
+const PtoEditor = lazyPart(() => import("./components/PtoEditor").then((m) => m.PtoEditor));
+const DepartmentEditor = lazyPart(() => import("./components/DepartmentEditor").then((m) => m.DepartmentEditor));
+const TeamSettings = lazyPart(() => import("./components/TeamSettings").then((m) => m.TeamSettings));
+const SaveDialog = lazyPart(() => import("./components/SaveDialog").then((m) => m.SaveDialog));
+const ShortcutsContent = lazyPart(() => import("./components/SettingsPanel").then((m) => m.ShortcutsContent));
+/** Views by tab, fetched when the pointer or focus reaches the tab. */
+const VIEW_PARTS: Partial<Record<ViewMode, { preload(): void }>> = { table: TableView, people: PeopleView };
+/** How long after the roadmap shows that the editors are fetched, unless it's read-only. */
+const EDITORS_AFTER_MS = 1000;
 
 type Saving = typeof import("./saving");
 /** Saving's code, once loaded. */
@@ -592,6 +602,12 @@ function RoadmapView(props: ViewProps) {
     const t = setTimeout(runningFine, 5000);
     return () => clearTimeout(t);
   }, []);
+  // Fetch the editors once the roadmap is up, so the first one opened doesn't wait.
+  useEffect(() => {
+    if (preview) return;
+    const t = setTimeout(() => [BoxEditor, PtoEditor, DepartmentEditor, TeamSettings].forEach((part) => part.preload()), EDITORS_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [preview]);
   const draftState: DraftState = useMemo(
     () => ({ boxes: draft.boxes, departments: draft.departments, people: draft.people, settings: draft.settings }),
     [draft.boxes, draft.departments, draft.people, draft.settings],
@@ -769,7 +785,9 @@ function RoadmapView(props: ViewProps) {
   // Someone is editing: fetch what saving needs now, so a save doesn't wait for it.
   const editing = !preview && (count > 0 || !!selected || !!selectedPto || !!deptEditor || modal === "team");
   useEffect(() => {
-    if (editing) loadSaving().catch(() => {}); // a save tries again, and says if it can't
+    if (!editing) return;
+    loadSaving().catch(() => {}); // a save tries again, and says if it can't
+    SaveDialog.preload();
   }, [editing]);
   /** A save waiting for saving's code: another doesn't start meanwhile. */
   const fetchingSaving = useRef(false);
@@ -1078,9 +1096,12 @@ function RoadmapView(props: ViewProps) {
               <button
                 key={v.id}
                 aria-pressed={view === v.id}
+                onPointerEnter={VIEW_PARTS[v.id]?.preload}
+                onFocus={VIEW_PARTS[v.id]?.preload}
                 onClick={() => {
                   if (v.id !== "timeline") select(null);
-                  setView(v.id);
+                  // The view on screen stays until the new one's code is here.
+                  startTransition(() => setView(v.id));
                 }}
               >
                 {v.label}
@@ -1317,152 +1338,158 @@ function RoadmapView(props: ViewProps) {
           </button>
         </div>
       )}
-      {view === "people" ? (
-        <PeopleView
-          roadmap={roadmap}
-          readOnly={preview || busy}
-          collapsed={collapsed}
-          allCollapsed={allCollapsed}
-          onToggleAll={toggleAll}
-          onToggleDepartment={toggle}
-          onEditDepartment={editDepartment}
-          onAddDepartment={addDepartment}
-          onShowPto={goToPto}
-          onAdd={(department) => {
-            const id = draft.addPerson("New engineer", department);
-            draft.checkpoint();
-            return id;
-          }}
-          onUpdate={(id, patch) => draft.updatePerson(id, patch)}
-          onRemove={(id) => draft.removePerson(id)}
-          onCheckpoint={draft.checkpoint}
-        />
-      ) : view === "table" ? (
-        <TableView
-          roadmap={roadmap}
-          showPto={prefs.showPto}
-          hideFinished={prefs.hideFinished}
-          onHideFinished={(hideFinished) => setPrefs({ hideFinished })}
-          readOnly={preview || busy}
-          conflictIds={conflictBoxIds}
-          updatedIds={updatedIds}
-          onUpdate={(id, patch, key) => draft.updateBox(id, patch, key)}
-          collapsed={collapsed}
-          allCollapsed={allCollapsed}
-          onToggleAll={toggleAll}
-          onToggleDepartment={toggle}
-          onAdd={(departmentId) => {
-            const dept =
-              draft.departments.find((d) => d.id === departmentId && d.lanes.length) ??
-              draft.departments.find((d) => d.lanes.length);
-            const firstLane = dept?.lanes[0];
-            const start = startOfWeek(today());
-            const id = draft.addBox({
-              lane: firstLane?.id ?? "",
-              start,
-              end: addWorkdays(start, 9), // two working weeks
-              title: "New box",
-              fte: 1,
-              type: draft.settings.types[0].id,
-            });
-            draft.checkpoint();
-            return id;
-          }}
-          onDelete={(id) => draft.removeBox(id)}
-          onAddPerson={(name, department) => draft.addPerson(name, department)}
-          onCheckpoint={draft.checkpoint}
-          onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
-          onEditDepartment={editDepartment}
-          onAddDepartment={addDepartment}
-          onMoveDepartment={draft.placeDepartment}
-          ruleWarnings={ruleWarnings}
-          onUpdatePto={updatePto}
-          onReassignPto={(ref, toId) => {
-            reassignPto(ref, toId);
-            draft.checkpoint();
-          }}
-          onRemovePto={removePto}
-          onAddPto={(departmentId) => {
-            const start = startOfWeek(today());
-            addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
-          }}
-        />
-      ) : (
-        <Timeline
-        roadmap={shown}
-        allBoxes={roadmap.boxes}
-        display={prefs}
-        zoom={zoom}
-        collapsed={collapsed}
-        allCollapsed={allCollapsed}
-        onToggleAll={toggleAll}
-        onToggleDepartment={toggle}
-        jumpToToday={jumpToToday}
-        selectedId={selectedBox ? selectedBox.id : null}
-        onSelect={(id) => {
-          if (id) setUpdatedIds((cur) => (cur.has(id) ? new Set([...cur].filter((x) => x !== id)) : cur));
-          select(id);
-        }}
-        onPlaceBox={placeBox}
-        onCreateBox={createBox}
-        onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
-        readOnly={preview || busy}
-        conflictIds={conflictBoxIds}
-        updatedIds={updatedIds}
-        ruleWarnings={ruleWarnings}
-        onEditDepartment={editDepartment}
-        onAddDepartment={addDepartment}
-        onMoveDepartment={draft.placeDepartment}
-        selectedPto={selectedPto && ptoOf(selectedPto) ? ptoKey(selectedPto) : null}
-        onSelectPto={selectPto}
-        onPlacePto={(ref, dates) => updatePto(ref, dates)}
-        onCreatePto={(departmentId, dates) => {
-          const ref = addPto(dates, { departmentId });
-          if (ref) selectPto(ref);
-        }}
-      />
-      )}
+      <Suspense fallback={<div className="splash">Loading…</div>}>
+        {view === "people" ? (
+          <PeopleView
+            roadmap={roadmap}
+            readOnly={preview || busy}
+            collapsed={collapsed}
+            allCollapsed={allCollapsed}
+            onToggleAll={toggleAll}
+            onToggleDepartment={toggle}
+            onEditDepartment={editDepartment}
+            onAddDepartment={addDepartment}
+            onShowPto={goToPto}
+            onAdd={(department) => {
+              const id = draft.addPerson("New engineer", department);
+              draft.checkpoint();
+              return id;
+            }}
+            onUpdate={(id, patch) => draft.updatePerson(id, patch)}
+            onRemove={(id) => draft.removePerson(id)}
+            onCheckpoint={draft.checkpoint}
+          />
+        ) : view === "table" ? (
+          <TableView
+            roadmap={roadmap}
+            showPto={prefs.showPto}
+            hideFinished={prefs.hideFinished}
+            onHideFinished={(hideFinished) => setPrefs({ hideFinished })}
+            readOnly={preview || busy}
+            conflictIds={conflictBoxIds}
+            updatedIds={updatedIds}
+            onUpdate={(id, patch, key) => draft.updateBox(id, patch, key)}
+            collapsed={collapsed}
+            allCollapsed={allCollapsed}
+            onToggleAll={toggleAll}
+            onToggleDepartment={toggle}
+            onAdd={(departmentId) => {
+              const dept =
+                draft.departments.find((d) => d.id === departmentId && d.lanes.length) ??
+                draft.departments.find((d) => d.lanes.length);
+              const firstLane = dept?.lanes[0];
+              const start = startOfWeek(today());
+              const id = draft.addBox({
+                lane: firstLane?.id ?? "",
+                start,
+                end: addWorkdays(start, 9), // two working weeks
+                title: "New box",
+                fte: 1,
+                type: draft.settings.types[0].id,
+              });
+              draft.checkpoint();
+              return id;
+            }}
+            onDelete={(id) => draft.removeBox(id)}
+            onAddPerson={(name, department) => draft.addPerson(name, department)}
+            onCheckpoint={draft.checkpoint}
+            onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
+            onEditDepartment={editDepartment}
+            onAddDepartment={addDepartment}
+            onMoveDepartment={draft.placeDepartment}
+            ruleWarnings={ruleWarnings}
+            onUpdatePto={updatePto}
+            onReassignPto={(ref, toId) => {
+              reassignPto(ref, toId);
+              draft.checkpoint();
+            }}
+            onRemovePto={removePto}
+            onAddPto={(departmentId) => {
+              const start = startOfWeek(today());
+              addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
+            }}
+          />
+        ) : (
+          <Timeline
+            roadmap={shown}
+            allBoxes={roadmap.boxes}
+            display={prefs}
+            zoom={zoom}
+            collapsed={collapsed}
+            allCollapsed={allCollapsed}
+            onToggleAll={toggleAll}
+            onToggleDepartment={toggle}
+            jumpToToday={jumpToToday}
+            selectedId={selectedBox ? selectedBox.id : null}
+            onSelect={(id) => {
+              if (id) setUpdatedIds((cur) => (cur.has(id) ? new Set([...cur].filter((x) => x !== id)) : cur));
+              select(id);
+            }}
+            onPlaceBox={placeBox}
+            onCreateBox={createBox}
+            onRenameLane={(laneId, name) => draft.updateLane(laneId, { name })}
+            readOnly={preview || busy}
+            conflictIds={conflictBoxIds}
+            updatedIds={updatedIds}
+            ruleWarnings={ruleWarnings}
+            onEditDepartment={editDepartment}
+            onAddDepartment={addDepartment}
+            onMoveDepartment={draft.placeDepartment}
+            selectedPto={selectedPto && ptoOf(selectedPto) ? ptoKey(selectedPto) : null}
+            onSelectPto={selectPto}
+            onPlacePto={(ref, dates) => updatePto(ref, dates)}
+            onCreatePto={(departmentId, dates) => {
+              const ref = addPto(dates, { departmentId });
+              if (ref) selectPto(ref);
+            }}
+          />
+        )}
+      </Suspense>
       {view === "timeline" && !preview && selectedPto && ptoOf(selectedPto) && (
-        <PtoEditor
-          key={selectedPto.session}
-          target={selectedPto}
-          pto={ptoOf(selectedPto)!}
-          people={draft.people}
-          departments={draft.departments}
-          onChange={(patch, field) => updatePto(selectedPto, patch, `pto:${selectedPto.session}:${field}`)}
-          onReassign={(toId) => {
-            const ref = reassignPto(selectedPto, toId, `pto:${selectedPto.session}:person`);
-            setSelectedPto({ ...ref, session: selectedPto.session });
-          }}
-          onDelete={() => removePto(selectedPto)}
-          onClose={() => selectPto(null)}
-        />
+        <Suspense fallback={null}>
+          <PtoEditor
+            key={selectedPto.session}
+            target={selectedPto}
+            pto={ptoOf(selectedPto)!}
+            people={draft.people}
+            departments={draft.departments}
+            onChange={(patch, field) => updatePto(selectedPto, patch, `pto:${selectedPto.session}:${field}`)}
+            onReassign={(toId) => {
+              const ref = reassignPto(selectedPto, toId, `pto:${selectedPto.session}:person`);
+              setSelectedPto({ ...ref, session: selectedPto.session });
+            }}
+            onDelete={() => removePto(selectedPto)}
+            onClose={() => selectPto(null)}
+          />
+        </Suspense>
       )}
       {view === "timeline" && !preview && selected && selectedBox && (
-        <BoxEditor
-          key={selected.session}
-          box={selectedBox}
-          settings={draft.settings}
-          departments={draft.departments}
-          people={draft.people}
-          boxes={draft.boxes}
-          violations={violations.filter((v) => v.from.id === selectedBox.id || v.to.id === selectedBox.id)}
-          onRemoveIncoming={(fromId, type) => {
-            const from = draft.boxes.find((b) => b.id === fromId);
-            if (from) {
-              draft.updateBox(fromId, {
-                relations: (from.relations ?? []).filter((r) => !(r.type === type && r.box === selectedBox.code)),
-              });
-            }
-          }}
-          onAddPerson={(name, department) => draft.addPerson(name, department)}
-          onChange={editBox}
-          onDelete={() => {
-            draft.removeBox(selectedBox.id);
-            setSelected(null);
-          }}
-          onClose={() => select(null)}
-        />
+        <Suspense fallback={null}>
+          <BoxEditor
+            key={selected.session}
+            box={selectedBox}
+            settings={draft.settings}
+            departments={draft.departments}
+            people={draft.people}
+            boxes={draft.boxes}
+            violations={violations.filter((v) => v.from.id === selectedBox.id || v.to.id === selectedBox.id)}
+            onRemoveIncoming={(fromId, type) => {
+              const from = draft.boxes.find((b) => b.id === fromId);
+              if (from) {
+                draft.updateBox(fromId, {
+                  relations: (from.relations ?? []).filter((r) => !(r.type === type && r.box === selectedBox.code)),
+                });
+              }
+            }}
+            onAddPerson={(name, department) => draft.addPerson(name, department)}
+            onChange={editBox}
+            onDelete={() => {
+              draft.removeBox(selectedBox.id);
+              setSelected(null);
+            }}
+            onClose={() => select(null)}
+          />
+        </Suspense>
       )}
       {newlyBroken.length > 0 && (
         <div className="toast" role="status">
@@ -1479,63 +1506,67 @@ function RoadmapView(props: ViewProps) {
         </div>
       )}
       {deptEditor && !preview && (
-        <DepartmentEditor
-          target={deptEditor}
-          departments={draft.departments}
-          boxes={draft.boxes}
-          people={draft.people}
-          onCreate={(name, color, code) => {
-            // Not the id of a department file the app couldn't read: saving it would be refused.
-            const skipped = [...props.lossy.keys()].flatMap((p) => /^departments\/([^/]+)\.ya?ml$/.exec(p)?.[1] ?? []);
-            const id = draft.addDepartment(name, color, code, skipped);
-            setCollapsed((prev) => {
-              const next = new Set(prev);
-              next.delete(id);
-              return next;
-            });
-            return id;
-          }}
-          onUpdate={draft.updateDepartment}
-          onMove={draft.moveDepartment}
-          onRemove={draft.removeDepartment}
-          onAddLane={(id) => draft.addLane(id)}
-          onUpdateLane={draft.updateLane}
-          onMoveLane={draft.moveLane}
-          onRemoveLane={draft.removeLane}
-          onClose={() => {
-            draft.checkpoint();
-            setDeptEditor(null);
-          }}
-        />
+        <Suspense fallback={null}>
+          <DepartmentEditor
+            target={deptEditor}
+            departments={draft.departments}
+            boxes={draft.boxes}
+            people={draft.people}
+            onCreate={(name, color, code) => {
+              // Not the id of a department file the app couldn't read: saving it would be refused.
+              const skipped = [...props.lossy.keys()].flatMap((p) => /^departments\/([^/]+)\.ya?ml$/.exec(p)?.[1] ?? []);
+              const id = draft.addDepartment(name, color, code, skipped);
+              setCollapsed((prev) => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+              });
+              return id;
+            }}
+            onUpdate={draft.updateDepartment}
+            onMove={draft.moveDepartment}
+            onRemove={draft.removeDepartment}
+            onAddLane={(id) => draft.addLane(id)}
+            onUpdateLane={draft.updateLane}
+            onMoveLane={draft.moveLane}
+            onRemoveLane={draft.removeLane}
+            onClose={() => {
+              draft.checkpoint();
+              setDeptEditor(null);
+            }}
+          />
+        </Suspense>
       )}
       {problem && (
-        <SaveDialog
-          problem={problem}
-          source={source}
-          lines={lines}
-          busy={busy}
-          onSubmitToken={(token) => {
-            setProblem(null);
-            void save({ ...(problem.kind === "token" ? problem.resume : {}), token });
-          }}
-          onResolve={(keep, keys) => {
-            setProblem(null);
-            // Only the clashes the dialog listed; then save, once the draft has the choice.
-            draft.resolve(keys, keep);
-            setResumeSave({ keep });
-          }}
-          onSaveNow={() => {
-            setProblem(null);
-            void save();
-          }}
-          onReloadApp={() => reloadApp("")}
-          onRetry={() => {
-            setProblem(null);
-            void save(problem.kind === "github" || problem.kind === "error" ? problem.resume : {});
-          }}
-          onNewToken={() => setProblem({ kind: "token", resume: problem.kind === "github" ? problem.resume : undefined })}
-          onClose={() => setProblem(null)}
-        />
+        <Suspense fallback={null}>
+          <SaveDialog
+            problem={problem}
+            source={source}
+            lines={lines}
+            busy={busy}
+            onSubmitToken={(token) => {
+              setProblem(null);
+              void save({ ...(problem.kind === "token" ? problem.resume : {}), token });
+            }}
+            onResolve={(keep, keys) => {
+              setProblem(null);
+              // Only the clashes the dialog listed; then save, once the draft has the choice.
+              draft.resolve(keys, keep);
+              setResumeSave({ keep });
+            }}
+            onSaveNow={() => {
+              setProblem(null);
+              void save();
+            }}
+            onReloadApp={() => reloadApp("")}
+            onRetry={() => {
+              setProblem(null);
+              void save(problem.kind === "github" || problem.kind === "error" ? problem.resume : {});
+            }}
+            onNewToken={() => setProblem({ kind: "token", resume: problem.kind === "github" ? problem.resume : undefined })}
+            onClose={() => setProblem(null)}
+          />
+        </Suspense>
       )}
       {modal === "key" && (
         <Modal title="Key" className="key-modal" onClose={() => setModal(null)}>
@@ -1544,20 +1575,24 @@ function RoadmapView(props: ViewProps) {
       )}
       {modal === "shortcuts" && (
         <Modal title="Keyboard shortcuts" className="shortcuts-modal" onClose={() => setModal(null)}>
-          <ShortcutsContent />
+          <Suspense fallback={null}>
+            <ShortcutsContent />
+          </Suspense>
         </Modal>
       )}
       {modal === "team" && !preview && (
-        <TeamSettings
-          settings={draft.settings}
-          saved={base.settings}
-          boxes={draft.boxes}
-          onChange={(patch, key) => draft.updateSettings(patch, `settings:${key}`)}
-          onClose={() => {
-            draft.checkpoint();
-            setModal(null);
-          }}
-        />
+        <Suspense fallback={null}>
+          <TeamSettings
+            settings={draft.settings}
+            saved={base.settings}
+            boxes={draft.boxes}
+            onChange={(patch, key) => draft.updateSettings(patch, `settings:${key}`)}
+            onClose={() => {
+              draft.checkpoint();
+              setModal(null);
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );

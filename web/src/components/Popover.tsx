@@ -9,6 +9,8 @@ export function Popover(props: {
   button: ReactNode;
   buttonClass?: string;
   align?: "left" | "right";
+  /** The pointer or focus reached the button: about to open, maybe. */
+  onIntent?(): void;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -32,7 +34,14 @@ export function Popover(props: {
 
   return (
     <div className={`popover ${props.className ?? ""}`} ref={ref}>
-      <button className={props.buttonClass} aria-expanded={open} aria-label={props.label} onClick={() => setOpen((o) => !o)}>
+      <button
+        className={props.buttonClass}
+        aria-expanded={open}
+        aria-label={props.label}
+        onClick={() => setOpen((o) => !o)}
+        onPointerEnter={props.onIntent}
+        onFocus={props.onIntent}
+      >
         {props.button}
       </button>
       {open && (

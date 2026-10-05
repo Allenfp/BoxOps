@@ -11,7 +11,9 @@ async function showRules(dialog: Locator) {
 const code = (page: Page, id: string) => box(page, id).locator(".box-code");
 const editorFor = async (page: Page, id: string) => {
   await box(page, id).locator(".box-name").click();
-  return page.getByRole("dialog", { name: /Edit/ });
+  const dialog = page.getByRole("dialog", { name: /Edit/ });
+  await expect(dialog).toBeVisible(); // the first one opened may wait for the editor's code
+  return dialog;
 };
 
 test("every box shows its code; new boxes get a unique one; the prefix follows the department", async ({ page, github }) => {
