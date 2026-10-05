@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { parseDay } from "./dates";
-import type { DraftState } from "./draft";
+import { type DraftState, diffDraft } from "./draft";
 import { loadRoadmap } from "./parse";
 import { packRows, ptoClashes } from "./pto";
 import { serializeChanges } from "./serialize";
@@ -72,6 +72,25 @@ describe("PTO", () => {
     expect(describeChanges(one, base).map((l) => l.text)).toEqual([
       "Removed PTO for **Sam Lee**: 2026-12-14 – 2026-12-25",
     ]);
+  });
+
+  it("a second entry just like one there, or one of two alike removed, is a change with its line", () => {
+    const holiday = { start: d("2026-12-14"), end: d("2026-12-18") };
+    const one = withPto("sam-lee", [holiday]);
+    const two = withPto("sam-lee", [holiday, { ...holiday }]);
+    expect(describeChanges(one, two).map((l) => l.text)).toEqual(["PTO for **Sam Lee**: 2026-12-14 – 2026-12-18"]);
+    expect(describeChanges(two, one).map((l) => l.text)).toEqual(["Removed PTO for **Sam Lee**: 2026-12-14 – 2026-12-18"]);
+    // Reordered: no entry came or went, but people.yaml changes, so it still has a line.
+    const other = { start: d("2027-01-04"), end: d("2027-01-08") };
+    expect(describeChanges(withPto("sam-lee", [holiday, other]), withPto("sam-lee", [other, holiday])).map((l) => l.text)).toEqual([
+      "Updated engineer **Sam Lee**",
+    ]);
+  });
+
+  it("a note that differs only in spaces at its ends is no change, as saving trims it", () => {
+    const holiday = { start: d("2026-12-14"), end: d("2026-12-18"), note: "Holiday" };
+    const spaced = withPto("sam-lee", [{ ...holiday, note: "Holiday " }]);
+    expect(diffDraft(withPto("sam-lee", [holiday]), spaced).count).toBe(0);
   });
 
   it("packs overlapping blocks into rows and finds engineers booked while away", () => {

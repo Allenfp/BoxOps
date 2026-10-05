@@ -154,7 +154,7 @@ for (const visibility of ["public", "private"] as const) {
       await expect(dialog.locator("h2")).toHaveText("The roadmap changed since you opened it");
       await expect(dialog.locator(".save-list")).toContainText("Sam Lee saved “CDC pipeline: renamed”");
       await expect(dialog.locator(".save-list")).toContainText("Priya Shah saved “Revenue mart: at risk”");
-      await expect(dialog.locator(".change-list")).toContainText("status On track → At risk");
+      await expect(dialog.locator(".change-list")).toContainText("flag On track → At risk");
       expect(github.head).toBe(priya); // nothing written yet
 
       await dialog.getByRole("button", { name: "Review changes" }).click();

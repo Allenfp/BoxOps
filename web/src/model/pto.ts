@@ -57,10 +57,22 @@ export function ptoClashes(boxes: Box[], people: Person[]): PtoClash[] {
   return out;
 }
 
-/** What changed in one person's PTO, for the save summary. */
+/**
+ * What changed in one person's PTO, for the save summary. Entries are
+ * counted, not just compared, so a second entry just like one already there
+ * (or one of two alike removed) is a change too.
+ */
 export function ptoChanges(was: TimeOff[] = [], now: TimeOff[] = []): { added: TimeOff[]; removed: TimeOff[] } {
   const key = (t: TimeOff) => `${t.start}:${t.end}:${t.note?.trim() ?? ""}`;
-  const wasKeys = new Set(was.map(key));
-  const nowKeys = new Set(now.map(key));
-  return { added: now.filter((t) => !wasKeys.has(key(t))), removed: was.filter((t) => !nowKeys.has(key(t))) };
+  /** The entries of `list` that `other` has no match left for. */
+  const surplus = (list: TimeOff[], other: TimeOff[]) => {
+    const left = new Map<string, number>();
+    for (const t of other) left.set(key(t), (left.get(key(t)) ?? 0) + 1);
+    return list.filter((t) => {
+      const n = left.get(key(t)) ?? 0;
+      left.set(key(t), n - 1);
+      return n <= 0;
+    });
+  };
+  return { added: surplus(now, was), removed: surplus(was, now) };
 }

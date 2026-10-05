@@ -29,7 +29,11 @@ export function newLaneId(dept: Department, state: DraftState): string {
   return `${prefix}-${n}`;
 }
 
-/** Departments sorted by their `order`, renumbered 1, 2, 3… */
+/**
+ * Departments sorted by their `order`, renumbered 1, 2, 3…: only for a
+ * reorder the user asked for. Adding or removing one leaves the others' files
+ * alone (only the order matters, so gaps and repeats are fine).
+ */
 function renumber(departments: Department[]): Department[] {
   return [...departments].sort((a, b) => a.order - b.order).map((d, i) => (d.order === i + 1 ? d : { ...d, order: i + 1 }));
 }
@@ -58,7 +62,7 @@ export function addDepartment(
     lanes: [],
   };
   dept.lanes = [{ id: newLaneId(dept, state), fte: 1 }];
-  return { state: { ...state, departments: renumber([...state.departments, dept]) }, id };
+  return { state: { ...state, departments: [...state.departments, dept] }, id };
 }
 
 export function updateDepartment(
@@ -140,7 +144,7 @@ export function removeDepartment(state: DraftState, id: string, moveTo?: string)
   return {
     ...state,
     boxes: state.boxes.map((b) => (laneIds.includes(b.lane) ? { ...b, lane: moveTo! } : b)),
-    departments: renumber(state.departments.filter((d) => d.id !== id)),
+    departments: state.departments.filter((d) => d.id !== id),
     people: state.people.map((p) => (p.department === id ? { ...p, department: undefined } : p)),
   };
 }

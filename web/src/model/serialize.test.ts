@@ -76,25 +76,51 @@ describe("describeChanges", () => {
       status: undefined,
     });
     const [line] = describeChanges(base, draft);
+    // 28 working days where there were 30: a change of dates, though the calendar span is the same.
     expect(line.text).toBe(
       "**Dagster 2.x upgrade** (DE-D9U): moved from Data Engineering / FTE 2 to Data Engineering / Contractor; " +
-        "rescheduled to 2026-09-24 – 2026-11-02 (was 2026-09-14 – 2026-10-23); status At risk → On track",
+        "dates now 2026-09-24 – 2026-11-02 (was 2026-09-14 – 2026-10-23); flag At risk → On track",
     );
+  });
+
+  it("a move keeps the number of working days: rescheduled, across a weekend too", () => {
+    // Mon Sep 14 – Fri Oct 23, 30 working days: one working day later is Tue Sep 15 – Mon Oct 26.
+    const moved = editBox("bx-c93d-dagster-upgrade", { start: parseDay("2026-09-15")!, end: parseDay("2026-10-26")! });
+    expect(describeChanges(base, moved)[0].text).toBe(
+      "**Dagster 2.x upgrade** (DE-D9U): rescheduled to 2026-09-15 – 2026-10-26 (was 2026-09-14 – 2026-10-23)",
+    );
+    // Mon–Thu to Fri–Mon: the same calendar span, but 2 working days where there were 4.
+    const short = { ...base, boxes: base.boxes.map((b) => (b.id === "bx-c93d-dagster-upgrade" ? { ...b, start: parseDay("2026-10-05")!, end: parseDay("2026-10-08")! } : b)) };
+    const shrunk = { ...short, boxes: short.boxes.map((b) => (b.id === "bx-c93d-dagster-upgrade" ? { ...b, start: parseDay("2026-10-09")!, end: parseDay("2026-10-12")! } : b)) };
+    expect(describeChanges(short, shrunk)[0].text).toContain("dates now 2026-10-09 – 2026-10-12 (was 2026-10-05 – 2026-10-08)");
   });
 });
 
 describe("commitMessage", () => {
   it("uses a clean one-line subject", () => {
-    const one = commitMessage([
-      { kind: "changed", text: "**Dagster 2.x upgrade**: rescheduled to 2026-09-24 – 2026-11-02 (was 2026-09-14 – 2026-10-23)" },
-    ]);
-    expect(one.split("\n")[0]).toBe("Dagster 2.x upgrade: rescheduled to 2026-09-24 – 2026-11-02");
+    const moved = editBox("bx-c93d-dagster-upgrade", { start: parseDay("2026-09-15")!, end: parseDay("2026-10-26")! });
+    const one = commitMessage(describeChanges(base, moved));
+    expect(one.split("\n")[0]).toBe("Dagster 2.x upgrade (DE-D9U): rescheduled to 2026-09-15 – 2026-10-26");
+    expect(one.split("\n")[2]).toBe("- Dagster 2.x upgrade (DE-D9U): rescheduled to 2026-09-15 – 2026-10-26 (was 2026-09-14 – 2026-10-23)");
     const long = commitMessage([
       { kind: "changed", text: "**A very long box title that goes on**: moved from Data Engineering / FTE 2 to Analytics / Open req (Q1); status At risk → On track" },
     ]);
     expect(long.split("\n")[0].length).toBeLessThanOrEqual(72);
     expect(long.split("\n")[0].endsWith("…")).toBe(true);
     expect(commitMessage([{ kind: "added", text: "a" }, { kind: "deleted", text: "b" }]).split("\n")[0]).toBe("Roadmap: 2 changes");
+    // Never a count of nothing.
+    expect(commitMessage([]).split("\n")[0]).toBe("Roadmap: update");
+  });
+
+  it("leaves out only the “(was …)” parts, whatever parentheses titles hold", () => {
+    const settings = { ...DEFAULT_SETTINGS, title: "Roadmap (beta)" };
+    const before: DraftState = { boxes: [], departments: [], people: [], settings };
+    const retitled = { ...before, settings: { ...settings, title: "Roadmap (v2)" } };
+    expect(commitMessage(describeChanges(before, retitled)).split("\n")[0]).toBe("Team settings: title now “Roadmap (v2)”");
+    const renamed = editBox("bx-c93d-dagster-upgrade", { title: "Billing v2 (was Payments)" });
+    expect(commitMessage(describeChanges(base, renamed)).split("\n")[0]).toBe(
+      "Billing v2 (was Payments) (DE-D9U): renamed from “Dagster 2.x upgrade”",
+    );
   });
 
   it("keeps each change on one line, whatever a title holds", () => {

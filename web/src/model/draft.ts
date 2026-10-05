@@ -69,12 +69,38 @@ export function diffBoxes(base: Box[], current: Box[]) {
   return { added, modified, removed, count: added.length + modified.length + removed.length };
 }
 
+/** Departments in the order they're shown (and loaded): by `order`, then by name. */
+export function departmentOrder(departments: Department[]): Department[] {
+  return [...departments].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+}
+
+/**
+ * Whether the departments both lists have stand in a different order. Only
+ * the order matters, not the numbers: a department added or deleted, or ones
+ * renumbered without moving, isn't a reorder.
+ */
+export function departmentsReordered(base: Department[], current: Department[]): boolean {
+  const ids = (list: Department[], keep: Set<string>) =>
+    departmentOrder(list)
+      .filter((d) => keep.has(d.id))
+      .map((d) => d.id)
+      .join("\n");
+  return ids(base, new Set(current.map((d) => d.id))) !== ids(current, new Set(base.map((d) => d.id)));
+}
+
 export function diffDraft(base: DraftState, current: DraftState): Changes {
   const boxes = diffBoxes(base.boxes, current.boxes);
   const baseDepts = new Map(base.departments.map((d) => [d.id, d]));
+  const reordered = departmentsReordered(base.departments, current.departments);
+  /** A department whose only change is its `order` number. */
+  const orderOnly = (d: Department) => {
+    const was = baseDepts.get(d.id);
+    return !!was && was.order !== d.order && same({ ...was, order: d.order }, d);
+  };
+  // A new `order` that leaves every department where it was is no change.
   const departments = current.departments.filter((d) => {
     const was = baseDepts.get(d.id);
-    return !was || !same(was, d);
+    return !was || (!same(was, d) && (reordered || !orderOnly(d)));
   });
   const currentDepts = new Set(current.departments.map((d) => d.id));
   const removedDepartments = base.departments.filter((d) => !currentDepts.has(d.id));
@@ -88,11 +114,8 @@ export function diffDraft(base: DraftState, current: DraftState): Changes {
   const peopleCount = people.added.length + people.changed.length + people.removed.length;
   const settings = !same(base.settings, current.settings);
   // Departments whose only change is their place in the order count as one change together ("Reordered departments").
-  const orderOnly = departments.filter((d) => {
-    const was = baseDepts.get(d.id);
-    return was && was.order !== d.order && same({ ...was, order: d.order }, d);
-  }).length;
-  const deptCount = departments.length - orderOnly + (orderOnly ? 1 : 0);
+  const moved = departments.filter(orderOnly).length;
+  const deptCount = departments.length - moved + (reordered ? 1 : 0);
   return {
     ...boxes,
     departments,
@@ -110,16 +133,18 @@ function same<T extends object>(a: T, b: T): boolean {
 
 /**
  * Canonical form for comparing: empty optional fields dropped (so "" and
- * undefined compare equal) and keys sorted (a box built in the app lists its
- * fields in a different order than one read from a file).
+ * undefined compare equal), text without spaces at either end (saving trims
+ * it) and keys sorted (a box built in the app lists its fields in a different
+ * order than one read from a file).
  */
 export function normalize(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(normalize);
   if (typeof v !== "object" || v === null) return v;
   const out: Record<string, unknown> = {};
   for (const [k, x] of Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
-    if (x === undefined || x === "" || (Array.isArray(x) && x.length === 0)) continue;
-    out[k] = normalize(x);
+    const value = typeof x === "string" ? x.trim() : x;
+    if (value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) continue;
+    out[k] = normalize(value);
   }
   return out;
 }

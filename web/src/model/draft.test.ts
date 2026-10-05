@@ -17,6 +17,7 @@ import {
   startHistory,
 } from "./draft";
 import type { DeltaItem } from "./draftStore";
+import { addDepartment, moveDepartment, removeDepartment } from "./structure";
 import type { Box, Department } from "./types";
 import { DEFAULT_SETTINGS } from "./load";
 import { describeChanges } from "./summary";
@@ -424,5 +425,50 @@ describe("stored drafts", () => {
       expect(o.offers).toEqual([{ key: at("aaaa0001"), value: newer, restorable: false, count: 0, savedAt: "2026-10-03T08:00:00.000Z" }]);
       expect(JSON.parse(stores.local.getItem(at("aaaa0001"))!)).toEqual(newer);
     });
+  });
+});
+
+describe("departments added, removed and reordered", () => {
+  const dept = (id: string, order: number): Department => ({
+    id,
+    code: id.toUpperCase().padEnd(2, "X"),
+    name: id,
+    color: "#000000",
+    order,
+    collapsed: false,
+    lanes: [{ id: `${id}-1`, fte: 1 }],
+  });
+  const state = (departments: Department[]): DraftState => ({ boxes: [], departments, people: [], settings: DEFAULT_SETTINGS });
+
+  it("adding or deleting one leaves the others' files alone, and isn't a reorder", () => {
+    // Orders with gaps, as a team may write them by hand.
+    const base = state([dept("a", 10), dept("b", 20), dept("c", 30)]);
+    const added = addDepartment(base, "D").state;
+    expect(added.departments.map((d) => [d.id, d.order])).toEqual([["a", 10], ["b", 20], ["c", 30], ["d", 31]]);
+    expect(diffDraft(base, added).departments.map((d) => d.id)).toEqual(["d"]);
+    expect(describeChanges(base, added).map((l) => l.text)).toEqual(["Added department **D** (1 lane, 1 FTE)"]);
+    const removed = removeDepartment(base, "a");
+    expect(removed.departments.map((d) => [d.id, d.order])).toEqual([["b", 20], ["c", 30]]);
+    expect(diffDraft(base, removed).count).toBe(1);
+    expect(describeChanges(base, removed).map((l) => l.text)).toEqual(["Deleted department **a**"]);
+  });
+
+  it("a reorder is said once; new numbers with nobody moving are no change", () => {
+    const base = state([dept("a", 10), dept("b", 20), dept("c", 30)]);
+    const moved = moveDepartment(base, "c", -1);
+    expect(describeChanges(base, moved).map((l) => l.text)).toEqual(["Reordered departments"]);
+    expect(diffDraft(base, moved).count).toBe(1);
+    // Back where it was, numbered 1, 2, 3 now: nothing to save.
+    const back = moveDepartment(moved, "c", 1);
+    expect(back.departments.map((d) => d.order)).toEqual([1, 2, 3]);
+    expect(diffDraft(base, back).count).toBe(0);
+    expect(describeChanges(base, back)).toEqual([]);
+  });
+
+  it("a change with no words of its own still gets a line", () => {
+    const base = state([dept("a", 1)]);
+    // Lane 1 named what it showed anyway.
+    const named = state([{ ...dept("a", 1), lanes: [{ id: "a-1", fte: 1, name: "FTE 1" }] }]);
+    expect(describeChanges(base, named).map((l) => l.text)).toEqual(["Updated department **a**"]);
   });
 });
