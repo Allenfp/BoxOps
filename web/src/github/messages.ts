@@ -37,6 +37,12 @@ export function failureMessage(f: GitHubFailure, { repo, branch }: FailurePlace,
     case "unauthorized":
       return "GitHub rejected this token. Check it was copied fully and hasn’t expired or been revoked.";
     case "no-access":
+      // GET /repos, asked after the save was refused, says this token sees the repository: it's about writing.
+      if (d.visible) {
+        return d.push === false
+          ? `Your GitHub account can’t write to ${repo}. Ask an admin for Write access.`
+          : `This token can see ${repo} but can’t save to it. Edit the token: give it this repository, with Contents set to Read and write.`;
+      }
       return (
         `This token can’t see ${repo}. When you create a fine-grained token, set Resource owner to ${owner} (not your own ` +
         `account) and give it this repository. If ${owner} approves tokens, an owner must approve it first; until then it ` +
@@ -59,9 +65,10 @@ export function failureMessage(f: GitHubFailure, { repo, branch }: FailurePlace,
       return `${owner} only allows GitHub access from approved networks. Connect to the company network or VPN, then try again.`;
     case "rate-limited":
       if (!d.secondary) {
-        return d.resetAt
-          ? `This token has used up GitHub’s hourly allowance. Try again after ${clock(d.resetAt, now)}.`
-          : "This token has used up GitHub’s hourly allowance. Try again in an hour.";
+        const spent = d.anonymous
+          ? "This network has used up GitHub’s hourly allowance for calls without a token (60 an hour per IP address)."
+          : "This token has used up GitHub’s hourly allowance.";
+        return `${spent} Try again ${d.resetAt ? `after ${clock(d.resetAt, now)}` : "in an hour"}.`;
       }
       return `GitHub asked BoxOps to slow down. Try again in ${seconds(d.retryAfter ?? 60)}.`;
     case "rules": {
@@ -79,6 +86,12 @@ export function failureMessage(f: GitHubFailure, { repo, branch }: FailurePlace,
       return text;
     }
     case "read-only":
+      if (d.read) {
+        return (
+          `This token can see ${repo} but not read its files. Edit the token and give it Contents access: Read and ` +
+          "write to save (Read-only is enough to view)."
+        );
+      }
       return d.push === false
         ? `Your GitHub account can’t write to ${repo}. Ask an admin for Write access.`
         : `This token can read ${repo} but not write to it. Edit the token and set Contents to Read and write.`;

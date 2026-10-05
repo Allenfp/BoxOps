@@ -131,6 +131,21 @@ describe("requests", () => {
     }
   });
 
+  it("say what a refusal was to: a read refused as read-only, a rate limit without a token", async () => {
+    const forbidden = fake(() => json(403, { message: "Resource not accessible by personal access token" }));
+    await expect(new GitHubClient({ token: "t", fetch: forbidden.fetchImpl }).commit("acme/roadmap", SHA)).rejects.toMatchObject({
+      kind: "read-only",
+      detail: { read: true },
+    });
+    const limited = fake(() => json(403, { message: "API rate limit exceeded for 192.0.2.1." }, { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "100" }));
+    await expect(new GitHubClient({ token: null, fetch: limited.fetchImpl }).commit("acme/roadmap", SHA)).rejects.toMatchObject({
+      kind: "rate-limited",
+      detail: { secondary: false, anonymous: true },
+    });
+    const e = await new GitHubClient({ token: "t", fetch: limited.fetchImpl }).commit("acme/roadmap", SHA).catch((x) => x);
+    expect(e.detail.anonymous).toBeUndefined();
+  });
+
   it("report a network failure as offline; after a mutation, as ambiguous", async () => {
     const gh = new GitHubClient({ token: "t", fetch: fake(() => Promise.reject(new TypeError("Load failed"))).fetchImpl });
     await expect(gh.head("acme/roadmap", "main")).rejects.toMatchObject({ kind: "offline", ambiguous: false });

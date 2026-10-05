@@ -311,10 +311,12 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    GraphQL alike: what the error says first, a spent hourly allowance last)
    and worded in `github/messages.ts`; the save dialog is titled for the kind
    and says what to do (the token's resource owner, repository and approval;
-   Contents: Read and write; single sign-on, with
+   Contents: Read and write, or any Contents access when even reading is
+   refused; whether the account may write at all; single sign-on, with
    GitHub's authorize link; an organization's token policy; an IP allow
-   list; when a rate limit lifts; being offline; a ruleset, whose bypass
-   list takes teams, roles and apps, never people). Failures a different
+   list; when a rate limit lifts, and whether it's the token's or, without
+   one, the network's; being offline; a ruleset, whose bypass list takes
+   teams, roles and apps, never people). Failures a different
    token fixes offer one; GitHub's own answer and request id are under
    Details. While a save runs, the toolbar says which step it's on, with the
    seconds once it's slow.

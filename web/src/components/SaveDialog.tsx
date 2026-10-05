@@ -69,6 +69,13 @@ const GITHUB_TITLE: Record<FailureKind, string> = {
   unknown: "Save failed",
 };
 
+/** A GitHub failure's title: by kind, or by what GitHub said the token can do (read-only and no-access refusals). */
+function githubTitle(f: GitHubFailure): string {
+  if (f.kind === "read-only" && f.detail.read) return "This token can’t read the repository’s files";
+  if (f.kind === "no-access" && f.detail.visible) return GITHUB_TITLE["read-only"];
+  return GITHUB_TITLE[f.kind];
+}
+
 const KIND_LABEL: Record<ChangeLine["kind"], string> = { added: "Added", changed: "Changed", deleted: "Deleted" };
 
 /** Render the summary's **bold** markers without using innerHTML. */
@@ -93,7 +100,7 @@ export function SaveDialog({ problem, source, lines, busy, onSubmitToken, onReso
 
   const title =
     problem.kind === "github"
-      ? GITHUB_TITLE[problem.failure.kind]
+      ? githubTitle(problem.failure)
       : {
           token: "Connect to GitHub to save",
           invalid: "Can’t save yet",

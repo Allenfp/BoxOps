@@ -301,10 +301,20 @@ describe("failureMessage", () => {
       "This token has used up GitHub’s hourly allowance. Try again after 14:05.",
     );
     expect(failureMessage(new GitHubFailure("rate-limited", "x", { secondary: false, resetAt: at(0, 5) }), where, now)).toContain("after 2026-10-05 00:05");
+    expect(failureMessage(new GitHubFailure("rate-limited", "x", { secondary: false, resetAt: at(14), anonymous: true }), where, now)).toBe(
+      "This network has used up GitHub’s hourly allowance for calls without a token (60 an hour per IP address). Try again after 14:05.",
+    );
+    expect(failureMessage(new GitHubFailure("rate-limited", "x", { secondary: false }), where, now)).toBe("This token has used up GitHub’s hourly allowance. Try again in an hour.");
     expect(failureMessage(new GitHubFailure("rate-limited", "x", { secondary: true, retryAfter: 30 }), where, now)).toBe("GitHub asked BoxOps to slow down. Try again in 30 seconds.");
     expect(failureMessage(new GitHubFailure("read-only", "x", { push: false }), where)).toBe("Your GitHub account can’t write to acme/roadmap. Ask an admin for Write access.");
     expect(failureMessage(new GitHubFailure("read-only", "x", { push: true }), where)).toContain("Contents to Read and write");
+    expect(failureMessage(new GitHubFailure("read-only", "x", { read: true }), where)).toBe(
+      "This token can see acme/roadmap but not read its files. Edit the token and give it Contents access: Read and write to save (Read-only is enough to view).",
+    );
     expect(failureMessage(new GitHubFailure("no-access", "x"), where)).toContain("set Resource owner to acme");
+    expect(failureMessage(new GitHubFailure("no-access", "x", { visible: false }), where)).toContain("set Resource owner to acme");
+    expect(failureMessage(new GitHubFailure("no-access", "x", { visible: true, push: false }), where)).toBe("Your GitHub account can’t write to acme/roadmap. Ask an admin for Write access.");
+    expect(failureMessage(new GitHubFailure("no-access", "x", { visible: true, push: true }), where)).toContain("This token can see acme/roadmap but can’t save to it.");
     expect(failureMessage(new GitHubFailure("rules", "Commits must have verified signatures."), where)).toContain("main only accepts signed commits");
     expect(failureMessage(new GitHubFailure("timeout", "x", {}, true), where)).toContain("can’t tell whether this save went through");
     expect(failureMessage(new GitHubFailure("timeout", "x", {}, false), where)).toBe("GitHub didn’t answer in time. Your changes are kept in this browser.");

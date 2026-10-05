@@ -61,6 +61,10 @@ export interface FailureDetail {
   /** From GET /repos after a read-only or no-access failure: whether the account may write, whether the token sees the repository. */
   push?: boolean;
   visible?: boolean;
+  /** A read (a REST GET) was refused as read-only: the token can't read the repository's files (no Contents permission). */
+  read?: boolean;
+  /** A rate limit on a call without a token: the allowance is this network's (per IP address), not a token's. */
+  anonymous?: boolean;
 }
 
 export class GitHubFailure extends Error {
@@ -332,6 +336,8 @@ export class GitHubClient {
     const body = parseJson(r.bytes);
     const message = isRecord(body) && typeof body.message === "string" ? body.message : `HTTP ${r.status}`;
     const { kind, detail } = classify({ status: r.status, headers: r.headers, message });
+    if (kind === "read-only" && !mutation) detail.read = true;
+    if (kind === "rate-limited" && !this.token) detail.anonymous = true;
     return new GitHubFailure(kind, message, detail, mutation && r.status >= 500);
   }
 
