@@ -420,10 +420,13 @@ against data the new code wrote.
   on a public and on a private repository, and every test checks the
   stand-in saw no call a correct app never makes. It makes each deploy's
   `roadmap.json` with the build's own code, so its blob and tree SHAs are
-  real. The clock is pinned to 2026-10-03, so tests
-  never depend on live data, the date or the network. Tests of unsaved
-  drafts open a second tab in the same browser context (so the same
-  `localStorage`), with a clock of its own. Any
+  real. The clock is pinned to 09:00 on 2026-10-03 in the browser's time
+  zone, so tests never depend on live data, the date or the network. The
+  browser runs in UTC (`timezoneId`; WebKit ignores `TZ`), and the specs about
+  dates (timeline, table, PTO, saving) run again in America/Los_Angeles and
+  Pacific/Kiritimati, where the day starts 7 hours after UTC's and 14 hours
+  before it. Tests of unsaved drafts open a second tab in the same browser
+  context (so the same `localStorage`), with a clock of its own. Any
   Content-Security-Policy violation fails a test.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build with a generated 2,000-box roadmap

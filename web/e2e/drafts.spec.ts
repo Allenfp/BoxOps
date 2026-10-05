@@ -145,7 +145,7 @@ test("unsaved edits another data format wrote can be downloaded or discarded, ne
     format: 2,
     build: "0.2.0+0123456789ab",
     baseCommit: "",
-    savedAt: new Date(2026, 9, 2, 14, 5).toISOString(),
+    savedAt: "2026-10-02T14:05:00.000Z", // 14:05 in the browser's zone, UTC
     alive: 0,
     items: { "box:bx-0000-x": { now: { id: "bx-0000-x", title: "X", effort: "large" } } },
     conflicts: [],

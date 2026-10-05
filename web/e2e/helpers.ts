@@ -2,8 +2,25 @@ import { type BrowserContext, type Page, test as base, expect } from "@playwrigh
 import { PX_PER_DAY } from "../src/timeline/scale";
 import { FakeGitHub, REPO, TOKEN } from "./fake-github";
 
-/** Every test runs on 2026-10-03 so "today" and the sample boxes line up. */
-export const TODAY = new Date("2026-10-03T09:00:00");
+/**
+ * The moment it's 09:00 on 2026-10-03 in this time zone, the browser's (each
+ * project sets one): every test runs then, so "today" and the sample boxes
+ * line up wherever the test runs and whatever zone Node is in.
+ */
+export function morningIn(timeZone = "UTC"): Date {
+  const at = Date.UTC(2026, 9, 3, 9);
+  const wall = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric" })
+      .formatToParts(at)
+      .map((p) => [p.type, Number(p.value)]),
+  );
+  // How far the zone's clock is ahead of UTC's then.
+  const ahead = Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute) - at;
+  return new Date(at - ahead);
+}
+
+/** "Today" in the default project, which runs in UTC. */
+export const TODAY = morningIn();
 
 export const DAGSTER = "bx-c93d-dagster-upgrade";
 export const CDC = "bx-d4e1-cdc-pipeline";
@@ -32,9 +49,9 @@ export const test = base.extend<{ github: FakeGitHub; signedIn: boolean; visibil
     await use(violations);
     expect(violations, "Content-Security-Policy violations").toEqual([]);
   },
-  github: async ({ page, signedIn, visibility, csp: _ }, use) => {
+  github: async ({ page, signedIn, visibility, timezoneId, csp: _ }, use) => {
     const github = await FakeGitHub.create(undefined, { visibility });
-    await page.clock.install({ time: TODAY });
+    await page.clock.install({ time: morningIn(timezoneId) });
     await github.install(page);
     if (signedIn) {
       await page.addInitScript(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, TOKEN]);
@@ -108,9 +125,9 @@ export async function pollNow(page: Page) {
 
 /**
  * Another tab on the roadmap in the same browser (the same localStorage, its
- * own sessionStorage), with its own clock starting at `at`, the fake GitHub
- * and a token. `session` adds to its sessionStorage (a duplicated tab starts
- * with a copy of the original's).
+ * own sessionStorage), with its own clock starting at `at` (by default, today
+ * in the default project's zone), the fake GitHub and a token. `session` adds
+ * to its sessionStorage (a duplicated tab starts with a copy of the original's).
  */
 export async function openTab(context: BrowserContext, github: FakeGitHub, at = TODAY, session: Record<string, string> = {}): Promise<Page> {
   const tab = await context.newPage();

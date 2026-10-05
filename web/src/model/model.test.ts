@@ -27,7 +27,16 @@ describe("dates", () => {
 
   it("uses the local calendar day for today", () => {
     // 23:30 local on Oct 3 must still be Oct 3, whatever the UTC date is.
-    expect(formatDay(today(new Date(2026, 9, 3, 23, 30)))).toBe("2026-10-03");
+    expect(formatDay(today(new Date(2026, 9, 3, 23, 30)))).toBe("2026-10-03"); // west of UTC, already the 4th there
+    // East of UTC, whatever zone the tests run in: half past midnight is still the day before in UTC.
+    const zone = process.env.TZ;
+    process.env.TZ = "Pacific/Auckland"; // Node takes a new TZ at once
+    try {
+      expect(formatDay(today(new Date(2026, 9, 3, 0, 30)))).toBe("2026-10-03");
+    } finally {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
   });
 
   it("starts weeks on Monday", () => {

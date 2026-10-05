@@ -3,8 +3,9 @@ import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect,
 test("shows departments, lanes, boxes and today", async ({ page, github: _ }) => {
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
   await expect(page.locator(".dept-label")).toHaveText([/Data Engineering/, /Analytics/, /ML Platform/]);
+  // Today is 2026-10-03 wherever the browser is (each project has its own time zone).
   await expect(page.locator(".today-flag")).toHaveAttribute("title", "2026-10-03");
-  // Progress comes from the dates (today is 2026-10-03); flags are set by hand.
+  // Progress comes from the dates; flags are set by hand.
   await expect(box(page, DAGSTER)).toHaveClass(/progress-underway/); // Sep 14 – Oct 23
   await expect(box(page, CDC)).toHaveClass(/progress-upcoming/); // from Oct 26
   await expect(page.locator(".box-flag")).toHaveText(["At risk"]);
