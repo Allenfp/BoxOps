@@ -54,8 +54,8 @@ export function announce(text: string, { assertive = false }: { assertive?: bool
 export function LiveRegion() {
   return (
     <div className="sr-only">
-      <div role="status" aria-live="polite" aria-atomic="true" data-live="polite" />
-      <div role="alert" aria-live="assertive" aria-atomic="true" data-live="assertive" />
+      <div aria-live="polite" aria-atomic="true" data-live="polite" />
+      <div aria-live="assertive" aria-atomic="true" data-live="assertive" />
     </div>
   );
 }
@@ -74,4 +74,26 @@ export function useAnnounce(text: string | null | false | undefined, { assertive
     said.current = now;
     if (now && (ready || !first)) announce(now, { assertive });
   }, [text, assertive, ready]);
+}
+
+/** How long typing must pause before search results are announced. */
+const SETTLE_MS = 600;
+
+/**
+ * Announce `text` (how many results there are) once `input` (what's searched
+ * for) has stopped changing for a moment, each time it changes: not for every
+ * key typed, and not for the input as the page first shows it.
+ */
+export function useAnnounceResults(input: string, text: string): void {
+  const latest = useRef(text);
+  const searched = useRef(input);
+  useEffect(() => {
+    latest.current = text;
+  });
+  useEffect(() => {
+    if (input === searched.current) return;
+    searched.current = input;
+    const t = setTimeout(() => announce(latest.current), SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [input]);
 }

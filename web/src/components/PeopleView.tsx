@@ -5,6 +5,7 @@ import { type PtoRef, ptoRange } from "../model/pto";
 import type { Person, Roadmap } from "../model/types";
 import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
+import { useAnnounceResults } from "../a11y/announce";
 
 interface Props {
   roadmap: Roadmap;
@@ -81,6 +82,11 @@ export function PeopleView(props: Props) {
     all: people.filter((p) => (p.department && deptIds.has(p.department) ? p.department : NO_DEPT) === g.id),
   }));
   const shown = people.filter(matches).length;
+  // How many a search leaves, said once typing pauses.
+  useAnnounceResults(
+    q,
+    q && !shown ? `No engineers match “${query.trim()}”.` : `${shown === people.length ? "" : `${shown} of `}${people.length} engineer${people.length === 1 ? "" : "s"}.`,
+  );
 
   const remove = (p: Person) => {
     const n = boxCount.get(p.id) ?? 0;
@@ -98,6 +104,7 @@ export function PeopleView(props: Props) {
         <input
           className="table-search"
           type="search"
+          aria-label="Search engineers"
           placeholder="Search names, roles, managers, notes…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

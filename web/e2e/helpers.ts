@@ -72,6 +72,7 @@ export const test = base.extend<{
     const github = await FakeGitHub.create(files, { visibility });
     if (fakeClock) await page.clock.install({ time: morningIn(timezoneId) });
     await page.context().addInitScript(countSiteFetches);
+    await page.context().addInitScript(recordAnnouncements);
     await github.install(page);
     if (signedIn) {
       await page.addInitScript(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, TOKEN]);
@@ -169,6 +170,28 @@ function countSiteFetches() {
     }
   };
 }
+
+/**
+ * Records what the app says to screen readers, every message its live
+ * regions ([data-live], a11y/announce.tsx) are given, in order
+ * (`__boxopsSaid`): a message is there for a moment before the next. In
+ * every page of a test.
+ */
+function recordAnnouncements() {
+  const w = window as unknown as { __boxopsSaid: string[] };
+  w.__boxopsSaid = [];
+  new MutationObserver((records) => {
+    for (const r of records) {
+      const region = (r.target instanceof Element ? r.target : r.target.parentElement)?.closest("[data-live]");
+      if (region?.textContent) w.__boxopsSaid.push(region.textContent);
+    }
+  }).observe(document, { subtree: true, childList: true, characterData: true });
+}
+
+/** Every message the app has given screen readers so far, in order (those asked for together come as one). */
+export const said = (page: Page): Promise<string[]> => page.evaluate(() => (window as unknown as { __boxopsSaid: string[] }).__boxopsSaid);
+/** All the app has said to screen readers so far, as one text. */
+export const heard = async (page: Page): Promise<string> => (await said(page)).join(" ");
 
 /**
  * Text lying straight in a banner, outside any element. A banner is a flex

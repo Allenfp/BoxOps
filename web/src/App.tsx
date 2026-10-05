@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { type RefObject, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { DepartmentEditorTarget } from "./components/DepartmentEditor";
 import type { Resume, SaveProblem } from "./components/SaveDialog";
 import { lazyPart } from "./components/lazyPart";
@@ -15,6 +15,9 @@ import { SettingsMenu } from "./components/SettingsMenu";
 import { getPrefs, setPrefs, usePrefs, type ViewMode } from "./prefs";
 import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
+import { Banner } from "./components/Banner";
+import { announce, useAnnounce } from "./a11y/announce";
+import { shortcut, undoHint } from "./a11y/keys";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
 import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
@@ -508,6 +511,7 @@ const STEP_TEXT: Record<SaveStep, string> = {
  * second.
  */
 function SaveProgress({ step }: { step: SaveStep }) {
+  useAnnounce(STEP_TEXT[step]);
   const [start] = useState(() => Date.now());
   const [now, setNow] = useState(start);
   useEffect(() => {
@@ -517,7 +521,7 @@ function SaveProgress({ step }: { step: SaveStep }) {
   const seconds = Math.floor((now - start) / 1000);
   return (
     <span className="hint save-progress">
-      <span role="status">{STEP_TEXT[step]}</span>
+      <span>{STEP_TEXT[step]}</span>
       {seconds >= 5 ? ` ${seconds} s` : ""}
     </span>
   );
@@ -584,7 +588,19 @@ const NO_LINES: ChangeLine[] = [];
  * (restore it, or discard it), or one only another version of BoxOps can open,
  * or none can (download it, or discard it). Never taken without asking.
  */
-function OfferBanner({ offer, busy, onRestore, onDiscard }: { offer: DraftOffer; busy: boolean; onRestore(): void; onDiscard(): void }) {
+function OfferBanner({
+  offer,
+  busy,
+  ready,
+  onRestore,
+  onDiscard,
+}: {
+  offer: DraftOffer;
+  busy: boolean;
+  ready: RefObject<boolean>;
+  onRestore(): void;
+  onDiscard(): void;
+}) {
   const changes = `${offer.count} change${offer.count === 1 ? "" : "s"}`;
   const when = offer.savedAt ? stamp(offer.savedAt) : "";
   const discard = () => {
@@ -592,7 +608,7 @@ function OfferBanner({ offer, busy, onRestore, onDiscard }: { offer: DraftOffer;
   };
   if (offer.restorable) {
     return (
-      <div className="banner" role="status">
+      <Banner live="polite" ready={ready}>
         <span>
           <strong>Restore unsaved changes from another tab?</strong> {changes}
           {when ? `, last changed ${when},` : ""} in a tab that’s no longer open.
@@ -603,11 +619,11 @@ function OfferBanner({ offer, busy, onRestore, onDiscard }: { offer: DraftOffer;
         <button onClick={discard} disabled={busy}>
           Discard…
         </button>
-      </div>
+      </Banner>
     );
   }
   return (
-    <div className="banner notice-warning" role="status">
+    <Banner className="notice-warning" live="polite" ready={ready}>
       <span>
         <strong>{offer.unreadable ? "Unsaved edits kept in this browser can’t be read" : "Unsaved edits made with another version of BoxOps"}</strong>
         {when ? ` (last changed ${when})` : ""}
@@ -617,7 +633,7 @@ function OfferBanner({ offer, busy, onRestore, onDiscard }: { offer: DraftOffer;
         Download my unsaved edits (JSON)
       </button>
       <button onClick={discard}>Discard…</button>
-    </div>
+    </Banner>
   );
 }
 
@@ -691,6 +707,11 @@ function RoadmapView(props: ViewProps) {
   useEffect(() => {
     if (editedGone) setDeptEditor(null);
   }, [editedGone]);
+  // Banners there when the roadmap first shows are the page; any that come later are announced.
+  const ready = useRef(false);
+  useEffect(() => {
+    ready.current = true;
+  }, []);
   // Up and running a few seconds: a crash after this isn't "the same one again" (ErrorBoundary).
   useEffect(() => {
     const t = setTimeout(runningFine, 5000);
@@ -732,6 +753,14 @@ function RoadmapView(props: ViewProps) {
     [draft],
   );
 
+  /** Delete a box, and say so (with how to get it back). */
+  const removeBox = (id: string) => {
+    const box = draft.boxes.find((b) => b.id === id);
+    draft.removeBox(id);
+    setSelected((cur) => (cur?.id === id ? null : cur));
+    if (box) announce(`Deleted “${box.title || "Untitled"}”. ${undoHint()}`);
+  };
+
   // PTO lives on the person; a block is picked out by its owner and position.
   const [selectedPto, setSelectedPto] = useState<(PtoRef & { session: number }) | null>(null);
   const ptoOf = (ref: PtoRef) => draft.people.find((p) => p.id === ref.personId)?.pto?.[ref.index];
@@ -749,8 +778,11 @@ function RoadmapView(props: ViewProps) {
   const updatePto = (ref: PtoRef, patch: Partial<TimeOff>, key?: string) =>
     setPtoList(ref.personId, (list) => list.map((t, i) => (i === ref.index ? { ...t, ...patch } : t)), key);
   const removePto = (ref: PtoRef) => {
+    const pto = ptoOf(ref);
+    const name = draft.people.find((p) => p.id === ref.personId)?.name;
     setPtoList(ref.personId, (list) => list.filter((_, i) => i !== ref.index));
     setSelectedPto((cur) => (cur && ptoKey(cur) === ptoKey(ref) ? null : cur));
+    if (pto) announce(`Deleted PTO for ${name ?? "an engineer"}, ${ptoRange(pto)}. ${undoHint()}`);
   };
   /** Add PTO for someone (by default the first engineer in the department); returns where it went. */
   const addPto = (dates: Pick<TimeOff, "start" | "end">, who: { personId?: string; departmentId?: string }): PtoRef | null => {
@@ -785,52 +817,61 @@ function RoadmapView(props: ViewProps) {
     document.title = props.preview ? `${draft.settings.title} (${source.branch})` : draft.settings.title;
   }, [draft.settings.title, props.preview, source.branch]);
 
-  const selectedPtoRef = useRef(selectedPto);
-  selectedPtoRef.current = selectedPto;
-  const removePtoRef = useRef(removePto);
-  removePtoRef.current = removePto;
-
   /** The update banner's Reload: where ⌘S goes in a tab gone read-only for a newer BoxOps. */
   const updateReload = useRef<HTMLButtonElement>(null);
 
   // ⌘S, undo/redo and delete. Text fields keep their own native undo.
+  const onKey = (e: KeyboardEvent) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key.toLowerCase() === "s") {
+      // Like saving a file — and never the browser's "save page" dialog, read-only too.
+      e.preventDefault();
+      // Read-only: nothing to save; for a newer BoxOps, what to do is reload.
+      if (preview) return updateReload.current?.focus();
+      if (busy || problem) return;
+      // A table or people cell keeps what's typed until it loses focus: commit
+      // it, then save on the next tick, once the draft has it.
+      if (isTyping(document.activeElement)) {
+        (document.activeElement as HTMLElement).blur();
+        setTimeout(() => saveRef.current(), 0);
+      } else saveRef.current();
+      return;
+    }
+    if (preview || isTyping(e.target) || busy) return;
+    if (mod && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+    } else if (mod && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      redo();
+    } else if ((e.key === "Delete" || e.key === "Backspace") && selected) {
+      e.preventDefault();
+      removeBox(selected.id);
+    } else if ((e.key === "Delete" || e.key === "Backspace") && selectedPto) {
+      e.preventDefault();
+      removePto(selectedPto);
+    }
+  };
+  const onKeyRef = useRef(onKey);
+  onKeyRef.current = onKey;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === "s") {
-        // Like saving a file — and never the browser's "save page" dialog, read-only too.
-        e.preventDefault();
-        // Read-only: nothing to save; for a newer BoxOps, what to do is reload.
-        if (preview) return updateReload.current?.focus();
-        if (busy || problem) return;
-        // A table or people cell keeps what's typed until it loses focus: commit
-        // it, then save on the next tick, once the draft has it.
-        if (isTyping(document.activeElement)) {
-          (document.activeElement as HTMLElement).blur();
-          setTimeout(() => saveRef.current(), 0);
-        } else saveRef.current();
-        return;
-      }
-      if (preview || isTyping(e.target) || busy) return;
-      if (mod && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        if (e.shiftKey) draft.redo();
-        else draft.undo();
-      } else if (mod && e.key.toLowerCase() === "y") {
-        e.preventDefault();
-        draft.redo();
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selected) {
-        e.preventDefault();
-        draft.removeBox(selected.id);
-        setSelected(null);
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedPtoRef.current) {
-        e.preventDefault();
-        removePtoRef.current(selectedPtoRef.current);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [draft, selected, preview, busy, problem]);
+    const listener = (e: KeyboardEvent) => onKeyRef.current(e);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+
+  // Undo and redo say they did something: what changed may be nowhere near focus.
+  const undo = () => {
+    if (!draft.canUndo) return announce("Nothing to undo.");
+    draft.undo();
+    announce("Undone.");
+  };
+  const redo = () => {
+    if (!draft.canRedo) return announce("Nothing to redo.");
+    draft.redo();
+    announce("Redone.");
+  };
 
   const toggle = (id: string) =>
     setCollapsed((prev) => {
@@ -1017,6 +1058,7 @@ function RoadmapView(props: ViewProps) {
 
     select(null);
     draft.flush();
+    announce(`Saving ${count} change${count === 1 ? "" : "s"}…`);
     setBusy(true);
     try {
       // A new BoxOps deployed that the poll hasn't seen yet: this tab's code
@@ -1049,6 +1091,8 @@ function RoadmapView(props: ViewProps) {
       // edit (or undo) made while it ran is ours, not a clash with our own commit.
       draft.saved(target);
       onSaved(result, othersIn(result, props.blobs, changes));
+      // A save is announced by its banner; one with nothing left to write has none.
+      if (result.status === "noop") announce("Nothing needed saving: GitHub already has these changes.");
     } catch (e) {
       if (e instanceof s.NewerSaves) {
         const head = e.head;
@@ -1146,7 +1190,10 @@ function RoadmapView(props: ViewProps) {
     brokenBase.current = draftBase;
     if (knownBroken.current && !elsewhere) {
       const fresh = violations.filter((v) => !knownBroken.current!.has(key(v)));
-      if (fresh.length) setNewlyBroken(fresh);
+      if (fresh.length) {
+        setNewlyBroken(fresh);
+        announce(`That breaks ${fresh.length === 1 ? "a rule" : `${fresh.length} rules`}: ${fresh.map((v) => v.message).join(" ")} Nothing is blocked.`);
+      }
     }
     knownBroken.current = now;
   }, [violations, draftBase]);
@@ -1299,10 +1346,10 @@ function RoadmapView(props: ViewProps) {
           <WarningsMenu groups={warningGroups} />
           {!preview && (
             <div className="draft-status">
-              <button className="icon-only" onClick={draft.undo} disabled={!draft.canUndo} title="Undo (⌘Z)" aria-label="Undo">
+              <button className="icon-only" onClick={undo} disabled={!draft.canUndo} title={`Undo (${shortcut("Z")})`} aria-label="Undo">
                 <Icon name="undo" size={16} />
               </button>
-              <button className="icon-only" onClick={draft.redo} disabled={!draft.canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
+              <button className="icon-only" onClick={redo} disabled={!draft.canRedo} title={`Redo (${shortcut("Z", true)})`} aria-label="Redo">
                 <Icon name="redo" size={16} />
               </button>
               {busy && <SaveProgress step={step} />}
@@ -1373,33 +1420,32 @@ function RoadmapView(props: ViewProps) {
         {props.notices
           .filter((n, i, all) => all.findIndex((m) => noticeKey(m) === noticeKey(n)) === i && !dismissed.includes(n.text))
           .map((n) => (
-            <div key={noticeKey(n)} className={`banner notice-${n.level}`} role={n.level === "info" ? "status" : "alert"}>
+            <Banner key={noticeKey(n)} className={`notice-${n.level}`} live={n.level === "info" ? "polite" : "assertive"} ready={ready}>
               <span>{n.text}</span>
               <button className="icon-button" onClick={() => setDismissed((d) => [...d, n.text])} aria-label="Dismiss">
                 <Icon name="x" size={16} />
               </button>
-            </div>
+            </Banner>
           ))}
-        {/* A banner is a flex row: its text goes in one <span>, or each run of text, <code> and link is spaced apart. */}
         {props.preview && (
-          <div className="banner">
+          <Banner>
             <span>
               Previewing branch <code>{source.branch}</code> (read-only). <a href={liveUrl()}>Back to the live roadmap</a>
             </span>
-          </div>
+          </Banner>
         )}
         {source.local && !props.preview && (
-          <div className="banner">
+          <Banner>
             <span>
               Read-only: this copy was built from the files on disk (<code>npm run dev</code>, or a build with uncommitted
               changes in <code>roadmap/</code>), so it can’t save. Edit the YAML files, or save from the deployed site.
             </span>
-          </div>
+          </Banner>
         )}
-        {source.readonly && !source.local && !props.preview && <div className="banner">Read-only: this site doesn’t save.</div>}
+        {source.readonly && !source.local && !props.preview && <Banner>Read-only: this site doesn’t save.</Banner>}
         {/* A newer format with a newer BoxOps to reload onto: the update banner says what to do. */}
         {props.formatStatus !== "current" && !(props.formatStatus === "newer" && props.update) && (
-          <div className="banner">
+          <Banner live="polite" ready={ready} news={props.formatStatus}>
             <span>
               {props.formatStatus === "older" && files["settings.yaml"] === undefined ? (
                 <>
@@ -1431,11 +1477,12 @@ function RoadmapView(props: ViewProps) {
               )}
             </span>
             {props.formatStatus === "newer" && !props.preview && stranded && <button onClick={downloadDraft}>Download unsaved changes</button>}
-          </div>
+          </Banner>
         )}
         {lastSave && (
-          <div className="banner success">
-            <span>
+          <Banner className="success" live="polite" ready={ready} news={lastSave}>
+            {/* Where focus goes after a save that took the Save button away (its place is now "No changes"). */}
+            <span tabIndex={-1} data-saved>
               Saved to <code>{source.branch}</code> as commit{" "}
               <a href={lastSave.url} target="_blank" rel="noopener noreferrer">
                 {lastSave.commit.slice(0, 7)}
@@ -1445,10 +1492,10 @@ function RoadmapView(props: ViewProps) {
             <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
               <Icon name="x" size={16} />
             </button>
-          </div>
+          </Banner>
         )}
         {props.update && (
-          <div className="banner" role="status">
+          <Banner live="polite" ready={ready} news={props.update}>
             <span>
               <strong>{updatedText(props.update)}</strong>
               {keptOnReload}
@@ -1457,18 +1504,18 @@ function RoadmapView(props: ViewProps) {
             <button className="primary" ref={updateReload} onClick={() => reloadApp(props.update!.build)}>
               Reload
             </button>
-          </div>
+          </Banner>
         )}
         {props.behind && (
-          <div className="banner notice-warning" role="status">
+          <Banner className="notice-warning" live="polite" ready={ready}>
             <span>{props.behind}</span>
             <button className="icon-button" onClick={props.onDismissBehind} aria-label="Dismiss">
               <Icon name="x" size={16} />
             </button>
-          </div>
+          </Banner>
         )}
         {props.connectionLost && (
-          <div className="banner" role="status">
+          <Banner live="polite" ready={ready} news>
             {/* The poll keeps trying, and coming back online checks at once: reloading offline would lose the page. */}
             <span>
               Can’t reach the site, so others’ saves aren’t coming in. BoxOps keeps trying; if this goes on, reload (a
@@ -1476,11 +1523,11 @@ function RoadmapView(props: ViewProps) {
               {count > 0 && draft.kept ? " Your unsaved changes are kept in this browser." : ""}
             </span>
             <button onClick={() => reloadApp("")}>Reload</button>
-          </div>
+          </Banner>
         )}
         {/* While the update banner shows, it says this of any unsaved changes. */}
         {!draft.kept && !storageWarned && !(props.update && count > 0) && (
-          <div className="banner notice-warning" role="alert">
+          <Banner className="notice-warning" live="assertive" ready={ready} news>
             <span>
               This browser isn’t keeping your unsaved changes (its storage is full, or turned off for this site), so they’d
               be lost if this tab closed. {preview ? "This tab can’t save them: download them to keep them." : "Save soon."}
@@ -1489,26 +1536,27 @@ function RoadmapView(props: ViewProps) {
             <button className="icon-button" onClick={() => setStorageWarned(true)} aria-label="Dismiss">
               <Icon name="x" size={16} />
             </button>
-          </div>
+          </Banner>
         )}
         {!preview && draft.offers.length > 0 && (
           <OfferBanner
             offer={draft.offers[0]}
             busy={busy}
+            ready={ready}
             onRestore={() => draft.restoreOffer(draft.offers[0].key)}
             onDiscard={() => draft.discardOffer(draft.offers[0].key)}
           />
         )}
         {draft.others > 0 && !othersDismissed && (
-          <div className="banner" role="status">
+          <Banner live="polite" ready={ready}>
             <span>This roadmap has unsaved changes in another tab. Each tab keeps and saves its own.</span>
             <button className="icon-button" onClick={() => setOthersDismissed(true)} aria-label="Dismiss">
               <Icon name="x" size={16} />
             </button>
-          </div>
+          </Banner>
         )}
         {remote && (
-          <div className="banner">
+          <Banner live="polite" ready={ready} news={remote}>
             <span>
               {remote.author ? <strong>{remote.author}</strong> : "Someone"} saved
               {remote.subject ? <> “{remote.subject}”</> : " changes"}. The roadmap has been updated
@@ -1531,7 +1579,7 @@ function RoadmapView(props: ViewProps) {
             >
               <Icon name="x" size={16} />
             </button>
-          </div>
+          </Banner>
         )}
         <Suspense fallback={<div className="splash">Loading…</div>}>
           {view === "people" ? (
@@ -1551,7 +1599,11 @@ function RoadmapView(props: ViewProps) {
                 return id;
               }}
               onUpdate={(id, patch) => draft.updatePerson(id, patch)}
-              onRemove={(id) => draft.removePerson(id)}
+              onRemove={(id) => {
+                const name = draft.people.find((p) => p.id === id)?.name;
+                draft.removePerson(id);
+                announce(`Removed ${name ?? "the engineer"}. ${undoHint()}`);
+              }}
               onCheckpoint={draft.checkpoint}
             />
           ) : view === "table" ? (
@@ -1589,7 +1641,7 @@ function RoadmapView(props: ViewProps) {
                 draft.checkpoint();
                 return id;
               }}
-              onDelete={(id) => draft.removeBox(id)}
+              onDelete={removeBox}
               onAddPerson={(name, department) => draft.addPerson(name, department)}
               onCheckpoint={draft.checkpoint}
               onReviewed={(id) => setUpdatedIds((cur) => new Set([...cur].filter((x) => x !== id)))}
@@ -1646,7 +1698,8 @@ function RoadmapView(props: ViewProps) {
           )}
         </Suspense>
         {newlyBroken.length > 0 && (
-          <div className="toast" role="status">
+          // Announced as it appears (the effect that sets newlyBroken): a live region added already filled often isn't read.
+          <div className="toast">
             <strong><Icon name="alert" size={14} /> That breaks {newlyBroken.length === 1 ? "a rule" : `${newlyBroken.length} rules`}</strong>
             <ul>
               {newlyBroken.map((v, i) => (
@@ -1699,8 +1752,7 @@ function RoadmapView(props: ViewProps) {
             onAddPerson={(name, department) => draft.addPerson(name, department)}
             onChange={editBox}
             onDelete={() => {
-              draft.removeBox(selectedBox.id);
-              setSelected(null);
+              removeBox(selectedBox.id);
             }}
             onClose={() => select(null)}
           />

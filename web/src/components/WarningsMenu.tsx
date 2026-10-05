@@ -3,8 +3,10 @@
 // during their PTO, and problems in the roadmap files. Hidden when there's
 // nothing to say.
 
+import { useEffect, useRef } from "react";
 import { Popover } from "./Popover";
 import { Icon } from "./Icon";
+import { announce } from "../a11y/announce";
 
 export interface WarningItem {
   text: string;
@@ -19,6 +21,12 @@ export interface WarningGroup {
 export function WarningsMenu({ groups }: { groups: WarningGroup[] }) {
   const shown = groups.filter((g) => g.items.length);
   const total = shown.reduce((n, g) => n + g.items.length, 0);
+  // More warnings than before (an edit put a department over capacity, say): the count in the toolbar is said.
+  const before = useRef(total);
+  useEffect(() => {
+    if (total > before.current) announce(`${total} warning${total === 1 ? "" : "s"} now.`);
+    before.current = total;
+  }, [total]);
   if (!total) return null;
   return (
     <Popover

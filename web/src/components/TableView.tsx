@@ -15,6 +15,7 @@ import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { useReorder } from "./useReorder";
+import { useAnnounceResults } from "../a11y/announce";
 
 interface Props {
   roadmap: Roadmap;
@@ -236,6 +237,15 @@ export function TableView(props: Props) {
     }
   };
 
+  // How many boxes a search or date filter leaves, said once typing pauses (as the toolbar shows it).
+  const shownText =
+    rows.length === 0 && (query.trim() || fromDay !== null || toDay !== null)
+      ? query.trim()
+        ? `No boxes match “${query.trim()}”${fromDay !== null || toDay !== null ? " in these dates" : ""}.`
+        : "No boxes in these dates."
+      : `${rows.length === boxes.length ? "" : `${rows.length} of `}${boxes.length} box${boxes.length === 1 ? "" : "es"}.`;
+  useAnnounceResults(`${query.trim()}\n${from}\n${to}\n${!!props.hideFinished}`, shownText);
+
   // Weekends don't exist on the roadmap: a weekend start moves to Monday, a weekend end to Friday.
   const setStart = (b: Box, text: string) => {
     const picked = parseDay(text);
@@ -256,6 +266,7 @@ export function TableView(props: Props) {
         <input
           className="table-search"
           type="search"
+          aria-label="Search boxes"
           placeholder="Search codes, titles, tags, lanes…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

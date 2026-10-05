@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 import { CLASSIC_TOKEN, type FakeGitHub, REPO, TOKEN } from "./fake-github";
-import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, looseBannerText, pollNow, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, REVENUE, box, boxTitle, boxDates, boxFile, dragDays, expect, heard, looseBannerText, pollNow, save, test, toolbar } from "./helpers";
 
 // Saving works the same on a public and on a private repository; on a private
 // one, everything goes through the API with the token.
@@ -249,9 +249,10 @@ for (const visibility of ["public", "private"] as const) {
       await expect.poll(() => github.calls("graphql")).toBe(1);
       await expect(page.locator(".save-progress")).toHaveText("Writing the commit…");
       await page.clock.fastForward(6_000);
-      // The seconds show once it's slow, outside the live region, which announces the step alone.
+      // The seconds show once it's slow; only the step is announced, not every second.
       await expect(page.locator(".save-progress")).toHaveText("Writing the commit… 6 s");
-      await expect(page.locator(".save-progress").getByRole("status")).toHaveText("Writing the commit…");
+      expect(await heard(page)).toContain("Writing the commit…");
+      expect(await heard(page)).not.toMatch(/\d s/);
       await page.clock.fastForward(25_000);
       await expect(page.locator(".banner.success")).toContainText("Saved to main");
       expect(github.headCommit().parent).toBe(github.root);
