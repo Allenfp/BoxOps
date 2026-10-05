@@ -2,13 +2,14 @@
 // place through the `yaml` Document API, so comments, key order and quoting in
 // the original survive and a commit's diff shows only the lines that really
 // changed: only fields that differ from what was loaded are touched, list
-// entries are matched up one by one, and a file keeps its BOM and line endings.
-// Titles and names are written without spaces at either end.
+// entries (mappings, and plain values like tags, so a comment beside one
+// stays with it) are matched up one by one, and a file keeps its BOM and line
+// endings. Titles and names are written without spaces at either end.
 //
 // A file the loader couldn't fully read is never written (UnsafeWrite): that
 // would delete whatever the loader left out.
 
-import { Document, isMap, isScalar, isSeq, parseDocument, visit, type YAMLMap, type YAMLSeq } from "yaml";
+import { Document, isMap, isScalar, isSeq, parseDocument, type Scalar, visit, type YAMLMap, type YAMLSeq } from "yaml";
 import { formatDay } from "./dates";
 import { diffDraft, normalize, type DraftState } from "./draft";
 import { FORMAT } from "./format";
@@ -131,6 +132,8 @@ function settingsToPlain(s: Settings): Plain {
   return { format: FORMAT, ...s, title: s.title.trim(), types: named(s.types), statuses: named(s.statuses) };
 }
 
+const isPlainValue = (v: unknown) => typeof v !== "object" || v === null;
+
 const isEmpty = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
 
 function sameValue(a: unknown, b: unknown): boolean {
@@ -166,7 +169,8 @@ function mergeMap(doc: Document, map: YAMLMap, value: Plain, base: Plain | undef
     if (sameValue(current, v)) continue;
     if (map.has(key)) {
       // A plain value is changed in place, so a comment beside it survives.
-      if (isScalar(node) && (typeof v !== "object" || v === null)) node.value = v;
+      if (isScalar(node) && isPlainValue(v)) node.value = v;
+      else if (isSeq(node) && Array.isArray(v) && node.items.every(isScalar) && v.every(isPlainValue)) mergeValues(doc, node, v);
       else {
         const fresh = doc.createNode(orderedList(v, list, defaults));
         // `people: # note` with nobody listed yet: the note moves to the top of the new list.
@@ -225,6 +229,28 @@ function mergeList(doc: Document, seq: YAMLSeq, items: Plain[], base: Plain[], s
   // New entries are written one per line, even into a `[]` or `[a, b]` list.
   if (next.some((node) => !nodes.includes(node as never))) seq.flow = false;
   seq.items = next;
+}
+
+/**
+ * Merge a list of plain values (tags, engineers, links) item by item, as
+ * mergeList does mappings: an item that stays keeps its node, and so any
+ * comment beside it; an edited one takes over the node of one that's gone.
+ */
+function mergeValues(doc: Document, seq: YAMLSeq, items: unknown[]) {
+  const nodes = seq.items as Scalar[];
+  const used = new Set<number>();
+  const kept = items.map((item) => {
+    const j = nodes.findIndex((n, i) => !used.has(i) && sameValue(n.value, item));
+    if (j >= 0) used.add(j);
+    return j;
+  });
+  const spare = nodes.map((_, i) => i).filter((i) => !used.has(i));
+  seq.items = items.map((item, k) => {
+    const j = kept[k] >= 0 ? kept[k] : spare.shift();
+    if (j === undefined) return doc.createNode(item);
+    nodes[j].value = item;
+    return nodes[j];
+  });
 }
 
 /** `value` with owned keys first in canonical order, empty and default-valued fields dropped. */

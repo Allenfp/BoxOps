@@ -275,8 +275,9 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    review, then save, or choose whose version to keep for clashing items.
 4. **Commit.** The changed files are written with the `yaml` Document API, so
    only the edited lines change and comments survive: only fields that differ
-   from what was loaded are touched, list entries (lanes, people, PTO, rules)
-   are matched up one by one, and a file keeps its BOM and line endings. Each
+   from what was loaded are touched, list entries (lanes, people, PTO, rules,
+   and plain values like tags and engineers) are matched up one by one, and a
+   file keeps its BOM and line endings. Each
    department and box goes to the file it was loaded from. The save is one
    GraphQL `createCommitOnBranch` call (`github/save.ts`): GitHub makes the
    commit and moves `main` in one step, only if `main` is still at the head

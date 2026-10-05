@@ -244,6 +244,22 @@ describe("PTO and rules are merged entry by entry", () => {
   });
 });
 
+describe("plain lists (tags, engineers, links) are merged item by item", () => {
+  const tagged = box("b1", "B1X", "engineers:\n  - sam # lead\n  - kim\ntags:\n  - iceberg # the table format\n  - q4\n");
+  const files = {
+    ...ROADMAP,
+    "people.yaml": "people:\n  - id: sam\n    name: Sam\n  - id: kim\n    name: Kim\n  - id: ana\n    name: Ana\n",
+    "boxes/b1.yaml": tagged,
+  };
+
+  it("keeping the comment beside an item that stays, or that's edited in its place", () => {
+    const out = save(files, (s) => editBox(s, "b1", { tags: ["iceberg", "q1"], engineers: ["sam", "ana"] }))["boxes/b1.yaml"];
+    expect(out).toBe(tagged.replace("  - q4\n", "  - q1\n").replace("  - kim\n", "  - ana\n"));
+    const fewer = save(files, (s) => editBox(s, "b1", { tags: ["iceberg"], engineers: ["sam", "kim", "ana"] }))["boxes/b1.yaml"];
+    expect(fewer).toBe(tagged.replace("  - q4\n", "").replace("  - kim\n", "  - kim\n  - ana\n"));
+  });
+});
+
 describe("titles and names", () => {
   it("are written without spaces at either end, and spaces alone are no change", () => {
     expect(save(ROADMAP, (s) => editBox(s, "b1", { title: "  Box B1X " }))).toEqual({});
