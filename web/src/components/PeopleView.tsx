@@ -136,7 +136,7 @@ export function PeopleView(props: Props) {
             <tr>
               {COLUMNS.map((c, i) => (
                 <th key={i} className={c.className}>
-                  <span className="th-label">{c.label}</span>
+                  {c.label ? <span className="th-label">{c.label}</span> : <span className="sr-only">Actions</span>}
                 </th>
               ))}
             </tr>

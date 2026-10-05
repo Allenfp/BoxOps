@@ -12,6 +12,17 @@ import type { Department, Lane, ReservedDepartments } from "./types";
 
 /** Colours for new departments, in the order they're handed out. */
 export const DEPARTMENT_COLORS = ["#4f7cff", "#21a67a", "#a35cf0", "#e8913a", "#0d9488", "#d6457a", "#c2a100", "#8a94a6"];
+/** Their names, as the colour picker says them (not "#4f7cff"). */
+export const COLOR_NAMES: Record<string, string> = {
+  "#4f7cff": "Blue",
+  "#21a67a": "Green",
+  "#a35cf0": "Purple",
+  "#e8913a": "Orange",
+  "#0d9488": "Teal",
+  "#d6457a": "Pink",
+  "#c2a100": "Gold",
+  "#8a94a6": "Grey",
+};
 
 const allLaneIds = (s: DraftState) => new Set(s.departments.flatMap((d) => d.lanes.map((l) => l.id)));
 

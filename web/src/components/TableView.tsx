@@ -344,10 +344,13 @@ export function TableView(props: Props) {
                       onClick={() => setSort((s) => ({ key: c.key!, dir: s.key === c.key ? ((-s.dir) as 1 | -1) : 1 }))}
                     >
                       {c.label}
-                      <span className="sort-mark">{c.key === sort.key ? (sort.dir === 1 ? "▲" : "▼") : ""}</span>
+                      {/* aria-sort on the header says it to screen readers. */}
+                      <span className="sort-mark" aria-hidden="true">
+                        {c.key === sort.key ? (sort.dir === 1 ? "▲" : "▼") : ""}
+                      </span>
                     </button>
                   ) : (
-                    c.label
+                    c.label || <span className="sr-only">Actions</span>
                   )}
                 </th>
               ))}

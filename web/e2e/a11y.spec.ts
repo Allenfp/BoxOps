@@ -132,3 +132,17 @@ test("the table marks rows someone else changed, and clashes, with more than col
   await expect(code("CDC pipeline v2")).toContainText("Changed by someone else");
   await expect(code("CDC pipeline v2").locator(".row-updated")).toBeVisible();
 });
+
+test("names say what things are: colours by name, sort order once, and no blank column headers", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Edit Analytics" }).click();
+  const editor = page.getByRole("dialog", { name: "Edit Analytics" });
+  await expect(editor.getByRole("button", { name: /^Colour: / })).toHaveText(Array(8).fill(""));
+  await expect(editor.getByRole("button", { name: "Colour: Green" })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await expect(page.getByRole("columnheader", { name: "Department / lane", exact: true })).toHaveAttribute("aria-sort", "ascending");
+  await expect(page.getByRole("columnheader", { name: "Actions" })).toHaveCount(1);
+  await page.getByRole("button", { name: "People", exact: true }).click();
+  await expect(page.getByRole("columnheader", { name: "Actions" })).toHaveCount(1);
+});

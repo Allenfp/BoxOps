@@ -64,7 +64,7 @@ test("edits a department from the table: rename, recolour, reorder, add a lane",
   await page.getByRole("button", { name: "Table" }).click();
   await page.getByRole("button", { name: "Edit Analytics" }).click();
   await editor(page).getByLabel("Department name").fill("Analytics & BI");
-  await editor(page).getByRole("button", { name: "Colour #e8913a" }).click();
+  await editor(page).getByRole("button", { name: "Colour: Orange" }).click();
   await editor(page).getByRole("button", { name: "Move up" }).click();
   await editor(page).getByRole("button", { name: "Add lane" }).click();
   await editor(page).getByRole("button", { name: "Done" }).click();

@@ -4,7 +4,7 @@ import { FieldError, describedBy } from "./FieldError";
 import { main, onPage, useReturnFocus } from "../a11y/focus";
 import { DEPT_CODE } from "../model/load";
 import { deriveDeptCode } from "../model/relations";
-import { DEPARTMENT_COLORS } from "../model/structure";
+import { COLOR_NAMES, DEPARTMENT_COLORS } from "../model/structure";
 import { formatDay, nextWorkday, parseDay, prettyDay, prevWorkday } from "../model/dates";
 import type { Box, Department, Lane, Person } from "../model/types";
 import { Icon } from "./Icon";
@@ -463,7 +463,7 @@ function ColorChoice({ value, onChange }: { value: string; onChange(color: strin
           type="button"
           className={`swatch-button${c.toLowerCase() === value.toLowerCase() ? " chosen" : ""}`}
           style={{ background: c }}
-          aria-label={`Colour ${c}`}
+          aria-label={`Colour: ${COLOR_NAMES[c]}`}
           aria-pressed={c.toLowerCase() === value.toLowerCase()}
           onClick={() => onChange(c)}
         />
