@@ -314,7 +314,8 @@ Over capacity, overloaded engineers and broken rules are not validation
 errors; `npm run report` lists them.
 
 `npm run validate -- <folder>` (and `npm run report -- <folder>`) checks a
-roadmap folder other than `../roadmap`.
+roadmap folder other than `../roadmap`; a relative `<folder>` is relative to
+where you run `npm`.
 
 ## Format versions
 
