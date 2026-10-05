@@ -90,8 +90,9 @@ export function diffDraft(base: DraftState, current: DraftState): Changes {
   };
 }
 
+/** Whether two items are the same. Most of a draft is the loaded roadmap's own objects, untouched: those are the same at a glance. */
 function same<T extends object>(a: T, b: T): boolean {
-  return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
+  return a === b || JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
 }
 
 /**

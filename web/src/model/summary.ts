@@ -4,7 +4,7 @@ import { flagName } from "./status";
 import { ptoChanges, ptoRange } from "./pto";
 import { laneDates } from "./lanes";
 import { prettyDay } from "./dates";
-import { diffDraft, type DraftState, normalize } from "./draft";
+import { type Changes, diffDraft, type DraftState, normalize } from "./draft";
 import { RELATION_TYPES, fullCode } from "./relations";
 import type { Box, Department, Person, Settings } from "./types";
 
@@ -23,8 +23,8 @@ function laneLabels(departments: Department[]): Map<string, string> {
 
 const range = (b: Box) => `${prettyDay(b.start)} – ${prettyDay(b.end)}`;
 
-export function describeChanges(base: DraftState, draft: DraftState): ChangeLine[] {
-  const changes = diffDraft(base, draft);
+/** `changes`: diffDraft(base, draft), when the caller has it already. */
+export function describeChanges(base: DraftState, draft: DraftState, changes: Changes = diffDraft(base, draft)): ChangeLine[] {
   const settings = draft.settings;
   const baseLanes = laneLabels(base.departments);
   const lanes = laneLabels(draft.departments);

@@ -28,7 +28,7 @@ import { FORMAT } from "./model/format";
 import { type LoadResult, loadRoadmap } from "./model/load";
 import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
-import { commitMessage, describeChanges } from "./model/summary";
+import { type ChangeLine, commitMessage, describeChanges } from "./model/summary";
 import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types";
 import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
@@ -437,6 +437,8 @@ function stamp(iso: string): string {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
 }
 
+const NO_LINES: ChangeLine[] = [];
+
 /** `roadmap/people.yaml, line 12: …` */
 const issueText = (i: Issue) => `roadmap/${i.path}${i.line ? `, line ${i.line}` : ""}: ${i.message}`;
 
@@ -659,9 +661,10 @@ function RoadmapView(props: ViewProps) {
       draft.discard();
     }
   };
+  // The changes listed in the token form: worked out only while it's open, not on every edit.
   const lines = useMemo(
-    () => describeChanges(draftBase, draftState),
-    [draftBase, draftState],
+    () => (problem?.kind === "token" ? describeChanges(draftBase, draftState, draft.changes) : NO_LINES),
+    [problem, draftBase, draftState, draft.changes],
   );
 
   /** Problems these files have that the loaded roadmap didn't (pre-existing ones don't block saving). */
@@ -745,7 +748,7 @@ function RoadmapView(props: ViewProps) {
         gh,
         base: { source, files, blobs: props.blobs, ignored: props.ignored },
         changes,
-        message: commitMessage(describeChanges(draftBase, target)),
+        message: commitMessage(describeChanges(draftBase, target, target === draftState ? draft.changes : undefined)),
         review: !opts.keep,
         seen: props.seen,
         validate: newProblems,

@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { boxId, diffBoxes, diffDraft, slugify } from "./draft";
 import type { Box } from "./types";
 import { DEFAULT_SETTINGS } from "./load";
+import { describeChanges } from "./summary";
 
 const box = (id: string, extra: Partial<Box> = {}): Box => ({
   id,
@@ -108,5 +109,26 @@ describe("comparison", () => {
     const fromFile = box("n");
     const builtInApp = { status: "planned", fte: 1, type: "project", lane: "l1", end: 110, start: 100, title: "n", code: "NXX", id: "n" } as Box;
     expect(diffBoxes([fromFile], [builtInApp]).count).toBe(0);
+  });
+});
+
+describe("unchanged items", () => {
+  it("are skipped by identity: only changed ones are compared in full", () => {
+    const boxes = Array.from({ length: 2000 }, (_, i) => box(`b${i}`));
+    const base = { boxes, departments: [], people: [], settings: DEFAULT_SETTINGS };
+    const edited = { ...base, boxes: boxes.map((b, i) => (i === 7 ? { ...b, end: 120 } : b)) };
+    const stringify = vi.spyOn(JSON, "stringify");
+    try {
+      expect(diffDraft(base, edited).count).toBe(1);
+      expect(stringify).toHaveBeenCalledTimes(2); // the one edited box, against its loaded version
+    } finally {
+      stringify.mockRestore();
+    }
+  });
+
+  it("describeChanges gives the same lines from changes worked out already", () => {
+    const base = { boxes: [box("a"), box("b")], departments: [], people: [], settings: DEFAULT_SETTINGS };
+    const draft = { ...base, boxes: [box("a", { title: "A2" }), box("c")] };
+    expect(describeChanges(base, draft, diffDraft(base, draft))).toEqual(describeChanges(base, draft));
   });
 });
