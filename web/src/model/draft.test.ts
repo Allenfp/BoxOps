@@ -8,6 +8,7 @@ import {
   diffDraft,
   fromSharedDraft,
   openDraft,
+  rebaseDraft,
   reduceHistory,
   restoreDelta,
   restoreRecord,
@@ -306,6 +307,27 @@ describe("stored drafts", () => {
       ["new", "new", "planned"],
     ]);
     expect(r.draft.people.map((p) => p.name)).toEqual(["Ann K", "Cy Sam", "Dee"]);
+  });
+
+  it("restoring the delta onto a newer roadmap is the same as rebasing the whole draft", () => {
+    const old = loaded();
+    const draft: DraftState = {
+      ...edited(old),
+      departments: [dept("de", { lanes: [{ id: "de-1", fte: 1 }, { id: "de-2", fte: 0.5, end: 300 }] }), dept("an", { order: 2 })],
+      people: [{ id: "ann", name: "Ann" }, { id: "bob", name: "Bob", pto: [{ start: 210, end: 214 }] }, { id: "cy", name: "Cy" }],
+    };
+    const newer: DraftState = {
+      boxes: [box("a", { title: "A Sam" }), box("b", { end: 130 }), box("c"), box("sam")],
+      departments: [dept("de"), dept("an", { order: 2, name: "Analytics" })],
+      people: [{ id: "ann", name: "Ann" }, { id: "bob", name: "Bob", pto: [{ start: 200, end: 206 }] }, { id: "cy", name: "Cy" }, { id: "eve", name: "Eve" }],
+      settings: { ...old.settings, fiscal_year_start_month: 2 },
+    };
+    const whole = rebaseDraft(old, draft, newer);
+    const delta = restoreDelta(stored(old, draft), newer);
+    expect(delta.conflicts.sort()).toEqual(whole.conflicts.sort());
+    expect(diffDraft(whole.draft, delta.draft).count).toBe(0);
+    expect(delta.draft.people.map((p) => p.id)).toEqual(whole.draft.people.map((p) => p.id));
+    expect(delta.conflicts.sort()).toEqual(["box:a", "box:b", "person:bob", "settings:settings"]);
   });
 
   it("restored by another build of the same data format: untouched items are read as this build reads them", () => {
