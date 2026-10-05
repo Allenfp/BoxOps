@@ -1,7 +1,7 @@
 // The deployed site around the app: its roadmap.json, the app build behind
 // it, and reloading onto a newer one.
 
-import { type Bundle, type BundleSource, readBundle } from "./model/bundle";
+import { type AppInfo, type Bundle, type BundleSource, readBundle } from "./model/bundle";
 
 /**
  * Set by a reload that must not be answered from the browser's cache (Pages
@@ -77,4 +77,16 @@ export function movesForward(next: BundleSource, current: { commit: string; date
   if (next.history.includes(current.commit)) return true;
   if (seen.has(next.commit)) return false;
   return !(Date.parse(next.date) < Date.parse(current.date));
+}
+
+/**
+ * Whether roadmap.json was built by a newer BoxOps than the one running in
+ * this tab: another build id, made later. One direction only, so a CDN that
+ * briefly serves an older roadmap.json with newer JavaScript doesn't flag the
+ * newer tab, and an unknown build or time never flags anything. A tab running
+ * older code must not save: it could drop what the newer app writes.
+ */
+export function isNewerApp(app: AppInfo, mine: Pick<AppInfo, "build" | "time"> = { build: __BOXOPS_BUILD__, time: __BOXOPS_BUILD_TIME__ }): boolean {
+  if (!app.build || !mine.build || app.build === mine.build) return false;
+  return Date.parse(app.time) > Date.parse(mine.time);
 }

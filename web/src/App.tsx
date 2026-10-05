@@ -23,7 +23,7 @@ import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { capacityStretches } from "./model/report";
 import { type DraftState, diffBoxes, hashText, rebaseDraft, revertItems, SETTINGS_KEY, useDraft } from "./model/draft";
 import { addWorkdays, prettyDay, startOfWeek, today } from "./model/dates";
-import type { Bundle } from "./model/bundle";
+import type { AppInfo, Bundle } from "./model/bundle";
 import { FORMAT } from "./model/format";
 import { type LoadResult, loadRoadmap } from "./model/load";
 import { type FileChanges, UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";
@@ -33,7 +33,7 @@ import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types
 import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
 import { LoadProblem, PreviewToken, liveUrl } from "./components/LoadScreen";
-import { SiteError, fetchBundle, movesForward, reloadApp } from "./site";
+import { SiteError, fetchBundle, isNewerApp, movesForward, reloadApp } from "./site";
 
 interface Loaded extends LoadResult, Snapshot {
   /** Showing a branch other than the one this site was built from (`?ref=`). */
@@ -142,6 +142,17 @@ export function App() {
   const onScreen = useRef<Source | null>(null);
   const saving = useRef(false);
 
+  /** A newer BoxOps built the site: this tab is read-only until it reloads. */
+  const [update, setUpdate] = useState<AppInfo | null>(null);
+  /** Read what a fetched roadmap.json says about the app behind it; true if it's newer than this tab's. */
+  const noteSite = useCallback((bundle: Bundle): boolean => {
+    if (!isNewerApp(bundle.app)) return false;
+    // Going read-only: commit a field being typed in first, so the draft has it.
+    if (document.activeElement instanceof HTMLElement && isTyping(document.activeElement)) document.activeElement.blur();
+    setUpdate((cur) => cur ?? bundle.app);
+    return true;
+  }, []);
+
   const show = useCallback(
     (loaded: Loaded) => {
       onScreen.current = loaded.source;
@@ -168,6 +179,7 @@ export function App() {
       }
       const base = remember(await fromBundle(bundle));
       if (!live) return;
+      noteSite(bundle);
       seen.add(base.source.commit);
       const ref = new URLSearchParams(window.location.search).get("ref");
       if (ref && ref !== base.source.branch) {
@@ -205,7 +217,7 @@ export function App() {
       live = false;
       deadline.abort();
     };
-  }, [attempt, seen, show]);
+  }, [attempt, seen, show, noteSite]);
 
   // Look for other people's saves every couple of minutes while the tab is
   // visible, in the site's own roadmap.json: a 304 when nothing changed, and
@@ -237,6 +249,7 @@ export function App() {
         failures = 0;
         if (stopped) return;
         setLost(false);
+        noteSite(bundle);
         const current = onScreen.current;
         if (!current || !movesForward(bundle.source, current, seen) || saving.current) return;
         show(fromSnapshot(remember(await fromBundle(bundle))));
@@ -264,7 +277,7 @@ export function App() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", onOnline);
     };
-  }, [pollable, seen, show]);
+  }, [pollable, seen, show, noteSite]);
 
   if (state.status === "loading") return <div className="splash">Loading roadmap…</div>;
   if (state.status === "error") return <LoadProblem {...state} onRetry={retry} />;
@@ -283,6 +296,8 @@ export function App() {
     <RoadmapView
       {...state}
       seen={seen}
+      update={update}
+      onSite={noteSite}
       connectionLost={lost}
       lastSave={lastSave}
       remote={remote}
@@ -327,6 +342,10 @@ function SaveProgress({ step }: { step: SaveStep }) {
 interface ViewProps extends Loaded {
   /** Commits the tab has already shown or moved past (see App). */
   seen: ReadonlySet<string>;
+  /** A newer BoxOps built the site (read-only until reloaded). */
+  update: AppInfo | null;
+  /** A roadmap.json fetched before saving: true if a newer BoxOps built it. */
+  onSite(bundle: Bundle): boolean;
   /** Checks for others' saves keep failing. */
   connectionLost: boolean;
   lastSave: { commit: string; url: string } | null;
@@ -337,6 +356,12 @@ interface ViewProps extends Loaded {
   /** Show this newer commit; the draft is carried over onto it. */
   onReload(snapshot: Snapshot): void;
   onSaved(result: SaveResult): void;
+}
+
+/** "BoxOps was updated to 0.2.0 — Reload to keep editing." (no version when it's the same, or unknown) */
+function updatedText(app: AppInfo): string {
+  const mine = __BOXOPS_BUILD__.split("+")[0];
+  return `BoxOps was updated${app.version && app.version !== mine ? ` to ${app.version}` : ""} — Reload to keep editing.`;
 }
 
 const two = (n: number) => String(n).padStart(2, "0");
@@ -354,8 +379,9 @@ function RoadmapView(props: ViewProps) {
   const { roadmap: base, issues, files, source, lastSave, remote } = props;
   // Read-only, like a branch preview: a roadmap in another data format, a copy
   // built from files on disk (`npm run dev`, or a build with uncommitted
-  // roadmap/ changes), and a site built not to save.
-  const preview = props.preview || props.formatStatus !== "current" || !!source.local || source.readonly;
+  // roadmap/ changes), a site built not to save, and a tab whose BoxOps is
+  // older than the site's (its code could drop what the newer one writes).
+  const preview = props.preview || props.formatStatus !== "current" || !!source.local || source.readonly || props.update !== null;
   // A private repository and no token: no call to GitHub is made, so this is the deployed copy.
   const deployedCopy = source.private && !preview && !getToken(source.repo);
   const { onDismissSave, onDismissRemote, onSavingChange, onReload, onSaved } = props;
@@ -469,7 +495,7 @@ function RoadmapView(props: ViewProps) {
     else q.set("view", view);
     q.set("zoom", zoom);
     q.set("collapsed", [...collapsed].join(","));
-    history.replaceState(null, "", `?${q}`);
+    history.replaceState(null, "", `?${q}${window.location.hash}`);
   }, [view, zoom, collapsed]);
 
   useEffect(() => {
@@ -589,14 +615,14 @@ function RoadmapView(props: ViewProps) {
     const clashes = draft.conflicts;
     if (clashes.length && !opts.keep) return setProblem({ kind: "conflict", items: clashes.map(describeItem) });
     const resume: Resume = opts.keep ? { keep: opts.keep } : {};
-    const theirs = opts.keep === "theirs" && clashes.length > 0;
+    const keepTheirs = opts.keep === "theirs" && clashes.length > 0;
     let target = draftState;
     let changes: FileChanges;
     try {
-      if (theirs) target = revertItems(draftState, draftBase, clashes);
+      if (keepTheirs) target = revertItems(draftState, draftBase, clashes);
       changes = serializeChanges(files, draftBase, target, props);
       if (Object.keys(changes).length === 0) {
-        if (theirs) draft.takeTheirs(clashes);
+        if (keepTheirs) draft.takeTheirs(clashes);
         return;
       }
       const invalid = newProblems(applyChanges(files, changes));
@@ -612,12 +638,19 @@ function RoadmapView(props: ViewProps) {
     const token = opts.token ?? getToken(source.repo);
     // The choice just made comes back with the token, so it isn't asked again.
     if (!token) return setProblem({ kind: "token", resume });
-    if (theirs) draft.takeTheirs(clashes);
+    if (keepTheirs) draft.takeTheirs(clashes);
     const gh = new GitHubClient({ token });
 
     select(null);
     setBusy(true);
     try {
+      // A new BoxOps deployed that the poll hasn't seen yet: this tab's code
+      // mustn't write. A roadmap.json that can't be fetched says nothing.
+      const site = await fetchBundle().catch(() => null);
+      if (site && props.onSite(site)) {
+        setBusy(false);
+        return;
+      }
       // The pre-save check (unless the user already chose whose version to
       // keep): if anyone saved roadmap changes since this tab loaded, bring
       // them in and let the user review before anything is written.
@@ -956,6 +989,17 @@ function RoadmapView(props: ViewProps) {
           . The site picks it up in about a minute.
           <button className="icon-button" onClick={onDismissSave} aria-label="Dismiss">
             <Icon name="x" size={16} />
+          </button>
+        </div>
+      )}
+      {props.update && (
+        <div className="banner" role="status">
+          <span>
+            <strong>{updatedText(props.update)}</strong>
+            {count > 0 ? " Your unsaved changes are kept in this browser." : ""}
+          </span>
+          <button className="primary" onClick={() => reloadApp(props.update!.build)}>
+            Reload
           </button>
         </div>
       )}
