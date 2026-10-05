@@ -94,6 +94,20 @@ export function repoVisibility(env: Env): { visibility: Visibility | null; priva
   return { visibility, private: !(repo.private === false && visibility === "public") };
 }
 
+/**
+ * firstParents, remembered per repository and commit: the dev server builds a
+ * bundle on every request, and reading 50 commits one `git cat-file` at a time
+ * takes most of a second. A commit's first parents never change (a shallow
+ * clone deepened meanwhile keeps its shorter history until a restart).
+ */
+const histories = new Map<string, string[]>();
+function history(repo: string, commit: string): string[] {
+  const key = `${repo}\0${commit}`;
+  let list = histories.get(key);
+  if (!list) histories.set(key, (list = firstParents(repo, commit)));
+  return [...list];
+}
+
 /** Two reads of a roadmap folder hold the same files. */
 function sameFolder(a: RoadmapFolder, b: RoadmapFolder): boolean {
   const key = (f: RoadmapFolder) => JSON.stringify([Object.entries(f.blobs).sort(), [...f.ignored].sort()]);
@@ -213,7 +227,7 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
     author: meta?.author ?? "",
     subject: meta?.subject ?? "",
     date: meta?.date ?? "",
-    history: commit ? firstParents(o.repoDir, commit) : [],
+    history: commit ? history(o.repoDir, commit) : [],
     ...(actions && env.GITHUB_RUN_ID && repo
       ? { run: `${env.GITHUB_SERVER_URL ?? "https://github.com"}/${repo}/actions/runs/${env.GITHUB_RUN_ID}` }
       : {}),
