@@ -38,6 +38,21 @@ test("the Engineers list's names are list items, not the editor's field labels",
   });
 });
 
+test("the Engineers list isn't cut off by the box editor's scrolling fields: the last name and the add field show", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ }).click();
+  const list = page.getByRole("dialog", { name: "Engineers" });
+  for (const el of [list.getByRole("checkbox").last(), list.getByRole("textbox", { name: "New engineer name" })]) {
+    // What's drawn at its middle is itself, not what's around a box that clips it.
+    expect(
+      await el.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === e && r.bottom <= innerHeight;
+      }),
+    ).toBe(true);
+  }
+});
+
 test("team settings: colour swatches fill their 28px button, and names read as fields, not labels", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Team settings…" }).click();

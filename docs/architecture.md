@@ -554,7 +554,10 @@ when a focused element is removed.
   controls, buttons included; a click outside still closes them. Menus
   opened from the keyboard start on their first control, and Esc puts focus
   back on their button. The Engineers list is a small dialog of checkboxes
-  (↑ and ↓ move between them) whose button is named by who's assigned.
+  (↑ and ↓ move between them) whose button is named by who's assigned;
+  like the calendar, it's fixed on the screen below its button (above it
+  without room there), so the box editor's scrolling fields and the table
+  don't cut it off, and a scroll or a resize closes it.
 - **Date fields** (`components/DateInput.tsx`) are YYYY-MM-DD text. Text
   that more typing can't make a date says why just under the field (over
   what's below, so nothing moves when focus leaves and the field goes back

@@ -1,5 +1,9 @@
-import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Person } from "../model/types";
+
+/** Between the button and the list, and the least between the list and the window's edge (px). */
+const GAP = 4;
+const EDGE = 8;
 
 interface Props {
   /** Selected engineer ids. */
@@ -24,7 +28,10 @@ interface Props {
  * the first ticked engineer; ↑ and ↓ move between engineers, Space ticks, and
  * Enter or Escape closes it, back on the button. Tab goes through the
  * engineers to the new-engineer field (Safari's own Tab, which the box editor
- * doesn't use, skips the checkboxes: hence ↑ and ↓).
+ * doesn't use, skips the checkboxes: hence ↑ and ↓). The list is fixed on the
+ * screen, below the button or above it without room there, so the box
+ * editor's scrolling fields or the table don't cut it off; a scroll or a
+ * resize, which would leave it adrift, closes it.
  */
 export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, emptyLabel, names: given }: Props) {
   const label = "Engineers";
@@ -52,6 +59,11 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
     const onDown = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
+    const adrift = (e: Event) => {
+      if (e.target instanceof Node && menu.current?.contains(e.target)) return;
+      if (menu.current?.contains(document.activeElement)) button.current?.focus({ preventScroll: true });
+      setOpen(false);
+    };
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation(); // close just this, not the box editor around it
@@ -61,11 +73,31 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
     };
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey, true);
+    window.addEventListener("scroll", adrift, true);
+    window.addEventListener("resize", adrift);
     return () => {
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("scroll", adrift, true);
+      window.removeEventListener("resize", adrift);
     };
   }, [open]);
+
+  // Placed before it's painted, and again as it grows (someone added): below the button if it fits
+  // there, else above it if it fits there, else on the roomier side, as tall as there's room for.
+  useLayoutEffect(() => {
+    const el = menu.current;
+    const at = button.current?.getBoundingClientRect();
+    if (!open || !el || !at) return;
+    el.style.maxHeight = "";
+    const below = window.innerHeight - at.bottom - GAP - EDGE;
+    const above = at.top - GAP - EDGE;
+    const down = el.offsetHeight <= below || (el.offsetHeight > above && below >= above);
+    const room = Math.max(0, down ? below : above);
+    if (el.offsetHeight > room) el.style.maxHeight = `${room}px`;
+    el.style.left = `${Math.max(EDGE, Math.min(at.left, window.innerWidth - el.offsetWidth - EDGE))}px`;
+    el.style.top = `${down ? at.bottom + GAP : at.top - GAP - el.offsetHeight}px`;
+  });
 
   // The department's engineers first, then everyone else, by name: sorted only while it's open (a table
   // has a closed one in every row).

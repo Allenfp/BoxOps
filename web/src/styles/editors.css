@@ -144,7 +144,6 @@
 
 /* Engineer picker */
 .picker {
-  position: relative;
   min-width: 0;
 }
 /* In an editor, a field like the others (the table's reads as text until pointed at). */
@@ -162,12 +161,12 @@
 .picker-button.empty {
   color: var(--text-muted);
 }
+/* Fixed on the screen, where EngineerPicker.tsx puts it: no scrolling box it's in cuts it off. */
 .picker-menu {
-  position: absolute;
+  position: fixed;
   z-index: var(--z-popover);
-  top: calc(100% + 4px);
-  left: 0;
   min-width: 220px;
+  max-width: calc(100vw - 16px);
   max-height: 260px;
   overflow: auto;
   background: var(--surface);
