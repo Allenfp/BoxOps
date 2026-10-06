@@ -1939,9 +1939,10 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   grid-area: 1 / 1;
   min-width: 0;
 }
+/* Over the field, but under the sticky title column (z-index 1) that the table scrolls sideways beneath. */
 .box-table .grow-text {
   position: relative;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
   font-size: 13px;
   line-height: 18px;

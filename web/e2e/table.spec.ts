@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { DAGSTER, boxFile, expect, pastPrintTable, save, test, toolbar } from "./helpers";
 
 const row = (page: Page, title: string) =>
@@ -106,6 +106,37 @@ test("an epic link's ↗ sits beside its field, on the same line", async ({ page
   expect(link.y + link.height / 2).toBeLessThan(field.y + field.height);
   // One line: the cell is no taller than its field, so the row is as tall as the others.
   expect((await cell.boundingBox())!.height).toBeLessThanOrEqual(field.height + 1);
+});
+
+test("a description shows two lines until it has focus, then every line; scrolled across, it goes under the titles", async ({ page, github: _ }) => {
+  const first = page.locator("tr.box-row").first();
+  const description = first.getByLabel("Description");
+  await description.fill(`Phase one: the warehouse.\nPhase two: ${"the streaming jobs, one at a time, ".repeat(5)}\nPhase three: the dashboards.\nThen the clean-up.`);
+  const size = () => description.evaluate((el) => ({ height: el.getBoundingClientRect().height, fits: el.scrollHeight <= el.clientHeight }));
+  // With focus, every line shows, none cut off.
+  const open = await size();
+  expect(open.fits).toBe(true);
+  expect(open.height).toBeGreaterThan(5 * 18);
+  // Left, two lines (… says there's more), and the row is as tall as the next.
+  await page.locator(".table-search").focus();
+  await expect.poll(async () => (await size()).height).toBeLessThanOrEqual(2 * 18 + 10);
+  const height = (row: Locator) => row.evaluate((r) => r.getBoundingClientRect().height);
+  expect(await height(first)).toBe(await height(page.locator("tr.box-row").nth(1)));
+
+  // In a narrow window, scrolled all the way across: the two lines go under the pinned title column, not over it.
+  await page.setViewportSize({ width: 600, height: 700 });
+  await page.locator(".table-scroll").evaluate((el) => (el.scrollLeft = el.scrollWidth));
+  const covered = await first.evaluate((tr) => {
+    const copy = tr.querySelector<HTMLElement>(".col-desc .grow-text")!;
+    const [a, b] = [copy.getBoundingClientRect(), tr.querySelector("td.col-title")!.getBoundingClientRect()];
+    const [left, right] = [Math.max(a.left, b.left), Math.min(a.right, b.right)];
+    // What's drawn on top where they meet: the copy lets presses through to the field, so for a moment it doesn't.
+    copy.style.pointerEvents = "auto";
+    const top = document.elementFromPoint((left + right) / 2, (Math.max(a.top, b.top) + Math.min(a.bottom, b.bottom)) / 2);
+    copy.style.pointerEvents = "";
+    return { overlap: right - left > 0, on: top?.closest("td")?.className };
+  });
+  expect(covered).toEqual({ overlap: true, on: "col-title" });
 });
 
 test("departments collapse, shared with the timeline", async ({ page, github: _ }) => {
