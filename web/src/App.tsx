@@ -1299,6 +1299,8 @@ function RoadmapView(props: ViewProps) {
   // gives way to "No changes": focus went to the page. Once the saved roadmap
   // is on screen it goes back where it was (a cell ⌘S was pressed in, kept
   // through the dialogs a save may need on the way), else to the saved banner.
+  // (A table or People row's button that saving disabled or took away gets it
+  // back from table/KeepFocus.tsx, which moved it.)
   const focusBeforeSave = useRef<Element | null>(null);
   const [saved, setSaved] = useState(0);
   useEffect(() => {

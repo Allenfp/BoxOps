@@ -560,8 +560,9 @@ when a focused element is removed.
   department editor's Move buttons and lane arrows keep it (never
   disabled: at the end they say so), and Delete department… or a lane's
   ✕ with boxes puts it in its question (the question its description),
-  whose Cancel gives it back; a save gives it back
-  where it was, or to the saved banner; Enter and Esc in a table cell and a
+  whose Cancel gives it back; a save gives it back where it was (a table
+  row's button it disabled or took away too), or to the saved banner;
+  Enter and Esc in a table cell and a
   lane renamed in place keep it there, and a date field's calendar gives it
   back to what opened it (its button, or the field).
   Save stays focusable while saving, and Undo and Redo with nothing left
@@ -863,10 +864,12 @@ when a focused element is removed.
   focus without a blur in WebKit and Firefox, so `table/KeepFocus.tsx` sees
   where focus was just before each change and, if it's lost, puts it back on
   the same control in the same row, else the same column in the next row of
-  the department (or the one before, or its heading). What has focus in a
-  row is scrolled clear of the sticky header and title column (People's
-  names, which stay put the same way), and of the broken-rule popup (the
-  table leaves room to scroll for that), by hand
+  the department (or the one before, or its heading); put elsewhere in its
+  row for want of the control itself (one a save disables, or a row's
+  Delete, gone while saving), it goes back once that's back. What has
+  focus in a row is scrolled clear of the sticky header and title column
+  (People's names, which stay put the same way), and of the broken-rule
+  popup (the table leaves room to scroll for that), by hand
   (`table/focusRow.ts`: WebKit doesn't when Tab moves focus); the header's
   own sort buttons are always on screen, and the scroller has no
   `scroll-padding`, which would have them scroll the table whenever one is

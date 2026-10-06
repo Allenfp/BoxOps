@@ -429,6 +429,24 @@ test("a save that didn't go through doesn't leave its cell to send focus to afte
   await expect(page.locator(".banner.success [data-saved]")).toBeFocused();
 });
 
+test("⌘S on a table row's button that saving disables or takes away gives focus back to it after", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 5);
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const row = page.locator("tbody tr").filter({ has: page.locator('input[aria-label="Title"][value="Dagster 2.x upgrade"]') });
+  // The Engineers button is disabled while saving, the row's Delete gone: focus goes elsewhere in the row meanwhile.
+  const engineers = row.getByRole("button", { name: /^Engineers: / });
+  await engineers.focus();
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(engineers).toBeFocused();
+  await row.getByLabel("FTE").selectOption("1.5");
+  const remove = row.getByRole("button", { name: "Delete Dagster 2.x upgrade" });
+  await remove.focus();
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(remove).toBeFocused();
+});
+
 test("Undo and Redo keep focus once there's nothing left to undo or redo; discarding puts it on Undo", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 5);
   const undo = toolbar(page).getByRole("button", { name: "Undo" });

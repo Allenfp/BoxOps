@@ -29,10 +29,17 @@ interface Props {
  * checked: if focus was in a row before it and is lost after it, it goes
  * back to the same control in the same row, wherever that is now; if the
  * row is gone, to the same column in the next row of its department, else
- * the row before, else the department's heading. A class component, as only
- * one sees the page just before a change reaches it (getSnapshotBeforeUpdate).
+ * the row before, else the department's heading. Put somewhere else in its
+ * row (or its heading) for want of the control itself (a save disabled it, or
+ * took the row's Delete away, for a while), focus goes back to that control
+ * once a later change brings it back, if it's still where it was put. A class
+ * component, as only one sees the page just before a change reaches it
+ * (getSnapshotBeforeUpdate).
  */
 export class KeepFocus extends Component<Props> {
+  /** Where focus was put for want of the control that had it, by its row and name: it goes back once that's there again. */
+  private standIn: { el: HTMLElement; row: string; label: string } | null = null;
+
   getSnapshotBeforeUpdate(before: Props): Spot | null {
     const el = document.activeElement;
     const row = el instanceof HTMLElement && this.props.table.current?.contains(el) ? el.closest<HTMLElement>("tr[data-row-key]") : null;
@@ -50,8 +57,21 @@ export class KeepFocus extends Component<Props> {
 
   componentDidUpdate(_before: Props, _state: unknown, spot: Spot | null): void {
     const table = this.props.table.current;
-    if (!spot || !table || !focusLost()) return;
+    if (!table) return;
     const row = (key: string) => table.querySelector<HTMLElement>(`tr[data-row-key="${CSS.escape(key)}"]`);
+    const standIn = this.standIn;
+    if (standIn && document.activeElement !== standIn.el) this.standIn = null;
+    else if (standIn) {
+      const there = row(standIn.row);
+      const back = there && tabbable(there).find((el) => el.getAttribute("aria-label") === standIn.label);
+      if (back) {
+        this.standIn = null;
+        back.focus({ preventScroll: true });
+        keepInView(table.closest(".table-scroll"), back);
+        return;
+      }
+    }
+    if (!spot || !focusLost()) return;
     const here = row(spot.row);
     let to = here && (control(here, spot, true) ?? tabbable(here)[0]);
     // Gone: the same column in the department's next row, else the one before, else its heading.
@@ -71,6 +91,8 @@ export class KeepFocus extends Component<Props> {
     }
     if (!to) return;
     to.focus({ preventScroll: true });
+    // Its row still there, but not the control (disabled, or gone for now): it may come back.
+    if (here && spot.label !== null && to.getAttribute("aria-label") !== spot.label) this.standIn = { el: to, row: spot.row, label: spot.label };
     keepInView(table.closest(".table-scroll"), to);
   }
 
