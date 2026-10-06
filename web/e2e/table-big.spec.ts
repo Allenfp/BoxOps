@@ -463,6 +463,8 @@ test("on paper, a date is never broken across lines, however narrow the page", a
   // About A4's width, upright.
   await page.setViewportSize({ width: 720, height: 900 });
   await page.emulateMedia({ media: "print" });
+  // (Drawn once the page hears it's printing: wait for that.)
+  await expect(page.locator(".print-table tbody tr").first()).toBeVisible();
   // Boxes' and PTO's start and end: the 4th and 5th columns.
   const table = await page.locator(".print-table tbody tr:not(.print-group) td:is(:nth-child(4), :nth-child(5))").evaluateAll(lines);
   expect(table.length).toBeGreaterThan(100);
@@ -471,6 +473,7 @@ test("on paper, a date is never broken across lines, however narrow the page", a
   await page.emulateMedia({ media: "screen" });
   await page.getByRole("button", { name: "People", exact: true }).click();
   await page.emulateMedia({ media: "print" });
+  await expect(page.locator(".print-table .print-date").first()).toBeVisible();
   const people = await page.locator(".print-table .print-date").evaluateAll(lines);
   expect(people.length).toBeGreaterThan(100);
   expect(people.filter((n) => n !== 1)).toEqual([]);
