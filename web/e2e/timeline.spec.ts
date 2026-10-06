@@ -127,8 +127,13 @@ test("the Today flag covers no date at any zoom, and the today line runs under t
   expect(t.left < x && x < t.right).toBe(true); // the line crosses the title here: the title is drawn over it
   expect(await title.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(await box(page, DAGSTER).evaluate((e) => getComputedStyle(e).backgroundColor));
   // In the dark theme too.
+  const lineColor = await line.evaluate((e) => getComputedStyle(e).backgroundColor);
   await page.emulateMedia({ colorScheme: "dark" });
-  expect(await box(page, DAGSTER).evaluate((e) => getComputedStyle(e, "::before").backgroundColor)).toBe(await line.evaluate((e) => getComputedStyle(e).backgroundColor));
+  await expect.poll(() => line.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(lineColor);
+  // (Chromium may report a pseudo-element's style from before the switch for a moment.)
+  await expect
+    .poll(async () => (await box(page, DAGSTER).evaluate((e) => getComputedStyle(e, "::before").backgroundColor)) === (await line.evaluate((e) => getComputedStyle(e).backgroundColor)))
+    .toBe(true);
   expect(await title.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(await box(page, DAGSTER).evaluate((e) => getComputedStyle(e).backgroundColor));
 });
 

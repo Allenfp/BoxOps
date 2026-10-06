@@ -729,7 +729,8 @@ test.describe("People against itself drawn whole, its rows of one line and of tw
     const whole = await wholeTab(browser, github);
     for (const p of [page, whole]) {
       await p.getByRole("button", { name: "People", exact: true }).click();
-      await expect(p.locator(".people-table")).toBeVisible();
+      // Every row drawn in the other window, while the other tests run: given time.
+      await expect(p.locator(".people-table")).toBeVisible({ timeout: 60_000 });
     }
     const heights = (p: Page) => p.locator(".people-table tbody.dept-group").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
     // Both kinds of row, each one height.
