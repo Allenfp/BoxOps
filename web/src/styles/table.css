@@ -86,7 +86,7 @@
   width: 9px;
   color: var(--accent);
 }
-.box-table td {
+.box-table :where(td) {
   border-bottom: 1px solid var(--grid);
   padding: 3px 4px;
   vertical-align: middle;
@@ -94,7 +94,7 @@
 .box-table tbody tr td:first-child {
   border-left: 4px solid var(--dept, transparent);
 }
-.box-table tbody tr:not(.spacer):hover td {
+.box-table tbody tr:not(.spacer, .add-dept-row):hover td {
   background: color-mix(in srgb, var(--surface-2) 60%, transparent);
 }
 /* Rows a big table doesn't draw: as tall as they'd be, ruled like box rows, in their department's colour. */
@@ -196,6 +196,9 @@
 .box-table th.col-scale {
   text-align: right;
 }
+.box-table th.col-days {
+  padding-right: 12px;
+}
 .col-engineers {
   width: 190px;
 }
@@ -240,7 +243,7 @@
   text-align: right;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
-  padding-right: 12px !important;
+  padding-right: 12px;
 }
 .col-type {
   width: 170px;
@@ -369,8 +372,8 @@
 .group-add:focus-visible {
   opacity: 1;
 }
-.empty-row td {
-  padding: 10px 16px !important;
+.box-table tr.empty-row td {
+  padding: 10px 16px;
   color: var(--text-muted);
   font-size: 12px;
 }
@@ -494,10 +497,9 @@
 .group-edit:focus-visible {
   opacity: 1;
 }
-.box-table .add-dept-row td {
-  padding: 10px 12px !important;
+.box-table tr.add-dept-row td {
+  padding: 10px 12px;
   border-bottom: 0;
-  background: transparent !important;
 }
 .add-dept-row .add-button,
 .add-pto-row .add-button {
@@ -531,11 +533,6 @@
 }
 .cell-code .box-warn {
   margin-left: 4px;
-}
-.code-input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
-  text-transform: uppercase;
-  max-width: 140px;
 }
 .pto-list {
   list-style: none;
@@ -581,7 +578,7 @@
   align-items: center;
   gap: 6px;
 }
-.date-filter .date-input input[type="text"] {
+.date-filter .date-input > :where(input) {
   width: 128px;
   font: inherit;
   font-size: 13px;
@@ -591,7 +588,7 @@
   border-radius: 6px;
   padding: 5px 8px;
 }
-.date-filter .date-input input[type="text"]:focus {
+.date-filter .date-input > :where(input):focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
   border-color: var(--accent);
 }

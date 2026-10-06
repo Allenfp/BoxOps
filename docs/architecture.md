@@ -854,7 +854,9 @@ when a focused element is removed.
   editors, the menus and the save dialog against WCAG 2.2 A and AA, in the
   light and the dark theme, and checks the page's structure, names and
   what's announced (an init script records every message the live regions
-  are given); `e2e/keyboard.spec.ts` checks where focus goes and what keys
+  are given); `e2e/styles.spec.ts` checks the stylesheet from computed
+  styles rather than screenshots (fields and lists styled as their own
+  class says, not as a broader rule would); `e2e/keyboard.spec.ts` checks where focus goes and what keys
   do, `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's
   keyboard grid and moves, and `e2e/drag.spec.ts` dragging. The timeline's
   specs (those three, `timeline`, `departments` and `pto`) run again in

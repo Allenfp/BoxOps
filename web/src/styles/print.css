@@ -27,7 +27,7 @@
   .toast,
   .table-toolbar,
   .reorder-line {
-    display: none !important;
+    display: none;
   }
   /*
    * Clipped away rather than hidden, so what has focus there keeps it (a browser drops focus from what isn't

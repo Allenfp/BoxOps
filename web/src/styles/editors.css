@@ -57,29 +57,13 @@
   border-top: 4px solid var(--accent);
   border-radius: 10px 10px 0 0;
 }
-.editor-title {
-  flex: 1;
-  font: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 4px 6px;
-}
-.editor-title:hover,
-.editor-title:focus {
-  border-color: var(--border);
-  outline: none;
-  background: var(--surface-2);
-}
 .editor-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px 10px;
 }
-.editor-grid label {
+/* A field's label and its control (not the labels inside one, like the Engineers list's). */
+.editor-grid > label {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -91,9 +75,8 @@
 .editor-grid .span-2 {
   grid-column: span 2;
 }
-.editor input,
-.editor select,
-.editor textarea {
+/* Every field in an editor; :where() adds nothing to the specificity, so a class of a field's own wins. */
+.editor :where(input, select, textarea) {
   font: inherit;
   font-size: 13px;
   font-weight: 400;
@@ -105,14 +88,29 @@
   width: 100%;
   min-width: 0;
 }
-.editor textarea {
+.editor :where(textarea) {
   resize: vertical;
 }
-.editor input:focus,
-.editor select:focus,
-.editor textarea:focus {
+.editor :where(input, select, textarea):focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-color: var(--accent);
+}
+/* The title (the PTO editor's engineer): bigger, and a field only when pointed at or focused. */
+.editor-title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  background: transparent;
+  border-color: transparent;
+  padding: 4px 6px;
+}
+.editor-title:hover {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+.editor-title:focus {
+  border-color: var(--accent);
+  background: var(--surface);
 }
 .with-action {
   display: flex;
@@ -177,22 +175,21 @@
   padding: 4px;
 }
 .picker-option {
-  display: flex !important;
-  flex-direction: row !important;
+  display: flex;
   align-items: center;
-  gap: 8px !important;
+  gap: 8px;
   padding: 5px 8px;
   border-radius: 5px;
-  font-size: 13px !important;
-  font-weight: 400 !important;
-  color: var(--text) !important;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
   cursor: pointer;
 }
 .picker-option:hover {
   background: var(--surface-2);
 }
 .picker-option input {
-  width: auto !important;
+  width: auto;
   margin: 0;
 }
 .picker-empty {
@@ -309,10 +306,11 @@
 .date-input > input[type="text"] {
   flex: 1;
   font-variant-numeric: tabular-nums;
-  padding-right: 28px !important;
+  padding-right: 28px;
 }
-.date-input.invalid > input[type="text"] {
-  border-color: var(--today) !important;
+/* Red while it's wrong, hovered or focused too. */
+.date-input.invalid > input[type="text"][aria-invalid] {
+  border-color: var(--today);
 }
 /* What's wrong with what's typed, just under the field: over what's below, not pushing it
    down, so nothing moves as it goes (when focus leaves, under the press that took it). */

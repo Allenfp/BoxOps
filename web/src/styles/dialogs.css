@@ -119,8 +119,8 @@
   font-weight: 600;
   color: var(--text-muted);
 }
-.save-dialog input,
-.save-dialog textarea {
+/* Every field in a dialog; :where() adds nothing to the specificity, so a class of a field's own wins. */
+.save-dialog :where(input, textarea) {
   font: inherit;
   font-size: 13px;
   font-weight: 400;
@@ -130,7 +130,7 @@
   border-radius: 6px;
   padding: 6px 8px;
 }
-.save-dialog textarea {
+.save-dialog :where(textarea) {
   resize: vertical;
 }
 .save-dialog .hint a {
@@ -177,7 +177,7 @@
   margin-left: 0;
   margin-right: 0;
 }
-.save-dialog > .hint {
+.save-dialog > :where(.hint) {
   display: block;
   margin-top: 8px;
 }
@@ -209,6 +209,11 @@
 }
 
 /* Department editor */
+.code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+  max-width: 140px;
+}
 .button-row {
   display: flex;
   align-items: center;
@@ -250,7 +255,7 @@
   color: var(--today);
 }
 .remove-callout {
-  margin: 6px 0 0 !important;
+  margin: 6px 0 0;
   font-size: 13px;
   font-weight: 400;
   color: var(--text);
@@ -300,8 +305,7 @@
   font-size: 12px;
   padding: 0;
 }
-.save-dialog .lane-dates-row input,
-.lane-dates-row input {
+.lane-dates-row :where(input) {
   width: auto;
   font: inherit;
   font-size: 12px;
@@ -420,8 +424,8 @@
   width: min(560px, calc(100vw - 32px));
 }
 .team-intro {
-  margin-top: 12px !important;
-  margin-bottom: 4px !important;
+  margin-top: 12px;
+  margin-bottom: 4px;
 }
 .team-row {
   display: grid;
@@ -443,14 +447,10 @@
 .team-problem {
   flex-basis: 100%;
 }
+/* A dialog's field (13px, regular), not its label's 12px semibold. */
 .team-list .team-name {
   flex: 1;
   min-width: 0;
-  font: inherit;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
   padding: 5px 8px;
 }
 .team-list .team-name.invalid {
