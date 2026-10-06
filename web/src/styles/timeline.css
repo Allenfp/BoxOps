@@ -280,20 +280,18 @@
   border-color: color-mix(in srgb, var(--c) 25%, transparent);
   color: var(--box-muted);
 }
-/* A collapsed department's boxes (shown as boxes): bars along the middle of its heading's row. */
+/* A collapsed department's boxes (shown as boxes): bars along the middle of its heading's row, in the
+   type colour half-way to the text's (3:1 on the row, whatever the colour, like the progress mark).
+   A hairline of the row's colour round each shows where one starts over another. */
 .box.compact {
   height: 4px;
   top: calc((var(--dept-h) - 4px) / 2);
   padding: 0;
   border-radius: 2px;
-  background: var(--c);
-  opacity: 0.3;
+  background: color-mix(in srgb, var(--c) 50%, var(--text));
   border: 0;
+  box-shadow: 0 0 0 1px var(--surface);
   cursor: pointer;
-}
-/* Focused, it and its ring are drawn in full. */
-.box.compact:focus-visible {
-  opacity: 1;
 }
 
 /* Progress, from the dates: ○ not started, ◐ under way, ● finished. */
@@ -344,6 +342,7 @@
 .handle.end {
   right: 0;
 }
+/* A resize grip, in the progress mark's colour: 3:1 on the box, whatever its colour. */
 .box:hover .handle::after {
   content: "";
   position: absolute;
@@ -352,8 +351,7 @@
   left: 2px;
   width: 3px;
   border-radius: 2px;
-  background: currentColor;
-  opacity: 0.45;
+  background: color-mix(in srgb, var(--c) 50%, var(--text));
 }
 .box.selected {
   outline: 2px solid var(--accent);
@@ -716,8 +714,7 @@ button.collapse-all:hover {
   left: 2px;
   width: 3px;
   border-radius: 2px;
-  background: currentColor;
-  opacity: 0.45;
+  background: var(--text-muted);
 }
 .pto-block.selected {
   outline: 2px solid var(--accent);

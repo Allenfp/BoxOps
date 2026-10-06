@@ -182,6 +182,8 @@ const CHECKS: Check[] = [
   { what: "muted text (code, days) in a row someone else changed", fg: "var(--text-muted)", bg: rule("table", ".box-table tr.updated td", "background"), min: TEXT },
   { what: "muted text (code, days) in a row that clashes", fg: "var(--text-muted)", bg: rule("table", ".box-table tr.conflict td", "background"), min: TEXT },
   { what: "a drag's dates", fg: rule("timeline", ".drag-dates", "color"), bg: rule("timeline", ".drag-dates", "background"), min: TEXT },
+  // On its stripes of --surface-2; the others are mixed from it and --surface, where muted text is checked above.
+  { what: "a PTO block's resize grip", fg: rule("timeline", ".pto-block:hover .handle::after", "background"), bg: "var(--surface-2)", min: UI },
 ];
 
 /** What's on a box, from timeline.css, for type colour `--c`. */
@@ -201,6 +203,9 @@ const BOX_CHECKS: Check[] = [
   { what: "a box's progress mark", fg: BOX.ring, bg: BOX.fill, min: UI },
   { what: "a box's ⚠ (a broken rule) and its warning edge", fg: rule("timeline", ".box-warn", "color"), bg: BOX.fill, min: UI },
   { what: "a finished box's progress mark", fg: BOX.ring, bg: BOX.finished, min: UI },
+  { what: "a box's resize grip", fg: rule("timeline", ".box:hover .handle::after", "background"), bg: BOX.fill, min: UI },
+  { what: "a finished box's resize grip", fg: rule("timeline", ".box:hover .handle::after", "background"), bg: BOX.finished, min: UI },
+  { what: "a collapsed department's box (a bar on its heading's row)", fg: rule("timeline", ".box.compact", "background"), bg: "var(--surface)", min: UI },
 ];
 /** Type colours: every 51st step of each channel, 216 of them. */
 const SWEEP = [0, 51, 102, 153, 204, 255].flatMap((r) => [0, 51, 102, 153, 204, 255].flatMap((g) => [0, 51, 102, 153, 204, 255].map((b) => `rgb(${r}, ${g}, ${b})`)));

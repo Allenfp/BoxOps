@@ -648,13 +648,16 @@ when a focused element is removed.
   draw a ring whenever a script moves focus, so it's told by whether a key
   or a press came last (`focusByPress`).
 - **Contrast.** Text meets 4.5:1 and what shows a control or its state (a
-  field's edge, a switch, the chosen segment, a box's progress mark) 3:1,
-  in both themes. A box's text sits on a light tint of its type's colour
-  (a dark one in the dark theme), so one text colour per theme reads on
-  any colour a team picks. `src/styles/contrast.test.ts` reads the
-  colours from the stylesheet itself (`tokens.css` and the rules that mix
-  them) and checks each pair, and what's on a box against an even sweep of
-  every colour; axe checks the pages too (`e2e/a11y.spec.ts`).
+  field's edge, a switch, the chosen segment, a box's progress mark and
+  resize grips, a collapsed department's boxes) 3:1, in both themes. A
+  box's text sits on a light tint of its type's colour (a dark one in the
+  dark theme), so one text colour per theme reads on any colour a team
+  picks; what's drawn in the type's colour (the progress mark, the grips,
+  the collapsed boxes) is mixed half-way to the text's, which is 3:1
+  whatever the colour. `src/styles/contrast.test.ts` reads the colours
+  from the stylesheet itself (`tokens.css` and the rules that mix them)
+  and checks each pair, and what's on a box against an even sweep of every
+  colour; axe checks the pages too (`e2e/a11y.spec.ts`).
 - **High contrast and motion.** In Windows' contrast themes (forced
   colours) the browser paints with the theme's few colours and drops
   shadows and background images, so each part of the stylesheet draws in
