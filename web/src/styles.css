@@ -1892,7 +1892,44 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--accent);
 }
 
-/* Description wraps onto as many lines as it needs. */
+/*
+ * A description or notes (TextCell): two lines, … for more, until focused;
+ * then as many as it needs. A copy of the text in the same grid cell sets
+ * the height (no script measures it), and shows the two lines on top of the
+ * field, whose own text is hidden until it's focused.
+ */
+.grow-wrap {
+  display: grid;
+}
+.grow-wrap > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.box-table .grow-text {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text);
+  border: 1px solid transparent;
+  padding: 4px 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.grow-wrap:not(:focus-within) .grow-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.grow-wrap:not(:focus-within) textarea.cell-input {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.grow-wrap:focus-within .grow-text {
+  visibility: hidden;
+}
 .box-table textarea.cell-input {
   font: inherit;
   font-size: 13px;
