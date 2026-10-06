@@ -541,7 +541,9 @@ when a focused element is removed.
   when it goes, if focus was in it (or lost), it goes back there, or to
   the nearest thing still on the page: the box or PTO block, the
   department's ✎, the gear (for what its menu opened), the Save button,
-  else the roadmap (`useReturnFocus` in `a11y/focus.ts`). On the
+  else the roadmap (`useReturnFocus` in `a11y/focus.ts`); an editor whose
+  box or PTO block went too (someone else's save deleted it, or an undo)
+  hands it to the one beside it, as its Delete button does. On the
   timeline, focus a re-render took (a box moved to another row, a
   department moved, undo) goes back to the same cell, else the one beside
   it; a cell moved along its row (dropped past another) React focuses

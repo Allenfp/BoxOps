@@ -18,7 +18,7 @@ import { Popover } from "./components/Popover";
 import { Banner } from "./components/Banner";
 import { announce, useAnnounce } from "./a11y/announce";
 import { letter, shortcut, undoHint } from "./a11y/keys";
-import { focusLater, focusLost, main, onPage, useReturnFocus } from "./a11y/focus";
+import { type Target, firstOnPage, focusLater, focusLost, main, onPage, useReturnFocus } from "./a11y/focus";
 import { scrollBehavior } from "./a11y/motion";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
@@ -847,18 +847,24 @@ function RoadmapView(props: ViewProps) {
   /** A department's heading on the timeline (its toggle). */
   const deptHeading = (id: string | undefined) => (id ? timelineCell(`dept:${id}`) : null);
   const deptOfLane = (laneId: string) => draft.departments.find((d) => d.lanes.some((l) => l.id === laneId))?.id;
-  /** Once box `id` is deleted from the timeline, focus goes to the next box in its department (by start), else the one before, else its heading. */
-  const focusAfterBox = (id: string) => {
+  /**
+   * Where focus goes once box `id` is gone from the timeline: the next box in its department (by
+   * start), else the one before, else its heading. Worked out from the roadmap as it is now, with
+   * the box; looked up once it's gone.
+   */
+  const besideBox = (id: string): Target[] => {
     const box = draft.boxes.find((b) => b.id === id);
-    if (!box) return;
+    if (!box) return [];
     const dept = deptOfLane(box.lane);
     const same = draft.boxes.filter((b) => deptOfLane(b.lane) === dept).sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
     const i = same.findIndex((b) => b.id === id);
     const near = [same[i + 1], same[i - 1]].filter((b) => b !== undefined);
-    focusLater([...near.map((b) => () => timelineCell(`box:${b.id}`)), () => deptHeading(dept), main]);
+    return [...near.map((b) => () => timelineCell(`box:${b.id}`)), () => deptHeading(dept)];
   };
-  /** Once PTO `ref` is deleted, focus goes to the next block in its department's row (by start), else the one before, else Add PTO there. */
-  const focusAfterPto = (ref: PtoRef) => {
+  /** Once box `id` is deleted from the timeline, focus goes beside it (besideBox), else to the roadmap. */
+  const focusAfterBox = (id: string) => focusLater([...besideBox(id), main]);
+  /** Where focus goes once PTO `ref` is gone: the next block in its department's row (by start), else the one before, else Add PTO there, else its heading. As besideBox. */
+  const besidePto = (ref: PtoRef): Target[] => {
     const dept = draft.people.find((p) => p.id === ref.personId)?.department;
     const row = ptoEntries(draft.people)
       .filter((e) => e.person.department === dept)
@@ -868,13 +874,10 @@ function RoadmapView(props: ViewProps) {
     const keyAfter = (e: (typeof row)[number]) =>
       ptoKey({ personId: e.person.id, index: e.person.id === ref.personId && e.index > ref.index ? e.index - 1 : e.index });
     const near = [row[i + 1], row[i - 1]].filter((e) => e !== undefined);
-    focusLater([
-      ...near.map((e) => () => timelineCell(`pto:${keyAfter(e)}`)),
-      () => (dept ? timelineCell(`pto-add:${dept}`) : null),
-      () => deptHeading(dept),
-      main,
-    ]);
+    return [...near.map((e) => () => timelineCell(`pto:${keyAfter(e)}`)), () => (dept ? timelineCell(`pto-add:${dept}`) : null), () => deptHeading(dept)];
   };
+  /** Once PTO `ref` is deleted, focus goes beside it (besidePto), else to the roadmap. */
+  const focusAfterPto = (ref: PtoRef) => focusLater([...besidePto(ref), main]);
 
   // PTO lives on the person; a block is picked out by its owner and position.
   const [selectedPto, setSelectedPto] = useState<(PtoRef & { session: number }) | null>(null);
@@ -1919,6 +1922,7 @@ function RoadmapView(props: ViewProps) {
             }}
             onClose={() => selectPto(null)}
             cell={timelineCell}
+            beside={() => firstOnPage(besidePto(selectedPto))}
           />
         </Suspense>
       )}
@@ -1948,6 +1952,7 @@ function RoadmapView(props: ViewProps) {
             }}
             onClose={() => select(null)}
             cell={timelineCell}
+            beside={() => firstOnPage(besideBox(selectedBox.id))}
           />
         </Suspense>
       )}

@@ -345,6 +345,38 @@ test("Delete on a PTO block whose owner's next one comes after someone else's pu
   await expect(cell(page, "pto:priya-shah#0")).toBeFocused();
 });
 
+test("an editor whose box or PTO block someone else deleted gives focus to what was beside it", async ({ page, github }) => {
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Enter");
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await expect(editor.getByRole("textbox", { name: "Title" })).toBeFocused();
+  github.deploy(github.otherSave({ [boxFile(DAGSTER)]: () => undefined }, "Sam Lee", "Dagster dropped"));
+  await pollNow(page);
+  await expect(editor).toHaveCount(0);
+  await expect(box(page, DAGSTER)).toHaveCount(0);
+  // The next box in Data Engineering by start, as the editor's Delete would.
+  await expect(box(page, "bx-e5a2-on-call-q4")).toBeFocused();
+
+  github.deploy(
+    github.otherSave({
+      "people.yaml": (t) =>
+        t.replace(
+          "    name: Morgan Chen\n    department: analytics\n",
+          "    name: Morgan Chen\n    department: analytics\n    pto:\n      - start: 2026-10-05\n        end: 2026-10-09\n      - start: 2026-10-19\n        end: 2026-10-23\n",
+        ),
+    }),
+  );
+  await pollNow(page);
+  await cell(page, "pto:morgan-chen#1").focus();
+  await page.keyboard.press("Enter");
+  const pto = page.getByRole("dialog", { name: /^Edit PTO/ });
+  await expect(pto.getByLabel("Engineer")).toBeFocused();
+  github.deploy(github.otherSave({ "people.yaml": (t) => t.replace("      - start: 2026-10-19\n        end: 2026-10-23\n", "") }));
+  await pollNow(page);
+  await expect(pto).toHaveCount(0);
+  await expect(cell(page, "pto:morgan-chen#0")).toBeFocused();
+});
+
 test("Delete on the only box in a department's extra area keeps focus in that department, wherever it is", async ({ page, github: _ }) => {
   // Data Engineering second: its extra area's one box has no cell beside it in its row.
   await cell(page, "dept:data-eng").focus();

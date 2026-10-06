@@ -34,6 +34,8 @@ interface Props {
   onClose(): void;
   /** A cell of the timeline (TimelineHandle.cell), drawn first if a big roadmap left it out, off screen: where focus goes back to. */
   cell(key: string): Element | null;
+  /** Where focus goes if the box has gone (someone else's save deleted it, or an undo): beside it, as the roadmap was with it. */
+  beside(): Element | null;
 }
 
 type Optional = "description" | "tags" | "links" | "rules";
@@ -73,10 +75,11 @@ export function BoxEditor(props: Props) {
   }
 
   // Closed (or gone some other way: saved, undone, someone else's save): focus goes back to the
-  // box, drawn again if it's off screen (no longer open, a big roadmap would leave it out). Not
-  // after a click elsewhere, which is where the user went (focus going back would scroll).
+  // box, drawn again if it's off screen (no longer open, a big roadmap would leave it out); with
+  // the box gone too, to what opened it, else beside the box. Not after a click elsewhere, which
+  // is where the user went (focus going back would scroll).
   const clickedAway = useRef(false);
-  useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`box:${box.id}`) ?? onPage(opener) ?? main())));
+  useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`box:${box.id}`) ?? onPage(opener) ?? props.beside() ?? main())));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

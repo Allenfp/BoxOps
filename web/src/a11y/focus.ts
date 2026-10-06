@@ -20,7 +20,7 @@ export const focusLost = (): boolean => {
 };
 
 /** The first of `targets` that's on the page and can take focus. */
-function first(targets: Target[]): HTMLElement | null {
+export function firstOnPage(targets: Target[]): HTMLElement | null {
   for (const t of targets) {
     const el = t();
     if (el instanceof HTMLElement && el.isConnected && !el.closest("[inert]") && el.getClientRects().length) return el;
@@ -37,7 +37,7 @@ function first(targets: Target[]): HTMLElement | null {
 export function focusLater(targets: Target[], from?: Element | null): void {
   requestAnimationFrame(() => {
     if (!focusLost() && document.activeElement !== from) return;
-    first(targets)?.focus();
+    firstOnPage(targets)?.focus();
   });
 }
 
