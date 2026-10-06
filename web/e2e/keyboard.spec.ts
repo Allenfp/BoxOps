@@ -457,6 +457,29 @@ test("Undo and Redo keep focus once there's nothing left to undo or redo; discar
   await expect(undo).toBeFocused();
 });
 
+test("an undo or redo that takes the Save button away from under focus puts focus on Undo", async ({ page, github: _ }) => {
+  const undo = toolbar(page).getByRole("button", { name: "Undo" });
+  // Dagster moved a day later, then back: two steps, and no changes.
+  await box(page, DAGSTER).focus();
+  for (const key of ["Space", "ArrowRight", "Enter", "Space", "ArrowLeft", "Enter"]) await page.keyboard.press(key);
+  await expect(toolbar(page)).toContainText("No changes");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  // Redone from Save: Save goes.
+  await page.locator("[data-save-button]").focus();
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(undo).toBeFocused();
+  // Undone from the ▾ beside it (to before the first step): the same.
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect(undo).toBeFocused();
+  await page.getByRole("button", { name: "More save options" }).focus();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(undo).toBeFocused();
+});
+
 test("a department picked from the warnings gets focus", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
   await page.getByRole("dialog", { name: /warning/ }).getByRole("button", { name: /^Data Engineering: / }).click();

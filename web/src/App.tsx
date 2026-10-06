@@ -1007,14 +1007,22 @@ function RoadmapView(props: ViewProps) {
     return () => window.removeEventListener("keydown", listener);
   }, []);
 
-  // Undo and redo say they did something: what changed may be nowhere near focus.
+  // Undo and redo say they did something: what changed may be nowhere near focus. In the
+  // toolbar, they may take away what has focus (Save, with nothing left to save; Warnings, with
+  // none left): focus goes to Undo then. Not from elsewhere: an editor whose box goes with an
+  // undo gives focus back to the timeline itself.
+  const toUndoIfLost = () => {
+    if (document.activeElement?.closest(".toolbar")) focusLater([() => undoButton.current, main]);
+  };
   const undo = () => {
     if (!draft.canUndo) return announce("Nothing to undo.");
+    toUndoIfLost();
     draft.undo();
     announce("Undone.");
   };
   const redo = () => {
     if (!draft.canRedo) return announce("Nothing to redo.");
+    toUndoIfLost();
     draft.redo();
     announce("Redone.");
   };
@@ -1091,7 +1099,7 @@ function RoadmapView(props: ViewProps) {
     guardReload(() => confirm(`Reload and lose ${unsaved}? This browser isn’t keeping ${them}.`));
     return () => guardReload(null);
   }, [count, draft.kept, unsaved, them]);
-  /** Undo, where focus goes after discarding: the Save button it was by turns into "No changes". */
+  /** Undo, where focus goes after discarding, or an undo or redo, takes the Save button away (it turns into "No changes"). */
   const undoButton = useRef<HTMLButtonElement>(null);
   const discardAll = () => {
     if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {

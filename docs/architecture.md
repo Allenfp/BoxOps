@@ -564,7 +564,8 @@ when a focused element is removed.
   back to what opened it (its button, or the field).
   Save stays focusable while saving, and Undo and Redo with nothing left
   to undo or redo (`aria-disabled`, not `disabled`); discarding all
-  changes puts focus on Undo.
+  changes puts focus on Undo, as does an undo or redo that takes Save (or
+  Warnings) away from under focus.
 - **Dialogs** are named by their titles (the save dialog is also described
   by what went wrong) and start on what's safe to press next, their first
   field, or themselves, never the Close button. The native ones
