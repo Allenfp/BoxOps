@@ -268,6 +268,9 @@ export function SettingsPanel({ close, ...props }: SettingsProps & { close(): vo
 const ALT = APPLE ? "⌥" : "Alt+";
 const SHIFT = APPLE ? "⇧" : "Shift";
 
+/** Page Up and Page Down, neither split over two lines where the keys column wraps. */
+const PAGE_KEYS = "Page\u00a0Up, Page\u00a0Down";
+
 /** What the keys and the mouse do, by where; each platform's own modifier key (⌘ on a Mac, Ctrl elsewhere). */
 const shortcuts = (): { title: string; rows: [string, string][] }[] => [
   {
@@ -286,7 +289,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
       ["← → ↑ ↓", "Between lanes, boxes and PTO; up and down to what runs at the same time"],
       [`Home, End  or  ${shortcut("←")} ${shortcut("→")}`, "Start or end of the row"],
       [`${shortcut("↑")} ${shortcut("↓")}`, "First or last of the timeline"],
-      ["Page Up, Page Down", "Previous or next department"],
+      [PAGE_KEYS, "Previous or next department"],
       ["Enter", "Open the box or PTO"],
       ["Space", "Pick the box or PTO up, to move it"],
       ["N", "New box in the lane (after the box you're on), or PTO in a PTO row"],
@@ -334,7 +337,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
       ["← →", "The working day before or after (weekends can't be picked)"],
       ["↑ ↓", "A week earlier or later"],
       ["Home, End", "Monday or Friday of that week"],
-      ["Page Up, Page Down", `The month before or after; with ${SHIFT}, the year`],
+      [PAGE_KEYS, `The month before or after; with ${SHIFT}, the year`],
       ["Enter or Space", "Pick the day"],
       ["Esc", "Close the calendar, not the editor it's in"],
     ],

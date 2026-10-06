@@ -424,6 +424,28 @@ test.describe("at 320 px wide (a phone, or a window zoomed to 400%)", () => {
     expect(await past()).toBe(0);
   });
 
+  test("the keyboard shortcuts fit across it, wrapping Windows' and Linux's longer Ctrl+… keys", async ({ page, github: _ }) => {
+    // The app writes keys for the platform the browser reports, read as it starts.
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, "platform", { get: () => "Win32" });
+      Object.defineProperty(Navigator.prototype, "userAgentData", { get: () => ({ platform: "Windows" }) });
+    });
+    await page.reload();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("button", { name: "Keyboard shortcuts…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(dialog.getByRole("table", { name: "On the timeline" })).toContainText("Home, End  or  Ctrl+← Ctrl+→");
+    expect(await sticksOut(dialog)).toEqual([]);
+    // Inside the list's own margins too, not just the dialog's sides.
+    const wide = await dialog.locator(".shortcuts").evaluate((list) => {
+      const { left, right } = list.getBoundingClientRect();
+      return [...list.querySelectorAll("table")]
+        .filter((t) => t.getBoundingClientRect().left < left - 0.5 || t.getBoundingClientRect().right > right + 0.5)
+        .map((t) => t.caption!.textContent);
+    });
+    expect(wide).toEqual([]);
+  });
+
   test.describe("signed out", () => {
     test.use({ signedIn: false });
 

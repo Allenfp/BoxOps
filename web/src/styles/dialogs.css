@@ -428,9 +428,15 @@
 .shortcuts tr:last-child > * {
   border-bottom: 0;
 }
+/* The two spaces round "or" kept, but a long run of keys (Ctrl+… off Apple's platforms) wraps at a space, each
+   line's part of it drawn as a whole key. */
 .shortcuts th {
   width: 46%;
-  white-space: pre;
+  white-space: pre-wrap;
+}
+.shortcuts kbd {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* Team settings */
