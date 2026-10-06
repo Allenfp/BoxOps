@@ -371,9 +371,9 @@
   outline-offset: 2px;
   z-index: var(--z-raised);
 }
+/* Lifted by its shadow, not faded: its flag would read under 4.5:1. */
 .box.dragging {
   z-index: var(--z-dragged);
-  opacity: 0.92;
   box-shadow: var(--shadow-drag);
 }
 .drag-dates {

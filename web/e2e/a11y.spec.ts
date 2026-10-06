@@ -112,6 +112,14 @@ const PARTS: [string, (page: Page) => Promise<void>][] = [
     },
   ],
   [
+    "a box picked up to move",
+    async (page) => {
+      await box(page, DAGSTER).focus();
+      await page.keyboard.press("Space");
+      await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
+    },
+  ],
+  [
     "the banner after a save, with its link to the commit",
     async (page) => {
       await dragDays(page, DAGSTER, 5);
