@@ -21,7 +21,9 @@ straight to `main`, and the site updates within a minute.
   and remove departments and their lanes; dragging a department heading moves
   it up or down. Each department has a **PTO** row
   where engineers' time off shows as grey blocks: double-click to add, drag to
-  move, click to edit.
+  move, click to edit. A big roadmap (over 300 boxes and PTO blocks) draws
+  only the part of the timeline near the screen, so the browser's Find
+  (⌘F) sees only that; the Table's search finds anything.
 - **Table.** Every box as an editable row (dates, FTE, engineers, flag,
   links, description) plus its **Scale** (FTE × working days, also shown on each
   timeline box), grouped by department, with search, sorting, a date range
@@ -114,7 +116,7 @@ npm run typecheck  # TypeScript, browser and Node code apart (npm run build chec
 npm test           # unit tests
 npx playwright install webkit chromium firefox  # once: the browsers the browser tests use
 npm run e2e        # browser tests (Playwright: WebKit, Chromium and Firefox)
-npm run perf       # first load of a 2,000-box roadmap in WebKit: sizes checked, times printed
+npm run perf       # a 2,000-box roadmap in WebKit: sizes and what's drawn checked, times printed
 npm run validate   # check the roadmap files
 npm run report     # capacity and staffing summary
 npm run gen-roadmap -- 2000 2026-10-03 <folder>  # a synthetic roadmap (boxes, "today") for scale tests

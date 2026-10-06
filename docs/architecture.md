@@ -40,7 +40,9 @@ web/
     timeline/               scale (time ↔ pixels), layout (lanes, capacity),
                             drag (moves in working days, where a dragged box
                             lands), keyboard (where the arrow keys go, names),
-                            consequences (what a keyboard move would do)
+                            consequences (what a keyboard move would do),
+                            rows (a department's rows and cells as data, and
+                            what's near enough the screen to draw)
     github/                 api (REST and GraphQL client, timeouts, errors),
                             read (newer commits by SHA diff), save (commit,
                             conflicts, retries), messages (errors in words),
@@ -97,12 +99,15 @@ both.
     a tab left open can still fetch the parts it loads on first use;
   - `schema` (1), `format` and `notices`;
   - `parsed` (optional): each roadmap file as the build's parser makes of it
-    (`model/parse.ts`), by blob SHA, stamped with the build id. The app takes
-    them only from its own build, so showing a deploy needs no YAML parsing;
-    files from GitHub and bundles from another build are parsed in the
-    browser. The dev server and `.dirty` or `+unknown` builds leave them out,
-    as their app can change under one build id. They about double the file:
-    at 2,000 boxes, 180 KB gzipped becomes 361 KB.
+    (`model/parse.ts`), by path (each without its path), stamped with the
+    build id. The app takes them only from its own build, each as what the
+    blob `blobs` gives its path parses to, so showing a deploy needs no YAML
+    parsing; files from GitHub and bundles from another build are parsed in
+    the browser. The dev server and `.dirty` or `+unknown` builds leave them
+    out, as their app can change under one build id. They about double the
+    file: at 2,000 boxes, 184 KB gzipped becomes 310 KB (370 KB when they
+    were kept by blob SHA, whose 40 hex digits don't compress; such a
+    `parsed`, from an earlier build, is left out).
 
   A local build whose `roadmap/` has uncommitted changes reads the files on
   disk instead: `tree` is null and the bundle is marked `local`. The dev server
@@ -585,9 +590,15 @@ when a focused element is removed.
   one hidden element written before focus moves. The timeline scrolls a
   focused cell clear of the sticky header and label column, and of the
   broken-rule popup (which leaves room to scroll for that), as WCAG 2.4.11
-  asks. Enter, a click or a screen reader's press opens a box or PTO block;
-  Delete deletes it, focus going to the cell beside it (or, alone in its
-  row, the nearest in the row above: never out of its department).
+  asks. On a big roadmap, which draws only what's near the screen (see
+  [Timeline layout](#timeline-layout)), the keys go by the grid's rows and
+  cells as data (`timeline/rows.ts`), drawn or not, and the cell focus goes
+  to is drawn first; the grid's `aria-rowcount` counts every row and each
+  row drawn says which it is (`aria-rowindex`). A screen reader's browse
+  mode, and the browser's Find, reach only what's drawn. Enter, a click or
+  a screen reader's press opens a box or PTO block; Delete deletes it,
+  focus going to the cell beside it (or, alone in its row, the nearest in
+  the row above: never out of its department).
   Space picks one up: the arrow keys then move what's drawn, as a pointer
   drag does (nothing laid out again, nothing else moving), and Enter or
   Space drops it as one change; Escape or ⌘Z puts it back; Tab, a click,
@@ -627,8 +638,11 @@ when a focused element is removed.
   go on from a day VoiceOver's cursor moved to) and its month heading as
   it changes, Alt+← and Alt+→ on Windows, and
   ⌘← and ⌘→ (Home and End on the grid) never going Back or Forward in a Mac
-  browser with history. And a finger dragging a box on a real touch screen
-  (iPad Safari, Android Chrome): the tests send touches to Chromium alone.
+  browser with history, and a big roadmap's timeline (over 300 boxes and PTO
+  blocks): that the row count and each row's place are said, and what
+  browse mode makes of the departments it doesn't draw. And a finger
+  dragging a box on a real touch screen (iPad Safari, Android Chrome): the
+  tests send touches to Chromium alone.
 
 ## Timeline layout
 
@@ -662,6 +676,22 @@ when a focused element is removed.
   been clear of it during the drag, or has gone on towards it: a box
   pressed just under the header or beside the labels and dragged along
   that edge, or away from it, doesn't scroll (and so keeps its lane).
+- **Drawing** (`components/Timeline.tsx`). Each department is drawn by a
+  memoized component given only what's its own (its boxes, layout, PTO and
+  what's selected or moving in it, as the same arrays and objects while
+  nothing in them changes), and each box by another: a drag's step, a
+  keyboard move's, or a keystroke in the box editor draws again just the
+  departments it's in, and in them just the boxes that changed. A drag draws
+  again only when where it would land changes, not at every pixel (so does a
+  department heading's drop line). A roadmap with more than 300 boxes and
+  PTO blocks draws only what's near the screen (`timeline/rows.ts`): the
+  departments within half a screen or more of it, as blank space as tall as
+  they'd be otherwise, and in those the boxes and PTO blocks running within
+  half a screen of the days on screen, measured as the timeline scrolls or
+  changes size, in steps of half a screen, and drawn before the frame is
+  painted. What has focus, what's open in an editor, what's being dragged or
+  moved and a cell the app asks for (to focus it) are drawn wherever they
+  are. At 2,000 boxes the timeline first shows about 70 of them.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes, which says over capacity
@@ -708,18 +738,28 @@ when a focused element is removed.
   what's announced (an init script records every message the live regions
   are given); `e2e/keyboard.spec.ts` checks where focus goes and what keys
   do, `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's
-  keyboard grid and moves, and `e2e/drag.spec.ts` dragging. WebKit's Tab
-  skips buttons, as Safari's does by default, so those tests focus a
-  control and check where focus lands.
+  keyboard grid and moves, and `e2e/drag.spec.ts` dragging. The timeline's
+  specs (those three, `timeline`, `departments` and `pto`) run again in
+  WebKit with the timeline drawing only what's near the screen whatever the
+  roadmap's size (`cull`, a test option), but for the few that count every
+  box (tagged `@counts-boxes`); `e2e/timeline-big.spec.ts` checks a 600-box
+  roadmap against itself drawn whole: nothing on screen missing at any
+  scroll or zoom, focus and moves kept drawn, the grid's rows counted.
+  WebKit's Tab skips buttons, as Safari's does by default, so those tests
+  focus a control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build with a generated 2,000-box roadmap
   (`scripts/gen-roadmap.ts`; and a 500-box one) as its `roadmap.json`,
   gzipped, and opens it in WebKit without a token. It checks exactly that the
-  main JavaScript file stays under 400 kB and that no file with the `yaml`
-  library is fetched before the timeline shows, and prints the time from
-  navigation to the timeline painted (median of 3), failing only above
-  2,500 ms; the same roadmap without the build's parsing is timed for
-  comparison. CI runs it after the browser tests.
+  main JavaScript file stays under 400 kB, that no file with the `yaml`
+  library is fetched before the timeline shows, that the timeline then draws
+  at most 200 boxes, and that a keyboard move's step, a drag's and a
+  keystroke in the box editor draw again only the departments they're in
+  (the timeline counts its departments' renders for tests, in
+  `window.__boxopsTest`). It prints the time from navigation to the
+  timeline painted (median of 3), failing only above 2,500 ms, and a
+  keyboard move's step; the same roadmap without the build's parsing is
+  timed for comparison. CI runs it after the browser tests.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
   the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
   doesn't support TypeScript 7 yet.) A deliberate exception is a
