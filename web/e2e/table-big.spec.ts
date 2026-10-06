@@ -333,6 +333,31 @@ test("the header's sort buttons, focused, tabbed to or clicked, leave the table 
   expect(await top()).toBe(at);
 });
 
+test("rows above the view getting shorter (compact density) leave the row at its top where it was", async ({ page, github: _ }) => {
+  await scrollTo(page, 0.5);
+  await settled(page);
+  // How far a row is below the sticky header (the toolbars above get shorter too).
+  const below = (row: Element) => {
+    const view = row.closest(".table-scroll")!;
+    return row.getBoundingClientRect().top - view.getBoundingClientRect().top - view.querySelector("thead")!.getBoundingClientRect().height;
+  };
+  // The row at the top of the view.
+  const key = await scroller(page).evaluate((el) => {
+    const y = el.getBoundingClientRect().top + el.querySelector("thead")!.getBoundingClientRect().height + 1;
+    return [...el.querySelectorAll<HTMLElement>("tbody tr[data-row-key]")].find((r) => r.getBoundingClientRect().bottom > y)!.dataset.rowKey!;
+  });
+  const row = page.locator(`tr[data-row-key="${key}"]`);
+  const before = await row.evaluate(below);
+  const boxHeight = () => page.locator("tr.box-row").first().evaluate((r) => r.getBoundingClientRect().height);
+  const comfortable = await boxHeight();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("dialog", { name: "Settings" }).getByRole("group", { name: "Density" }).getByRole("button", { name: "Compact" }).click();
+  await page.keyboard.press("Escape");
+  await expect.poll(boxHeight).toBeLessThan(comfortable);
+  await settled(page);
+  expect(Math.abs((await row.evaluate(below)) - before)).toBeLessThanOrEqual(2);
+});
+
 test("printing gives every row as shown, and leaves focus where it was", async ({ page, github: _, browserName }) => {
   const count = Number(await page.locator(".box-table").getAttribute("aria-rowcount"));
   await page.locator("tr.box-row").first().getByLabel("Title").focus();
