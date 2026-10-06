@@ -25,8 +25,12 @@ import { layout, type Range, type Run, rowAt, runs, usual, windowRows } from "./
  * A table with more rows than this (boxes, PTO, engineers, headings) draws
  * only those near the screen, and what has focus: up to it, all of them, so
  * the browser's Find and a screen reader's browse mode reach every row.
+ * Drawing them all costs about 1 ms a row: measured in WebKit on an M1
+ * (the production build at 1440 × 900, generated roadmaps), the table opens
+ * in about 250 ms at 250 rows, 310 at 330 and 500 at 490; drawing only
+ * what's near the screen, in about 50 ms at any size.
  */
-export const DRAW_ALL_UP_TO = 300;
+export const DRAW_ALL_UP_TO = 200;
 
 /** How far past the screen's top and bottom rows are drawn (px). */
 const OVERSCAN = 400;
