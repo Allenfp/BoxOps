@@ -790,6 +790,9 @@ when a focused element is removed.
   are left out and colours print; the timeline prints what's on screen.
 - **Limits.** On a big roadmap the browser's Find and a screen reader's
   browse mode reach only the rows drawn; the table's search covers every row.
+  In Safari, whose Tab skips buttons, Tab from the toolbar goes to the
+  first field drawn, which can be in a row drawn just above the view, so
+  the table scrolls up a little to it.
 
 ## Tests and CI
 
@@ -843,8 +846,11 @@ when a focused element is removed.
   big table (300 boxes) against itself drawn whole in another window (every
   row counted, nothing on screen missing however it's scrolled) and a
   600-box one for the rest: rows being edited kept (and their place), focus
-  going with a row that moves, Tab across what's drawn, new rows scrolled to
-  and focused, printing every row. Its clock is fixed
+  going with a row that moves (a PTO entry given to someone else too) or
+  is deleted, Tab across what's drawn, the view kept in place as rows above
+  it get shorter but not across a new sort, the header's buttons never
+  scrolling it, finished PTO hidden, new rows scrolled to and focused,
+  printing every row on pages no bigger than the rows. Its clock is fixed
   (`page.clock.setFixedTime`), as nothing it checks moves it on.
   WebKit's Tab skips buttons, as Safari's does by default, so those tests
   focus a control and check where focus lands.
