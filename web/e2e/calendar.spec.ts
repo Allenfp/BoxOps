@@ -42,7 +42,8 @@ test("the button beside a date is “Choose date”, says the date, and opens th
   // The field is named by its label alone, not the button's name too.
   await expect(editor.getByRole("textbox", { name: "Start", exact: true })).toHaveValue("2026-09-14");
   const choose = editor.getByRole("button", { name: "Choose date" }).first();
-  await expect(choose).toHaveAccessibleDescription("2026-09-14, Monday");
+  // Described by the field's label (Start's and End's buttons have one name) and its date.
+  await expect(choose).toHaveAccessibleDescription("Start 2026-09-14, Monday");
   await expect(choose).toHaveAttribute("aria-haspopup", "dialog");
   await expect(choose).toHaveAttribute("aria-expanded", "false");
 
@@ -139,6 +140,22 @@ test("Tab goes round the calendar's controls, Today's button too, and never out 
   }
 });
 
+test("a day focused another way (VoiceOver's cursor moves focus) takes the Tab stop, and keys go on from it", async ({ page, github: _ }) => {
+  const editor = await openStart(page);
+  const tabStop = calendar(page).locator('td[tabindex="0"]');
+  await day(page, "2026-09-22, Tuesday").focus();
+  await expect(tabStop).toHaveCount(1);
+  await expect(tabStop).toHaveAccessibleName("2026-09-22, Tuesday");
+  await walk(page, [
+    ["ArrowRight", "2026-09-23, Wednesday"],
+    ["ArrowDown", "2026-09-30, Wednesday"],
+  ]);
+  await day(page, "2026-09-10, Thursday").focus();
+  await page.keyboard.press("Enter");
+  await expect(calendar(page)).toHaveCount(0);
+  await expect(editor.getByRole("textbox", { name: "Start", exact: true })).toHaveValue("2026-09-10");
+});
+
 test("Enter or Space picks the day: the calendar closes, focus is back on its button, the editor stays", async ({ page, github: _ }) => {
   const editor = await openStart(page);
   const start = editor.getByRole("textbox", { name: "Start", exact: true });
@@ -148,7 +165,7 @@ test("Enter or Space picks the day: the calendar closes, focus is back on its bu
   await expect(calendar(page)).toHaveCount(0);
   await expect(start).toHaveValue("2026-09-15");
   await expect(choose).toBeFocused();
-  await expect(choose).toHaveAccessibleDescription("2026-09-15, Tuesday");
+  await expect(choose).toHaveAccessibleDescription("Start 2026-09-15, Tuesday");
   await expect(choose).toHaveAttribute("aria-expanded", "false");
 
   // Enter on the button opens it again; Space picks, once (the key coming up on the button opens nothing).
@@ -168,6 +185,24 @@ test("Enter or Space picks the day: the calendar closes, focus is back on its bu
   await expect(start).toHaveValue("2026-09-22");
   await expect(calendar(page)).toHaveCount(0);
   await expect(choose).toBeFocused();
+});
+
+test("a press outside closes the calendar: focus goes where the press put it, or back to its button", async ({ page, github: _ }) => {
+  const editor = await openStart(page);
+  const choose = editor.getByRole("button", { name: "Choose date" }).first();
+  // On text in the editor, which takes no focus.
+  await editor.getByRole("heading", { name: "Schedule" }).click();
+  await expect(calendar(page)).toHaveCount(0);
+  await expect(editor).toBeVisible();
+  await expect(choose).toBeFocused();
+  await expect(choose).toHaveAttribute("aria-expanded", "false");
+  // On a field, which keeps it.
+  await choose.click();
+  await expect(day(page, "2026-09-14, Monday, selected")).toBeFocused();
+  const title = editor.getByRole("textbox", { name: "Title" });
+  await title.click();
+  await expect(calendar(page)).toHaveCount(0);
+  await expect(title).toBeFocused();
 });
 
 test("weekends show but can't be picked; today is said, and at a weekend Today picks the next working day", async ({ page, github: _ }) => {
@@ -241,9 +276,13 @@ test("in a table row, Option/Alt+↓ in a date opens the calendar, and focus com
   // Two more Tab stops a row would be too many: the field's keys open it.
   await expect(dagster.getByRole("button", { name: "Choose date" }).first()).toHaveAttribute("tabindex", "-1");
   await expect(start).toHaveAttribute("aria-keyshortcuts", "Alt+ArrowDown");
-  await start.focus();
+  // Half a date typed goes, quietly: the calendar is opened to give the date instead.
+  await start.fill("2026-1");
   await page.keyboard.press("Alt+ArrowDown");
   await expect(day(page, "2026-09-14, Monday, selected")).toBeFocused();
+  await expect(start).toHaveValue("2026-09-14");
+  await page.waitForTimeout(300); // past the 150 ms before a message is written
+  expect(await heard(page)).not.toContain("isn’t a date");
   expect(await ring(page)).toBe(true); // opened by a key: shown at once
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
@@ -290,10 +329,21 @@ test("typing: clearing an optional date's text clears it, the table's filter too
   await expect(page.locator(".table-toolbar").getByText("Dates are written YYYY-MM-DD.")).toHaveCount(0);
   await expect.poll(() => heard(page)).toContain("“12/01/2026” isn’t a date, so the field is back to empty.");
 
+  // A weekend typed is shown selected, in full, though it can't be picked there.
+  const choose = page.getByRole("group", { name: "Dates" }).getByRole("button", { name: "Choose date" }).first();
+  await expect(choose).toHaveAccessibleDescription("From date");
+  await from.fill("2026-10-10");
+  await expect(choose).toHaveAccessibleDescription("From date 2026-10-10, Saturday");
+  await from.press("Alt+ArrowDown");
+  const saturday = day(page, "2026-10-10, Saturday, selected");
+  await expect(saturday).toHaveAttribute("aria-selected", "true");
+  await expect(saturday).toHaveCSS("opacity", "1");
+  await page.keyboard.press("Escape");
+  await expect(from).toBeFocused();
+
   // The calendar's Clear does what deleting the text does; Tab reaches it.
   await from.fill("2026-12-01");
   await expect(count).toHaveText(/^\d+ of 15 boxes$/);
-  const choose = page.getByRole("group", { name: "Dates" }).getByRole("button", { name: "Choose date" }).first();
   await choose.click();
   await expect(day(page, "2026-12-01, Tuesday, selected")).toBeFocused();
   await page.keyboard.press("Tab");
@@ -303,6 +353,7 @@ test("typing: clearing an optional date's text clears it, the table's filter too
   await expect(from).toHaveValue("");
   await expect(count).toHaveText("15 boxes");
   await expect(choose).toBeFocused();
+  await expect(choose).toHaveAccessibleDescription("From date");
 
   // A box's date can't be left out: deleted, its text comes back.
   const start = row(page, "Dagster 2.x upgrade").getByRole("textbox", { name: "Start", exact: true });
