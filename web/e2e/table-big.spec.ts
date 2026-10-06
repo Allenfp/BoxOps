@@ -320,19 +320,20 @@ test("the department the rows at the top belong to says so: its heading sticks u
     names.add(at.name!);
   }
   expect(names.size).toBeGreaterThan(2);
-  // Focus in a row scrolled under it is scrolled clear of it.
+  // Focus in a row scrolled under it is scrolled clear of it: a row put 4 px below the header, the heading over it.
   await scrollTo(page, 0.5);
   await settled(page);
-  const under = await scroller(page).evaluate((el) => {
+  await scroller(page).evaluate((el) => {
     const head = el.getBoundingClientRect().top + el.querySelector("thead")!.getBoundingClientRect().height;
-    const row = [...el.querySelectorAll<HTMLElement>("tr.box-row")].find((r) => r.getBoundingClientRect().top > head && r.getBoundingClientRect().top < head + 30);
-    return row?.querySelector<HTMLInputElement>('input[aria-label="Title"]')?.value ?? null;
+    const row = [...el.querySelectorAll<HTMLElement>("tr.box-row")].find((r) => r.getBoundingClientRect().top > head + 60)!;
+    row.dataset.under = "";
+    el.scrollTop += row.getBoundingClientRect().top - head - 4;
   });
-  if (under) {
-    const field = page.locator(`tr.box-row input[aria-label="Title"][value="${under}"]`);
-    await field.focus();
-    await expect.poll(() => placeIn(field)).toEqual({ clear: true });
-  }
+  await settled(page);
+  const field = page.locator('tr.box-row[data-under] input[aria-label="Title"]');
+  expect(await placeIn(field)).toEqual({ clear: false });
+  await field.focus();
+  await expect.poll(() => placeIn(field)).toEqual({ clear: true });
 });
 
 test("a row moved to another department takes focus with it, and is shown there", async ({ page, github: _ }) => {
