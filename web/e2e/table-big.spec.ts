@@ -2,7 +2,7 @@ import type { Browser, Locator, Page } from "@playwright/test";
 import { parse } from "yaml";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import type { FakeGitHub } from "./fake-github";
-import { choose, expect, openTab, pastPrintTable, test, toolbar } from "./helpers";
+import { choose, expect, heard, openTab, pastPrintTable, test, toolbar } from "./helpers";
 
 // A big roadmap's table draws only the rows near the screen
 // (table/useWindowedRows.ts), and nothing on screen is ever missing from it:
@@ -284,6 +284,8 @@ test("a row edited out of the dates or into the finished stays, saying so, until
   await edited.getByLabel("End").fill("2026-09-04");
   await expect(edited.getByLabel("End")).toBeFocused();
   await expect(edited.locator(".held-note")).toBeVisible();
+  // The note isn't only seen: a screen reader hears it.
+  await expect.poll(() => heard(page)).toContain("Doesn’t match the search or filters: hidden once you leave this row.");
   // Leaving it, it goes.
   await rows.first().getByLabel("Title").focus();
   await expect(edited).toHaveCount(0);

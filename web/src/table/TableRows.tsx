@@ -68,8 +68,10 @@ const splitTags = (t: string) =>
     .filter(Boolean);
 
 /** Shown in a row that's being edited though it no longer matches the search or filters: it goes once focus leaves it. */
+export const HELD_NOTE = "Doesn’t match the search or filters: hidden once you leave this row.";
+
 function HeldNote() {
-  return <span className="held-note">Doesn’t match the search or filters: hidden once you leave this row.</span>;
+  return <span className="held-note">{HELD_NOTE}</span>;
 }
 
 export const BoxRow = memo(function BoxRow({

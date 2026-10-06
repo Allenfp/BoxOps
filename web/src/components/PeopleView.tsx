@@ -4,7 +4,7 @@ import type { PtoRef } from "../model/pto";
 import type { Person, Roadmap } from "../model/types";
 import { Icon } from "./Icon";
 import { useToday } from "./useToday";
-import { useAnnounceResults } from "../a11y/announce";
+import { useAnnounce, useAnnounceResults } from "../a11y/announce";
 import { focusAfterRow } from "../a11y/focus";
 import { RowKeys } from "../table/rowKeys";
 import { keepPlace, type PeopleRow, peopleRows } from "../table/tableModel";
@@ -15,7 +15,7 @@ import { useActiveRow } from "../table/useActiveRow";
 import { usePrinting } from "../table/usePrinting";
 import { PrintPeople } from "../table/PrintTable";
 import { AddRow, EmptyRow, SpacerRow } from "../table/TableRows";
-import { PEOPLE_COLUMNS, PeopleGroupRow, type PersonActions, PersonRow } from "../table/PeopleRows";
+import { PEOPLE_COLUMNS, PEOPLE_HELD_NOTE, PeopleGroupRow, type PersonActions, PersonRow } from "../table/PeopleRows";
 
 interface Props {
   roadmap: Roadmap;
@@ -136,6 +136,9 @@ export function PeopleView(props: Props) {
     () => peopleRows({ groups, collapsed, searching: q !== "", addDepartment: !readOnly && !!props.onAddDepartment }),
     [groups, collapsed, q, readOnly, props.onAddDepartment],
   );
+  // The row being edited, once it no longer matches: its note is heard too, once, not only seen (WCAG 4.1.3).
+  const heldOut = useMemo(() => model.rows.find((r) => r.kind === "person" && r.held)?.key ?? null, [model]);
+  useAnnounce(heldOut && PEOPLE_HELD_NOTE, { news: heldOut });
   const windowed = window.__boxopsTest?.virtualize ?? model.rows.length > DRAW_ALL_UP_TO;
   const win = useWindowedRows({
     keys: model.keys,

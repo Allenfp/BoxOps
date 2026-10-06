@@ -11,7 +11,7 @@ import { useToday } from "./useToday";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { reorderByKey, useReorder } from "./useReorder";
-import { announce, useAnnounceResults } from "../a11y/announce";
+import { announce, useAnnounce, useAnnounceResults } from "../a11y/announce";
 import { focusAfterRow, focusLater } from "../a11y/focus";
 import { keeper } from "../keeper";
 import { boxKeys, PtoKeys } from "../table/rowKeys";
@@ -23,7 +23,7 @@ import { rowKeyOf } from "../table/focusRow";
 import { useActiveRow } from "../table/useActiveRow";
 import { usePrinting } from "../table/usePrinting";
 import { PrintBoxes } from "../table/PrintTable";
-import { AddRow, BoxRow, COLUMN_COUNT, EmptyRow, GroupRow, type LaneInfo, PtoRow, type RowActions, SpacerRow } from "../table/TableRows";
+import { AddRow, BoxRow, COLUMN_COUNT, EmptyRow, GroupRow, HELD_NOTE, type LaneInfo, PtoRow, type RowActions, SpacerRow } from "../table/TableRows";
 
 interface Props {
   roadmap: Roadmap;
@@ -347,6 +347,9 @@ export function TableView(props: Props) {
       }),
     [departments, groups, ptoByDept, collapsed, searching, readOnly, members, props.onAddPto, showPto, props.onAddDepartment],
   );
+  // The row being edited, once it no longer matches: its note is heard too, once, not only seen (WCAG 4.1.3).
+  const heldOut = useMemo(() => model.rows.find((r) => (r.kind === "box" || r.kind === "pto") && r.held)?.key ?? null, [model]);
+  useAnnounce(heldOut && HELD_NOTE, { news: heldOut });
   const windowed = window.__boxopsTest?.virtualize ?? model.rows.length > DRAW_ALL_UP_TO;
   const win = useWindowedRows({
     keys: model.keys,

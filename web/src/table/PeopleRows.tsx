@@ -27,6 +27,9 @@ export interface PersonActions {
   addDepartment(): void;
 }
 
+/** Shown in a row that's being edited though it no longer matches the search: it goes once focus leaves it. */
+export const PEOPLE_HELD_NOTE = "Doesn’t match the search: hidden once you leave this row.";
+
 const invalidEmail = (v: string) => v !== "" && !EMAIL.test(v);
 
 export const PersonRow = memo(function PersonRow({
@@ -72,7 +75,7 @@ export const PersonRow = memo(function PersonRow({
           onBlur={actions.checkpoint}
           ariaLabel="Name"
         />
-        {held && <span className="held-note">Doesn’t match the search: hidden once you leave this row.</span>}
+        {held && <span className="held-note">{PEOPLE_HELD_NOTE}</span>}
       </td>
       <td className="col-dept">
         <LazySelect
