@@ -9,8 +9,8 @@ export const rowKeyOf = (el: EventTarget | null): string | null =>
 /**
  * Scroll `scroller` so `el`, in one of its rows, isn't under its sticky
  * header, or its sticky title column (`td.col-title`; People's names,
- * `td.col-name`), which stays put while the rest scrolls sideways, or past
- * its edges. WebKit doesn't scroll what Tab focuses clear of them, and
+ * `td.col-name`), which stays put while the rest scrolls sideways, or the
+ * broken-rule popup over the bottom right corner, or past its edges. WebKit doesn't scroll what Tab focuses clear of them, and
  * `focus()` centres what it scrolls to, so this is done for every focus in a
  * row, by hand. Not for the header's own buttons (always on screen:
  * scrolling for them would move the table on each Tab or click), nor what's
@@ -22,7 +22,10 @@ export function keepInView(scroller: HTMLElement | null, el: EventTarget | null)
   const r = el.getBoundingClientRect();
   const headH = scroller.querySelector("thead")?.getBoundingClientRect().height ?? 0;
   const top = view.top + headH;
-  const bottom = view.top + scroller.clientHeight;
+  let bottom = view.top + scroller.clientHeight;
+  // Above the popup, if it's over this column (the table leaves room to scroll for that).
+  const toast = document.querySelector(".toast")?.getBoundingClientRect();
+  if (toast && toast.left < r.right && toast.right > r.left && toast.top < bottom) bottom = toast.top;
   if (r.top < top) scroller.scrollTop -= top - r.top;
   else if (r.bottom > bottom) scroller.scrollTop += Math.min(r.bottom - bottom, r.top - top);
   const sticky = el.closest("tr")?.querySelector("td.col-title, td.col-name");

@@ -39,6 +39,10 @@
   flex: 1;
   overflow: auto;
 }
+/* Room to scroll the last rows up clear of the broken-rule popup, so focus is never under it. */
+.app:has(.toast) .table-scroll {
+  padding-bottom: 240px;
+}
 /* Drawing only the rows near the screen, the table keeps the view in place itself (useWindowedRows.ts). */
 .table-scroll.windowed {
   overflow-anchor: none;

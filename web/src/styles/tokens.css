@@ -59,10 +59,14 @@
   --z-dragged: 5;
   --z-head: 6;
   --z-corner: 7;
-  /* Over the page: the box and PTO editors, panels and popups, the broken-rule popup, the calendar, the skip link. */
+  /*
+   * Over the page: the broken-rule popup, the box and PTO editors, panels and popups, the calendar, the skip
+   * link. The popup is under whatever takes focus, so it never hides what has focus (WCAG 2.4.11); the views
+   * scroll what has focus clear of it.
+   */
+  --z-toast: 40;
   --z-editor: 50;
   --z-popover: 60;
-  --z-toast: 70;
   --z-calendar: 80;
   --z-skip-link: 100;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;

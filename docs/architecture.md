@@ -638,7 +638,9 @@ when a focused element is removed.
   first). While the timeline is read-only (a preview, or saving), its cells
   stay, as text or `aria-disabled` buttons, and keys that would change
   something say why they don't. The dates along the top, grid lines,
-  hatching and drag labels are hidden from screen readers. A box's scale
+  hatching and drag labels are hidden from screen readers. The popup is
+  drawn under the editors, menus and dialogs, so it never hides what has
+  focus in them either. A box's scale
   card shows on hover and while the box has keyboard focus; the pointer
   can move onto it and Escape puts it away (WCAG 1.4.13). Pressing a box or
   PTO block (to drag it, say) focuses it without the keyboard's ring or
@@ -828,7 +830,8 @@ when a focused element is removed.
   the same control in the same row, else the same column in the next row of
   the department (or the one before, or its heading). What has focus in a
   row is scrolled clear of the sticky header and title column (People's
-  names, which stay put the same way) by hand
+  names, which stay put the same way), and of the broken-rule popup (the
+  table leaves room to scroll for that), by hand
   (`table/focusRow.ts`: WebKit doesn't when Tab moves focus); the header's
   own sort buttons are always on screen, and the scroller has no
   `scroll-padding`, which would have them scroll the table whenever one is

@@ -332,6 +332,42 @@ test("the broken-rule popup stays while focus is in it, and its Dismiss puts foc
   await expect(page.getByRole("main")).toBeFocused();
 });
 
+test.describe("in a small window", () => {
+  test.use({ viewport: { width: 600, height: 700 } });
+
+  test("the broken-rule popup never hides what has focus: it's under the box editor, and the table scrolls a cell clear of it", async ({ page, github: _ }) => {
+    await box(page, DAGSTER).click();
+    const editor = page.getByRole("dialog", { name: /^Edit / });
+    await editor.getByRole("button", { name: "Rule", exact: true }).click();
+    await editor.getByLabel("New rule").selectOption("after");
+    await editor.getByLabel("Add a rule with").selectOption("C4P");
+    const toast = page.locator(".toast");
+    await expect(toast).toBeVisible();
+    // Where the two overlap (a 600 px window has them on top of each other), the editor is what's seen.
+    const e = (await editor.boundingBox())!;
+    const t = (await toast.boundingBox())!;
+    const [x, y] = [(Math.max(e.x, t.x) + Math.min(e.x + e.width, t.x + t.width)) / 2, (Math.max(e.y, t.y) + Math.min(e.y + e.height, t.y + t.height)) / 2];
+    expect(x > e.x && x < e.x + e.width && y > t.y && y < e.y + e.height).toBe(true);
+    expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest(".editor"), [x, y])).toBe(true);
+    await page.keyboard.press("Escape");
+
+    // In the table, the title of the lowest row on screen, under the popup, is scrolled up clear of it.
+    await page.getByRole("button", { name: "Table", exact: true }).click();
+    await expect(toast).toBeVisible();
+    const titles = page.locator(".box-table tr.box-row td.col-title .cell-input");
+    const top = (await toast.boundingBox())!.y;
+    let under = -1;
+    for (let i = (await titles.count()) - 1; i >= 0 && under < 0; i--) {
+      const r = await titles.nth(i).boundingBox();
+      if (r && r.y < 700 && r.y + r.height > top) under = i;
+    }
+    expect(under).toBeGreaterThanOrEqual(0);
+    await titles.nth(under).focus();
+    await expect(titles.nth(under)).toBeFocused();
+    await expect.poll(async () => (await titles.nth(under).boundingBox())!.y + (await titles.nth(under).boundingBox())!.height).toBeLessThanOrEqual(top);
+  });
+});
+
 test("a banner that goes while focus is elsewhere leaves focus alone", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 5);
   await save(page);
