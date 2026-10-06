@@ -830,10 +830,11 @@ when a focused element is removed.
   grid's rows counted. The table's and People's specs (`table`, `people`,
   `pto`, `keyboard`) run again in WebKit with only the rows near the screen
   drawn (`virtualize`, a test option), and `e2e/table-big.spec.ts` checks a
-  600-box table against itself drawn whole: every row counted, nothing on
-  screen missing however it's scrolled, rows being edited kept (and their
-  place), focus going with a row that moves, Tab across what's drawn, new
-  rows scrolled to and focused, printing every row. Its clock is fixed
+  big table (300 boxes) against itself drawn whole in another window (every
+  row counted, nothing on screen missing however it's scrolled) and a
+  600-box one for the rest: rows being edited kept (and their place), focus
+  going with a row that moves, Tab across what's drawn, new rows scrolled to
+  and focused, printing every row. Its clock is fixed
   (`page.clock.setFixedTime`), as nothing it checks moves it on.
   WebKit's Tab skips buttons, as Safari's does by default, so those tests
   focus a control and check where focus lands.
