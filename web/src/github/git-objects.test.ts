@@ -91,9 +91,9 @@ describe("gitTreeSha", () => {
 
   it("refuses entries git couldn't store", async () => {
     const sha = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
-    await expect(gitTreeSha([{ path: "a", mode: "100644", sha: "abc" }])).rejects.toThrow("isn't a git object id");
-    await expect(gitTreeSha([{ path: "a", mode: "100664" as "100644", sha }])).rejects.toThrow("isn't a git file mode");
-    await expect(gitTreeSha([{ path: "a/../b", mode: "100644", sha }])).rejects.toThrow("isn't a path git can store");
+    await expect(gitTreeSha([{ path: "a", mode: "100644", sha: "abc" }])).rejects.toThrow("isn’t a git object id");
+    await expect(gitTreeSha([{ path: "a", mode: "100664" as "100644", sha }])).rejects.toThrow("isn’t a git file mode");
+    await expect(gitTreeSha([{ path: "a/../b", mode: "100644", sha }])).rejects.toThrow("isn’t a path git can store");
     await expect(gitTreeSha([{ path: "a", mode: "100644", sha }, { path: "a/b", mode: "100644", sha }])).rejects.toThrow("is a file");
     await expect(gitTreeSha([{ path: "a/b", mode: "100644", sha }, { path: "a", mode: "100644", sha }])).rejects.toThrow("listed twice");
   });

@@ -201,7 +201,7 @@ export function BoxEditor(props: Props) {
       {/* VoiceOver reads only live regions inside a modal dialog while it's open. */}
       <LiveRegion />
       <div className="editor-head" style={{ borderTopColor: typeColor }}>
-        <span className="code-chip" title="This box's code. The prefix follows its department.">
+        <span className="code-chip" title="This box’s code. The prefix follows its department.">
           {fullCode(box, departments)}
         </span>
         <label className="sr-only" htmlFor={titleId}>

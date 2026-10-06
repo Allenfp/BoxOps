@@ -61,8 +61,8 @@ const slug = (text: string) =>
 /** The roadmap folder's files (path → text) for `boxes` boxes around `today` (YYYY-MM-DD). */
 export function generateRoadmap(boxes: number, today: string): RoadmapFiles {
   const now = parseDay(today);
-  if (now === null) throw new Error(`"${today}" isn't a YYYY-MM-DD date`);
-  if (!Number.isInteger(boxes) || boxes < 0) throw new Error(`"${boxes}" isn't a number of boxes`);
+  if (now === null) throw new Error(`"${today}" isn’t a YYYY-MM-DD date`);
+  if (!Number.isInteger(boxes) || boxes < 0) throw new Error(`"${boxes}" isn’t a number of boxes`);
   const rnd = random(boxes * 7919 + now);
   const int = (n: number) => Math.floor(rnd() * n);
   const pick = <T>(list: readonly T[]) => list[int(list.length)];
@@ -191,7 +191,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // A new folder.
   }
   if (existing.length) {
-    console.error(`${dir} isn't empty`);
+    console.error(`${dir} isn’t empty`);
     process.exit(2);
   }
   const files = generateRoadmap(Number(count), today);

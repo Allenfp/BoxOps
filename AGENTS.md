@@ -96,7 +96,7 @@ number of bullets (the app's Save button counts the same way). Word them
 like this (`<range>` is like `2026-03-02 – 2026-03-20`: dates are always
 `YYYY-MM-DD`, as everywhere in the app; a lane is `<Department> / <lane
 label>`; `<code>` is always the full code with its prefix, like `DE-K7P`;
-quotes are curly “ ”):
+quotes and apostrophes are curly: “ ” ’):
 
 | Change | Line |
 |---|---|
@@ -110,9 +110,9 @@ quotes are curly “ ”):
 | … flag, type or FTE | `flag On track → Blocked`, `flag At risk → On track`, `type <old> → <new>`, `FTE 1 → 1.5` (names, not ids; no flag is "On track") |
 | … engineers | `engineers now Sam Lee, Alex Kim` (or `engineers now nobody`) |
 | … epic, description, tags, links | `epic link updated` / `epic link removed`, `description edited`, `tags edited`, `links edited` |
-| … rule added or removed | `now <rule>` or `no longer <rule>`, where `<rule>` is one of `finishes before <other title> (<code>) starts`, `starts after <other title> (<code>) finishes`, `happens during <other title> (<code>)`, `starts when <other title> (<code>) starts`, `ends when <other title> (<code>) ends`, `runs at the same time as <other title> (<code>)`, `doesn't overlap <other title> (<code>)` |
+| … rule added or removed | `now <rule>` or `no longer <rule>`, where `<rule>` is one of `finishes before <other title> (<code>) starts`, `starts after <other title> (<code>) finishes`, `happens during <other title> (<code>)`, `starts when <other title> (<code>) starts`, `ends when <other title> (<code>) ends`, `runs at the same time as <other title> (<code>)`, `doesn’t overlap <other title> (<code>)` |
 | … anything else | `edited` |
-| Department code changed | `<Department>'s code is now <NEW> (was <OLD>): its boxes are <NEW>-…` |
+| Department code changed | `<Department>’s code is now <NEW> (was <OLD>): its boxes are <NEW>-…` |
 | Department added | `Added department <name> (<n> lanes, <fte> FTE)` (`1 lane` for one) |
 | Department renamed, recoloured, deleted | `Renamed department <old> to <new>`, `Changed the colour of <name>`, `Deleted department <name>` |
 | Departments reordered | `Reordered departments` (once, however many moved; only when their order changed, not their numbers) |

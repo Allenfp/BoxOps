@@ -120,7 +120,7 @@ export const PersonRow = memo(function PersonRow({
         <TextCell
           value={p.manager ?? ""}
           readOnly={readOnly}
-          placeholder="Manager's name"
+          placeholder="Manager’s name"
           onCommit={(manager) => actions.update(p.id, { manager: manager.trim() || undefined })}
           onBlur={actions.checkpoint}
           ariaLabel="Manager"

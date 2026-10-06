@@ -257,7 +257,7 @@ export function TeamSettings({
   return (
     <Modal title="Team settings" className="team-settings" onClose={onClose} startIn="field" returnTo={returnTo}>
       <p className="hint team-intro">
-        These apply to everyone. They're saved to settings.yaml with your other
+        These apply to everyone. They’re saved to settings.yaml with your other
         changes.
       </p>
       <div className="form">

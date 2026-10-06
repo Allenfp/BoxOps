@@ -24,7 +24,7 @@ describe("overStretches", () => {
     ]);
   });
 
-  it("exactly at the limit is fine, and back-to-back work doesn't overlap", () => {
+  it("exactly at the limit is fine, and back-to-back work doesn’t overlap", () => {
     expect(overStretches([item("2026-10-05", "2026-10-09", 1), item("2026-10-12", "2026-10-16", 1)], 1)).toEqual([]);
   });
 

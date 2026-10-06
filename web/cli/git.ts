@@ -95,7 +95,7 @@ class Triage {
     try {
       return strictUtf8.decode(bytes);
     } catch {
-      this.problems.push({ path, message: "isn't UTF-8 text" });
+      this.problems.push({ path, message: "isn’t UTF-8 text" });
       return undefined;
     }
   }
@@ -138,7 +138,7 @@ function gitDir(repo: string, checkout = false): string {
   try {
     st = lstatSync(dir);
   } catch {
-    throw new Error(`${repo} isn't a git repository (it has no .git folder)`);
+    throw new Error(`${repo} isn’t a git repository (it has no .git folder)`);
   }
   if (checkout && st.isFile() && st.size < 4096) {
     const target = /^gitdir: (.+)$/.exec(readFileSync(dir, "utf8").trim())?.[1];
@@ -147,7 +147,7 @@ function gitDir(repo: string, checkout = false): string {
   }
   if (!st.isDirectory()) {
     const what = st.isSymbolicLink() ? "a symlink" : "a file (a worktree or submodule checkout)";
-    throw new Error(`${dir} is ${what}; BoxOps reads only a repository's own .git folder`);
+    throw new Error(`${dir} is ${what}; BoxOps reads only a repository’s own .git folder`);
   }
   return dir;
 }
@@ -171,7 +171,7 @@ export function gitPlumbing(
   } catch (e) {
     const err = e as NodeJS.ErrnoException & { stderr?: Buffer };
     if (err.code === "ENOENT") {
-      throw new Error("git isn't installed; BoxOps needs git 2.18 or later (without it, actions/checkout downloads a tarball with no .git)");
+      throw new Error("git isn’t installed; BoxOps needs git 2.18 or later (without it, actions/checkout downloads a tarball with no .git)");
     }
     if (err.code === "ENOBUFS") throw new Error(`git ${command}: more output than BoxOps reads`);
     throw new Error(`git ${command} ${args.join(" ")}: ${err.stderr?.toString().trim() || err.message}`);
@@ -180,7 +180,7 @@ export function gitPlumbing(
 
 /** The full SHA of a commit (`rev`: HEAD, a branch or a SHA). */
 export function resolveCommit(repo: string, rev: string, o: GitOptions = {}): string {
-  if (rev.startsWith("-")) throw new Error(`"${rev}" isn't a commit`);
+  if (rev.startsWith("-")) throw new Error(`"${rev}" isn’t a commit`);
   const sha = gitPlumbing(repo, "rev-parse", ["--verify", `${rev}^{commit}`], o).toString().trim();
   if (!SHA.test(sha)) throw new Error(`${rev} is ${sha}: BoxOps reads SHA-1 repositories only`);
   return sha;
@@ -258,16 +258,16 @@ function records(out: Buffer): Buffer[] {
  */
 export async function readRoadmapGit(repo: string, commit: string, dir = "roadmap"): Promise<RoadmapFolder> {
   if (!DIR.test(dir) || dir.split("/").some((p) => p === "." || p === "..")) {
-    throw new Error(`"${dir}" isn't a folder BoxOps reads: letters, digits, ".", "_" and "-", in parts separated by "/"`);
+    throw new Error(`"${dir}" isn’t a folder BoxOps reads: letters, digits, ".", "_" and "-", in parts separated by "/"`);
   }
-  if (!SHA.test(commit)) throw new Error(`"${commit}" isn't a full commit SHA`);
+  if (!SHA.test(commit)) throw new Error(`"${commit}" isn’t a full commit SHA`);
   gitDir(repo);
   const at = `${commit}:${dir}`;
   let type: string;
   try {
     type = gitPlumbing(repo, "cat-file", ["-t", at]).toString().trim();
   } catch {
-    throw new RoadmapReadError(dir, [{ path: "", message: `isn't in commit ${commit.slice(0, 12)}` }]);
+    throw new RoadmapReadError(dir, [{ path: "", message: `isn’t in commit ${commit.slice(0, 12)}` }]);
   }
   if (type !== "tree") {
     // A symlinked folder is a blob; a submodule is a commit.
@@ -290,7 +290,7 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
     try {
       path = strictUtf8.decode(record.subarray(tab + 1));
     } catch {
-      triage.problems.push({ path: record.subarray(tab + 1).toString("utf8"), message: "has a name that isn't UTF-8" });
+      triage.problems.push({ path: record.subarray(tab + 1).toString("utf8"), message: "has a name that isn’t UTF-8" });
       continue;
     }
     const entry: EntryKind =
@@ -304,7 +304,7 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
     if (triage.take(path, entry, Number(size), ` (git mode ${mode})`)) {
       // ls-tree can't size a blob the clone lacks (git 2.44 and later say so; older git fails to fetch it).
       if (!/^\d+$/.test(size)) {
-        throw new Error(`${dir}/${path} isn't in this clone (a partial clone?), and BoxOps never fetches what a clone lacks: clone without --filter`);
+        throw new Error(`${dir}/${path} isn’t in this clone (a partial clone?), and BoxOps never fetches what a clone lacks: clone without --filter`);
       }
       wanted.push({ path, sha, size: Number(size) });
       if (mode === "100755") warnings.push({ path, message: EXECUTABLE });
@@ -329,7 +329,7 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
       const bytes = out.subarray(nl + 1, nl + 1 + w.size);
       pos = nl + 1 + w.size + 1;
       if ((await gitBlobSha(bytes)) !== w.sha) {
-        triage.problems.push({ path: w.path, message: `doesn't match its git object id ${w.sha} (a damaged repository?)` });
+        triage.problems.push({ path: w.path, message: `doesn’t match its git object id ${w.sha} (a damaged repository?)` });
         continue;
       }
       const text = triage.decode(w.path, bytes);
@@ -374,10 +374,10 @@ export async function readRoadmapDir(dir: string): Promise<RoadmapFolder> {
   try {
     root = lstatSync(dir);
   } catch {
-    throw new RoadmapReadError(dir, [{ path: "", message: "doesn't exist" }]);
+    throw new RoadmapReadError(dir, [{ path: "", message: "doesn’t exist" }]);
   }
   if (root.isSymbolicLink()) throw new RoadmapReadError(dir, [{ path: "", message: "is a symlink; give the folder it points to" }]);
-  if (!root.isDirectory()) throw new RoadmapReadError(dir, [{ path: "", message: "isn't a folder" }]);
+  if (!root.isDirectory()) throw new RoadmapReadError(dir, [{ path: "", message: "isn’t a folder" }]);
 
   const triage = new Triage(dir);
   const read: { path: string; bytes: Buffer }[] = [];
@@ -399,7 +399,7 @@ export async function readRoadmapDir(dir: string): Promise<RoadmapFolder> {
         } else read.push({ path, bytes });
       } catch (e) {
         const code = (e as NodeJS.ErrnoException).code;
-        triage.problems.push({ path, message: code === "ELOOP" ? "is a symlink; a roadmap folder holds plain files only" : `can't be read (${code ?? (e as Error).message})` });
+        triage.problems.push({ path, message: code === "ELOOP" ? "is a symlink; a roadmap folder holds plain files only" : `can’t be read (${code ?? (e as Error).message})` });
       }
     }
   };

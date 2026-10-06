@@ -219,7 +219,7 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
   // Elsewhere the app would read, and save to, a repository of that name on github.com.
   const server = actions ? env.GITHUB_SERVER_URL?.replace(/\/+$/, "") : undefined;
   if (server && server.toLowerCase() !== "https://github.com") {
-    throw new Error(`This runs on ${server}: GitHub Enterprise Server and GHE.com aren't supported in BoxOps 0.1`);
+    throw new Error(`This runs on ${server}: GitHub Enterprise Server and GHE.com aren’t supported in BoxOps 0.1`);
   }
   let folder: RoadmapFolder;
   let commit = "";
@@ -234,13 +234,13 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
       // Not in a repository: no commit to name.
     }
   } else if (actions) {
-    if (!env.GITHUB_SHA) throw new Error("GITHUB_SHA isn't set");
+    if (!env.GITHUB_SHA) throw new Error("GITHUB_SHA isn’t set");
     commit = resolveCommit(o.repoDir, env.GITHUB_SHA);
     folder = await readRoadmapGit(o.repoDir, commit, dir);
   } else {
     const disk = await readRoadmapDir(join(o.repoDir, dir));
     let committed: RoadmapFolder | null = null;
-    let why = `${dir}/ has changes that aren't committed`;
+    let why = `${dir}/ has changes that aren’t committed`;
     try {
       commit = resolveCommit(o.repoDir, "HEAD");
       committed = await readRoadmapGit(o.repoDir, commit, dir);
@@ -267,7 +267,7 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
     if (commit && named && !repo) {
       warn(`origin is on ${named.host}; BoxOps 0.1 works with github.com only: source.repo is empty`);
     } else if (commit && !repo) {
-      warn(`Can't tell the repository from the origin remote${remote ? ` (${withoutCredentials(remote)})` : ""}: source.repo is empty`);
+      warn(`Can’t tell the repository from the origin remote${remote ? ` (${withoutCredentials(remote)})` : ""}: source.repo is empty`);
     }
     branch = commit ? gitPlumbing(o.repoDir, "rev-parse", ["--abbrev-ref", "HEAD"]).toString().trim() : "";
   }

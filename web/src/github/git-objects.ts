@@ -99,10 +99,10 @@ async function folderSha(folder: Folder): Promise<string> {
 export async function gitTreeSha(entries: GitTreeEntry[]): Promise<string> {
   const root: Folder = { files: new Map(), folders: new Map() };
   for (const { path, mode, sha } of entries) {
-    if (!SHA.test(sha)) throw new Error(`${path}: "${sha}" isn't a git object id`);
-    if (!MODES.has(mode)) throw new Error(`${path}: "${mode}" isn't a git file mode`);
+    if (!SHA.test(sha)) throw new Error(`${path}: "${sha}" isn’t a git object id`);
+    if (!MODES.has(mode)) throw new Error(`${path}: "${mode}" isn’t a git file mode`);
     const names = path.split("/");
-    if (names.some((n) => n === "" || n === "." || n === "..")) throw new Error(`"${path}" isn't a path git can store`);
+    if (names.some((n) => n === "" || n === "." || n === "..")) throw new Error(`"${path}" isn’t a path git can store`);
     const file = names.pop()!;
     let folder = root;
     for (const name of names) {

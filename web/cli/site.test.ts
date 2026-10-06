@@ -131,7 +131,7 @@ describe("buildBundle in GitHub Actions", () => {
     for (const server of ["https://ghe.acme.example", "https://octocorp.ghe.com"]) {
       const env = { ...actions(second), GITHUB_SERVER_URL: server };
       await expect(buildBundle({ repoDir: r.dir, app: APP, env })).rejects.toThrow(
-        `This runs on ${server}: GitHub Enterprise Server and GHE.com aren't supported in BoxOps 0.1`,
+        `This runs on ${server}: GitHub Enterprise Server and GHE.com aren’t supported in BoxOps 0.1`,
       );
     }
     const { source } = await buildBundle({ repoDir: r.dir, app: APP, env: { ...actions(second), GITHUB_SERVER_URL: "https://GitHub.com/" } });
@@ -169,7 +169,7 @@ describe("buildBundle locally", () => {
     expect(source).toMatchObject({ commit: second, tree: null, local: true });
     expect(files["boxes/b2.yaml"]).toBe("id: b2\n");
     expect(blobs["boxes/b2.yaml"]).toBe(r.blob("id: b2\n"));
-    expect(warnings).toEqual(["roadmap/ has changes that aren't committed: roadmap.json is built from the files on disk (marked local)"]);
+    expect(warnings).toEqual(["roadmap/ has changes that aren’t committed: roadmap.json is built from the files on disk (marked local)"]);
   });
 
   it("refuses a symlink on disk", async () => {
@@ -187,7 +187,7 @@ describe("buildBundle locally", () => {
     }
     const warnings: string[] = [];
     const { source, files } = await buildBundle({ repoDir: dir, app: APP, env: {}, warn: (m) => warnings.push(m) });
-    expect(warnings).toEqual([`${dir} isn't a git repository (it has no .git folder): roadmap.json is built from the files on disk (marked local)`]);
+    expect(warnings).toEqual([`${dir} isn’t a git repository (it has no .git folder): roadmap.json is built from the files on disk (marked local)`]);
     expect(Object.keys(files).sort()).toEqual(["boxes/b1.yaml", "people.yaml", "settings.yaml"]);
     expect(source).toMatchObject({ repo: "", branch: "", commit: "", tree: null, local: true, history: [] });
   });
@@ -224,7 +224,7 @@ describe("buildBundle locally", () => {
     const warnings: string[] = [];
     const { source } = await buildBundle({ repoDir: r.dir, app: APP, env: {}, warn: (m) => warnings.push(m) });
     expect(source.repo).toBe("");
-    expect(warnings).toEqual(["Can't tell the repository from the origin remote (https://gitlab.example/group/sub/roadmap.git): source.repo is empty"]);
+    expect(warnings).toEqual(["Can’t tell the repository from the origin remote (https://gitlab.example/group/sub/roadmap.git): source.repo is empty"]);
   });
 
   it("names no repository when origin is on another host: the app talks to github.com only", async () => {

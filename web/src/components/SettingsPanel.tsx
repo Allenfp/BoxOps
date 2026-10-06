@@ -295,9 +295,9 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
       ["Enter", "Open the box or PTO"],
       ["I", "Show or hide the box’s scale card (Esc hides it too)"],
       ["Space", "Pick the box or PTO up, to move it"],
-      ["N", "New box in the lane (after the box you're on), or PTO in a PTO row"],
+      ["N", "New box in the lane (after the box you’re on), or PTO in a PTO row"],
       ["Delete", "Delete the box or PTO (undo brings it back)"],
-      [`${ALT}↑ ${ALT}↓`, "On a department's name: move it up or down"],
+      [`${ALT}↑ ${ALT}↓`, "On a department’s name: move it up or down"],
       ["?", "This list"],
     ],
   },
@@ -321,28 +321,28 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
   {
     title: "In the table and People",
     rows: [
-      ["Enter", `Keep what's typed in the cell, staying in it (${shortcut("Z")} then undoes it)`],
+      ["Enter", `Keep what’s typed in the cell, staying in it (${shortcut("Z")} then undoes it)`],
       ["Esc", "Put a text cell back as it was (a choice, or a whole date, is kept at once)"],
       [shifted("Enter"), "New line in a description or notes"],
-      [`${ALT}↑ ${ALT}↓`, "On a department's name in the table: move it up or down"],
+      [`${ALT}↑ ${ALT}↓`, "On a department’s name in the table: move it up or down"],
     ],
   },
   {
     title: "In a date field",
     rows: [
       [`${ALT}↓`, "Open the calendar (or its button beside the date)"],
-      ["Esc", "Drop half a date typed (a whole date is kept as soon as it's typed)"],
+      ["Esc", "Drop half a date typed (a whole date is kept as soon as it’s typed)"],
     ],
   },
   {
     title: "In the calendar",
     rows: [
-      ["← →", "The working day before or after (weekends can't be picked)"],
+      ["← →", "The working day before or after (weekends can’t be picked)"],
       ["↑ ↓", "A week earlier or later"],
       ["Home, End", "Monday or Friday of that week"],
       [PAGE_KEYS, `The month before or after; with ${SHIFT}, the year`],
       ["Enter or Space", "Pick the day"],
-      ["Esc", "Close the calendar, not the editor it's in"],
+      ["Esc", "Close the calendar, not the editor it’s in"],
     ],
   },
   {
@@ -360,8 +360,8 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
       ["Double-click a lane", "Add a box"],
       ["Double-click a PTO row", "Book time off"],
       ["Drag a box", "Move it (near an edge, the timeline scrolls on)"],
-      ["Drag a box's ends", "Change its dates"],
-      ["Drag a department's name", "Move it up or down"],
+      ["Drag a box’s ends", "Change its dates"],
+      ["Drag a department’s name", "Move it up or down"],
     ],
   },
 ];

@@ -95,9 +95,9 @@ describe("readRoadmapGit", () => {
     const sub = repo.commit({ roadmap: { mode: "160000", sha: link } });
     expect(await problems(readRoadmapGit(repo.dir, sub))).toEqual([": is a submodule, not a folder"]);
     const none = repo.commit({ "other/settings.yaml": "x\n" });
-    expect(await problems(readRoadmapGit(repo.dir, none))).toEqual([`: isn't in commit ${none.slice(0, 12)}`]);
-    await expect(readRoadmapGit(repo.dir, none, "../roadmap")).rejects.toThrow("isn't a folder BoxOps reads");
-    await expect(readRoadmapGit(repo.dir, "HEAD")).rejects.toThrow("isn't a full commit SHA");
+    expect(await problems(readRoadmapGit(repo.dir, none))).toEqual([`: isn’t in commit ${none.slice(0, 12)}`]);
+    await expect(readRoadmapGit(repo.dir, none, "../roadmap")).rejects.toThrow("isn’t a folder BoxOps reads");
+    await expect(readRoadmapGit(repo.dir, "HEAD")).rejects.toThrow("isn’t a full commit SHA");
   });
 
   it("reads only a repository's own .git folder", async () => {
@@ -110,7 +110,7 @@ describe("readRoadmapGit", () => {
     symlinkSync(join(r.repo.dir, ".git"), join(other, ".git"));
     await expect(readRoadmapGit(other, r.commit)).rejects.toThrow("is a symlink");
     rmSync(join(other, ".git"));
-    await expect(readRoadmapGit(other, r.commit)).rejects.toThrow("isn't a git repository");
+    await expect(readRoadmapGit(other, r.commit)).rejects.toThrow("isn’t a git repository");
   });
 
   it("ignores GIT_* variables in its environment (GIT_DIR can't point it elsewhere)", async () => {
@@ -142,7 +142,7 @@ describe("readRoadmapGit", () => {
       }
     };
     expect(missing()).toBe(true);
-    await expect(readRoadmapGit(clone, r.commit)).rejects.toThrow("roadmap/boxes/b1.yaml isn't in this clone (a partial clone?)");
+    await expect(readRoadmapGit(clone, r.commit)).rejects.toThrow("roadmap/boxes/b1.yaml isn’t in this clone (a partial clone?)");
     // An older git: one that drops GIT_NO_LAZY_FETCH, first on the PATH.
     const bin = mkdtempSync(join(tmpdir(), "boxops-test-"));
     temps.push(bin);
@@ -162,7 +162,7 @@ describe("readRoadmapGit", () => {
   });
 
   it("refuses text that isn't UTF-8, and file names that aren't", async () => {
-    expect(await problems(read(repoWith({ ...ROADMAP, "boxes/b2.yaml": NOT_UTF8 })))).toEqual(["boxes/b2.yaml: isn't UTF-8 text"]);
+    expect(await problems(read(repoWith({ ...ROADMAP, "boxes/b2.yaml": NOT_UTF8 })))).toEqual(["boxes/b2.yaml: isn’t UTF-8 text"]);
     const repo = new TestRepo();
     repos.push(repo);
     // update-index takes the name's bytes as given.
@@ -172,7 +172,7 @@ describe("readRoadmapGit", () => {
     });
     const tree = repo.git(["write-tree"]);
     const commit = repo.git(["commit-tree", tree, "-m", "x"]);
-    expect(await problems(readRoadmapGit(repo.dir, commit))).toEqual(["caf\uFFFD.yaml: has a name that isn't UTF-8"]);
+    expect(await problems(readRoadmapGit(repo.dir, commit))).toEqual(["caf\uFFFD.yaml: has a name that isn’t UTF-8"]);
   });
 
   it("enforces the limits: files, size per roadmap file, size in all", async () => {
@@ -193,7 +193,7 @@ describe("readRoadmapGit", () => {
     const object = join(r.repo.dir, ".git", "objects", sha.slice(0, 2), sha.slice(2));
     chmodSync(object, 0o644);
     writeFileSync(object, deflateSync(Buffer.from("blob 7\0id: b9\n")));
-    expect(await problems(read(r))).toEqual([`boxes/b1.yaml: doesn't match its git object id ${sha} (a damaged repository?)`]);
+    expect(await problems(read(r))).toEqual([`boxes/b1.yaml: doesn’t match its git object id ${sha} (a damaged repository?)`]);
   });
 });
 
@@ -259,7 +259,7 @@ describe("readRoadmapDir", () => {
 
   it("keeps a BOM; refuses text that isn't UTF-8", async () => {
     expect((await readRoadmapDir(folder({ "settings.yaml": "\uFEFFformat: 1\n" }))).files["settings.yaml"]).toBe("\uFEFFformat: 1\n");
-    expect(await problems(readRoadmapDir(folder({ "settings.yaml": NOT_UTF8 })))).toEqual(["settings.yaml: isn't UTF-8 text"]);
+    expect(await problems(readRoadmapDir(folder({ "settings.yaml": NOT_UTF8 })))).toEqual(["settings.yaml: isn’t UTF-8 text"]);
   });
 
   it("refuses symlinked files and folders, and anything that isn't a plain file", async () => {
@@ -288,8 +288,8 @@ describe("readRoadmapDir", () => {
     const link = join(folder({}), "roadmap");
     symlinkSync(real, link);
     expect(await problems(readRoadmapDir(link))).toEqual([": is a symlink; give the folder it points to"]);
-    expect(await problems(readRoadmapDir(join(real, "settings.yaml")))).toEqual([": isn't a folder"]);
-    expect(await problems(readRoadmapDir(join(real, "nope")))).toEqual([": doesn't exist"]);
+    expect(await problems(readRoadmapDir(join(real, "settings.yaml")))).toEqual([": isn’t a folder"]);
+    expect(await problems(readRoadmapDir(join(real, "nope")))).toEqual([": doesn’t exist"]);
   });
 
   it("enforces the same limits", async () => {

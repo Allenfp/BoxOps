@@ -86,7 +86,7 @@ describe("files the loader couldn't fully read", () => {
     const aliased = { ...ROADMAP, "boxes/b1.yaml": box("b1", "B1X", "description: *t\n").replace("title: Box B1X", "title: &t Billing rewrite") };
     const { roadmap, issues } = loadRoadmap(aliased);
     expect(roadmap.boxes.find((b) => b.id === "b1")).toMatchObject({ title: "Billing rewrite", description: "Billing rewrite" });
-    const problem = "*t is a YAML alias of the value marked &t: the app can't edit one without the other, so it doesn't save this file; write the value out in full";
+    const problem = "*t is a YAML alias of the value marked &t: the app can’t edit one without the other, so it doesn’t save this file; write the value out in full";
     expect(issues).toEqual([expect.objectContaining({ path: "boxes/b1.yaml", message: problem, line: 8, lossy: true })]);
     expect(refused(aliased, (s) => editBox(s, "b1", { title: "Billing v2" }))).toEqual([{ path: "boxes/b1.yaml", problems: [problem] }]);
     // An anchor nothing refers to is just a name.
@@ -96,7 +96,7 @@ describe("files the loader couldn't fully read", () => {
   it("include a department whose lane another department already has", () => {
     const files = { ...ROADMAP, "departments/ops.yaml": "id: ops\ncode: OP\nname: Ops\nlanes:\n  - id: e2\n  - id: o1\n" };
     const out = refused(files, (s) => ({ ...s, departments: s.departments.map((x) => (x.id === "ops" ? { ...x, name: "Operations" } : x)) }));
-    expect(out).toEqual([{ path: "departments/ops.yaml", problems: ['lane "e2" is already used in department "eng", so it\'s left out here'] }]);
+    expect(out).toEqual([{ path: "departments/ops.yaml", problems: ['lane "e2" is already used in department "eng", so it’s left out here'] }]);
   });
 });
 

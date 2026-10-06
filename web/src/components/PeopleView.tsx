@@ -192,7 +192,7 @@ export function PeopleView(props: Props) {
     },
     remove: (p, button) => {
       const n = boxCount.get(p.id) ?? 0;
-      if (n === 0 || confirm(`Remove ${p.name}? They're on ${counted(n, "box", "boxes")} and will be unassigned. You can undo this.`)) {
+      if (n === 0 || confirm(`Remove ${p.name}? They’re on ${counted(n, "box", "boxes")} and will be unassigned. You can undo this.`)) {
         focusAfterRow(button, ".row-delete");
         onRemove(p.id);
       }

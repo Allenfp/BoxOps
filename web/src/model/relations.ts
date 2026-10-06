@@ -63,10 +63,10 @@ export const RELATION_TYPES: Record<RelationType, RuleKind> = {
     holds: (a, b) => a.start <= b.end && b.start <= a.end,
   },
   apart: {
-    label: "doesn't overlap {other}",
-    inverse: "doesn't overlap {other}",
+    label: "doesn’t overlap {other}",
+    inverse: "doesn’t overlap {other}",
     should: "not overlap {other}",
-    short: "doesn't overlap",
+    short: "doesn’t overlap",
     holds: (a, b) => a.end < b.start || b.end < a.start,
   },
 };
@@ -114,7 +114,7 @@ function explain(type: RelationType, a: Box, b: Box): string {
     case "ends_with":
       return `it ends ${prettyDay(a.end)}, the other ${prettyDay(b.end)}`;
     case "overlaps":
-      return `they don't share any days`;
+      return `they don’t share any days`;
     case "apart":
       return `they share ${days(span(Math.max(a.start, b.start), Math.min(a.end, b.end)))}`;
   }

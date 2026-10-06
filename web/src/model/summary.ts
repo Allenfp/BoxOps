@@ -148,7 +148,7 @@ export function describeChanges(base: DraftState, draft: DraftState, changes: Ch
     const before = lines.length;
     if (was.name !== d.name) lines.push({ kind: "changed", text: `Renamed department **${was.name}** to **${d.name}**` });
     if (was.code !== d.code) {
-      lines.push(withWas("changed", `${d.name}'s code is now **${d.code}**`, was.code, `: its boxes are ${d.code}-…`));
+      lines.push(withWas("changed", `${d.name}’s code is now **${d.code}**`, was.code, `: its boxes are ${d.code}-…`));
     }
     if (was.color !== d.color) lines.push({ kind: "changed", text: `Changed the colour of **${d.name}**` });
     const wasIds = was.lanes.map((l) => l.id);

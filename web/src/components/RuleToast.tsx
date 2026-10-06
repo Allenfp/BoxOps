@@ -57,7 +57,7 @@ export function RuleToast({ broken, onDismiss }: { broken: Violation[]; onDismis
           <li key={i}>{v.message}</li>
         ))}
       </ul>
-      <span className="hint">Nothing is blocked; it's a heads-up.</span>
+      <span className="hint">Nothing is blocked; it’s a heads-up.</span>
       <button className="icon-button" onClick={onDismiss} aria-label="Dismiss">
         <Icon name="x" size={16} />
       </button>

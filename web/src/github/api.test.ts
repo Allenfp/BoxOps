@@ -74,7 +74,7 @@ describe("requests", () => {
   it("refuse a branch or repository name that could steer the call, before any request", async () => {
     const { calls, fetchImpl } = fake(() => json(200, {}));
     const gh = new GitHubClient({ token: "t", fetch: fetchImpl });
-    await expect(gh.head("acme/roadmap", "../../../../user")).rejects.toThrow(/isn't a valid branch name/);
+    await expect(gh.head("acme/roadmap", "../../../../user")).rejects.toThrow(/isn’t a valid branch name/);
     await expect(gh.head("acme/..", "main")).rejects.toThrow(/repository name/);
     await expect(gh.blob("acme/roadmap", "../x")).rejects.toThrow(/git object id/);
     expect(calls).toHaveLength(0);

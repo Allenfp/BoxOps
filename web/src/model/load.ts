@@ -157,7 +157,7 @@ export function assemble(parsed: Record<string, ParsedFile>, ignored: string[] =
         laneOwner.set(lane.id, dept.id);
         return true;
       }
-      drop(path, `lane "${lane.id}" is already used in department "${owner}", so it's left out here`, f.lines.lanes);
+      drop(path, `lane "${lane.id}" is already used in department "${owner}", so it’s left out here`, f.lines.lanes);
       const ownerPath = sources.departments.get(owner)!;
       fail(ownerPath, `lane "${lane.id}" is also used in department "${dept.id}"`, lines(ownerPath).lanes);
       return false;
@@ -219,7 +219,7 @@ export function assemble(parsed: Record<string, ParsedFile>, ignored: string[] =
     if (others.length) fail(path, `code: "${box.code}" is also used by ${others.map((b) => b.id).join(", ")}`, lines(path).code, `code: "${box.code}" shared`);
     for (const rel of box.relations ?? []) {
       if (!byCode.has(rel.box)) fail(path, `relations: no box has code "${rel.box}"`, lines(path).relations);
-      else if (rel.box === box.code) fail(path, "relations: a box can't have a rule about itself", lines(path).relations);
+      else if (rel.box === box.code) fail(path, "relations: a box can’t have a rule about itself", lines(path).relations);
     }
   }
 

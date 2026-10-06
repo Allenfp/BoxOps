@@ -51,7 +51,7 @@ describe("the roadmap with problems across files", () => {
   it("has the problems it means to", () => {
     const { issues } = loadRoadmap(messy(fixture.files), ["README.md"]);
     const messages = issues.map((i) => i.message).join("\n");
-    for (const part of ["already used by", "is already used in department", "is also used in department", 'is also used by department "data-eng"', 'department: "nowhere"', "doesn't match the file name", 'code: "D9U" is also used by', "does not exist in any department", "is not defined in settings.yaml", 'engineers: "ghost"', 'no box has code "ZZZ"', "can't have a rule about itself", "YAML syntax error", "unexpected file", "rename this file"]) {
+    for (const part of ["already used by", "is already used in department", "is also used in department", 'is also used by department "data-eng"', 'department: "nowhere"', "doesn’t match the file name", 'code: "D9U" is also used by', "does not exist in any department", "is not defined in settings.yaml", 'engineers: "ghost"', 'no box has code "ZZZ"', "can’t have a rule about itself", "YAML syntax error", "unexpected file", "rename this file"]) {
       expect(messages).toContain(part);
     }
   });

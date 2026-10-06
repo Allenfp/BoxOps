@@ -136,13 +136,13 @@ class Reader {
     if (alias) {
       const line = alias.range ? this.lines.linePos(alias.range[0]).line : undefined;
       const name = alias.source;
-      this.report(`*${name} is a YAML alias of the value marked &${name}: the app can't edit one without the other, so it doesn't save this file; write the value out in full`, line, true);
+      this.report(`*${name} is a YAML alias of the value marked &${name}: the app can’t edit one without the other, so it doesn’t save this file; write the value out in full`, line, true);
     }
     let value: unknown;
     try {
       value = doc.toJS() ?? {};
     } catch (e) {
-      this.drop(`YAML can't be read: ${(e as Error).message.split("\n")[0]}`);
+      this.drop(`YAML can’t be read: ${(e as Error).message.split("\n")[0]}`);
       return null;
     }
     if (!isObj(value)) {
@@ -310,10 +310,10 @@ function fileId(path: string): string {
 /** A department or box is loaded only from the file named after it, so a save can never write it into another file. */
 function matchesFile(r: Reader, top: At, id: string, path: string): boolean {
   if (id !== fileId(path)) {
-    r.drop(`id: "${id}" doesn't match the file name "${fileId(path)}", so this file is skipped`, top.obj, "id");
+    r.drop(`id: "${id}" doesn’t match the file name "${fileId(path)}", so this file is skipped`, top.obj, "id");
     return false;
   }
-  if (WINDOWS_RESERVED.test(id)) r.fail(`id: "${id}" can't be a file name on Windows, so the repo can't be checked out there`, top.obj, "id");
+  if (WINDOWS_RESERVED.test(id)) r.fail(`id: "${id}" can’t be a file name on Windows, so the repo can’t be checked out there`, top.obj, "id");
   return true;
 }
 
@@ -370,7 +370,7 @@ function loadPeople(text: string, r: Reader): Person[] {
     const department = r.optStr(at, "department");
     if (department !== undefined) r.noDepartment(department, `${at.label}department: "${department}" does not exist`, at.obj, "department");
     const email = r.optStr(at, "email");
-    if (email !== undefined && !EMAIL.test(email)) r.fail(`${at.label}email: "${email}" doesn't look like an email address`, at.obj, "email");
+    if (email !== undefined && !EMAIL.test(email)) r.fail(`${at.label}email: "${email}" doesn’t look like an email address`, at.obj, "email");
     people.push({
       id,
       name,
@@ -470,7 +470,7 @@ function readFormat(r: Reader, top: At): number | null {
     return null;
   }
   if (v < 1) {
-    r.fail(`format: ${v} isn't supported; this BoxOps reads format ${FORMAT}`, top.obj, "format");
+    r.fail(`format: ${v} isn’t supported; this BoxOps reads format ${FORMAT}`, top.obj, "format");
     return null;
   }
   if (v > FORMAT) r.fail(`format: ${v} needs a newer BoxOps (this one reads format ${FORMAT})`, top.obj, "format");
@@ -565,12 +565,12 @@ function loadBox(r: Reader, path: string, text: string): Box | null {
 
   let epic = r.optStr(top, "epic");
   if (epic !== undefined && !LINK.test(epic)) {
-    r.drop(`epic: "${epic}" isn't an http(s) link`, top.obj, "epic");
+    r.drop(`epic: "${epic}" isn’t an http(s) link`, top.obj, "epic");
     epic = undefined;
   }
   const links = r.strList(top, "links")?.filter((link) => {
     if (LINK.test(link)) return true;
-    r.drop(`links: "${link}" isn't an http(s) link`, top.obj, "links");
+    r.drop(`links: "${link}" isn’t an http(s) link`, top.obj, "links");
     return false;
   });
 
@@ -607,7 +607,7 @@ function readRelations(r: Reader, top: At): Relation[] | undefined {
     }
     const ref = box.trim().toUpperCase().replace(/^[A-Z0-9]+-(?=[A-Z0-9]{3}$)/, "");
     if (!BOX_CODE.test(ref)) {
-      r.drop(`${at.label}box: "${box}" isn't a box code`, at.obj, "box");
+      r.drop(`${at.label}box: "${box}" isn’t a box code`, at.obj, "box");
       continue;
     }
     // Kept (not merged) so the rules stay in step with the file's own list.

@@ -1324,7 +1324,7 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
                         {extraName}
                       </span>
                     ) : (
-                      <span className="overflow-note" title="The FTE fits, but the free space is split up, so these boxes can't be drawn in one piece inside the lanes.">
+                      <span className="overflow-note" title="The FTE fits, but the free space is split up, so these boxes can’t be drawn in one piece inside the lanes.">
                         {extraName}
                       </span>
                     )}

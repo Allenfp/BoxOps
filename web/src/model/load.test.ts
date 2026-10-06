@@ -51,7 +51,7 @@ const ROWS: Row[] = [
   ["format missing", { "settings.yaml": settings({ format: null }) }, [["settings.yaml", 'format: missing; add "format: 1" at the top of this file']]],
   ["format newer than this BoxOps reads", { "settings.yaml": settings({ format: "2" }) }, [["settings.yaml", "format: 2 needs a newer BoxOps (this one reads format 1)"]]],
   ["format not a whole number", { "settings.yaml": settings({ format: '"1"' }) }, [["settings.yaml", 'format: expected a whole number, like "format: 1"']]],
-  ["format 0 or below", { "settings.yaml": settings({ format: "0" }) }, [["settings.yaml", "format: 0 isn't supported; this BoxOps reads format 1"]]],
+  ["format 0 or below", { "settings.yaml": settings({ format: "0" }) }, [["settings.yaml", "format: 0 isn’t supported; this BoxOps reads format 1"]]],
   ["fiscal_year_start_month outside 1-12", { "settings.yaml": settings({ fiscal_year_start_month: "13" }) }, [["settings.yaml", "fiscal_year_start_month: expected a month number from 1 to 12", "lossy"]]],
   ["default_zoom not weeks, months or quarters", { "settings.yaml": settings({ default_zoom: "days" }) }, [["settings.yaml", "default_zoom: expected one of weeks, months, quarters", "lossy"]]],
   ["a type without a colour", { "settings.yaml": settings({ types: "[{id: project, name: Project}]" }) }, [["settings.yaml", 'type "project", color: required text is missing', "lossy"]]],
@@ -65,7 +65,7 @@ const ROWS: Row[] = [
   ["a type id that isn't valid", { "settings.yaml": settings({ types: '[{id: project, name: Project, color: "#4f7cff"}, {id: Big Bet, name: Big bet, color: "#8a94a6"}]' }) }, [["settings.yaml", 'type "Big Bet", id: "Big Bet" must be lowercase letters, digits, dashes or underscores', "lossy"]]],
   ["title that YAML reads as true or false", { "settings.yaml": settings({ title: "True" }) }, [["settings.yaml", 'title: YAML reads True as true or false, not text; put it in quotes: title: "True"', "lossy"]]],
   // departments
-  ["a department id that doesn't match the file name", { "departments/ops.yaml": dept({ id: "operations", code: "OP", lanes: "[{id: o1}]" }) }, [["departments/ops.yaml", "id: \"operations\" doesn't match the file name \"ops\", so this file is skipped", "lossy"]]],
+  ["a department id that doesn’t match the file name", { "departments/ops.yaml": dept({ id: "operations", code: "OP", lanes: "[{id: o1}]" }) }, [["departments/ops.yaml", "id: \"operations\" doesn’t match the file name \"ops\", so this file is skipped", "lossy"]]],
   ["a department id that isn't valid", { "departments/Ops.yaml": dept({ id: "Ops", code: "OP", lanes: "[{id: o1}]" }) }, [["departments/Ops.yaml", 'id: "Ops" must be lowercase letters, digits, dashes or underscores', "lossy"]]],
   ["a department without a name", { "departments/ops.yaml": dept({ id: "ops", code: "OP", name: null, lanes: "[{id: o1}]" }) }, [["departments/ops.yaml", "name: required text is missing", "lossy"]]],
   ["a department without a code", { "departments/eng.yaml": dept({ code: null }) }, [["departments/eng.yaml", "code: required text is missing"]]],
@@ -83,11 +83,11 @@ const ROWS: Row[] = [
   ["a lane without an id", { "departments/eng.yaml": dept({ lanes: "[{id: e1}, {id: e2}, {name: Spare}]" }) }, [["departments/eng.yaml", "lane 3, id: required text is missing", "lossy"]]],
   ["a lane that isn't a mapping", { "departments/eng.yaml": dept({ lanes: "[{id: e1}, e2]" }) }, [["departments/eng.yaml", "lane 2: expected a mapping", "lossy"]]],
   ["a lane id used twice in a department", { "departments/eng.yaml": dept({ lanes: "[{id: e1}, {id: e1, fte: 0.5}]" }) }, [["departments/eng.yaml", 'lane "e1", id: "e1" appears twice in this department, so the second one is skipped', "lossy"]]],
-  ["a lane id used in two departments", { "departments/ops.yaml": dept({ id: "ops", code: "OP", name: "Ops", lanes: "[{id: e2}]" }) }, [["departments/ops.yaml", "lane \"e2\" is already used in department \"eng\", so it's left out here", "lossy"], ["departments/eng.yaml", 'lane "e2" is also used in department "ops"']]],
-  ["a file name Windows reserves", { "departments/aux.yaml": dept({ id: "aux", code: "AX", name: "Aux", lanes: "[{id: x1}]" }) }, [["departments/aux.yaml", "id: \"aux\" can't be a file name on Windows, so the repo can't be checked out there"]]],
+  ["a lane id used in two departments", { "departments/ops.yaml": dept({ id: "ops", code: "OP", name: "Ops", lanes: "[{id: e2}]" }) }, [["departments/ops.yaml", "lane \"e2\" is already used in department \"eng\", so it’s left out here", "lossy"], ["departments/eng.yaml", 'lane "e2" is also used in department "ops"']]],
+  ["a file name Windows reserves", { "departments/aux.yaml": dept({ id: "aux", code: "AX", name: "Aux", lanes: "[{id: x1}]" }) }, [["departments/aux.yaml", "id: \"aux\" can’t be a file name on Windows, so the repo can’t be checked out there"]]],
   // boxes
   ["a box without a title", { "boxes/b1.yaml": box({ title: null }) }, [["boxes/b1.yaml", "title: required text is missing", "lossy"]]],
-  ["a box id that doesn't match the file name", { "boxes/b1.yaml": box({ id: "b9" }) }, [["boxes/b1.yaml", "id: \"b9\" doesn't match the file name \"b1\", so this file is skipped", "lossy"]]],
+  ["a box id that doesn’t match the file name", { "boxes/b1.yaml": box({ id: "b9" }) }, [["boxes/b1.yaml", "id: \"b9\" doesn’t match the file name \"b1\", so this file is skipped", "lossy"]]],
   ["a box id used twice (.yaml and .yml)", { "boxes/b1.yml": box({ code: "B3X" }) }, [["boxes/b1.yml", 'id: "b1" is already used by boxes/b1.yaml, so this file is skipped', "lossy"]]],
   ["a malformed box code", { "boxes/b1.yaml": box({ code: "B1" }) }, [["boxes/b1.yaml", 'code: "B1" must be exactly 3 capital letters or digits', "lossy"]]],
   ["a box code YAML reads as a number", { "boxes/b1.yaml": box({ code: "2E5" }) }, [["boxes/b1.yaml", 'code: YAML reads 2E5 as a number, not text; put it in quotes: code: "2E5"', "lossy"]]],
@@ -103,12 +103,12 @@ const ROWS: Row[] = [
   ["an engineer listed twice", { "boxes/b1.yaml": box({ engineers: "[sam, sam]" }) }, [["boxes/b1.yaml", 'engineers: "sam" is listed twice']]],
   ["an engineer id YAML reads as a number", { "boxes/b1.yaml": box({ engineers: "[1042]" }) }, [["boxes/b1.yaml", 'engineers: YAML reads 1042 as a number, not text; put it in quotes: "1042"', "lossy"]]],
   ["a rule with an unknown type", { "boxes/b1.yaml": box({ relations: "[{type: soon, box: B2X}]" }) }, [["boxes/b1.yaml", 'rule "soon B2X", type: "soon" must be one of before, after, during, starts_with, ends_with, overlaps, apart', "lossy"]]],
-  ["a rule whose box isn't a code", { "boxes/b1.yaml": box({ relations: "[{type: before, box: second}]" }) }, [["boxes/b1.yaml", "rule \"before second\", box: \"second\" isn't a box code", "lossy"]]],
+  ["a rule whose box isn't a code", { "boxes/b1.yaml": box({ relations: "[{type: before, box: second}]" }) }, [["boxes/b1.yaml", "rule \"before second\", box: \"second\" isn’t a box code", "lossy"]]],
   ["a rule pointing at a code no box has", { "boxes/b1.yaml": box({ relations: "[{type: before, box: ZZZ}]" }) }, [["boxes/b1.yaml", 'relations: no box has code "ZZZ"']]],
-  ["a rule pointing at its own box", { "boxes/b1.yaml": box({ relations: "[{type: before, box: EN-B1X}]" }) }, [["boxes/b1.yaml", "relations: a box can't have a rule about itself"]]],
+  ["a rule pointing at its own box", { "boxes/b1.yaml": box({ relations: "[{type: before, box: EN-B1X}]" }) }, [["boxes/b1.yaml", "relations: a box can’t have a rule about itself"]]],
   ["the same rule twice", { "boxes/b1.yaml": box({ relations: "[{type: before, box: B2X}, {type: before, box: EN-B2X}]" }) }, [["boxes/b1.yaml", 'rule "before EN-B2X": the same rule is listed twice']]],
-  ["an epic that isn't an http(s) link", { "boxes/b1.yaml": box({ epic: "jira.example.com/browse/X-1" }) }, [["boxes/b1.yaml", "epic: \"jira.example.com/browse/X-1\" isn't an http(s) link", "lossy"]]],
-  ["a link that isn't an http(s) link", { "boxes/b1.yaml": box({ links: '[https://example.com, "javascript:alert(1)"]' }) }, [["boxes/b1.yaml", "links: \"javascript:alert(1)\" isn't an http(s) link", "lossy"]]],
+  ["an epic that isn’t an http(s) link", { "boxes/b1.yaml": box({ epic: "jira.example.com/browse/X-1" }) }, [["boxes/b1.yaml", "epic: \"jira.example.com/browse/X-1\" isn’t an http(s) link", "lossy"]]],
+  ["a link that isn’t an http(s) link", { "boxes/b1.yaml": box({ links: '[https://example.com, "javascript:alert(1)"]' }) }, [["boxes/b1.yaml", "links: \"javascript:alert(1)\" isn’t an http(s) link", "lossy"]]],
   ["tags that aren't a list", { "boxes/b1.yaml": box({ tags: "cost" }) }, [["boxes/b1.yaml", "tags: expected a list of text", "lossy"]]],
   ["a title YAML reads as a number", { "boxes/b1.yaml": box({ title: "1.10" }) }, [["boxes/b1.yaml", 'title: YAML reads 1.10 as a number, not text; put it in quotes: title: "1.10"', "lossy"]]],
   ["a description that is a mapping", { "boxes/b1.yaml": box({ description: "{a: b}" }) }, [["boxes/b1.yaml", "description: expected text, not a mapping", "lossy"]]],
@@ -118,7 +118,7 @@ const ROWS: Row[] = [
   ["a person id that isn't valid", { "people.yaml": people("[{id: Sam Lee, name: Sam}]") }, [["people.yaml", 'person "Sam Lee", id: "Sam Lee" must be lowercase letters, digits, dashes or underscores', "lossy"]]],
   ["a person id used twice", { "people.yaml": people("[{id: sam, name: Sam}, {id: sam, name: Sam Two}]") }, [["people.yaml", 'person "sam", id: "sam" appears twice, so the second entry is skipped', "lossy"]]],
   ["a person's department that doesn't exist", { "people.yaml": people("[{id: sam, name: Sam, department: ops}]") }, [["people.yaml", 'person "sam", department: "ops" does not exist']]],
-  ["an invalid email", { "people.yaml": people("[{id: sam, name: Sam, email: sam.example.com}]") }, [["people.yaml", "person \"sam\", email: \"sam.example.com\" doesn't look like an email address"]]],
+  ["an invalid email", { "people.yaml": people("[{id: sam, name: Sam, email: sam.example.com}]") }, [["people.yaml", "person \"sam\", email: \"sam.example.com\" doesn’t look like an email address"]]],
   ["a person id YAML reads as a number", { "people.yaml": people("[{id: 1042, name: Sam}]"), "boxes/b1.yaml": box() }, [["people.yaml", 'person "1042", id: YAML reads 1042 as a number, not text; put it in quotes: id: "1042"', "lossy"]]],
   ["PTO without a start", { "people.yaml": people("[{id: sam, name: Sam, pto: [{end: 2026-12-18}]}]") }, [["people.yaml", 'person "sam", PTO 1, start: required text is missing', "lossy"]]],
   ["PTO with a malformed date", { "people.yaml": people("[{id: sam, name: Sam, pto: [{start: 2026-12-14, end: 2026-12-32}]}]") }, [["people.yaml", 'person "sam", PTO "2026-12-14", end: "2026-12-32" is not a valid YYYY-MM-DD date', "lossy"]]],
@@ -180,7 +180,7 @@ describe("what the loader makes of it", () => {
 
   it("gives problems a line number", () => {
     const { issues } = load({ "people.yaml": "people:\n  - id: sam\n    name: Sam\n    email: nope\n" });
-    expect(issues.map((i) => [i.message, i.line])).toEqual([['person "sam", email: "nope" doesn\'t look like an email address', 4]]);
+    expect(issues.map((i) => [i.message, i.line])).toEqual([['person "sam", email: "nope" doesn’t look like an email address', 4]]);
   });
 });
 
@@ -210,7 +210,7 @@ describe("copied files", () => {
       expect(roadmap.boxes.find((b) => b.id === "b1")!.title).toBe("One");
       expect(sources.boxes.get("b1")).toBe("boxes/b1.yaml");
       const name = copy.slice(6, -5);
-      expect(issues.map((i) => [i.path, i.message])).toEqual([[copy, `id: "b1" doesn't match the file name "${name}", so this file is skipped`]]);
+      expect(issues.map((i) => [i.path, i.message])).toEqual([[copy, `id: "b1" doesn’t match the file name "${name}", so this file is skipped`]]);
       expect([...lossy.keys()]).toEqual([copy]);
     });
   }

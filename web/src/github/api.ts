@@ -169,7 +169,7 @@ export function isBranchName(name: string): boolean {
 }
 
 function checked(what: string, value: string, ok: boolean): string {
-  if (!ok) throw new Error(`“${value}” isn't a valid ${what}.`);
+  if (!ok) throw new Error(`“${value}” isn’t a valid ${what}.`);
   return value;
 }
 const repoPath = (repo: string) => `/repos/${checked("repository name", repo, isRepoName(repo))}`;
