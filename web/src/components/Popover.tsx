@@ -1,10 +1,12 @@
 // A toolbar button with a small panel below it. Closes on Escape, a click
-// elsewhere, or when something in it calls `close`. Opened from the keyboard,
-// focus goes into the panel; Escape, or a choice made in it, puts focus back
-// on the button (a click elsewhere leaves it where the click put it).
+// elsewhere, focus moving elsewhere (Tab out of it), or when something in it
+// calls `close`. Opened from the keyboard, focus goes into the panel; Escape,
+// or a choice made in it, puts focus back on the button (a click elsewhere
+// leaves it where the click put it). Escape with focus somewhere else (an
+// editor) closes it and goes on to what has focus.
 
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { focusLater, tabbable } from "../a11y/focus";
+import { focusLater, focusLost, tabbable } from "../a11y/focus";
 
 /** The least room between a panel and the window's edge (px). */
 const EDGE = 8;
@@ -46,8 +48,10 @@ export function Popover(props: {
     const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
     const esc = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      e.stopPropagation(); // don't also close the box editor underneath
       setOpen(false);
+      // Focus elsewhere (in an editor, say): the Escape is for what has it too, and focus stays.
+      if (!ref.current?.contains(document.activeElement) && !focusLost()) return;
+      e.stopPropagation(); // don't also close the box editor underneath
       trigger.current?.focus();
     };
     document.addEventListener("pointerdown", away);
@@ -85,7 +89,12 @@ export function Popover(props: {
   };
 
   return (
-    <div className={`popover ${props.className ?? ""}`} ref={ref}>
+    <div
+      className={`popover ${props.className ?? ""}`}
+      ref={ref}
+      // Tabbing (or clicking) away to something else closes it; focus going nowhere (a Safari click) is the press's to judge.
+      onBlur={(e) => e.relatedTarget instanceof Node && !e.currentTarget.contains(e.relatedTarget) && setOpen(false)}
+    >
       <button
         ref={trigger}
         id={triggerId}

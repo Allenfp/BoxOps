@@ -101,7 +101,8 @@ straight to `main`, and the site updates within a minute.
   lane (or PTO in a PTO row), Delete deletes the box or PTO you're on, and
   Option or Alt with ↑ ↓ on a department's name moves it, in the table too.
   ? lists the keys. Dialogs and the box and PTO editors keep Tab inside
-  them, Esc closes them, and focus goes back where it was. In the table and
+  them, Esc closes them (and the toolbar's menus, which close too once
+  focus leaves them), and focus goes back where it was. In the table and
   People, Enter keeps what's typed and stays in the cell (⌘Z or Ctrl+Z then
   undoes it), and Esc puts it back. Dates are typed as YYYY-MM-DD (deleting
   the text of one that can be left out, like a lane's or the table's date

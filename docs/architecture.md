@@ -567,7 +567,9 @@ when a focused element is removed.
   are `aria-modal` and keep Tab, Shift+Tab and Alt+Tab going round their own
   controls, buttons included; a click outside still closes them. Menus
   opened from the keyboard start on their first control, and Esc puts focus
-  back on their button. The Engineers list is a small dialog of checkboxes
+  back on their button; focus leaving a menu (Tab) closes it, and Esc with
+  focus elsewhere (in an editor) closes it and goes on to that. The
+  Engineers list is a small dialog of checkboxes
   (↑ and ↓ move between them) whose button is named by who's assigned;
   like the calendar, it's fixed on the screen below its button (above it
   without room there), so the box editor's scrolling fields and the table
@@ -602,9 +604,10 @@ when a focused element is removed.
   `key`, or by its place (`code`) when the layout doesn't type Latin
   letters. No shortcut takes Alt: Windows reports AltGr as Ctrl+Alt, and
   AltGr+S types Polish ś, not a save. Undo, redo and ⌘S never act behind
-  the save dialog, the key or the shortcuts list, nor with a menu open; in
-  the editors they do, as the editing happens there. In a text field ⌘Z is
-  the field's own, but in a table cell left with Enter or Esc, until
+  the save dialog, the key or the shortcuts list, nor with a menu open
+  (with focus in it, on its button or nowhere); in the editors they do, as
+  the editing happens there. In a text field ⌘Z is the field's own, but in
+  a table cell left with Enter or Esc, until
   something's typed, it's the app's (`data-settled`), as it was once focus
   had left. Delete and Backspace delete only the box or PTO block that has
   focus on the timeline, once however long they're held, and nothing from

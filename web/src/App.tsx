@@ -952,14 +952,19 @@ function RoadmapView(props: ViewProps) {
 
   // ⌘S (Ctrl+S), undo and redo. Text fields keep their own native
   // undo. None of them acts on what's behind a dialog (saving, the key) or an
-  // open menu; the editors (box, PTO, department, team settings) aren't that,
-  // being where the editing is. Letters are matched by the key's place too,
-  // for keyboards that don't type Latin ones. None takes Alt: Windows reports
+  // open menu (a toolbar menu while focus is in it or on its button, or
+  // nowhere: with focus somewhere else, in the timeline say, it's not in the
+  // way); the editors (box, PTO, department, team settings) aren't that, being
+  // where the editing is. Letters are matched by the key's place too, for
+  // keyboards that don't type Latin ones. None takes Alt: Windows reports
   // AltGr as Ctrl+Alt, and AltGr+S types a letter (Polish ś), not a save.
   const onKey = (e: KeyboardEvent) => {
     const mod = (e.metaKey || e.ctrlKey) && !e.altKey;
     const key = letter(e);
-    const behind = !!document.querySelector("dialog[open]:not(.dept-editor, .team-settings), .popover-panel, .picker-menu, .calendar");
+    const menu = document.querySelector(".popover-panel")?.closest(".popover");
+    const behind =
+      !!document.querySelector("dialog[open]:not(.dept-editor, .team-settings), .picker-menu, .calendar") ||
+      (!!menu && (menu.contains(document.activeElement) || focusLost()));
     if (mod && key === "s") {
       // Like saving a file — and never the browser's "save page" dialog, read-only too.
       e.preventDefault();

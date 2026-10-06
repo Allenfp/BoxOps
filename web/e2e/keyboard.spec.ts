@@ -28,6 +28,38 @@ test("the settings menu opened from the keyboard starts on its first control; Es
   await expect(gear).toBeFocused();
 });
 
+test("a toolbar menu closes once focus leaves it; one left open doesn't take Escape or ⌘Z from where focus is", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 5);
+  const gear = page.getByRole("button", { name: "Settings", exact: true });
+  const menu = page.getByRole("dialog", { name: "Settings" });
+  // Opened from the keyboard, then focus goes on (Tab, or a screen reader's cursor): it closes, focus staying there.
+  await gear.focus();
+  await page.keyboard.press("Enter");
+  await expect(menu.getByRole("button", { name: "Light" })).toBeFocused();
+  await box(page, DAGSTER).focus();
+  await expect(menu).toHaveCount(0);
+  await expect(box(page, DAGSTER)).toBeFocused();
+
+  // Opened by a click that leaves focus nowhere (as Safari's does), then focus put on a box: still open,
+  // but not in the way. ⌘Z undoes…
+  await gear.click();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await box(page, DAGSTER).focus();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("No changes");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  // …and Escape in the box's editor closes the editor, focus going back to the box (not to the gear).
+  await page.keyboard.press("Enter");
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await expect(editor.getByRole("textbox", { name: "Title" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await expect(menu).toHaveCount(0);
+  await expect(box(page, DAGSTER)).toBeFocused();
+});
+
 test("dialogs from the gear menu are named, start on themselves or their first field, and give focus back to the gear", async ({ page, github: _ }) => {
   const gear = page.getByRole("button", { name: "Settings", exact: true });
   for (const [item, name] of [
