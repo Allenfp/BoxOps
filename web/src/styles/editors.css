@@ -91,6 +91,10 @@
 .editor :where(textarea) {
   resize: vertical;
 }
+/* Text fields and selects one height, in every engine: WebKit draws a native select shorter, whatever its padding. */
+.editor :where(input:is([type="text"], [type="url"], [type="email"], :not([type])), select) {
+  height: 28px;
+}
 .editor :where(input, select, textarea):focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-color: var(--accent);
@@ -98,6 +102,7 @@
 /* The title (the PTO editor's engineer): bigger, and a field only when pointed at or focused. */
 .editor-title {
   flex: 1;
+  height: auto;
   font-size: 16px;
   font-weight: 600;
   background: transparent;

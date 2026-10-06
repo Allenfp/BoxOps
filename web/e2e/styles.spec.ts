@@ -28,6 +28,15 @@ test("the box editor's title is its own: big and borderless, a field only when p
   expect(await css(title, "border-top-color", "outline-style")).toEqual({ "border-top-color": focused, "outline-style": "solid" });
 });
 
+test("the box editor's selects (FTE, Lane, Type, Flag) are as tall as its text and date fields", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  const height = (l: Locator) => l.evaluate((e) => e.getBoundingClientRect().height);
+  const field = await height(editor.getByRole("textbox", { name: "Start" }));
+  expect(await height(editor.getByRole("textbox", { name: "Epic link" }))).toBe(field);
+  for (const name of ["FTE", "Lane", "Type", "Flag"]) expect(await height(editor.getByLabel(name, { exact: true })), name).toBe(field);
+});
+
 test("the Engineers list's names are list items, not the editor's field labels", async ({ page, github: _ }) => {
   await box(page, DAGSTER).click();
   await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ }).click();
