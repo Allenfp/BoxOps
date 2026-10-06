@@ -3,7 +3,7 @@
 // by the app, not the table, so it lasts while another view is shown.
 
 import type { Person, TimeOff } from "../model/types";
-import { samePto } from "./rowKeys";
+import { samePto } from "../model/pto";
 
 /**
  * The PTO entries added in this session. An entry is a PTO object on a

@@ -7,7 +7,7 @@
 // once, which follows them through renames.
 
 import type { Box, Person, TimeOff } from "../model/types";
-import { ptoKey, type PtoRef } from "../model/pto";
+import { ptoKey, type PtoRef, samePto } from "../model/pto";
 
 /**
  * Each box's row key, `b:<code>`. Codes are unique, but a roadmap can have
@@ -70,9 +70,6 @@ interface Entry {
   index: number;
   pto: TimeOff;
 }
-
-/** The same dates and note. */
-export const samePto = (a: TimeOff, b: TimeOff) => a.start === b.start && a.end === b.end && (a.note ?? "") === (b.note ?? "");
 
 /**
  * Keys for PTO entries, `p<n>`. An entry is a PTO object on a person: as long

@@ -7,7 +7,7 @@
 // table opened on a value that won't do) isn't announced as news; and one
 // put right before it's read out isn't read out.
 
-import { useAnnounce } from "../a11y/announce";
+import { useAnnounce } from "../a11y/useAnnounce";
 
 export function FieldError({
   id,

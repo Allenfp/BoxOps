@@ -4,7 +4,7 @@ import { type PtoRef, ptoRange } from "../model/pto";
 import type { Person, Roadmap } from "../model/types";
 import { Icon } from "./Icon";
 import { useToday } from "./useToday";
-import { useAnnounce, useAnnounceResults } from "../a11y/announce";
+import { useAnnounce, useAnnounceResults } from "../a11y/useAnnounce";
 import { focusAfterRow } from "../a11y/focus";
 import { RowKeys } from "../table/rowKeys";
 import { keepPlace, type PeopleRow, peopleRows } from "../table/tableModel";

@@ -15,6 +15,9 @@ export interface PtoRef {
 
 export const ptoKey = (ref: PtoRef) => `${ref.personId}#${ref.index}`;
 
+/** The same dates and note. */
+export const samePto = (a: TimeOff, b: TimeOff) => a.start === b.start && a.end === b.end && (a.note ?? "") === (b.note ?? "");
+
 /** Every PTO entry of these people, with its owner. */
 export function ptoEntries(people: Person[]) {
   return people.flatMap((person) => (person.pto ?? []).map((pto, index) => ({ person, index, pto })));

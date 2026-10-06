@@ -22,9 +22,10 @@ Browser (static app on GitHub Pages)            GitHub (this repo)
 web/
   src/
     App.tsx                 loading, polling, saving, toolbar, views
-    a11y/                   announce (live regions), focus (putting focus
-                            back, Tab inside editors), keys (shortcut labels,
-                            letters in any keyboard layout), motion (smooth
+    a11y/                   announce (live regions; useAnnounce, the hooks
+                            the views use), focus (putting focus back, Tab
+                            inside editors), keys (shortcut labels, letters
+                            in any keyboard layout), motion (smooth
                             scrolling unless less motion is asked for)
     site.ts                 the site's roadmap.json, app updates, reloading
     saving.ts               what saving needs, fetched once editing starts
