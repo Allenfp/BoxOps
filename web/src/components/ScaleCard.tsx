@@ -4,7 +4,8 @@
 // keyboard focus (Timeline.tsx); fetched the first time it's shown. As WCAG
 // 1.4.13 asks, the pointer can move onto it without it going, Escape puts
 // it away (and does nothing else), and it stays until then, or until the
-// pointer leaves (shown by the pointer) or focus does (shown by I). It lets
+// pointer leaves (shown by the pointer) or focus leaves the box (shown by
+// I: by a key, a press, or a screen reader's cursor moving on). It lets
 // the pointer through (it covers the rows below: their cells, or the next
 // lane's boxes), so where the pointer is is watched instead; a press or the
 // wheel there reaches what's under it, and puts the card away, as does any
@@ -27,12 +28,14 @@ export interface ScaleCardProps {
   departments: Department[];
   /** What it's shown for: placed under it, at its right (above it without room below), following it as the page scrolls. */
   anchor: RefObject<HTMLElement | null>;
-  /** Shown by the pointer (over `anchor`): it stays while the pointer's over either, and goes once it isn't. Else by the keyboard: it goes when `anchor` loses focus. */
+  /** Shown by the pointer (over `anchor`): it stays while the pointer's over either, and goes once it isn't. Else by the keyboard: it goes when `focused` (else `anchor`) loses focus. */
   hover: boolean;
+  /** Shown by the keyboard: what had focus then (the box, of which `anchor` may be a part). */
+  focused?: RefObject<HTMLElement | null>;
   onClose(): void;
 }
 
-export function ScaleCard({ box, departments, anchor, hover, onClose }: ScaleCardProps) {
+export function ScaleCard({ box, departments, anchor, hover, focused, onClose }: ScaleCardProps) {
   const card = useRef<HTMLDivElement>(null);
   /** Where the anchor is on screen, as of when the card was shown or the page last scrolled. */
   const [at, setAt] = useState<DOMRect | null>(() => anchor.current?.getBoundingClientRect() ?? null);
@@ -90,10 +93,14 @@ export function ScaleCard({ box, departments, anchor, hover, onClose }: ScaleCar
       on("pointerout", watch);
       listening.signal.addEventListener("abort", () => clearTimeout(leaving));
     } else {
-      el.addEventListener("blur", away, { signal: listening.signal });
+      // Focus moving on, however it does: a key, a press, a screen reader's cursor, a script; or already
+      // gone while the card was fetched.
+      const owner = focused?.current ?? el;
+      if (!owner.contains(document.activeElement)) away();
+      else owner.addEventListener("focusout", (e) => owner.contains(e.relatedTarget as Node | null) || away(), { signal: listening.signal });
     }
     return () => listening.abort();
-  }, [anchor, hover]);
+  }, [anchor, hover, focused]);
 
   if (!at) return null;
   const stats = scaleStats(box, departments);

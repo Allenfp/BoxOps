@@ -566,7 +566,7 @@ test("Option or Alt with ↑ ↓ on a department's heading moves it, keeping foc
   expect(github.file("departments/data-eng.yaml")).toContain("order: 2\n");
 });
 
-test("a box's scale card can be hovered, shows with I (not with focus alone), and Escape puts it away", async ({ page, github: _ }) => {
+test("a box's scale card can be hovered, shows with I (not with focus alone), and Escape or focus moving on puts it away", async ({ page, github: _ }) => {
   const pop = page.getByRole("tooltip");
   // The pointer can go from the number onto the card, and the card stays.
   const number = box(page, DAGSTER).locator(".box-scale");
@@ -614,6 +614,13 @@ test("a box's scale card can be hovered, shows with I (not with focus alone), an
   await page.keyboard.press("Space");
   await expect(pop).toHaveCount(0);
   await page.keyboard.press("Escape");
+  // So does focus moving on with no key pressed (a screen reader's cursor, say), to another box.
+  await page.keyboard.press("i");
+  await expect(pop).toBeVisible();
+  await box(page, CDC).evaluate((el: HTMLElement) => el.focus());
+  await expect(box(page, CDC)).toBeFocused();
+  await expect(pop).toHaveCount(0);
+  await box(page, DAGSTER).focus();
 
   // The card covers the lane below: a click on a box there, the pointer on the card, reaches the box (the card
   // lets it through), and the card goes.

@@ -394,9 +394,10 @@ export function Timeline(props: Props) {
     say(`Added PTO in ${departments.find((d) => d.id === deptId)?.name ?? "the department"}, ${spokenRange(start, end)}.`);
   };
 
-  /** The box whose scale card I showed, and what the card is placed by (its scale number, else the box). */
+  /** The box whose scale card I showed, what the card is placed by (its scale number, else the box), and the box (focus leaving it puts the card away). */
   const [scaleCard, setScaleCard] = useState<string | null>(null);
   const cardAnchor = useRef<HTMLElement | null>(null);
+  const cardCell = useRef<HTMLElement | null>(null);
   const cardBox = scaleCard === null ? undefined : boxes.find((b) => b.id === scaleCard);
 
   const onGridKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -426,6 +427,7 @@ export function Timeline(props: Props) {
       e.preventDefault();
       if (e.repeat) return;
       cardAnchor.current = cell.querySelector<HTMLElement>(".scale-number") ?? cell;
+      cardCell.current = cell;
       setScaleCard((cur) => (cur === id ? null : id));
     } else if (letter(e.nativeEvent) === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
@@ -1076,7 +1078,7 @@ export function Timeline(props: Props) {
           {showToday && <div className="today-line" aria-hidden style={{ left: LABEL_W + todayX }} />}
           {cardBox && (
             <Suspense fallback={null}>
-              <ScaleCard box={cardBox} departments={departments} anchor={cardAnchor} hover={false} onClose={() => setScaleCard(null)} />
+              <ScaleCard box={cardBox} departments={departments} anchor={cardAnchor} hover={false} focused={cardCell} onClose={() => setScaleCard(null)} />
             </Suspense>
           )}
         </div>
