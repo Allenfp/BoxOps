@@ -1,12 +1,14 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { DEPARTMENT_COLORS } from "../model/structure";
 
 // WCAG 2.2 AA contrast, from the stylesheet's own colours: 4.5:1 for text
 // (none of the app's is large), 3:1 for what shows a control or its state.
 // Each theme's tokens are read from tokens.css, and colours mixed from them
 // from the rules that mix them, so a changed colour is checked as it is. A
-// box's type colour is the team's choice: what's on a box is checked against
-// every colour a box can be (an even sweep of the sRGB cube).
+// box's type colour and a department's colour are the team's choice: what's
+// drawn in one is checked against every colour it can be (an even sweep of
+// the sRGB cube, and the colours a new department is offered).
 
 const read = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 const TOKENS = read("./tokens.css");
@@ -114,7 +116,7 @@ const UI = 3;
 
 interface Check {
   what: string;
-  /** The colour in front; with `opacity` (a token), drawn at that much. */
+  /** The colour in front; with `opacity` (a token, or a number), drawn at that much. */
   fg: string;
   /** What it's on; translucent, it's drawn over `on` first. */
   bg: string;
@@ -136,6 +138,9 @@ const rule = (file: string, selector: string, prop: string) => {
 /** A rule's text colour on its background, both from the stylesheet, on each of `PANELS`. */
 const pair = (what: string, file: string, selector: string, min = TEXT, fgFrom = selector): Check[] =>
   PANELS.map((s) => ({ what: `${what} on ${s}`, fg: rule(file, fgFrom, "color"), bg: rule(file, selector, "background"), on: `var(${s})`, min }));
+
+/** A collapsed department's capacity bars' opacity, if they have one (the line is drawn solid). */
+const BARS = declarations(CSS.timeline, ".use-chart.bars .use-marks rect").get("opacity");
 
 const CHECKS: Check[] = [
   ...SURFACES.flatMap((s) => [
@@ -164,6 +169,8 @@ const CHECKS: Check[] = [
   { what: "the Today line", fg: rule("timeline", ".today-line", "background"), bg: "var(--surface)", min: UI },
   { what: "the switch's knob, off", fg: "var(--on-accent)", bg: "var(--control-border)", min: UI },
   { what: "the switch's knob, on", fg: "var(--on-accent)", bg: "var(--accent)", min: UI },
+  { what: "a collapsed department's capacity line, above 100%", fg: rule("timeline", ".use-marks.over", "color"), bg: "var(--surface)", min: UI },
+  { what: "a collapsed department's capacity bars, above 100%", fg: rule("timeline", ".use-marks.over", "color"), bg: "var(--surface)", opacity: BARS, min: UI },
   ...pair("a flag (At risk)", "timeline", ".box-flag"),
   ...pair("the warnings button", "toolbar", ".warnings-button"),
   ...pair('the "added" badge', "dialogs", ".kind-added"),
@@ -194,6 +201,7 @@ const BOX = {
   muted: rule("timeline", ".box-code", "color"),
   jira: rule("timeline", ".box-code.jira", "color"),
 };
+/** What's on a box or drawn in its type colour, `--c`, or in a department's, `--dept`: checked on every colour of `SWEEP`. */
 const BOX_CHECKS: Check[] = [
   { what: "a box's title", fg: "var(--text)", bg: BOX.fill, min: TEXT },
   { what: "a box's code and scale", fg: BOX.muted, bg: BOX.fill, min: TEXT },
@@ -206,14 +214,21 @@ const BOX_CHECKS: Check[] = [
   { what: "a box's resize grip", fg: rule("timeline", ".box:hover .handle::after", "background"), bg: BOX.fill, min: UI },
   { what: "a finished box's resize grip", fg: rule("timeline", ".box:hover .handle::after", "background"), bg: BOX.finished, min: UI },
   { what: "a collapsed department's box (a bar on its heading's row)", fg: rule("timeline", ".box.compact", "background"), bg: "var(--surface)", min: UI },
+  { what: "a collapsed department's capacity line", fg: rule("timeline", ".use-marks", "color"), bg: "var(--surface)", min: UI },
+  { what: "a collapsed department's capacity bars", fg: rule("timeline", ".use-marks", "color"), bg: "var(--surface)", opacity: BARS, min: UI },
 ];
-/** Type colours: every 51st step of each channel, 216 of them. */
-const SWEEP = [0, 51, 102, 153, 204, 255].flatMap((r) => [0, 51, 102, 153, 204, 255].flatMap((g) => [0, 51, 102, 153, 204, 255].map((b) => `rgb(${r}, ${g}, ${b})`)));
+/** Type and department colours: every 51st step of each channel, 216 of them, and the departments' own. */
+const SWEEP = [
+  ...[0, 51, 102, 153, 204, 255].flatMap((r) => [0, 51, 102, 153, 204, 255].flatMap((g) => [0, 51, 102, 153, 204, 255].map((b) => `rgb(${r}, ${g}, ${b})`))),
+  ...DEPARTMENT_COLORS,
+];
+/** `tokens` with `c` as both the box's type colour and the department's. */
+const colored = (tokens: Tokens, c: string): Tokens => new Map([...tokens, ["--c", c], ["--dept", c]]);
 
 const ratio = (check: Check, tokens: Tokens) => {
   const base = check.on ? color(check.on, tokens) : ([255, 255, 255, 1] as Rgba);
   const bg = over(color(check.bg, tokens), base);
-  const opacity = check.opacity ? Number(tokens.get(check.opacity)) : 1;
+  const opacity = check.opacity === undefined ? 1 : Number(check.opacity.startsWith("--") ? tokens.get(check.opacity) : check.opacity);
   return contrast(over(color(check.fg, tokens), bg, opacity), bg);
 };
 
@@ -226,10 +241,10 @@ describe("contrast", () => {
       expect(short).toEqual([]);
     });
 
-    it(`meets WCAG AA on a box of any type colour in the ${theme} theme`, () => {
+    it(`meets WCAG AA on a box of any type colour, and in any department colour, in the ${theme} theme`, () => {
       const short: string[] = [];
       for (const check of BOX_CHECKS) {
-        const worst = SWEEP.map((c) => ({ c, r: ratio(check, new Map([...tokens, ["--c", c]])) })).sort((a, b) => a.r - b.r)[0];
+        const worst = SWEEP.map((c) => ({ c, r: ratio(check, colored(tokens, c)) })).sort((a, b) => a.r - b.r)[0];
         if (worst.r < check.min) short.push(`${check.what}: ${worst.r.toFixed(2)} on ${worst.c}`);
       }
       expect(short).toEqual([]);
@@ -244,7 +259,7 @@ if (process.env.CONTRAST_REPORT) {
     lines.push(`${theme}`);
     for (const c of CHECKS) lines.push(`${ratio(c, tokens).toFixed(2).padStart(6)} ${c.min}  ${c.what}`);
     for (const check of BOX_CHECKS) {
-      const rs = SWEEP.map((c) => ({ c, r: ratio(check, new Map([...tokens, ["--c", c]])) })).sort((a, b) => a.r - b.r);
+      const rs = SWEEP.map((c) => ({ c, r: ratio(check, colored(tokens, c)) })).sort((a, b) => a.r - b.r);
       lines.push(`${rs[0].r.toFixed(2).padStart(6)} ${check.min}  ${check.what} (worst ${rs[0].c})`);
     }
   }

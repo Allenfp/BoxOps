@@ -809,15 +809,16 @@ button.collapse-all:hover {
   stroke-dasharray: 3 3;
   opacity: var(--quiet);
 }
+/* The line or bars: the department's colour half-way to the text's (3:1 on the row, whatever the colour, as
+   a collapsed department's boxes are), solid; above 100%, the warning colour. */
 .use-marks {
-  color: var(--dept);
+  color: color-mix(in srgb, var(--dept) 50%, var(--text));
 }
 .use-marks.over {
   color: var(--warn);
 }
 .use-chart.bars .use-marks rect {
   fill: currentColor;
-  opacity: 0.75;
 }
 .use-chart.line polyline {
   fill: none;
