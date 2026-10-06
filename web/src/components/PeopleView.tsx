@@ -52,8 +52,8 @@ const COLUMNS = [
   { label: "", className: "col-actions" },
 ];
 
-/** How tall each kind of row is until one's been measured. */
-const ROW_HEIGHTS: Record<PeopleRow["kind"], number> = { group: 36, person: 53, empty: 33, "add-dept": 49 };
+/** How tall each kind of row is until one's been measured, at the comfortable density. */
+const ROW_HEIGHTS: Record<PeopleRow["kind"], number> = { group: 36, person: 53, empty: 36, "add-dept": 44 };
 
 export function PeopleView(props: Props) {
   const { roadmap, readOnly = false, collapsed, onToggleDepartment, onAdd, onUpdate, onRemove, onCheckpoint } = props;

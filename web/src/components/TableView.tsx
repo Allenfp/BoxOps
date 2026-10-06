@@ -88,8 +88,8 @@ const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: null, label: "", className: "col-actions" },
 ];
 
-/** How tall each kind of row is until one's been measured (they're measured as they're drawn). */
-const ROW_HEIGHTS: Record<TableRow["kind"], number> = { group: 36, box: 53, empty: 33, pto: 35, "add-pto": 31, "add-dept": 49 };
+/** How tall each kind of row is until one's been measured, at the comfortable density (they're measured as they're drawn). */
+const ROW_HEIGHTS: Record<TableRow["kind"], number> = { group: 36, box: 53, empty: 36, pto: 33, "add-pto": 32, "add-dept": 44 };
 
 /** A box's text a search looks in, and its engineers' names. */
 interface Searchable {
