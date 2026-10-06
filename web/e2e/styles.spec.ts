@@ -576,7 +576,28 @@ test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, ed
   await bookPto(page, github);
   expect(await crowded(page)).toEqual([]);
   await box(page, DAGSTER).click();
-  await expect(page.getByRole("dialog", { name: /^Edit / })).toBeVisible();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await expect(editor).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  // With its Engineers list open, then a date's calendar.
+  await editor.getByRole("button", { name: /^Engineers/ }).click();
+  await expect(page.getByRole("dialog", { name: "Engineers" }).getByRole("checkbox").first()).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Engineers" })).toHaveCount(0);
+  await editor.getByRole("button", { name: "Choose date" }).first().click();
+  await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Choose date" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await page.locator(".pto-block").first().click();
+  await expect(page.getByRole("dialog", { name: /^Edit PTO/ })).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+  await expect(page.getByRole("dialog", { name: /warning/ })).toBeVisible();
   expect(await crowded(page)).toEqual([]);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Edit Analytics" }).click();
@@ -589,6 +610,11 @@ test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, ed
   expect(await crowded(page)).toEqual([]);
   await page.getByRole("button", { name: "Team settings…" }).click();
   await expect(page.getByRole("dialog", { name: "Team settings" }).getByRole("button", { name: "Add type" })).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Keyboard shortcuts…" }).click();
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
   expect(await crowded(page)).toEqual([]);
   await page.keyboard.press("Escape");
   for (const view of ["Table", "People"]) {
