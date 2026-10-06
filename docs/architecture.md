@@ -541,19 +541,20 @@ when a focused element is removed.
   to its date); deleting an `optional` date's text clears it. The calendar
   is the APG date-picker dialog, opened by **Choose date** (described by
   the field's label and its date; a Tab stop as buttons are, so in Safari
-  as its Tab setting says outside the editors, and never in table rows) or
-  Option/Alt+↓ in the field (opening it drops half a date typed, quietly):
-  named "Choose date", `aria-modal`, its grid a `<table role="grid">`
-  labelled by the month heading (a live region) with one Tab stop, the day
-  the keys move (`calendarMove` in `model/dates.ts`), which follows focus
-  put on a day another way (VoiceOver's cursor). Weekends are shown but
-  `aria-disabled` and skipped, as they can't be picked; a day's name is
-  its date and weekday, with "today" and "selected" where they apply.
-  Tab goes round its controls, Today and Clear too; Esc closes it and
-  nothing else (it's `preventDefault`ed, so a native dialog around it
-  isn't cancelled); focus has the ring when a key put it there. A press
-  outside closes it, and focus the press put nowhere goes back to what
-  opened it; a field made read-only closes it.
+  as its Tab setting says outside the box and PTO editors, and never in
+  table rows) or Option/Alt+↓ in the field, which drops half a date typed
+  there, quietly. It's named "Choose date", `aria-modal`, its grid a
+  `<table role="grid">` labelled by the month heading (a live region) with
+  one Tab stop, the day the keys move (`calendarMove` in
+  `model/dates.ts`), which follows focus put on a day another way
+  (VoiceOver's cursor). Weekends are shown but `aria-disabled` and
+  skipped, as they can't be picked; a day's name is its date and weekday,
+  with "today" and "selected" where they apply. Tab goes round its
+  controls, Today and Clear too; Esc closes it and nothing else (it's
+  `preventDefault`ed, so a native dialog around it isn't cancelled); focus
+  has the ring when a key put it there. A press outside closes it, and
+  focus the press put nowhere goes back to what opened it; a field made
+  read-only closes it.
 - **Keys.** ⌘ and Ctrl both work everywhere; labels say ⌘ on Apple's
   platforms and Ctrl elsewhere (`a11y/keys.ts`). A letter is matched by
   `key`, or by its place (`code`) when the layout doesn't type Latin
