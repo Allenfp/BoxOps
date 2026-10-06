@@ -511,7 +511,8 @@ when a focused element is removed.
   innermost one open when it's written. Announced: each step of a save and
   where it went (the saved banner), others' saves coming in, an app update
   and the tab going read-only, other banners that appear once the roadmap
-  is up, search results in the table and People once typing pauses, a rule
+  is up, search results in the table (boxes, and PTO when only PTO
+  matches) and People once typing pauses, a rule
   an edit breaks and a rising warning count, deletions (with how to undo
   them), undo and redo, and field problems and date corrections as they
   appear (each correction, the same one twice too; not a problem already

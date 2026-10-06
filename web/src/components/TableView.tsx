@@ -511,13 +511,15 @@ export function TableView(props: Props) {
     [],
   );
 
-  // How many boxes a search or date filter leaves, said once typing pauses (as the toolbar shows it).
+  // How many boxes a search or date filter leaves, said once typing pauses (as the toolbar shows it); with none, and
+  // PTO that matches, that too (its rows are shown, so "no boxes match" alone would say there's nothing).
   const shown = groups.matched;
+  const ptoShown = useMemo(() => [...ptoByDept.values()].reduce((n, list) => n + list.filter((r) => !r.held).length, 0), [ptoByDept]);
+  const ptoToo = searching && ptoShown > 0;
   const shownText =
     shown === 0 && searching
-      ? q
-        ? `No boxes match “${query.trim()}”${dated ? " in these dates" : ""}.`
-        : "No boxes in these dates."
+      ? (q ? `No boxes match “${query.trim()}”${dated ? " in these dates" : ""}` : "No boxes in these dates") +
+        (ptoToo ? `; ${ptoShown} PTO ${ptoShown === 1 ? "entry matches" : "entries match"}.` : ".")
       : `${shown === boxes.length ? "" : `${shown} of `}${boxes.length} box${boxes.length === 1 ? "" : "es"}.`;
   useAnnounceResults(`${query.trim()}\n${from}\n${to}\n${hideFinished}`, shownText);
   // Nothing to show: say why.
@@ -727,7 +729,7 @@ export function TableView(props: Props) {
         {printing && (
           <PrintBoxes rows={model.rows} lanes={lanes} names={names} settings={settings} totals={totals} collapsed={(id) => collapsed.has(id) && !searching} />
         )}
-        {shown === 0 && <p className="empty">{empty}</p>}
+        {shown === 0 && !ptoToo && <p className="empty">{empty}</p>}
       </div>
     </div>
   );

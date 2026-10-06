@@ -437,6 +437,10 @@ test("a new search or new dates show their rows from the top; hiding finished ro
   await page.locator(".table-search").fill("pto");
   await expect.poll(top).toBe(0);
   await expect.poll(first).toMatch(/^2 /);
+  // Only PTO matches: that's said, not just that no box does (nor is that shown under its rows).
+  const pto = people.reduce((n, p) => n + p.pto.length, 0);
+  await expect.poll(() => heard(page)).toContain(`No boxes match “pto”; ${pto} PTO entries match.`);
+  await expect(page.locator(".table-view p.empty")).toHaveCount(0);
   await scrolledDown();
   await page.locator(".table-search").fill("");
   await expect.poll(top).toBe(0);
