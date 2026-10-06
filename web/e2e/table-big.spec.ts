@@ -30,6 +30,16 @@ const titleOf = (row: Locator) => row.getByLabel("Title").inputValue();
 const scrollTo = (page: Page, y: number) => scroller(page).evaluate((el, y) => (el.scrollTop = (el.scrollHeight - el.clientHeight) * y), y);
 /** A few frames on: the rows scrolled to are drawn and measured. */
 const settled = (page: Page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
+/**
+ * What the page hears as its window loses focus (⌘Tab, the address bar): a blur and focusout with nowhere they
+ * went to, the field keeping focus; and as it gets it back (`back`), a focus and focusin from nowhere.
+ */
+const windowBlur = (page: Page, back = false) =>
+  page.evaluate((back) => {
+    const el = document.activeElement!;
+    el.dispatchEvent(new FocusEvent(back ? "focus" : "blur", { relatedTarget: null }));
+    el.dispatchEvent(new FocusEvent(back ? "focusin" : "focusout", { bubbles: true, relatedTarget: null }));
+  }, back);
 
 /** The rows on screen, below the sticky header: their aria-rowindex and first cell's text or field. */
 const onScreen = (page: Page) =>
@@ -147,6 +157,38 @@ test("a row being edited stays drawn and keeps what's typed, scrolled away and b
   await expect(description).toHaveValue(/ Not saved yet\./);
 });
 
+test("the window losing focus lets go of nothing: a row scrolled away keeps focus, and one edited out stays", async ({ page, github: _ }) => {
+  const description = dataRows(page).filter({ has: page.getByLabel("Description") }).nth(3).getByLabel("Description");
+  await description.click();
+  const field = await description.elementHandle();
+  await scrollTo(page, 0.9);
+  await settled(page);
+  await windowBlur(page);
+  await settled(page);
+  expect(await field!.evaluate((el) => el.isConnected && el === document.activeElement)).toBe(true);
+  // Back in the window, the table stays where it was scrolled to.
+  const top = await scroller(page).evaluate((el) => el.scrollTop);
+  await windowBlur(page, true);
+  await settled(page);
+  expect(await scroller(page).evaluate((el) => el.scrollTop)).toBe(top);
+
+  // A row edited into the finished, with those hidden: still there, saying so, until focus goes elsewhere.
+  await scrollTo(page, 0);
+  await page.getByRole("switch", { name: /Hide finished boxes/ }).check();
+  const row = page.locator('[data-dept-id="dept-01"] tr.box-row').nth(1);
+  const title = await titleOf(row);
+  const edited = page.locator("tr.box-row").filter({ has: page.locator(`input[aria-label="Title"][value="${title}"]`) });
+  await row.getByLabel("End").fill("2026-09-04");
+  await edited.getByLabel("Start").fill("2026-08-03");
+  await expect(edited.locator(".held-note")).toBeVisible();
+  await windowBlur(page);
+  await settled(page);
+  expect(await edited.locator(".held-note").count()).toBe(1);
+  await expect(edited.getByLabel("Start")).toBeFocused();
+  await page.locator(".table-search").focus();
+  await expect(edited).toHaveCount(0);
+});
+
 test("Tab and Shift+Tab go on to the next row and back, from a row scrolled away, clear of the sticky header and column", async ({ page, github: _ }) => {
   const rows = page.locator("tr.box-row");
   const next = await titleOf(rows.nth(6));
@@ -208,6 +250,25 @@ test("a row being edited keeps its place and stays shown until focus leaves it; 
   await expect(page.locator("tr.box-row .held-note")).toBeVisible();
   await page.locator(".table-search").focus();
   await expect(page.locator("tr.box-row")).toHaveCount(0);
+});
+
+test("a sort button clicked lets go of the row being edited, for good", async ({ page, github: _ }) => {
+  await page.getByLabel("From date").fill("2026-10-05");
+  const row = page.locator('[data-dept-id="dept-01"] tr.box-row').nth(1);
+  const title = await titleOf(row);
+  const edited = page.locator("tr.box-row").filter({ has: page.locator(`input[aria-label="Title"][value="${title}"]`) });
+  await row.getByLabel("End").fill("2026-09-04");
+  await expect(edited.locator(".held-note")).toBeVisible();
+  // (Chromium and Firefox focus the button; WebKit, like Safari, doesn't.)
+  await page.getByRole("button", { name: /^Start/ }).click();
+  await expect(edited).toHaveCount(0);
+  // The table drawn again for some other reason (scrolled away and back): still gone.
+  for (const y of [0.5, 0]) {
+    await scrollTo(page, y);
+    await settled(page);
+  }
+  expect(await page.locator(".held-note").count()).toBe(0);
+  expect(await edited.count()).toBe(0);
 });
 
 test("a row edited out of the dates or into the finished stays, saying so, until focus leaves it", async ({ page, github: _ }) => {

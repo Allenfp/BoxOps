@@ -16,6 +16,8 @@ export function useActiveRow(scroller: RefObject<HTMLElement | null>) {
   const [held, setHeld] = useState<string | null>(null);
   const pressing = useRef(false);
   const latest = useRef<string | null>(null);
+  /** What kept focus through a blur to nowhere: focused again, it's the window coming back. */
+  const stayed = useRef<Element | null>(null);
   const follow = (key: string | null) => {
     latest.current = key;
     setActive(key);
@@ -36,13 +38,24 @@ export function useActiveRow(scroller: RefObject<HTMLElement | null>) {
     };
   }, []);
   const handlers = {
+    // Focus anywhere else in the scroller (the header's sort buttons) lets go of the row too. The window coming
+    // back leaves the table scrolled where it was.
     onFocus: (e: FocusEvent) => {
-      const key = rowKeyOf(e.target);
-      if (key !== null) follow(key);
-      keepInView(scroller.current, e.target);
+      follow(rowKeyOf(e.target));
+      if (e.target !== stayed.current) keepInView(scroller.current, e.target);
+      stayed.current = null;
     },
+    // A blur to nowhere is also what the window losing focus gives (⌘Tab, the address bar), while the field keeps
+    // it: checked once the blur's over, so only focus that's really gone lets go of the row (else a row scrolled
+    // away would be taken off the page, and focus with it, and one edited out of the search would go).
     onBlur: (e: FocusEvent) => {
-      if (!(e.relatedTarget instanceof Node && scroller.current?.contains(e.relatedTarget))) follow(null);
+      stayed.current = null;
+      if (e.relatedTarget instanceof Node && scroller.current?.contains(e.relatedTarget)) return;
+      queueMicrotask(() => {
+        const el = document.activeElement;
+        if (scroller.current?.contains(el)) stayed.current = el;
+        else follow(null);
+      });
     },
     onPointerDown: (e: PointerEvent) => {
       pressing.current = true;
