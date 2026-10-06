@@ -52,6 +52,8 @@
    * What's drawn over what. Inside a scrolling view (the timeline, the table): items, a selected or
    * focused one (and the Today line, the table's header), the pinned label or title column, what has
    * focus in it, a box or PTO block being dragged (and its dates), the timeline's header and its corner.
+   * A plain 0 or 1 elsewhere is local: over the rest of its own box or heading (the grips), or under
+   * every item (a lane's closed dates, a table field's two lines).
    */
   --z-item: 1;
   --z-raised: 2;
