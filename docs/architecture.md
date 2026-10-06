@@ -677,7 +677,9 @@ when a focused element is removed.
   with full-size targets. The **+** buttons are 24 px; they show on hover
   and focus, and always on a touch screen, which has no hover to find them
   (so do the ✎ pencils, a table row's Delete, a table date's calendar
-  button and a department's grip).
+  button and a department's grip). Every other control is 24 px or has
+  room round it, as 2.5.8 allows (`e2e/styles.spec.ts` checks each view,
+  editor, dialog and menu).
 - **Not yet checked by a person.** What a test can't hear needs a person
   with VoiceOver and Safari, NVDA with Firefox or Chrome, and JAWS with
   Edge: how the timeline grid's rows and cells are spoken (a box is

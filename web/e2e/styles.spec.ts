@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { DAGSTER, box, expect, test } from "./helpers";
 
 // What the stylesheet (src/styles/) must keep doing, checked from computed
@@ -63,6 +63,12 @@ test("team settings: colour swatches fill their 28px button, and names read as f
     "padding-top": "2px",
   });
   expect(await css(dialog.getByLabel("Type 1 name"), "font-size", "font-weight")).toEqual({ "font-size": "13px", "font-weight": "400" });
+});
+
+test("the department editor's own colour is a field like team settings' colours, filled by its swatch", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Edit Analytics" }).click();
+  const custom = page.getByRole("dialog", { name: "Edit Analytics" }).getByLabel("Custom colour");
+  expect(await css(custom, "width", "height", "padding-left")).toEqual({ width: "28px", height: "28px", "padding-left": "2px" });
 });
 
 test("in a high-contrast theme, what only colour showed stays: the chosen view, Today, progress, switches, the picked day", async ({ page, browserName, github: _ }) => {
@@ -173,4 +179,65 @@ test.describe("on a touch screen", () => {
     expect(await css(page.locator(".row-delete").first(), "opacity")).toEqual({ opacity: "1" });
     expect(await css(page.locator(".box-table .date-pick").first(), "opacity")).toEqual({ opacity: "0.75" });
   });
+});
+
+/**
+ * Controls on screen too small for WCAG 2.5.8 (24 by 24 px) and too close to another: a 24 px circle round
+ * their middle reaches another control (where it shows: not one under a panel) or another small one's circle.
+ * A box's resize handles and a collapsed department's compact boxes are small by design (docs/architecture.md),
+ * and aren't looked at.
+ */
+async function crowded(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const on = (el: Element, x: number, y: number) => {
+      const top = document.elementFromPoint(x, y);
+      return !!top && (el.contains(top) || top.contains(el));
+    };
+    const controls = [...document.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea, [tabindex], [data-cell]")].filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 1 && r.height > 1 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && on(el, r.x + r.width / 2, r.y + r.height / 2);
+    });
+    const rects = controls.map((el) => el.getBoundingClientRect());
+    const centre = (r: DOMRect) => [r.x + r.width / 2, r.y + r.height / 2];
+    const small = (r: DOMRect) => r.width < 24 || r.height < 24;
+    const name = (el: Element) => el.getAttribute("aria-label") || el.textContent!.trim().slice(0, 30) || el.className;
+    return controls.flatMap((el, i) => {
+      if (!small(rects[i])) return [];
+      const [cx, cy] = centre(rects[i]);
+      const near = controls.filter((other, j) => {
+        if (i === j || el.contains(other) || other.contains(el)) return false;
+        const q = rects[j];
+        const [x, y] = [Math.min(Math.max(cx, q.left), q.right - 0.5), Math.min(Math.max(cy, q.top), q.bottom - 0.5)];
+        if (Math.hypot(x - cx, y - cy) < 12 && on(other, x, y)) return true;
+        const [ox, oy] = centre(q);
+        return small(q) && Math.hypot(ox - cx, oy - cy) < 24;
+      });
+      return near.length ? [`${name(el)} (${Math.round(rects[i].width)}×${Math.round(rects[i].height)}) is close to ${near.map(name).join(", ")}`] : [];
+    });
+  });
+}
+
+test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, editor, dialog and menu", async ({ page, github: _ }) => {
+  expect(await crowded(page)).toEqual([]);
+  await box(page, DAGSTER).click();
+  await expect(page.getByRole("dialog", { name: /^Edit / })).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Edit Analytics" }).click();
+  const dept = page.getByRole("dialog", { name: "Edit Analytics" });
+  await expect(dept.getByRole("button", { name: "Add lane" })).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  await dept.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Team settings…" })).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  await page.getByRole("button", { name: "Team settings…" }).click();
+  await expect(page.getByRole("dialog", { name: "Team settings" }).getByRole("button", { name: "Add type" })).toBeVisible();
+  expect(await crowded(page)).toEqual([]);
+  await page.keyboard.press("Escape");
+  for (const view of ["Table", "People"]) {
+    await page.getByRole("button", { name: view, exact: true }).click();
+    await expect(page.getByRole("main", { name: view }).locator("tbody tr").first()).toBeVisible();
+    expect(await crowded(page)).toEqual([]);
+  }
 });
