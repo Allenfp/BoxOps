@@ -903,7 +903,6 @@ body.reordering * {
   /* A box's edge is the theme's; a collapsed department's compact boxes are bars of the text colour. */
   .box.compact {
     background: CanvasText;
-    opacity: 1;
   }
   .box.selected,
   .pto-block.selected {
