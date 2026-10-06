@@ -14,9 +14,9 @@
 // Safari doesn't keep the view in place when what's above it changes height
 // (CSS scroll anchoring), so that's done here, the same in every browser
 // (the scroller has `overflow-anchor: none`): after each change drawn, the
-// row that was at the top of the view stays there. Not while a calendar or
-// the Engineers list is open in the table: scrolling closes those. Nor
-// across a new sort: the table stays scrolled as far as it was, rather than
+// row that was at the top of the view stays there (a calendar or the
+// Engineers list open in the table moves with its button). Not across a
+// new sort: the table stays scrolled as far as it was, rather than
 // following that row to wherever it's sorted. A new search or new dates
 // show their rows from the top, drawn whole or not (on a big table, the
 // search stands in for the browser's Find). Anything else that changes
@@ -61,9 +61,6 @@ export interface WindowedRows {
 }
 
 const none = () => {};
-
-/** Something that closes when the table scrolls is open in it. */
-const popupOpen = (scroller: HTMLElement) => !!scroller.querySelector(".calendar, .picker-menu");
 
 export function useWindowedRows(o: {
   /** Every row's key, in order, drawn or not. */
@@ -245,7 +242,7 @@ export function useWindowedRows(o: {
     const was = before.current;
     const now = enabled && el ? { tops, keys, top: el.scrollTop, sort, search } : null;
     before.current = now;
-    if (!el || !was || !now || (was.tops === tops && was.keys === keys) || was.sort !== sort || was.search !== search || popupOpen(el)) return;
+    if (!el || !was || !now || (was.tops === tops && was.keys === keys) || was.sort !== sort || was.search !== search) return;
     const s = now.top;
     if (s !== was.top) return;
     // The first row there, or after it, that's still there.
