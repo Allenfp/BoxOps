@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
-import { DAGSTER, box, expect, test } from "./helpers";
+import { CDC, DAGSTER, box, boxFile, dragDays, expect, save, test } from "./helpers";
+import type { FakeGitHub } from "./fake-github";
 
 // What the stylesheet (src/styles/) must keep doing, checked from computed
 // styles rather than screenshots: rules a broader selector used to override,
@@ -182,6 +183,48 @@ test("in a high-contrast theme, what only colour showed stays: the chosen view, 
   await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: "Choose date" }).first().click();
   const calendar = page.getByRole("dialog", { name: "Choose date" });
   expect(await bg(calendar.locator(".calendar-day.selected"))).not.toEqual(await bg(calendar.locator(".calendar-day:not(.selected, .weekend)").first()));
+});
+
+/** Open a branch preview: the timeline read-only. */
+async function preview(page: Page, github: FakeGitHub) {
+  const main = github.head;
+  github.branches.feature = github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline v2") });
+  github.head = main;
+  await page.goto("./?ref=feature&zoom=months");
+  await expect(page.getByRole("grid", { name: "Timeline" })).toHaveAttribute("aria-readonly", "true");
+}
+/** The pointer away, each lane's +, PTO row's + and department's ✎ is there (for focus), disabled, and doesn't show. */
+async function addsHidden(page: Page) {
+  await page.mouse.move(1300, 850);
+  for (const add of [".lane-add", ".pto-add", ".dept-edit"]) {
+    await expect(page.locator(add).first()).toHaveAttribute("aria-disabled", "true");
+    await expect(page.locator(add).first()).toHaveCSS("opacity", "0");
+  }
+}
+
+test("while a save is under way, the +s and ✎s don't show, the pointer away", async ({ page, github }) => {
+  await dragDays(page, DAGSTER, 5);
+  github.inject("graphql", "hang");
+  await save(page);
+  await expect(page.getByRole("button", { name: "Saving…" })).toBeVisible();
+  await addsHidden(page);
+});
+
+test("in a preview, a + or a department's ✎ shows only when pointed at or focused, and dimmed", async ({ page, github }) => {
+  await preview(page, github);
+  await addsHidden(page);
+  const lane = page.locator(".lane-label", { has: page.locator(".lane-add") }).first();
+  await lane.hover();
+  await expect(lane.locator(".lane-add")).toHaveCSS("opacity", "0.4");
+  const dept = page.locator(".dept-label").first();
+  await dept.hover();
+  await expect(dept.locator(".dept-edit")).toHaveCSS("opacity", "0.4");
+  // Focused from the keyboard, the same.
+  await page.locator('[data-cell="lane:de-1"]').focus();
+  await page.keyboard.press("ArrowRight");
+  await page.mouse.move(1300, 850);
+  await expect(page.locator(".lane-add").first()).toBeFocused();
+  await expect(page.locator(".lane-add").first()).toHaveCSS("opacity", "0.4");
 });
 
 test.describe("with less motion asked for", () => {
@@ -387,6 +430,12 @@ test.describe("on a touch screen", () => {
     await expect(page.locator(".box-table")).toBeVisible();
     expect(await css(page.locator(".row-delete").first(), "opacity")).toEqual({ opacity: "1" });
     expect(await css(page.locator(".box-table .date-pick").first(), "opacity")).toEqual({ opacity: "0.75" });
+  });
+
+  test("read-only, the +s and ✎s are there too, dimmed", async ({ page, browserName, github }) => {
+    test.skip(browserName === "firefox", "Firefox can't emulate a screen without hover");
+    await preview(page, github);
+    for (const add of [".lane-add", ".pto-add", ".dept-edit"]) expect(await css(page.locator(add).first(), "opacity")).toEqual({ opacity: "0.4" });
   });
 });
 

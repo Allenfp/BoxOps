@@ -660,12 +660,26 @@ button.collapse-all:hover {
 .lane-add:focus-visible {
   opacity: 1;
 }
+/* Read-only (a preview, or a save under way), the +s and ✎s stay for focus (aria-disabled), hidden as ever till
+   pointed at or focused, then dimmed: base.css's dimming for disabled buttons would otherwise show them all. */
+:is(.pto-add, .lane-add, .dept-edit)[aria-disabled="true"] {
+  opacity: 0;
+}
+.pto-label:hover .pto-add[aria-disabled="true"],
+.lane-label:hover .lane-add[aria-disabled="true"],
+.dept-label:hover .dept-edit[aria-disabled="true"],
+:is(.pto-add, .lane-add, .dept-edit)[aria-disabled="true"]:focus-visible {
+  opacity: var(--disabled);
+}
 @media (hover: none) {
   .pto-add,
   .lane-add,
   .edit-icon,
   .dept-edit {
     opacity: 1;
+  }
+  :is(.pto-add, .lane-add, .dept-edit)[aria-disabled="true"] {
+    opacity: var(--disabled);
   }
 }
 .pto-track {
