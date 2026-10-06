@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Person } from "../model/types";
 
 interface Props {
@@ -13,6 +13,8 @@ interface Props {
   readOnly?: boolean;
   /** Shown when nobody is assigned; defaults to "Unassigned". */
   emptyLabel?: string;
+  /** Everyone's name by id, when the caller has it already (the table, one for every row). */
+  names?: Map<string, string>;
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * engineers to the new-engineer field (Safari's own Tab, which the box editor
  * doesn't use, skips the checkboxes: hence ↑ and ↓).
  */
-export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, emptyLabel }: Props) {
+export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, emptyLabel, names: given }: Props) {
   const label = "Engineers";
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -32,7 +34,8 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  const names = new Map(people.map((p) => [p.id, p.name]));
+  const own = useMemo(() => (given ? null : new Map(people.map((p) => [p.id, p.name]))), [given, people]);
+  const names = given ?? own!;
   const selected = new Set(value);
   const shown = value.map((id) => names.get(id) ?? id).join(", ");
 
@@ -64,9 +67,14 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
     };
   }, [open]);
 
-  const ordered = [...people].sort(
-    (a, b) =>
-      Number(b.department === department) - Number(a.department === department) || a.name.localeCompare(b.name),
+  // The department's engineers first, then everyone else, by name: sorted only while it's open (a table
+  // has a closed one in every row).
+  const ordered = useMemo(
+    () =>
+      open
+        ? [...people].sort((a, b) => Number(b.department === department) - Number(a.department === department) || a.name.localeCompare(b.name))
+        : [],
+    [open, people, department],
   );
   const toggle = (id: string) => onChange(selected.has(id) ? value.filter((v) => v !== id) : [...value, id]);
   const add = () => {
