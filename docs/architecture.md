@@ -64,8 +64,9 @@ web/
     github/                 api (REST and GraphQL client, timeouts, errors),
                             snapshot (the folder at one commit: what showing
                             a deploy needs), read (newer commits by SHA
-                            diff), save (commit,
-                            conflicts, retries), messages (errors in words),
+                            diff), save (commit, conflicts, retries),
+                            saveOutcome (what a save that didn't simply go
+                            through comes to), messages (errors in words),
                             git-objects (git blob and tree SHAs, base64)
   cli/                      Node-only: git.ts (reads a roadmap folder from git
                             objects or from disk), site.ts (builds roadmap.json),

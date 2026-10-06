@@ -5,7 +5,8 @@
 // and a save doesn't wait for it.
 
 export { SaveProgress } from "./components/SaveProgress";
-export { GitHubClient, GitHubFailure } from "./github/api";
-export { NewerFormat, NewerSaves, SaveConflict, saveRoadmap } from "./github/save";
+export { GitHubClient } from "./github/api";
+export { NewerSaves, SaveConflict, saveRoadmap } from "./github/save";
+export { failedSave, newerSaves, othersIn } from "./github/saveOutcome";
 export { loadRoadmap } from "./model/parse";
 export { UnsafeWrite, applyChanges, serializeChanges } from "./model/serialize";

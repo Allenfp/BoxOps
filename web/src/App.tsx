@@ -18,7 +18,7 @@ import { type Target, firstOnPage, focusLater, focusLost, main, onPage } from ".
 import { scrollBehavior } from "./a11y/motion";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
-import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
+import { type DraftOffer, type DraftState, diffBoxes, SETTINGS_KEY, useDraft } from "./model/draft";
 import { downloadJson } from "./model/draftStore";
 import { addWorkdays, prettyDay, startOfWeek } from "./model/dates";
 import { useToday } from "./components/useToday";
@@ -512,21 +512,6 @@ interface ViewProps extends Loaded {
   onReload(snapshot: Snapshot): void;
   /** `others`: someone else's saves that came in with it (it went on top of them, or found them on top of it). */
   onSaved(result: SaveResult, others: RemoteUpdate | null): void;
-}
-
-/**
- * Someone else's saves a save of ours brought in: a racing save it went on
- * top of (or one already on top of an earlier attempt of ours). Roadmap files
- * it didn't write that differ from the copy it was made on are theirs. Named
- * by the newest of them when that's known.
- */
-function othersIn(result: SaveResult, blobs: Record<string, string>, changes: FileChanges): RemoteUpdate | null {
-  const after = result.snapshot.blobs;
-  if (!Object.keys({ ...blobs, ...after }).some((p) => !(p in changes) && blobs[p] !== after[p])) return null;
-  if (result.status === "saved") return { author: result.parentAuthor, subject: result.parentSubject };
-  // The head is ours: whose saves are under it isn't known.
-  if (result.status === "alreadySaved" && result.snapshot.source.commit === result.commit) return {};
-  return { author: result.snapshot.source.author, subject: result.snapshot.source.subject };
 }
 
 /** "BoxOps was updated to 0.2.0 — Reload to keep editing." (no version when it's the same, or unknown) */
@@ -1151,43 +1136,28 @@ function RoadmapView(props: ViewProps) {
       // The roadmap that comes back is rebased from what this save wrote, so an
       // edit (or undo) made while it ran is ours, not a clash with our own commit.
       draft.saved(target);
-      onSaved(result, othersIn(result, props.blobs, changes));
+      onSaved(result, s.othersIn(result, props.blobs, changes));
       // A save is announced by its banner; one with nothing left to write has none.
       if (result.status === "noop") announce("Nothing needed saving: GitHub already has these changes.");
       setSaved((n) => n + 1);
     } catch (e) {
       if (e instanceof s.NewerSaves) {
-        const head = e.head;
-        const saves = await gh.compare(source.repo, source.commit, head.source.commit).catch(() => []);
-        const { roadmap: latest } = s.loadRoadmap(head.files, head.ignored);
-        const latestState = { boxes: latest.boxes, departments: latest.departments, people: latest.people, settings: latest.settings };
-        const theirs = describeChanges(draftBase, latestState);
-        const clashes = rebaseDraft(draftBase, draftState, latestState).conflicts;
+        // Their saves come in, for review before anything is written.
+        const updated = await s.newerSaves(gh, source.commit, e, draftBase, draftState, describeItem);
         setBusy(false);
-        onReload(head);
-        setProblem({ kind: "updated", saves, changes: theirs, keys: clashes, clashes: clashes.map(describeItem) });
+        onReload(e.head);
+        setProblem(updated);
         return;
       }
-      if (e instanceof s.NewerFormat) {
-        setProblem({ kind: "upgrading", format: e.format });
-      } else if (e instanceof s.SaveConflict) {
+      if (e instanceof s.SaveConflict) {
         // Someone saved the same items since we loaded: move onto their version,
         // then ask (see the effect below) once the clashes are known.
         askAfterRebase.current = true;
         onReload(e.head);
-      } else if (e instanceof s.GitHubFailure && e.kind === "unauthorized") {
-        setToken(source.repo, null);
-        setProblem({ kind: "token", rejected: true, resume });
-      } else if (e instanceof s.GitHubFailure) {
-        setProblem({ kind: "github", failure: e, resume });
-      } else if (e instanceof FolderProblems) {
-        // Not this tab's to fix: trying again fails the same way until someone fixes the folder.
-        setProblem({ kind: "folder", problems: e.lines });
-      } else if (e instanceof TooManyChanges) {
-        // The same read fails until this tab reloads onto a newer deploy.
-        setProblem({ kind: "error", message: e.message, reload: "instead" });
       } else {
-        setProblem({ kind: "error", message: (e as Error).message, resume });
+        const failed = s.failedSave(e, resume);
+        if (failed.kind === "token") setToken(source.repo, null);
+        setProblem(failed);
       }
       setBusy(false);
     }
