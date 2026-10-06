@@ -598,9 +598,10 @@
   padding-bottom: 2px;
 }
 
-/* Table toolbar: date range and "Hide finished boxes" */
+/* Table toolbar: date range and "Hide finished boxes". In a narrow window (320 px), Clear dates goes under From. */
 .date-filter {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -620,6 +621,11 @@
 }
 .date-filter .icon-button {
   padding: 3px;
+}
+/* To's problem note ends where To does, rather than running past a narrow window's side. */
+.date-filter > .date-input:last-of-type > .date-problem {
+  left: auto;
+  right: 0;
 }
 .table-toggle {
   display: inline-flex;

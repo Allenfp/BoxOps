@@ -408,6 +408,22 @@ test.describe("at 320 px wide (a phone, or a window zoomed to 400%)", () => {
     });
   }
 
+  test("the table's dates fit across it with a date set (Clear dates showing) and a problem under To", async ({ page, github: _ }) => {
+    await page.getByRole("button", { name: "Table", exact: true }).click();
+    await expect(page.locator(".box-table tbody tr").first()).toBeVisible();
+    const dates = page.getByRole("group", { name: "Dates" });
+    /** How far the page reaches past the window's side. */
+    const past = () => page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    await dates.getByRole("textbox", { name: "From date" }).fill("2026-10-05");
+    await expect(dates.getByRole("button", { name: "Clear dates" })).toBeInViewport({ ratio: 1 });
+    expect(await past()).toBe(0);
+    await dates.getByRole("textbox", { name: "To date" }).fill("2026/01");
+    const problem = dates.locator(".date-problem");
+    await expect(problem).toHaveText("Dates are written YYYY-MM-DD.");
+    await expect(problem).toBeInViewport({ ratio: 1 });
+    expect(await past()).toBe(0);
+  });
+
   test.describe("signed out", () => {
     test.use({ signedIn: false });
 
