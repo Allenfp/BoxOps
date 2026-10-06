@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { DAGSTER, boxFile, expect, focusApp, heard, pollNow, save, test, toolbar } from "./helpers";
+import { DAGSTER, boxFile, expect, focusApp, heard, pollNow, save, tabThroughDialog, test, toolbar } from "./helpers";
 
 const editor = (page: Page) => page.locator("dialog.dept-editor[open]");
 const deptNames = (page: Page) => page.locator(".dept-label .dept-name").allInnerTexts();
@@ -283,4 +283,11 @@ test("departments are reordered by dragging their headings, on the timeline and 
   expect(github.file("departments/ml-platform.yaml")).toContain("order: 1\n");
   expect(github.file("departments/analytics.yaml")).toContain("order: 2\n");
   expect(github.file("departments/data-eng.yaml")).toContain("order: 3\n");
+});
+
+test("the department editor in a short window: what has focus is never left under its title bar", async ({ page, github: _ }) => {
+  await page.setViewportSize({ width: 1440, height: 480 });
+  await page.getByRole("button", { name: "Edit Data Engineering" }).click();
+  await expect(editor(page)).toBeVisible();
+  await tabThroughDialog(page);
 });

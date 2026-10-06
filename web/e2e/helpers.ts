@@ -169,6 +169,39 @@ export const pastPrintTable = (page: Page): Promise<{ across: number; down: numb
     };
   });
 
+/**
+ * How many pixels of what has focus in a dialog are hidden: under its title bar (which stays put as it
+ * scrolls) or More below while that shows, or past its foot. 0 when it's all in sight (WCAG 2.4.11), or
+ * focus is on the dialog itself, its title bar or outside it.
+ */
+export const focusHidden = (page: Page): Promise<number> =>
+  page.evaluate(() => {
+    const el = document.activeElement!;
+    const d = el.closest("dialog");
+    if (!d || el === d || el.closest(".dialog-head")) return 0;
+    const r = el.getBoundingClientRect();
+    const head = d.querySelector(".dialog-head")!.getBoundingClientRect();
+    const more = d.querySelector(".more-below:not(.done)");
+    const bottom = more ? more.getBoundingClientRect().top : d.getBoundingClientRect().top + d.clientTop + d.clientHeight;
+    return Math.max(0, head.bottom - r.top) + Math.max(0, r.bottom - bottom);
+  });
+
+/** Tab through what's in the open dialog, then Shift+Tab back: what has focus is never hidden (focusHidden). */
+export async function tabThroughDialog(page: Page, presses = 30) {
+  const d = page.locator("dialog[open]");
+  // Taller than the window: it scrolls, by the keys.
+  expect(await d.evaluate((d) => d.scrollHeight > d.clientHeight + 50)).toBe(true);
+  let scrolled = 0;
+  for (const key of ["Tab", "Shift+Tab"]) {
+    for (let i = 0; i < presses; i++) {
+      await page.keyboard.press(key);
+      await expect.poll(() => focusHidden(page), { message: `${key} ${i + 1}`, timeout: 2000 }).toBe(0);
+      scrolled = Math.max(scrolled, await d.evaluate((d) => d.scrollTop));
+    }
+  }
+  expect(scrolled).toBeGreaterThan(50);
+}
+
 /** Click somewhere neutral so keyboard shortcuts reach the app, not a field. */
 export async function focusApp(page: Page) {
   await page.locator(".tl-corner, .table-toolbar .hint").first().click();

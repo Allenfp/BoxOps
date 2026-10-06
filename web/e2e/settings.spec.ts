@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { DAGSTER, box, expect, openTab, save, test, toolbar } from "./helpers";
+import { DAGSTER, box, expect, openTab, save, tabThroughDialog, test, toolbar } from "./helpers";
 
 const menu = (page: Page) => page.getByRole("dialog", { name: "Settings" });
 const openMenu = async (page: Page) => {
@@ -128,6 +128,14 @@ test("the keyboard shortcuts, taller than the window: the title and Close stay p
   await expect(more).toBeVisible();
   await close.click();
   await expect(dialog).toHaveCount(0);
+});
+
+test("team settings in a short window: what has focus is never left under its title bar or More below", async ({ page, github: _ }) => {
+  await page.setViewportSize({ width: 1440, height: 560 });
+  await openMenu(page);
+  await menu(page).getByRole("button", { name: "Team settings…" }).click();
+  await expect(page.getByRole("dialog", { name: "Team settings" })).toBeVisible();
+  await tabThroughDialog(page, 40);
 });
 
 test("the menu's dialogs write apostrophes curly, as the rest of BoxOps does", async ({ page, github: _ }) => {

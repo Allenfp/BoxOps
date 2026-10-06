@@ -7,6 +7,7 @@ import type { Source } from "../github/read";
 import { counted } from "../model/count";
 import type { ChangeLine } from "../model/summary";
 import { Icon } from "./Icon";
+import { useFocusClear } from "./Modal";
 import { TokenForm, TokenHelp } from "./TokenForm";
 
 /** A choice the user already made for this save, carried through a dialog that interrupts it (so it isn't asked again). */
@@ -139,6 +140,7 @@ export function SaveDialog({
   }, [problem.kind]);
   // Back to what opened it (the Save button, say), else to the Save button, else the roadmap.
   useReturnFocus(dialogRef, (opener) => onPage(opener) ?? document.querySelector("[data-save-button]") ?? main());
+  useFocusClear();
 
   const title =
     problem.kind === "github"

@@ -10,6 +10,7 @@ import { formatDay, nextWorkday, parseDay, prettyDay, prevWorkday } from "../mod
 import type { Box, Department, Lane, Person } from "../model/types";
 import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
+import { useFocusClear } from "./Modal";
 
 export type DepartmentEditorTarget = { kind: "new" } | { kind: "edit"; id: string };
 
@@ -118,6 +119,7 @@ export function DepartmentEditor(props: Props) {
       main()
     );
   });
+  useFocusClear();
   const codesTakenExcept = (deptId?: string) => new Set([...departments.filter((d) => d.id !== deptId).map((d) => d.code), ...props.reservedCodes]);
   const codeProblem = (code: string, deptId?: string) =>
     !DEPT_CODE.test(code)

@@ -65,6 +65,14 @@ dialog > .dialog-head {
 .save-dialog > .more-below.done {
   visibility: hidden;
 }
+/* What the browser scrolls to (focus, say) is 8 px clear of the title bar (51 px tall, more if its title wraps), and
+   of More below while it shows (WCAG 2.4.11). WebKit goes by neither: Modal.tsx's useFocusClear finishes the job. */
+.save-dialog {
+  scroll-padding-top: 59px;
+}
+.save-dialog.has-more {
+  scroll-padding-bottom: 56px;
+}
 .dialog-head h2 {
   font-size: 16px;
   margin: 0;

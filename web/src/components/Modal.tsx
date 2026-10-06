@@ -4,7 +4,8 @@
 // goes back where it came from when it closes. Taller than the window, its
 // title bar stays put while the rest scrolls, and "More below" at its foot
 // says there's more until it's scrolled to the end (WebKit shows no
-// scrollbar to say so).
+// scrollbar to say so). What has focus is never left under either
+// (useFocusClear).
 
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { LiveRegion } from "../a11y/announce";
@@ -39,6 +40,7 @@ export function Modal({
     }
   }, [startIn]);
   useReturnFocus(ref, (opener) => onPage(opener) ?? returnTo?.());
+  useFocusClear();
   // Whether there's more to scroll to, as it scrolls or it, or what's in it, changes size.
   const [more, setMore] = useState(false);
   useEffect(() => {
@@ -57,7 +59,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={`save-dialog${className ? ` ${className}` : ""}`}
+      className={`save-dialog${className ? ` ${className}` : ""}${more ? " has-more" : ""}`}
       aria-labelledby={titleId}
       tabIndex={-1}
       onCancel={(e) => {
@@ -80,4 +82,41 @@ export function Modal({
       </div>
     </dialog>
   );
+}
+
+/** How far (px) what has focus is kept from a dialog's title bar and More below. */
+const CLEAR = 8;
+
+/**
+ * Keeps what has focus in an open dialog clear of its title bar, which stays put as it scrolls, and of
+ * More below while that shows (WCAG 2.4.11). Chromium and Firefox scroll it clear themselves, by the
+ * dialog's scroll-padding (dialogs.css); WebKit leaves it under them, or doesn't scroll to it at all.
+ * So once the browser has scrolled (a frame later), the dialog scrolls the rest of the way if need be.
+ */
+export function useFocusClear(): void {
+  useEffect(() => {
+    let frame = 0;
+    const onFocus = (e: FocusEvent) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => clearOf(e.target as Element));
+    };
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      document.removeEventListener("focusin", onFocus);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+}
+
+function clearOf(el: Element) {
+  const d = el.isConnected ? el.closest("dialog") : null;
+  const head = d?.querySelector(":scope > .dialog-head");
+  if (!d || el === d || !head || head.contains(el) || document.activeElement !== el) return;
+  const more = d.querySelector(":scope > .more-below:not(.done)");
+  const r = el.getBoundingClientRect();
+  const top = head.getBoundingClientRect().bottom + CLEAR;
+  const bottom = (more ? more.getBoundingClientRect().top : d.getBoundingClientRect().top + d.clientTop + d.clientHeight) - CLEAR;
+  // Too tall to fit between them: its top shows.
+  if (r.top < top) d.scrollTop -= top - r.top;
+  else if (r.bottom > bottom) d.scrollTop += Math.min(r.bottom - bottom, r.top - top);
 }

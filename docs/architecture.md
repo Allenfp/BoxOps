@@ -600,7 +600,10 @@ when a focused element is removed.
   keys too, focus being on it), and the key, the shortcuts and team
   settings say "More below" at their foot until they're scrolled to the
   end, as WebKit shows no scrollbar (hidden from screen readers, which read
-  on regardless). The native ones
+  on regardless). What has focus is scrolled clear of both (WCAG 2.4.11):
+  Chromium and Firefox by the dialog's `scroll-padding`, WebKit, which
+  ignores that and may not scroll to it at all, by `useFocusClear`
+  (`Modal.tsx`) a frame later. The native ones
   (`showModal()`) make the rest of the page inert. The box and PTO editors
   are `aria-modal` and keep Tab, Shift+Tab and Alt+Tab going round their own
   controls, buttons included; a click outside still closes them. Menus
