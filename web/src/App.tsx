@@ -19,6 +19,7 @@ import { Banner } from "./components/Banner";
 import { announce, useAnnounce } from "./a11y/announce";
 import { letter, shortcut, undoHint } from "./a11y/keys";
 import { focusLater, focusLost, main, onPage, useReturnFocus } from "./a11y/focus";
+import { scrollBehavior } from "./a11y/motion";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
 import { type DraftOffer, type DraftState, diffBoxes, rebaseDraft, SETTINGS_KEY, useDraft } from "./model/draft";
@@ -1347,7 +1348,7 @@ function RoadmapView(props: ViewProps) {
     setView("timeline");
     if (dept) setCollapsed((prev) => (prev.has(dept.id) ? new Set([...prev].filter((x) => x !== dept.id)) : prev));
     select(id);
-    requestAnimationFrame(() => timelineCell(`box:${id}`)?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }));
+    requestAnimationFrame(() => timelineCell(`box:${id}`)?.scrollIntoView({ block: "nearest", inline: "center", behavior: scrollBehavior() }));
   };
   const goToDepartment = (id: string) => {
     setView("timeline");
@@ -1384,7 +1385,7 @@ function RoadmapView(props: ViewProps) {
     setView("timeline");
     if (dept) setCollapsed((prev) => (prev.has(dept) ? new Set([...prev].filter((x) => x !== dept)) : prev));
     selectPto(ref);
-    requestAnimationFrame(() => timelineCell(`pto:${ptoKey(ref)}`)?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }));
+    requestAnimationFrame(() => timelineCell(`pto:${ptoKey(ref)}`)?.scrollIntoView({ block: "nearest", inline: "center", behavior: scrollBehavior() }));
   };
 
   const warningGroups: WarningGroup[] = [

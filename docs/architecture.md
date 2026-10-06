@@ -24,7 +24,8 @@ web/
     App.tsx                 loading, polling, saving, toolbar, views
     a11y/                   announce (live regions), focus (putting focus
                             back, Tab inside editors), keys (shortcut labels,
-                            letters in any keyboard layout)
+                            letters in any keyboard layout), motion (smooth
+                            scrolling unless less motion is asked for)
     site.ts                 the site's roadmap.json, app updates, reloading
     saving.ts               what saving needs, fetched once editing starts
     styles.css              imports styles/ in cascade order: tokens (colours,
@@ -640,14 +641,17 @@ when a focused element is removed.
   colours from the stylesheet itself (`tokens.css` and the rules that mix
   them) and checks each pair, and what's on a box against an even sweep of
   every colour; axe checks the pages too (`e2e/a11y.spec.ts`).
-- **High contrast.** In Windows' contrast themes (forced
+- **High contrast and motion.** In Windows' contrast themes (forced
   colours) the browser paints with the theme's few colours and drops
   shadows and background images, so each part of the stylesheet draws in
   system colours what only they showed: the chosen option of a segmented
   control, a switch's state, a box's progress mark, the Today line and
   flag, the picked day, the selected box, a team's colours (shown as they
   are), the changed-by-someone-else dot and a lane's closed dates. Only
-  Chromium can emulate this, so `e2e/styles.spec.ts` checks it there.
+  Chromium can emulate this, so `e2e/styles.spec.ts` checks it there. With
+  less motion asked for (`prefers-reduced-motion`), transitions take no
+  time (`--motion`) and Today, going to a box and going to PTO jump rather
+  than scroll smoothly (`a11y/motion.ts`).
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to

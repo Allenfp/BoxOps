@@ -45,6 +45,8 @@
   --shadow-float: 0 12px 32px rgba(16, 24, 40, 0.2);
   --shadow-dialog: 0 24px 64px rgba(16, 24, 40, 0.3);
   --backdrop: rgba(16, 24, 40, 0.35);
+  /* How long a switch, a chevron or a grip takes to move or show: no time at all when the system asks for less motion. */
+  --motion: 0.12s;
   /*
    * What's drawn over what. Inside a scrolling view (the timeline, the table): items, a selected or
    * focused one (and the Today line, the table's header), the pinned label or title column, what has
@@ -106,6 +108,12 @@
     --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.55);
     --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.6);
     --backdrop: rgba(0, 0, 0, 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0s;
   }
 }
 

@@ -75,3 +75,23 @@ test("in a high-contrast theme, what only colour showed stays: the chosen view, 
   const calendar = page.getByRole("dialog", { name: "Choose date" });
   expect(await bg(calendar.locator(".calendar-day.selected"))).not.toEqual(await bg(calendar.locator(".calendar-day:not(.selected, .weekend)").first()));
 });
+
+test.describe("with less motion asked for", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("nothing slides: switches and chevrons change at once, and Today is a jump, not a scroll", async ({ page, github: _ }) => {
+    expect(await css(page.locator(".chevron").first(), "transition-duration")).toEqual({ "transition-duration": "0s" });
+    const timeline = page.locator(".timeline");
+    await timeline.evaluate((el) => {
+      el.scrollLeft = 0;
+      (window as { seen?: number[] }).seen = [];
+      el.addEventListener("scroll", () => (window as { seen?: number[] }).seen!.push(el.scrollLeft));
+    });
+    await page.getByRole("button", { name: "Today", exact: true }).click();
+    await expect.poll(() => timeline.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+    await page.waitForTimeout(500);
+    // A smooth scroll passes through many places on the way (0 is the scroll to the start, above).
+    const seen = await page.evaluate(() => (window as { seen?: number[] }).seen!);
+    expect(new Set(seen.filter((x) => x > 0)).size).toBe(1);
+  });
+});

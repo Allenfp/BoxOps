@@ -289,7 +289,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   border-radius: 9px;
   background: var(--control-border);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background var(--motion);
 }
 .toggle input[type="checkbox"]::after {
   content: "";
@@ -301,7 +301,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   border-radius: 50%;
   background: var(--on-accent);
   box-shadow: var(--shadow-sm);
-  transition: transform 0.12s;
+  transition: transform var(--motion);
 }
 .toggle input[type="checkbox"]:checked {
   background: var(--accent);

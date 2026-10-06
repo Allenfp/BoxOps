@@ -47,6 +47,7 @@ import { keeper } from "../keeper";
 import { UseChart } from "./UseChart";
 import { reorderByKey, useReorder } from "./useReorder";
 import { focusLater } from "../a11y/focus";
+import { scrollBehavior } from "../a11y/motion";
 import { followPointer, swallowNextClick } from "./followPointer";
 import { cellOf, useGridFocus } from "./useGridFocus";
 import { announce } from "../a11y/announce";
@@ -458,7 +459,7 @@ export function Timeline(props: Props) {
   const scrollToDay = (day: Day, fraction: number, smooth = false) => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTo({ left: scale.x(day) - trackWidth() * fraction, behavior: smooth ? "smooth" : "auto" });
+    el.scrollTo({ left: scale.x(day) - trackWidth() * fraction, behavior: smooth ? scrollBehavior() : "auto" });
   };
 
   useLayoutEffect(() => {

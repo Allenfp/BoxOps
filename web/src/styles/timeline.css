@@ -159,7 +159,7 @@
 }
 .chevron {
   color: var(--text-muted);
-  transition: transform 0.15s;
+  transition: transform var(--motion);
 }
 .chevron.open {
   transform: rotate(90deg);
@@ -856,7 +856,7 @@ button.collapse-all:hover {
   color: var(--text-muted);
   opacity: 0;
   cursor: grab;
-  transition: opacity 0.12s;
+  transition: opacity var(--motion);
   z-index: 1;
 }
 .grabbable:hover > .dept-grip {
