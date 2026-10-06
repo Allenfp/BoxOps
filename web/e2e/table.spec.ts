@@ -229,6 +229,17 @@ test("the calendar picks a date and closes; a click elsewhere or Esc closes it t
   await expect(calendar).toHaveCount(0);
 });
 
+test("the Engineers list closes, name or not, once the table is scrolled till its button is under the header", async ({ page, github: _ }) => {
+  await page.setViewportSize({ width: 1440, height: 500 });
+  const button = row(page, "CDC pipeline for orders DB").getByRole("button", { name: /^Engineers/ });
+  await button.click();
+  const list = page.getByRole("dialog", { name: "Engineers" });
+  await page.getByLabel("New engineer name").fill("Robin");
+  const [head, at] = [(await page.locator(".box-table thead th").first().boundingBox())!, (await button.boundingBox())!];
+  await page.locator(".table-scroll").evaluate((el, by) => (el.scrollTop += by), at.y + at.height / 2 - (head.y + head.height) + 4);
+  await expect(list).toHaveCount(0);
+});
+
 test("printing gives every box, on pages no wider or longer than that", async ({ page, github: _ }) => {
   await page.emulateMedia({ media: "print" });
   await expect(page.locator(".print-table tbody tr").filter({ hasText: "Dagster 2.x upgrade" })).toHaveCount(1);

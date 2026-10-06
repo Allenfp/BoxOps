@@ -252,6 +252,34 @@ test("the Engineers list follows its button while a name is typed (a phone's key
   await expect(button).toBeFocused();
 });
 
+test("the Engineers list closes, name or not, once the box editor's fields are scrolled till its button is out of sight", async ({ page, github: _ }) => {
+  await page.setViewportSize({ width: 1440, height: 360 });
+  await box(page, DAGSTER).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  const button = editor.getByRole("button", { name: /^Engineers/ });
+  const fields = editor.locator(".editor-body");
+  // The button scrolled into sight first, and that scroll's event (in the next frame) passed: it would close the list.
+  await button.evaluate((el) => {
+    el.scrollIntoView({ block: "center" });
+    return new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+  });
+  await button.click();
+  const list = page.getByRole("dialog", { name: "Engineers" });
+  await page.getByLabel("New engineer name").fill("Robin");
+  // Scrolled a little, the list moves with its button: just above it, or just below it.
+  await fields.evaluate((el) => (el.scrollTop -= 10));
+  const gap = async () => {
+    const [b, l] = [(await button.boundingBox())!, (await list.boundingBox())!];
+    return Math.min(Math.abs(l.y - (b.y + b.height)), Math.abs(b.y - (l.y + l.height)));
+  };
+  await expect.poll(gap).toBeLessThan(5);
+
+  // Scrolled till the button is below the fields' edge, it would be over the rest of the editor.
+  await fields.evaluate((el) => (el.scrollTop = 0));
+  await expect(list).toHaveCount(0);
+  await expect(button).toBeFocused();
+});
+
 test("lanes can be renamed in place", async ({ page, github: _ }) => {
   const names = page.locator(".lane-label .lane-name");
   await names.nth(1).click();

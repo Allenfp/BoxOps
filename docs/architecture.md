@@ -568,7 +568,8 @@ when a focused element is removed.
   without room there), so the box editor's scrolling fields and the table
   don't cut it off, and a scroll or a resize closes it; while a new name
   is typed it moves with its button instead (a phone's keyboard opening
-  scrolls or shrinks the window).
+  scrolls or shrinks the window), unless the editor's fields or the table
+  are scrolled till the button is out of sight.
 - **Date fields** (`components/DateInput.tsx`) are YYYY-MM-DD text. Text
   that more typing can't make a date says why just under the field (over
   what's below, so nothing moves when focus leaves and the field goes back
