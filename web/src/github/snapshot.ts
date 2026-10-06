@@ -7,7 +7,6 @@
 import type { Bundle, BundleSource } from "../model/bundle";
 import { thousands } from "../model/count";
 import type { RoadmapFiles } from "../model/types";
-import { textBlobSha } from "./git-objects";
 
 /** Where a snapshot came from: the bundle's fields, plus what the reader learns. */
 export interface Source extends BundleSource {
@@ -78,10 +77,15 @@ export function forgetBlobs(): void {
   blobCache.clear();
 }
 
-/** A bundle as a snapshot. A bundle from before schema 1 has no blob SHAs; they're computed from the text. */
+/**
+ * A bundle as a snapshot. A bundle from before schema 1 has no blob SHAs; they're computed from the text, with
+ * git-objects.ts, fetched for it (the reader and saving have it anyway).
+ */
 export async function fromBundle(b: Bundle): Promise<Snapshot> {
   const blobs: Record<string, string> = {};
-  for (const [path, text] of Object.entries(b.files)) blobs[path] = b.blobs[path] ?? (await textBlobSha(text));
+  const paths = Object.keys(b.files);
+  const sha = paths.every((path) => b.blobs[path]) ? null : (await import("./git-objects")).textBlobSha;
+  for (const path of paths) blobs[path] = b.blobs[path] ?? (await sha!(b.files[path]));
   return { source: b.source, files: b.files, blobs, ignored: b.ignored };
 }
 
