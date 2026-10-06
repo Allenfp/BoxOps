@@ -969,7 +969,8 @@ when a focused element is removed.
   WebKit with only the rows near the screen drawn (`virtualize`, a test
   option), and `e2e/table-big.spec.ts` checks a big table (300 boxes)
   against itself drawn whole in another window (every row counted, nothing
-  on screen missing however it's scrolled) and a 600-box one for the rest:
+  on screen missing however it's scrolled, each department as tall in both
+  densities, with only boxes drawn) and a 600-box one for the rest:
   rows being edited kept (and their place, the window losing focus too),
   an edit drawing again only its own row (a box's or a PTO entry's: the
   table counts its rows' renders for tests, in `window.__boxopsTest`),
