@@ -189,6 +189,28 @@ test("a row being edited keeps its place and stays shown until focus leaves it; 
   await expect(page.locator("tr.box-row")).toHaveCount(0);
 });
 
+test("a row edited out of the dates or into the finished stays, saying so, until focus leaves it", async ({ page, github: _ }) => {
+  await page.getByRole("switch", { name: /Hide finished boxes/ }).check();
+  await page.getByLabel("From date").fill("2026-10-05");
+  const rows = page.locator('[data-dept-id="dept-02"] tr.box-row');
+  await page.locator('[data-dept-id="dept-02"]').evaluate((el) => el.scrollIntoView());
+  const row = rows.nth(1);
+  const title = await titleOf(row);
+  const edited = page.locator("tr.box-row").filter({ has: page.locator(`input[aria-label="Title"][value="${title}"]`) });
+  // It ended last month now: before the dates, and finished.
+  await row.getByLabel("Start").fill("2026-08-03");
+  await edited.getByLabel("End").fill("2026-09-04");
+  await expect(edited.getByLabel("End")).toBeFocused();
+  await expect(edited.locator(".held-note")).toBeVisible();
+  // Leaving it, it goes.
+  await rows.first().getByLabel("Title").focus();
+  await expect(edited).toHaveCount(0);
+  await page.getByLabel("From date").fill("");
+  await expect(edited).toHaveCount(0);
+  await page.getByRole("switch", { name: /Hide finished boxes/ }).uncheck();
+  await expect(edited).toHaveCount(1);
+});
+
 test("Add box, with the table scrolled to the end, a department collapsed and dates set: shown, scrolled to and focused", async ({ page, github: _ }) => {
   await page.locator(".group-toggle", { hasText: "Data 1" }).click();
   await page.getByLabel("From date").fill("2027-06-01");
