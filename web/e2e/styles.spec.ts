@@ -71,6 +71,13 @@ test("the department editor's own colour is a field like team settings' colours,
   expect(await css(custom, "width", "height", "padding-left")).toEqual({ width: "28px", height: "28px", "padding-left": "2px" });
 });
 
+test("a warning longer than the warnings menu wraps, read in full rather than cut off", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+  const panel = page.getByRole("dialog", { name: /^\d+ warnings?$/ });
+  await expect(panel.locator(".link-button").first()).toBeVisible();
+  expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
 test("in a high-contrast theme, what only colour showed stays: the chosen view, Today, progress, switches, the picked day", async ({ page, browserName, github: _ }) => {
   test.skip(browserName !== "chromium", "only Chromium emulates Windows' contrast themes (forced colours)");
   await page.emulateMedia({ forcedColors: "active" });

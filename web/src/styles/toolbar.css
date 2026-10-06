@@ -40,6 +40,10 @@
 .toolbar-zone button {
   white-space: nowrap;
 }
+/* What's in a menu wraps, though: a long warning, say, is read in full. */
+.toolbar-zone .popover-panel button {
+  white-space: normal;
+}
 .toolbar-zone.end {
   justify-content: flex-end;
 }
