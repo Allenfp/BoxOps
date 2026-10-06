@@ -624,13 +624,16 @@ button.collapse-all:hover {
 .add-dept-row {
   border-bottom: 0;
 }
-/* An empty roadmap: what to do first, where the departments would be. */
+/* An empty roadmap: what to do first, where the departments would be, over the grid lines and the today
+   line (as the label column is) rather than run through by them. */
 .empty-roadmap {
   position: sticky;
   left: 0;
+  z-index: var(--z-pinned);
   width: min(520px, 100vw);
   padding: 24px 16px;
   color: var(--text-muted);
+  background: var(--surface);
 }
 .empty-roadmap p {
   margin: 0 0 12px;
@@ -638,9 +641,9 @@ button.collapse-all:hover {
 .empty-roadmap strong {
   color: var(--text);
 }
+/* The label column, as on every other row: the grid lines run under it. */
 .add-dept-row .label {
   border-right: 0;
-  background: transparent;
   padding: 8px 12px;
 }
 

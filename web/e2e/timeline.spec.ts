@@ -132,6 +132,14 @@ test("the Today flag covers no date at any zoom, and the today line runs under t
   expect(await title.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(await box(page, DAGSTER).evaluate((e) => getComputedStyle(e).backgroundColor));
 });
 
+test("the Add department row's label column hides the date grid, as every other row's does", async ({ page, github: _ }) => {
+  const bg = (l: Locator) => l.evaluate((e) => getComputedStyle(e).backgroundColor);
+  const label = page.locator(".add-dept-row .label");
+  expect(await bg(label)).toBe(await bg(page.locator(".lane-label").first()));
+  expect(await bg(label)).toBe(await bg(page.locator(".timeline")));
+  expect(await label.evaluate((e) => getComputedStyle(e).position)).toBe("sticky");
+});
+
 test("today moves on at midnight in a tab left open", async ({ page, github: _ }) => {
   const flag = page.locator(".today-flag");
   await expect(flag).toHaveAttribute("title", "2026-10-03");

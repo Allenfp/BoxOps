@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import type { Locator } from "@playwright/test";
 import { withContentSecurityPolicy } from "../cli/csp";
 import { CDC, DAGSTER, REVENUE, boxFile, dragDays, expect, looseBannerText, pollNow, test, toolbar } from "./helpers";
 
@@ -176,6 +177,23 @@ test.describe("an empty roadmap", () => {
     await expect(page.getByRole("button", { name: "Collapse all" })).toBeVisible();
     await page.getByRole("button", { name: "Table" }).click();
     await expect(page.getByRole("button", { name: "Add box" })).toBeEnabled();
+  });
+
+  test("the message sits over the date grid and the today line, the label column's width at least, as the labels do", async ({ page, github: _ }) => {
+    const message = page.locator(".empty-roadmap");
+    await expect(message).toBeVisible();
+    const style = (l: Locator) => l.evaluate((e) => ({ z: Number(getComputedStyle(e).zIndex) || 0, bg: getComputedStyle(e).backgroundColor }));
+    const timeline = await page.locator(".timeline").evaluate((e) => ({ left: e.getBoundingClientRect().left, bg: getComputedStyle(e).backgroundColor }));
+    const m = await style(message);
+    expect(m.bg).toBe(timeline.bg); // opaque, the timeline's own colour
+    expect(m.z).toBeGreaterThan((await style(page.locator(".today-line"))).z);
+    expect(m.z).toBe(Number(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--z-pinned")))); // the labels'
+    const r = (await message.boundingBox())!;
+    expect(r.x).toBeLessThanOrEqual(timeline.left);
+    expect(r.x + r.width).toBeGreaterThanOrEqual(timeline.left + 240);
+    // The grid lines are there, under it: as tall as it is.
+    const grid = (await page.locator(".tl-grid").boundingBox())!;
+    expect(grid.height).toBeCloseTo(r.height, 0);
   });
 });
 
