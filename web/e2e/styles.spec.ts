@@ -671,6 +671,29 @@ test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, ed
   expect(await crowded(page)).toEqual([]);
 });
 
+test("People's PTO keeps to its column: its dates whole, a long note cut short with …, whole in its tooltip", async ({ page, github }) => {
+  const note = "Parental leave, then a conference in Lisbon";
+  github.deploy(
+    github.otherSave({
+      "people.yaml": (t) => t.replace("    name: Priya Shah\n    department: analytics\n", (m) => `${m}    pto:\n      - start: 2026-12-01\n        end: 2026-12-04\n        note: ${note}\n`),
+    }),
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "People", exact: true }).click();
+  const cell = page.locator("tr.person-row", { has: page.locator('input[value="Priya Shah"]') }).locator("td.col-pto");
+  await expect(cell.locator(".pto-list li")).toHaveCount(1);
+  const fits = await cell.evaluate((td) => {
+    const right = td.getBoundingClientRect().right;
+    return [...td.querySelectorAll("li, li > *")].every((el) => el.getBoundingClientRect().right <= right + 0.5);
+  });
+  expect(fits).toBe(true);
+  const hint = cell.locator(".hint");
+  await expect(hint).toHaveAttribute("title", note);
+  expect(await hint.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true); // cut short
+  await expect(cell.getByRole("button", { name: "2026-12-01 – 2026-12-04" })).toBeVisible();
+  expect(await cell.locator("li").textContent()).toMatch(/^2026-12-01 – 2026-12-04\s·\s/);
+});
+
 test("People's rows take one line, or two with PTO past one entry (as a box row does), each kind one height, in either density", async ({
   page,
   github,

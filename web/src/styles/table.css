@@ -582,6 +582,19 @@
   line-height: 18px;
   white-space: nowrap;
 }
+/* An entry's dates whole, its note cut short (…) to stay in the column (whole in the dates' tooltip, and its own). */
+.pto-list li {
+  display: flex;
+  min-width: 0;
+}
+.pto-list li > :first-child {
+  flex: none;
+}
+.pto-list .hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* Entries (and "+N more") 24 px apart, middle to middle, so each has room round it (WCAG 2.5.8); two still fit a row. */
 .pto-list li + li {
   margin-top: 6px;

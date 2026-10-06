@@ -178,7 +178,11 @@ function PtoList(props: { person: Person; hasDepartment: boolean; now: Day; all:
           ) : (
             <span title={hasDepartment ? pto.note : `Give ${person.name} a department to see their PTO on the timeline`}>{ptoRange(pto)}</span>
           )}
-          {pto.note && <span className="hint"> · {pto.note}</span>}
+          {pto.note && (
+            <span className="hint" title={pto.note}>
+              &nbsp;· {pto.note}
+            </span>
+          )}
         </li>
       ))}
       {list.length > 2 && (
