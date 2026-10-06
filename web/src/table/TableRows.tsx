@@ -49,7 +49,7 @@ export interface RowActions {
   updatePto(ref: PtoRef, patch: Partial<TimeOff>): void;
   ptoDates(ref: PtoRef, pto: TimeOff, field: "start" | "end", text: string): void;
   reassignPto(ref: PtoRef, toId: string): void;
-  removePto(ref: PtoRef, name: string, button: HTMLElement): void;
+  removePto(ref: PtoRef, button: HTMLElement): void;
   toggle(id: string): void;
   edit(id: string): void;
   addBox(id: string): void;
@@ -383,7 +383,7 @@ export const PtoRow = memo(function PtoRow({
             className="icon-button row-delete"
             title="Delete PTO"
             aria-label={`Delete PTO for ${person.name}`}
-            onClick={(e) => actions.removePto(ref, person.name, e.currentTarget)}
+            onClick={(e) => actions.removePto(ref, e.currentTarget)}
           >
             <Icon name="x" size={14} />
           </button>

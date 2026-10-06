@@ -447,7 +447,7 @@ export function TableView(props: Props) {
       }
     },
     reassignPto: (ref, toId) => props.onReassignPto?.(ref, toId),
-    removePto: (ref, _name, button) => {
+    removePto: (ref, button) => {
       focusAfterRow(button, ".row-delete");
       props.onRemovePto?.(ref);
     },
@@ -489,7 +489,7 @@ export function TableView(props: Props) {
       updatePto: (ref, patch) => act.current.updatePto(ref, patch),
       ptoDates: (ref, pto, field, text) => act.current.ptoDates(ref, pto, field, text),
       reassignPto: (ref, toId) => act.current.reassignPto(ref, toId),
-      removePto: (ref, name, button) => act.current.removePto(ref, name, button),
+      removePto: (ref, button) => act.current.removePto(ref, button),
       toggle: (id) => act.current.toggle(id),
       edit: (id) => act.current.edit(id),
       addBox: (id) => act.current.addBox(id),
