@@ -1,4 +1,4 @@
-import { type BrowserContext, type Page, test as base, expect } from "@playwright/test";
+import { type BrowserContext, type Locator, type Page, test as base, expect } from "@playwright/test";
 import { PX_PER_DAY } from "../src/timeline/scale";
 import { FakeGitHub, REPO, TOKEN } from "./fake-github";
 
@@ -32,9 +32,12 @@ export const boxFile = (id: string) => `boxes/${id}.yaml`;
  * open. `visibility` makes the repository public (the default) or private;
  * `files` are the roadmap's, in place of the fixture's. `fakeClock: false`
  * leaves the browser's own clock, and with it the navigation timing that
- * Playwright's fake one hides (it says no page is a reload). `cull: true`
+ * Playwright's fake one hides (it says no page is a reload); `"fixed"`
+ * fixes the time at today's 09:00 (page.clock.setFixedTime) rather than
+ * starting it there, for tests that never move the clock on. `cull: true`
  * has the timeline draw only what's near the screen, as it does for a big
- * roadmap, whatever the roadmap's size (false: all of it, always). Every
+ * roadmap, whatever the roadmap's size (false: all of it, always);
+ * `virtualize` does the same for the table's and People's rows. Every
  * page of every test, tabs it opens later included, is watched: an uncaught
  * error or a Content-Security-Policy violation (`csp` lists them) fails the
  * test.
@@ -44,8 +47,9 @@ export const test = base.extend<{
   signedIn: boolean;
   visibility: "public" | "private";
   files: Record<string, string> | undefined;
-  fakeClock: boolean;
+  fakeClock: boolean | "fixed";
   cull: boolean | undefined;
+  virtualize: boolean | undefined;
   watched: { errors: string[]; csp: string[] };
   csp: string[];
 }>({
@@ -54,6 +58,7 @@ export const test = base.extend<{
   files: [undefined, { option: true }],
   fakeClock: [true, { option: true }],
   cull: [undefined, { option: true }],
+  virtualize: [undefined, { option: true }],
   watched: [
     async ({ context }, use) => {
       const watched = { errors: [] as string[], csp: [] as string[] };
@@ -73,10 +78,12 @@ export const test = base.extend<{
     { auto: true },
   ],
   csp: async ({ watched }, use) => use(watched.csp),
-  github: async ({ page, signedIn, visibility, files, fakeClock, cull, timezoneId }, use) => {
+  github: async ({ page, signedIn, visibility, files, fakeClock, cull, virtualize, timezoneId }, use) => {
     const github = await FakeGitHub.create(files, { visibility });
-    if (fakeClock) await page.clock.install({ time: morningIn(timezoneId) });
+    if (fakeClock === "fixed") await page.clock.setFixedTime(morningIn(timezoneId));
+    else if (fakeClock) await page.clock.install({ time: morningIn(timezoneId) });
     if (cull !== undefined) await page.context().addInitScript((c) => (window.__boxopsTest = { ...window.__boxopsTest, cull: c }), cull);
+    if (virtualize !== undefined) await page.context().addInitScript((v) => (window.__boxopsTest = { ...window.__boxopsTest, virtualize: v }), virtualize);
     await page.context().addInitScript(countSiteFetches);
     await page.context().addInitScript(recordAnnouncements);
     await github.install(page);
@@ -131,6 +138,16 @@ export async function drag(page: Page, id: string, dx: number, dy = 0, grip: "mi
 /** Drag a box by a number of working days at months zoom (and optionally dy pixels). */
 export const dragDays = (page: Page, id: string, days: number, dy = 0, grip: "middle" | "start" | "end" = "middle") =>
   drag(page, id, days * MONTH_PX, dy, grip);
+
+/**
+ * Choose `value` in a select: focused first, as a person's choice would be.
+ * A select with a long list (components/LazySelect.tsx) has only its chosen
+ * option until it's used, and Playwright's selectOption doesn't focus it.
+ */
+export async function choose(select: Locator, value: string) {
+  await select.focus();
+  await select.selectOption(value);
+}
 
 /** Click somewhere neutral so keyboard shortcuts reach the app, not a field. */
 export async function focusApp(page: Page) {

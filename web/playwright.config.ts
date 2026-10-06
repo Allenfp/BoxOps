@@ -12,6 +12,7 @@ const webkit = { ...devices["Desktop Safari"], viewport };
 /** e2e/helpers.ts's options. */
 interface Options {
   cull: boolean | undefined;
+  virtualize: boolean | undefined;
 }
 
 export default defineConfig<Options>({
@@ -45,6 +46,12 @@ export default defineConfig<Options>({
       name: "webkit culled",
       testMatch: /\/(timeline|timeline-keys|drag|move|departments|pto)\.spec\.ts$/,
       use: { ...webkit, timezoneId: "UTC", cull: true },
+    },
+    // The table's and People's specs with only the rows near the screen drawn, as for a big roadmap.
+    {
+      name: "webkit windowed",
+      testMatch: /\/(table|people|pto|keyboard)\.spec\.ts$/,
+      use: { ...webkit, timezoneId: "UTC", virtualize: true },
     },
     { name: "chromium", use: { ...devices["Desktop Chrome"], viewport, timezoneId: "UTC" } },
     { name: "firefox", use: { ...devices["Desktop Firefox"], viewport, timezoneId: "UTC" } },
