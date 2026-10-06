@@ -967,7 +967,8 @@ when a focused element is removed.
   `e2e/timeline-big.spec.ts` checks a 600-box roadmap against itself drawn
   whole: nothing on screen missing at any scroll or zoom, focus and moves
   kept drawn, what the app focuses or shows (from the warnings, from
-  People, after an editor's Delete) drawn, the grid's rows counted. The
+  People, after an editor's Delete, after someone else deletes the
+  focused box) drawn, the grid's rows counted. The
   table's and People's specs (`table`, `people`, `pto`, `keyboard`, and
   `departments` for headings dragged and moved in the table) run again in
   WebKit with only the rows near the screen drawn (`virtualize`, a test
