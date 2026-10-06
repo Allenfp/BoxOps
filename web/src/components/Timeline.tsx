@@ -851,9 +851,11 @@ export function Timeline(props: Props) {
     const arrow = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1 }[e.key] as -1 | 1 | undefined;
     const ours =
       (mod && (key === "z" || key === "y")) ||
+      (mod && !e.altKey && (arrow !== undefined || e.key === "Home" || e.key === "End")) ||
       (!mod && (arrow !== undefined || ["Escape", "Enter", " ", "Delete", "Backspace", "Home", "End", "PageUp", "PageDown"].includes(e.key) || key === "n"));
     if (!ours) return;
-    // Nothing behind the move acts on these: not the app's undo, nor the browser's Back (Alt+← on Windows).
+    // Nothing behind the move acts on these: not the app's undo, nor the grid's keys, nor the
+    // browser's Back and Forward (Alt+← on Windows, ⌘← on a Mac in Chrome and Firefox).
     e.preventDefault();
     e.stopPropagation();
     if (e.isComposing) return;
@@ -861,6 +863,8 @@ export function Timeline(props: Props) {
     else if ((e.key === "Enter" || e.key === " ") && !e.repeat) drop();
     else if (arrow && (e.key === "ArrowLeft" || e.key === "ArrowRight") && !mod) stepDates(m, e.altKey ? "end" : "move", arrow * (e.shiftKey ? 5 : 1));
     else if (arrow && !mod && !e.altKey && !e.shiftKey) stepLane(m, arrow);
+    // Any other key (⌘←, Home, Delete…) does nothing: it says what does.
+    else if (!e.repeat) say(`Moving ${movingName(m)}: Enter to drop, Escape to cancel.`);
   };
   const moveKey = useRef(onMoveKey);
   const dropNow = useRef(drop);

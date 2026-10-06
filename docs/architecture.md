@@ -647,7 +647,9 @@ when a focused element is removed.
   Space picks one up: the arrow keys then move what's drawn, as a pointer
   drag does (nothing laid out again, nothing else moving), and Enter or
   Space drops it as one change; Escape or ⌘Z puts it back; Tab, a click,
-  ⌘S (which saves it dropped), another view or going read-only drop it.
+  ⌘S (which saves it dropped), another view or going read-only drop it;
+  any other key (⌘← and ⌘→, Back and Forward in Chrome and Firefox on
+  a Mac, Home, Delete…) does nothing then but say Enter drops it.
   Each step is said, with what it would change (`timeline/consequences.ts`:
   a department over capacity or back within it, a rule broken or kept, an
   engineer on PTO then), only the last of a key held down; others' saves

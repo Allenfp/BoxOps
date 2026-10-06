@@ -90,7 +90,7 @@ test("Option or Alt with ← → moves the end date, never before the start; Esc
   await expect(box(page, DAGSTER)).toBeFocused();
 });
 
-test("Alt+← and Alt+→ are the move's, never the browser's Back and Forward, nor before it's picked up", async ({ page, github: _ }) => {
+test("Alt+← and Alt+→ (⌘← and ⌘→ too) are the move's, never the browser's Back and Forward, nor before it's picked up", async ({ page, github: _ }) => {
   await box(page, DAGSTER).focus();
   // Not picked up yet: they say how, and move nothing.
   await page.evaluate(() => {
@@ -119,6 +119,13 @@ test("Alt+← and Alt+→ are the move's, never the browser's Back and Forward, 
   });
   await press(page, "Alt+ArrowLeft", "Alt+ArrowRight", "Alt+Shift+ArrowLeft");
   expect(await page.evaluate(() => (window as unknown as { kept: boolean[] }).kept)).toEqual([true, true, true]);
+  // ⌘← and ⌘→ (Back and Forward in Chrome and Firefox on a Mac), Home and End move nothing; they say what does.
+  await press(page, "ControlOrMeta+ArrowLeft", "ControlOrMeta+ArrowRight");
+  expect(await page.evaluate(() => (window as unknown as { kept: boolean[] }).kept)).toEqual([true, true, true, true, true]);
+  await saysLast(page, "Moving Dagster 2.x upgrade: Enter to drop, Escape to cancel.");
+  await press(page, "Home", "ControlOrMeta+End");
+  await expect(dragDates(page)).toContainText("2026-09-14 – 2026-10-16"); // where Alt+Shift+← left it
+  expect(page.url()).toContain("zoom=months");
   await page.keyboard.press("Escape");
 });
 
