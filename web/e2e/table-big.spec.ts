@@ -1,7 +1,7 @@
 import type { Browser, Locator, Page } from "@playwright/test";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import type { FakeGitHub } from "./fake-github";
-import { choose, expect, openTab, test, toolbar } from "./helpers";
+import { choose, expect, openTab, pastPrintTable, test, toolbar } from "./helpers";
 
 // A big roadmap's table draws only the rows near the screen
 // (table/useWindowedRows.ts), and nothing on screen is ever missing from it:
@@ -270,6 +270,8 @@ test("printing gives every row as shown, and leaves focus where it was", async (
   await expect(page.locator(".print-table tbody tr")).toHaveCount(count - 1 - 12 - 1);
   await expect(page.locator(".print-table")).toBeVisible();
   await expect(page.locator(".print-table tbody tr").nth(1)).toContainText(/\d{4}-\d{2}-\d{2}\s*\d{4}-\d{2}-\d{2}/);
+  // The pages are as wide and long as the rows printed: the table on screen, which focus is kept in, takes no room.
+  expect(await pastPrintTable(page)).toEqual({ across: 0, down: 0 });
   await page.emulateMedia({ media: "screen" });
   await expect(page.locator(".print-table")).toHaveCount(0);
   // (Playwright's Firefox drops focus whenever it emulates a medium, on any page.)
@@ -349,6 +351,7 @@ test.describe("People", () => {
     await page.emulateMedia({ media: "print" });
     await expect(page.locator(".print-table tbody tr")).toHaveCount(120 + 12);
     await expect(page.locator(".print-table")).toBeVisible();
+    expect(await pastPrintTable(page)).toEqual({ across: 0, down: 0 });
     await page.emulateMedia({ media: "screen" });
     await expect(page.locator(".print-table")).toHaveCount(0);
   });

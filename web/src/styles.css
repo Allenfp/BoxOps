@@ -3142,8 +3142,13 @@ body.reordering * {
   .reorder-line {
     display: none !important;
   }
-  /* Clipped away rather than hidden, so what has focus there keeps it (a browser drops focus from what isn't drawn). */
+  /*
+   * Clipped away rather than hidden, so what has focus there keeps it (a browser drops focus from what isn't
+   * drawn). A block, not a table: a table is as wide and tall as its rows whatever its size says, and the page
+   * would be too (shrunk to fit its width, with blank pages after the rows).
+   */
   .table-view .table-scroll > .box-table {
+    display: block;
     position: absolute;
     width: 1px;
     min-width: 0;

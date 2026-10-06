@@ -149,6 +149,24 @@ export async function choose(select: Locator, value: string) {
   await select.selectOption(value);
 }
 
+/**
+ * With print media emulated on the table or People: how far the page goes
+ * past the printed table, across and down, beyond the window's own size.
+ * None either way unless something else takes room on paper, as the
+ * interactive table (kept, clipped, for focus) mustn't: the pages would be
+ * shrunk to its width, with blank ones after the rows.
+ */
+export const pastPrintTable = (page: Page): Promise<{ across: number; down: number }> =>
+  page.evaluate(() => {
+    const doc = document.documentElement;
+    const table = document.querySelector(".print-table")!.getBoundingClientRect();
+    return {
+      across: Math.max(0, doc.scrollWidth - Math.max(doc.clientWidth, Math.ceil(table.right + scrollX))),
+      // (Give or take the page's own edge, a pixel or two.)
+      down: Math.max(0, doc.scrollHeight - Math.max(doc.clientHeight, Math.ceil(table.bottom + scrollY) + 2)),
+    };
+  });
+
 /** Click somewhere neutral so keyboard shortcuts reach the app, not a field. */
 export async function focusApp(page: Page) {
   await page.locator(".tl-corner, .table-toolbar .hint").first().click();

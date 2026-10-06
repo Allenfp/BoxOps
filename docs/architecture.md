@@ -775,9 +775,11 @@ when a focused element is removed.
 - **Printing** (`table/PrintTable.tsx`, `table/usePrinting.ts`). On paper the
   table and People are a plain table of every row as shown (search, dates,
   sort, collapsed departments), drawn as printing starts; the interactive
-  one is clipped away, so focus stays where it was. Everywhere, the
-  toolbar's controls, banners and the table's own toolbar are left out and
-  colours print; the timeline prints what's on screen.
+  one is clipped away to a pixel, so focus stays where it was, as a block
+  rather than a table (a table keeps its size whatever it's given, and the
+  pages would be shrunk to its width, with blank ones after the rows).
+  Everywhere, the toolbar's controls, banners and the table's own toolbar
+  are left out and colours print; the timeline prints what's on screen.
 - **Limits.** On a big roadmap the browser's Find and a screen reader's
   browse mode reach only the rows drawn; the table's search covers every row.
 

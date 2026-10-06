@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { DAGSTER, boxFile, expect, save, test, toolbar } from "./helpers";
+import { DAGSTER, boxFile, expect, pastPrintTable, save, test, toolbar } from "./helpers";
 
 const row = (page: Page, title: string) =>
   page.locator("tbody tr").filter({ has: page.locator(`input[aria-label="Title"][value="${title}"]`) });
@@ -183,6 +183,12 @@ test("the calendar picks a date and closes; a click elsewhere or Esc closes it t
   await from.click();
   await page.keyboard.press("Escape");
   await expect(calendar).toHaveCount(0);
+});
+
+test("printing gives every box, on pages no wider or longer than that", async ({ page, github: _ }) => {
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator(".print-table tbody tr").filter({ hasText: "Dagster 2.x upgrade" })).toHaveCount(1);
+  expect(await pastPrintTable(page)).toEqual({ across: 0, down: 0 });
 });
 
 test("⌘S while typing in a cell saves what's being typed", async ({ page, github }) => {
