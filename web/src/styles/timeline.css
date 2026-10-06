@@ -881,3 +881,59 @@ body.reordering * {
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* High-contrast themes (see base.css). */
+@media (forced-colors: active) {
+  .today-line {
+    background: Highlight;
+  }
+  .today-flag {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .grid-line.major,
+  .grid-line.week {
+    background: GrayText;
+  }
+  /* Progress: the ring in the text colour, half of it or all of it filled. */
+  .status-mark {
+    forced-color-adjust: none;
+    color: CanvasText;
+  }
+  /* A box's edge is the theme's; a collapsed department's compact boxes are bars of the text colour. */
+  .box.compact {
+    background: CanvasText;
+    opacity: 1;
+  }
+  .box.selected,
+  .pto-block.selected {
+    outline-color: Highlight;
+  }
+  .box.overflowing {
+    border-left-width: 3px;
+  }
+  .box:hover .handle::after,
+  .pto-block:hover .handle::after {
+    background: CanvasText;
+  }
+  .box.updated::after {
+    background: Highlight;
+  }
+  .drag-dates {
+    border: 1px solid CanvasText;
+  }
+  .reorder-line {
+    background: Highlight;
+  }
+  .lane-row.drop-target > .lane-label,
+  .lane-row.drop-target > .lane-track {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  /* A lane's closed dates stay hatched. */
+  .lane-closed {
+    forced-color-adjust: none;
+    background: repeating-linear-gradient(-45deg, GrayText 0 1px, transparent 1px 7px);
+  }
+}

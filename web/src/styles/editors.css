@@ -442,3 +442,20 @@
   gap: 4px;
   margin-top: 4px;
 }
+
+/* High-contrast themes (see base.css). */
+@media (forced-colors: active) {
+  .calendar-day.selected {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .calendar-day.today:not(:focus-visible) {
+    outline: 1px dashed CanvasText;
+    outline-offset: -2px;
+  }
+  .calendar-day.weekend {
+    color: GrayText;
+    opacity: 1;
+  }
+}

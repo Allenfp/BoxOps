@@ -322,3 +322,43 @@ kbd {
   background: var(--surface-2);
   color: var(--text);
 }
+
+/*
+ * High-contrast themes (Windows' contrast themes, forced colours): the browser paints in the theme's
+ * few colours, dropping shadows and background images. Each part of the stylesheet has a block like
+ * this one, drawing in system colours what only a background or a shadow showed.
+ */
+@media (forced-colors: active) {
+  /* The chosen option of a segmented control: the theme's highlight. Text on a highlight is drawn as it's
+     set (forced-color-adjust: none), or the browser puts the page's colour behind it to keep it readable. */
+  .segmented button[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    box-shadow: none;
+  }
+  /* A switch: an outlined track with its knob on the left, or highlighted with its knob on the right. */
+  .toggle input[type="checkbox"] {
+    forced-color-adjust: none;
+    background: Canvas;
+    border: 1px solid CanvasText;
+  }
+  .toggle input[type="checkbox"]::after {
+    top: 1px;
+    left: 1px;
+    background: CanvasText;
+    box-shadow: none;
+  }
+  .toggle input[type="checkbox"]:checked {
+    background: Highlight;
+    border-color: Highlight;
+  }
+  .toggle input[type="checkbox"]:checked::after {
+    background: HighlightText;
+  }
+  /* A team's colours are data: shown as they are. */
+  .swatch {
+    forced-color-adjust: none;
+    box-shadow: 0 0 0 1px CanvasText;
+  }
+}

@@ -426,6 +426,10 @@
     color: FieldText;
     -webkit-text-fill-color: FieldText;
   }
+  /* Changed by someone else: the theme's highlight (see base.css). */
+  .row-updated {
+    background: Highlight;
+  }
 }
 .box-table textarea.cell-input {
   font: inherit;

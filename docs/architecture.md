@@ -640,6 +640,14 @@ when a focused element is removed.
   colours from the stylesheet itself (`tokens.css` and the rules that mix
   them) and checks each pair, and what's on a box against an even sweep of
   every colour; axe checks the pages too (`e2e/a11y.spec.ts`).
+- **High contrast.** In Windows' contrast themes (forced
+  colours) the browser paints with the theme's few colours and drops
+  shadows and background images, so each part of the stylesheet draws in
+  system colours what only they showed: the chosen option of a segmented
+  control, a switch's state, a box's progress mark, the Today line and
+  flag, the picked day, the selected box, a team's colours (shown as they
+  are), the changed-by-someone-else dot and a lane's closed dates. Only
+  Chromium can emulate this, so `e2e/styles.spec.ts` checks it there.
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to
@@ -665,8 +673,9 @@ when a focused element is removed.
   browse mode makes of the departments it doesn't draw; the same for a big
   table and People (over 200 rows), the note in a row being edited that no
   longer matches the search, and People's "+N more" PTO. Printing from a
-  real print dialog (the tests emulate print media). Descriptions and notes
-  in Windows' high-contrast mode (forced colours: the field shows its own
+  real print dialog (the tests emulate print media). Windows' contrast themes
+  themselves, in Edge, Chrome and Firefox (the tests emulate them in
+  Chromium), descriptions and notes among them (the field shows its own
   two lines there, without the …). And a finger dragging a box on a real
   touch screen (iPad Safari, Android Chrome): the tests send touches to
   Chromium alone.

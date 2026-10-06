@@ -490,3 +490,27 @@
 .save-dialog:focus {
   outline: none;
 }
+
+/* High-contrast themes (see base.css). */
+@media (forced-colors: active) {
+  /* A department's colours are data: shown as they are, the chosen one ringed in the highlight. */
+  .swatch-button {
+    forced-color-adjust: none;
+    box-shadow: 0 0 0 1px CanvasText;
+  }
+  .swatch-button.chosen {
+    border-color: Canvas;
+    box-shadow: 0 0 0 2px Highlight;
+  }
+  .color-input {
+    forced-color-adjust: none;
+    background: Canvas;
+    border-color: CanvasText;
+  }
+  .key-updated {
+    background: Highlight;
+  }
+  .key-overflow {
+    border-left: 3px solid CanvasText;
+  }
+}

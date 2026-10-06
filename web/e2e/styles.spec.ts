@@ -49,3 +49,29 @@ test("team settings: colour swatches fill their 28px button, and names read as f
   });
   expect(await css(dialog.getByLabel("Type 1 name"), "font-size", "font-weight")).toEqual({ "font-size": "13px", "font-weight": "400" });
 });
+
+test("in a high-contrast theme, what only colour showed stays: the chosen view, Today, progress, switches, the picked day", async ({ page, browserName, github: _ }) => {
+  test.skip(browserName !== "chromium", "only Chromium emulates Windows' contrast themes (forced colours)");
+  await page.emulateMedia({ forcedColors: "active" });
+  const views = page.getByRole("group", { name: "View" });
+  const bg = async (el: Locator, pseudo?: string) => el.evaluate((e, p) => getComputedStyle(e, p).backgroundColor, pseudo);
+  expect(await bg(views.getByRole("button", { name: "Timeline" }))).not.toEqual(await bg(views.getByRole("button", { name: "Table" })));
+  expect(await bg(page.locator(".today-line"))).not.toEqual(await bg(page.locator(".timeline")));
+  // Dagster is under way: half its ring is filled.
+  expect(await css(box(page, DAGSTER).locator(".status-mark"), "background-image")).toEqual({
+    "background-image": expect.stringContaining("linear-gradient"),
+  });
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const on = page.locator(".settings-menu .toggle input:checked").first();
+  const off = page.locator(".settings-menu .toggle input:not(:checked)").first();
+  expect(await css(off, "border-top-style", "border-top-width")).toEqual({ "border-top-style": "solid", "border-top-width": "1px" });
+  expect(await bg(on)).not.toEqual(await bg(off));
+  expect(await bg(on, "::after")).not.toEqual(await bg(off, "::after"));
+  await page.keyboard.press("Escape");
+
+  await box(page, DAGSTER).click();
+  await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: "Choose date" }).first().click();
+  const calendar = page.getByRole("dialog", { name: "Choose date" });
+  expect(await bg(calendar.locator(".calendar-day.selected"))).not.toEqual(await bg(calendar.locator(".calendar-day:not(.selected, .weekend)").first()));
+});
