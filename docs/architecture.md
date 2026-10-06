@@ -771,11 +771,12 @@ when a focused element is removed.
   keeps it, whichever part of a tall box was held. The layout stays as it
   was until the drop (nothing moves under the pointer, no department
   changes height); the box is drawn where it's going, inside its
-  department. Near the timeline's edges a drag scrolls it, and scrolling
-  mid-drag carries the box along. An edge scrolls only once the pointer has
-  been clear of it during the drag, or has gone on towards it: a box
-  pressed just under the header or beside the labels and dragged along
-  that edge, or away from it, doesn't scroll (and so keeps its lane).
+  department. Near the timeline's edges a drag scrolls it (up and down
+  only for a box moved: one resized, or a PTO block, can't change rows),
+  and scrolling mid-drag carries the box along. An edge scrolls only once
+  the pointer has been clear of it during the drag, or has gone on towards
+  it: a box pressed just under the header or beside the labels and dragged
+  along that edge, or away from it, doesn't scroll (and so keeps its lane).
 - **Drawing** (`components/Timeline.tsx`). Each department is drawn by a
   memoized component given only what's its own (its boxes, layout, PTO and
   what's selected or moving in it, as the same arrays and objects while

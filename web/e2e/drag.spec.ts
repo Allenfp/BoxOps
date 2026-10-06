@@ -380,4 +380,49 @@ test.describe("in a short window", () => {
     await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-28 – 2026-11-06");
     await expect(toolbar(page)).toContainText("Save · 1 change");
   });
+
+  test("near the top edge, a box moved scrolls the timeline up; one resized, or a PTO block dragged, doesn't", async ({ page, github: _ }) => {
+    const timeline = page.locator(".timeline");
+    const top = () => timeline.evaluate((el) => el.scrollTop);
+    /** The timeline scrolled down till `item`'s middle is 50 px under the header: clear of the top edge's zone (40 px). */
+    const below = async (item: Locator) => {
+      const [head, b] = [(await page.locator(".tl-head").boundingBox())!, (await item.boundingBox())!];
+      await timeline.evaluate((el, dy) => (el.scrollTop += dy), b.y + b.height / 2 - (head.y + head.height) - 50);
+      expect(await top()).toBeGreaterThan(0);
+      return (await item.boundingBox())!;
+    };
+    /** Pressed at x, y, dragged right and 15 px up, into the zone, and held there. */
+    const wobble = async (x: number, y: number) => {
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + 20, y - 5, { steps: 3 });
+      await page.mouse.move(x + 30, y - 15, { steps: 3 });
+      await page.waitForTimeout(400);
+    };
+
+    // Its end dragged: the dates change, its lane can't, and the view stays.
+    let b = await below(box(page, DAGSTER));
+    let before = await top();
+    await wobble(b.x + b.width - 3, b.y + b.height / 2);
+    expect(await top()).toBe(before);
+    await page.mouse.up();
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    // Moved, it could go to the lane above: the timeline scrolls up.
+    b = await below(box(page, DAGSTER));
+    before = await top();
+    await wobble(Math.max(b.x, 400) + 30, b.y + b.height / 2);
+    await expect.poll(top).toBeLessThan(before);
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
+
+    // A PTO block only ever moves in time.
+    await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+    await expect(page.getByRole("dialog", { name: /Edit PTO/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    b = await below(page.locator(".pto-block").first());
+    before = await top();
+    await wobble(b.x + b.width / 2, b.y + b.height / 2);
+    expect(await top()).toBe(before);
+    await page.mouse.up();
+  });
 });
