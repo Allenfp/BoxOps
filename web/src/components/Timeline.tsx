@@ -1,6 +1,7 @@
 import { flushSync } from "react-dom";
 import {
   type CSSProperties,
+  Suspense,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -18,7 +19,7 @@ import {
 import { flagName, PROGRESS_NAME, progress } from "../model/status";
 import { boxScale, scaleSentence } from "../model/scale";
 import { jiraKey } from "../model/jira";
-import { ScaleBadge } from "./ScaleBadge";
+import { ScaleBadge, ScaleCard } from "./ScaleBadge";
 import { capacityOn, hasDates, laneDates } from "../model/lanes";
 import { packRows, ptoEntries, ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import { CollapseAll } from "./CollapseAll";
@@ -91,7 +92,7 @@ const moveKeysHint = (lanes: boolean) =>
 /** The id of what's said about the focused box beyond its name (useGridFocus.ts writes it). */
 const DESCRIBED_BY = "tl-focus-desc";
 const GRID_HELP =
-  "Arrow keys move between lanes, boxes and PTO. Enter opens a box, Space picks it up to move it, Delete deletes it. " +
+  "Arrow keys move between lanes, boxes and PTO. Enter opens a box, Space picks it up to move it, Delete deletes it, I shows its scale. " +
   "The + beside a lane or PTO adds one there, as N does. Question mark lists the keys.";
 
 /** A cell's key, `kind:id` (data-cell), in its two parts. */
@@ -391,6 +392,11 @@ export function Timeline(props: Props) {
     say(`Added PTO in ${departments.find((d) => d.id === deptId)?.name ?? "the department"}, ${spokenRange(start, end)}.`);
   };
 
+  /** The box whose scale card I showed, and what the card is placed by (its scale number, else the box). */
+  const [scaleCard, setScaleCard] = useState<string | null>(null);
+  const cardAnchor = useRef<HTMLElement | null>(null);
+  const cardBox = scaleCard === null ? undefined : boxes.find((b) => b.id === scaleCard);
+
   const onGridKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (e.defaultPrevented || isTyping(e.target) || move.current) return;
     const cell = cellOf(e.target);
@@ -413,6 +419,12 @@ export function Timeline(props: Props) {
       if (e.repeat || e.nativeEvent.isComposing) return;
       if (readOnly) return say(readOnlyWhy);
       remove(cell, kind, id);
+    } else if (letter(e.nativeEvent) === "i" && !e.metaKey && !e.ctrlKey && !e.altKey && kind === "box") {
+      // The box's scale card, shown or put away: not shown by focus alone, as it covers the lane below.
+      e.preventDefault();
+      if (e.repeat) return;
+      cardAnchor.current = cell.querySelector<HTMLElement>(".scale-number") ?? cell;
+      setScaleCard((cur) => (cur === id ? null : id));
     } else if (letter(e.nativeEvent) === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
       if (e.repeat) return;
@@ -505,7 +517,7 @@ export function Timeline(props: Props) {
   /**
    * Focus on what was pressed (it wouldn't take it otherwise, the press being kept from selecting
    * text), without the keyboard's ring: browsers draw one when a script moves focus, unless told.
-   * One the keyboard had focused is focused again, so its ring (and its scale card) goes.
+   * One the keyboard had focused is focused again, so its ring goes.
    */
   const focusPressed = (el: HTMLElement) => {
     if (document.activeElement === el) el.blur();
@@ -1051,6 +1063,11 @@ export function Timeline(props: Props) {
           )}
 
           {showToday && <div className="today-line" aria-hidden style={{ left: LABEL_W + todayX }} />}
+          {cardBox && (
+            <Suspense fallback={null}>
+              <ScaleCard box={cardBox} departments={departments} anchor={cardAnchor} hover={false} onClose={() => setScaleCard(null)} />
+            </Suspense>
+          )}
         </div>
       </div>
     </div>
@@ -1544,6 +1561,7 @@ const BoxView = memo(
           start: b.start,
           end: b.end,
           fte: b.fte,
+          scale: scaleValue,
           engineers,
           flag: b.status ? flag : undefined,
           rules: warnings.length,

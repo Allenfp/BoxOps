@@ -101,6 +101,8 @@ straight to `main`, and the site updates within a minute.
   department heading above or below. Enter opens a box or PTO; Space picks
   it up to move it with the arrow keys (Shift for a week, Option or Alt for
   its end date only, ↑ ↓ for its lane), Enter drops it and Esc puts it back.
+  I shows a box's scale card, and I again or Esc puts it away (focus alone
+  doesn't show it; the box's name says its scale).
   N adds a box in a lane (or PTO in a PTO row), Delete deletes the box or
   PTO you're on, and Option or Alt with ↑ ↓ on a department's name moves it,
   in the table too. ? lists the keys. Dialogs and the box and PTO editors

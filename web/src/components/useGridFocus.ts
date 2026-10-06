@@ -21,7 +21,7 @@
 // never left under the sticky header or label column (WCAG 2.4.11), nor
 // under the broken-rule popup: the timeline scrolls to show it. Focus that
 // follows a press (on a box about to be dragged, or put back after a drop)
-// is the pointer's: it scrolls nothing and shows no ring (focusByPress).
+// is the pointer's: it scrolls nothing and shows no ring (`pressed`).
 
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
@@ -32,15 +32,13 @@ import type { GridRow } from "../timeline/rows";
 
 /** The cell that last had focus, kept across view switches: coming back to the timeline, Tab goes to it again. */
 let remembered: string | null = null;
-/** A pointer was pressed in the grid since the last key. */
-let pressed = false;
-
 /**
- * Focus in the timeline now comes from a pointer pressed in it, not the
- * keyboard: no ring, no scale card. Browsers draw a ring (:focus-visible)
- * whenever a script moves focus, so it's told by the last input instead.
+ * A pointer was pressed in the grid since the last key: focus in the
+ * timeline now comes from it, not the keyboard, and shows no ring. Browsers
+ * draw a ring (:focus-visible) whenever a script moves focus, so it's told
+ * by the last input instead.
  */
-export const focusByPress = (): boolean => pressed;
+let pressed = false;
 
 /** Focus about to come back to the timeline follows a click elsewhere (an editor's ✕ or Delete): as one in it, it scrolls nothing and shows no ring. */
 export const markPressed = (): void => {

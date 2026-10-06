@@ -239,16 +239,17 @@ test("a box or PTO block pressed and dragged has focus, but not the keyboard's r
   expect(await ring(box(page, DAGSTER))).toBe(false);
   expect(await edge(box(page, DAGSTER))).toBe("solid 1px");
   await expect(card).toHaveCount(0);
-  // The keyboard's next cell has both; and back, so has the box.
+  // The keyboard's next cell has the ring; and back, so has the box, and I shows its card.
   await page.keyboard.press("ArrowRight");
   await expect(box(page, CDC)).toBeFocused();
   expect(await ring(box(page, CDC))).toBe(true);
   expect(await edge(box(page, CDC))).toBe("solid 2px");
   expect(await edge(box(page, DAGSTER))).toBe("none");
-  await expect(card).toContainText("Scale");
+  await expect(card).toHaveCount(0);
   await page.keyboard.press("ArrowLeft");
   await expect(box(page, DAGSTER)).toBeFocused();
   expect(await ring(box(page, DAGSTER))).toBe(true);
+  await page.keyboard.press("i");
   await expect(card).toContainText("Scale 30");
   // Pressed, both go.
   await hold(page, DAGSTER, MONTH_PX * 5, 0);

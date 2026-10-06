@@ -650,8 +650,8 @@ when a focused element is removed.
   however long they're held, and nothing from anywhere else (a stray
   Backspace in an editor used to delete what it edited); the editors' Delete
   button deletes too. Outside a text field, Backspace is never the browser's
-  Back. N and ? are the only single-letter keys, and only on the timeline
-  (WCAG 2.1.4).
+  Back. N, I and ? are the only single-letter keys, and only on the
+  timeline (WCAG 2.1.4).
 - **The timeline** is an APG layout grid (`components/useGridFocus.ts`,
   `timeline/keyboard.ts`): rows are a department's heading, each lane, its
   extra area and its PTO, each with a short name of its own ("Data
@@ -662,8 +662,9 @@ when a focused element is removed.
   the active one's is set on the DOM, so moving focus renders nothing). The
   arrow keys go between cells, up and down to the cell nearest in time to
   the day being looked at; Home, End, Page Up and Page Down jump. A box's
-  name says its title, code, dates, FTE, engineers, flag, broken rules and
-  clashes; the focused box's lane, scale and progress are its description,
+  name says its title, code, dates, FTE, scale, engineers, flag, broken
+  rules and clashes; the focused box's lane, scale in full and progress are
+  its description,
   one hidden element written before focus moves. The timeline scrolls a
   focused cell clear of the sticky header and label column, and of the
   broken-rule popup (which leaves room to scroll for that), as WCAG 2.4.11
@@ -692,15 +693,18 @@ when a focused element is removed.
   something say why they don't. The dates along the top, grid lines,
   hatching and drag labels are hidden from screen readers. The popup is
   drawn under the editors, menus and dialogs, so it never hides what has
-  focus in them either. A box's scale card shows on hover and while the
-  box has keyboard focus; the pointer can move onto it and Escape puts it
-  away (WCAG 1.4.13). It covers the lane (or table rows) below, so it lets
-  the pointer through, and where the pointer is is watched instead: a
-  press or the wheel over it reaches what's under it, and puts it away. Pressing a box or PTO block (to drag it, say)
-  focuses it without the keyboard's ring or the card, and so does putting
-  focus back on it after a drop: browsers draw a ring whenever a script
-  moves focus, so it's told by whether a key or a press came last
-  (`focusByPress`). An editor closed with a click on ✕, or its box or
+  focus in them either. A box's scale card (`components/ScaleCard.tsx`)
+  shows on hover, and with I on a box that has keyboard focus (under its
+  scale, or under the box when it shows none; I again, focus moving on or
+  any other key puts it away), not with focus alone: it would cover the
+  lane below. The pointer can move onto it and Escape puts it away, doing
+  nothing else (WCAG 1.4.13). It covers the lane (or table rows) below, so
+  it lets the pointer through, and where the pointer is is watched instead:
+  a press or the wheel over it reaches what's under it, and puts it away.
+  Pressing a box or PTO block (to drag it, say) focuses it without the
+  keyboard's ring, and so does putting focus back on it after a drop:
+  browsers draw a ring whenever a script moves focus, so it's told by
+  whether a key or a press came last (`pressed` in `useGridFocus.ts`). An editor closed with a click on ✕, or its box or
   block deleted with one, gives focus back the same way, scrolling
   nothing (`focusLater`'s `clicked`, `markPressed`): the view stays where
   the pointer left it. From the keyboard (Esc, or Enter on ✕ or Delete)

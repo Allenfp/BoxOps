@@ -85,14 +85,14 @@ describe("navigate", () => {
 });
 
 describe("names", () => {
-  it("a box: what, when, how big, who, and what needs attention", () => {
-    const base = { title: "Dagster 2.x upgrade", code: "DE-D9U", ...at("2026-09-14", "2026-10-23"), fte: 1, engineers: [], rules: 0, clash: false, updated: false };
-    expect(boxName(base)).toBe("Dagster 2.x upgrade, DE-D9U, 2026-09-14 to 2026-10-23, 1 FTE, no engineer assigned");
-    expect(boxName({ ...base, title: "", jira: "DATA-42", fte: 1.5, engineers: ["Sam Lee", "Alex Kim"], flag: "At risk", rules: 2, clash: true, updated: true })).toBe(
-      "Untitled, DATA-42 (DE-D9U), 2026-09-14 to 2026-10-23, 1.5 FTE, Sam Lee, Alex Kim, At risk, breaks 2 rules, someone else also changed it",
-    );
-    expect(boxName({ ...base, ...at("2026-10-07", "2026-10-07"), rules: 1, updated: true })).toBe(
-      "Dagster 2.x upgrade, DE-D9U, 2026-10-07, 1 FTE, no engineer assigned, breaks a rule, changed by someone else",
+  it("a box: what, when, how big (its scale too), who, and what needs attention", () => {
+    const base = { title: "Dagster 2.x upgrade", code: "DE-D9U", ...at("2026-09-14", "2026-10-23"), fte: 1, scale: 30, engineers: [], rules: 0, clash: false, updated: false };
+    expect(boxName(base)).toBe("Dagster 2.x upgrade, DE-D9U, 2026-09-14 to 2026-10-23, 1 FTE, scale 30, no engineer assigned");
+    expect(
+      boxName({ ...base, title: "", jira: "DATA-42", fte: 1.5, scale: 45, engineers: ["Sam Lee", "Alex Kim"], flag: "At risk", rules: 2, clash: true, updated: true }),
+    ).toBe("Untitled, DATA-42 (DE-D9U), 2026-09-14 to 2026-10-23, 1.5 FTE, scale 45, Sam Lee, Alex Kim, At risk, breaks 2 rules, someone else also changed it");
+    expect(boxName({ ...base, ...at("2026-10-07", "2026-10-07"), scale: 1, rules: 1, updated: true })).toBe(
+      "Dagster 2.x upgrade, DE-D9U, 2026-10-07, 1 FTE, scale 1, no engineer assigned, breaks a rule, changed by someone else",
     );
   });
 

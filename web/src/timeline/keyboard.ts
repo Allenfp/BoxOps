@@ -114,6 +114,8 @@ export interface BoxNameParts {
   start: Day;
   end: Day;
   fte: number;
+  /** FTE × working days. */
+  scale: number;
   engineers: string[];
   /** Its flag's name (At risk); none when it's on track. */
   flag?: string;
@@ -128,9 +130,10 @@ export interface BoxNameParts {
 /**
  * A box's accessible name: what it is, when, how big, who, and anything
  * that needs attention ("Dagster 2.x upgrade, DE-D9U, 2026-09-14 to
- * 2026-10-23, 1 FTE, Sam Lee, At risk, breaks a rule"). What needs
- * attention is in the name, not only the description, which a screen
- * reader may be set not to read.
+ * 2026-10-23, 1 FTE, scale 30, Sam Lee, At risk, breaks a rule"). What
+ * needs attention is in the name, not only the description, which a screen
+ * reader may be set not to read; so is the scale, whose card shows only
+ * when asked for.
  */
 export function boxName(p: BoxNameParts): string {
   return [
@@ -138,6 +141,7 @@ export function boxName(p: BoxNameParts): string {
     p.jira ? `${p.jira} (${p.code})` : p.code,
     spokenRange(p.start, p.end),
     `${p.fte} FTE`,
+    `scale ${p.scale}`,
     p.engineers.length ? p.engineers.join(", ") : "no engineer assigned",
     p.flag,
     p.rules > 0 && `breaks ${p.rules === 1 ? "a rule" : `${p.rules} rules`}`,

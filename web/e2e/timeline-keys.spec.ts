@@ -15,7 +15,7 @@ const isFocusVisible = (l: Locator) => l.evaluate((el) => el.matches(":focus-vis
 test("the timeline is a grid of rows and cells with full names, and one Tab stop", async ({ page, github: _ }) => {
   const grid = page.getByRole("grid", { name: "Timeline" });
   await expect(grid).toHaveAccessibleDescription(/^Arrow keys move between lanes, boxes and PTO\./);
-  await expect(grid.getByRole("gridcell", { name: "Dagster 2.x upgrade, DE-D9U, 2026-09-14 to 2026-10-23, 1 FTE, no engineer assigned, At risk" })).toHaveCount(1);
+  await expect(grid.getByRole("gridcell", { name: "Dagster 2.x upgrade, DE-D9U, 2026-09-14 to 2026-10-23, 1 FTE, scale 30, no engineer assigned, At risk" })).toHaveCount(1);
   await expect(grid.getByRole("rowheader", { name: /^Contractor\s+0\.5 FTE$/ })).toHaveCount(1);
   await expect(grid.getByRole("gridcell", { name: /^PTO, / })).toHaveCount(0);
   await expect(grid.getByRole("button", { name: "Add a box to Data Engineering / FTE 2" })).toHaveCount(1);
@@ -566,7 +566,7 @@ test("Option or Alt with ↑ ↓ on a department's heading moves it, keeping foc
   expect(github.file("departments/data-eng.yaml")).toContain("order: 2\n");
 });
 
-test("a box's scale card can be hovered, shows while the box has keyboard focus, and Escape puts it away", async ({ page, github: _ }) => {
+test("a box's scale card can be hovered, shows with I (not with focus alone), and Escape puts it away", async ({ page, github: _ }) => {
   const pop = page.getByRole("tooltip");
   // The pointer can go from the number onto the card, and the card stays.
   const number = box(page, DAGSTER).locator(".box-scale");
@@ -581,18 +581,36 @@ test("a box's scale card can be hovered, shows while the box has keyboard focus,
   await expect(pop).toHaveCount(0);
   await page.mouse.move(5, 5);
 
-  // Keyboard focus on a box shows its card; Escape puts it away, focus staying on the box.
+  // Keyboard focus on a box doesn't show its card, which would cover the lane below; I does, under the
+  // box's scale, and I again puts it away. Escape does too, focus staying on the box.
   await cell(page, "lane:de-2").focus();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
   await expect(box(page, DAGSTER)).toBeFocused();
+  await page.waitForTimeout(300);
+  await expect(pop).toHaveCount(0);
+  await page.keyboard.press("i");
   await expect(pop).toContainText("29% of Data Engineering while it runs");
+  const at = (await pop.boundingBox())!;
+  const scale = (await number.boundingBox())!;
+  expect(at.y).toBeGreaterThan(scale.y + scale.height);
+  expect(at.x + at.width).toBeCloseTo(scale.x + scale.width, -1);
+  await page.keyboard.press("i");
+  await expect(pop).toHaveCount(0);
+  await page.keyboard.press("i");
+  await expect(pop).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(pop).toHaveCount(0);
   await expect(box(page, DAGSTER)).toBeFocused();
+  await expect(page.getByRole("dialog")).toHaveCount(0); // Escape did nothing else
+  // Focus moving on puts it away; so does picking the box up.
+  await page.keyboard.press("i");
+  await expect(pop).toBeVisible();
   await page.keyboard.press("ArrowRight");
-  await expect(pop).toContainText("Scale");
-  // Picking it up puts the card away.
+  await expect(pop).toHaveCount(0);
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("i");
+  await expect(pop).toBeVisible();
   await page.keyboard.press("Space");
   await expect(pop).toHaveCount(0);
   await page.keyboard.press("Escape");
@@ -620,6 +638,18 @@ test("a box's scale card can be hovered, shows while the box has keyboard focus,
   await page.mouse.up();
   await expect(page.getByRole("dialog", { name: `Edit ${under!.title}` })).toBeVisible();
   await page.keyboard.press("Escape");
+
+  // With boxes showing no scale, I shows the card under the box itself.
+  await page.evaluate(() => localStorage.setItem("boxops-prefs", JSON.stringify({ showCodes: true, showScale: false })));
+  await page.reload();
+  await expect(box(page, DAGSTER).locator(".box-scale")).toHaveCount(0);
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("i");
+  await expect(pop).toContainText("Scale 30");
+  const b = (await box(page, DAGSTER).boundingBox())!;
+  expect((await pop.boundingBox())!.y).toBeGreaterThan(b.y + b.height);
+  await page.keyboard.press("Escape");
+  await expect(pop).toHaveCount(0);
 });
 
 test("⌘S with focus on a lane's name keeps focus there, though it's only text while saving", async ({ page, github: _ }) => {

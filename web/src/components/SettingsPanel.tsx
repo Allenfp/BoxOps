@@ -293,6 +293,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
       [`${shortcut("↑")} ${shortcut("↓")}`, "First or last of the timeline"],
       [PAGE_KEYS, "The department heading above or below"],
       ["Enter", "Open the box or PTO"],
+      ["I", "Show or hide the box’s scale card (Esc hides it too)"],
       ["Space", "Pick the box or PTO up, to move it"],
       ["N", "New box in the lane (after the box you're on), or PTO in a PTO row"],
       ["Delete", "Delete the box or PTO (undo brings it back)"],
