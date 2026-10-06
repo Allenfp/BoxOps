@@ -42,8 +42,16 @@ test("records a manager and wrapping notes", async ({ page, github }) => {
   await page.keyboard.type("Owns the Dagster migration. Out for two weeks in December, so plan Fivetran work around that.");
   await page.keyboard.press("Shift+Enter");
   await page.keyboard.type("Prefers async updates.");
-  await page.keyboard.press("Enter");
-  await expect.poll(async () => (await notes.boundingBox())!.height).toBeGreaterThan(40); // wrapped onto several lines
+  await page.keyboard.press("Enter"); // still in the field
+  // With focus, every line shows (it's wrapped onto several), none cut off.
+  const size = () => notes.evaluate((el) => ({ height: el.getBoundingClientRect().height, fits: el.scrollHeight <= el.clientHeight }));
+  const open = await size();
+  expect(open.fits).toBe(true);
+  expect(open.height).toBeGreaterThan(2 * 18 + 10);
+  // Left, two lines, and the row is as tall as the others.
+  await page.locator(".table-search").focus();
+  await expect.poll(async () => (await size()).height).toBeLessThanOrEqual(2 * 18 + 10);
+  expect(await page.locator("tr.person-row").evaluateAll((rows) => new Set(rows.map((r) => r.getBoundingClientRect().height)).size)).toBe(1);
 
   await page.locator(".table-search").fill("dana");
   await expect(page.locator('input[aria-label="Name"]')).toHaveCount(1);
