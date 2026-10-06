@@ -893,8 +893,10 @@ when a focused element is removed.
   keyboard move's step; the same roadmap without the build's parsing is
   timed for comparison. On a 2,000-box roadmap generated around a fixed day
   (the page's clock fixed there too), it times opening the table and People
-  (targets 300 ms, failing above 600) and an edit committed there with
-  Enter (50 ms, failing above 100), the median of 5 after 2, and checks
+  (targets 300 ms, failing above 600), an edit committed there with
+  Enter and Tab from one table row into the next, which sorts and filters
+  the rows again for the row being edited (50 ms each, failing above 100),
+  the median of 5 after 2, and checks
   exactly that each draws at most 70 rows with data and 1,500 options, and
   that no textarea's height is read. CI runs it after the browser tests.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus

@@ -27,16 +27,18 @@ import { PX_PER_DAY } from "../src/timeline/scale";
 // The table and People at 2,000 boxes and 400 engineers with 3 PTO entries
 // each, on a roadmap generated around a fixed day (the page's clock fixed
 // there too, page.clock.setFixedTime): opening each (from the other view,
-// to the new view laid out) and an edit committed with Enter (from the key
-// to the page laid out with it), the median of 5 after 2 to warm up, each
-// failing above twice its target (TABLE_MS, EDIT_MS); and exactly, at most
+// to the new view laid out), an edit committed with Enter (from the key to
+// the page laid out with it) and, in the table, Tab from one row into the
+// next (the row being edited changes: the rows are sorted and filtered
+// again), the median of 5 after 2 to warm up, each failing above twice its
+// target (TABLE_MS, EDIT_MS for the keys); and exactly, at most
 // MAX_ROWS rows with data drawn and MAX_OPTIONS <option>s on the page, and
 // no textarea measured (its scrollHeight read: that lays the page out).
 
 const MAIN_LIMIT = 400_000;
 /** Opening the table or People at 2,000 boxes, target (ms); failing above twice this. */
 const TABLE_MS = 300;
-/** An edit committed there, target (ms); failing above twice this. */
+/** An edit committed there, or Tab into the next row, target (ms); failing above twice this. */
 const EDIT_MS = 50;
 /** Rows with data (boxes, PTO, engineers) drawn at once, and <option>s on the page, at most. */
 const MAX_ROWS = 70;
@@ -322,27 +324,32 @@ const timeSwitch = (page: Page, view: string, shows: string) =>
     [view, shows],
   );
 
-/** Time edits committed with Enter from now on (`__edits`, emptied each time): from the key to the page laid out with the edit. */
-const timeEnter = (page: Page) =>
+/**
+ * Time presses of Enter (an edit committed) and Tab from now on (`__keys`, emptied each time): from the key to the
+ * page laid out with what it did.
+ */
+const timeKeys = (page: Page) =>
   page.evaluate(() => {
-    const w = window as unknown as { __edits?: number[] };
-    if (w.__edits) return void (w.__edits = []);
-    w.__edits = [];
+    const w = window as unknown as { __keys?: { Enter: number[]; Tab: number[] } };
+    if (w.__keys) return void (w.__keys = { Enter: [], Tab: [] });
+    w.__keys = { Enter: [], Tab: [] };
     window.addEventListener(
       "keydown",
       (e) => {
-        if (e.key !== "Enter") return;
+        if (e.key !== "Enter" && e.key !== "Tab") return;
         const t0 = performance.now();
         const mc = new MessageChannel();
         mc.port1.onmessage = () => {
           void document.body.offsetHeight;
-          w.__edits!.push(performance.now() - t0);
+          w.__keys![e.key as "Enter" | "Tab"].push(performance.now() - t0);
         };
         mc.port2.postMessage(0);
       },
       true,
     );
   });
+const timed = (page: Page, key: "Enter" | "Tab") =>
+  page.evaluate((key) => (window as unknown as { __keys: Record<string, number[]> }).__keys[key].slice(2), key);
 
 /** What a table on the page draws: rows with data, and <option>s. */
 const drawnRows = (page: Page, table: string) =>
@@ -382,16 +389,26 @@ test("2000 boxes: the table and People open and commit an edit within budget, dr
   expect(table.options).toBeLessThanOrEqual(MAX_OPTIONS);
 
   // A title changed and committed with Enter, five times after two.
-  await timeEnter(page);
+  await timeKeys(page);
   const title = page.locator("tr.box-row").nth(4).getByLabel("Title");
   for (let i = 0; i < 7; i++) {
     await title.press("End");
     await title.press(i % 2 ? "Backspace" : "x");
     await title.press("Enter");
   }
-  const tableEdits = await page.evaluate(() => (window as unknown as { __edits: number[] }).__edits.slice(2));
+  const tableEdits = await timed(page, "Enter");
   expect(tableEdits).toHaveLength(5);
   await expect(page.locator(".draft-status")).toContainText("Save · 1 change");
+  // Tab from a row's last field into the next row (the row being edited changes), five times after two.
+  await timeKeys(page);
+  for (let i = 0; i < 7; i++) {
+    await page.locator("tr.box-row").nth(4 + i).getByLabel("Description").focus();
+    await page.keyboard.press("Tab");
+    // (WebKit's Tab skips the Delete button, as Safari's does by default.)
+    await expect(page.locator(':focus[aria-label="Title"]')).toHaveValue(await page.locator("tr.box-row").nth(5 + i).getByLabel("Title").inputValue());
+  }
+  const tableTabs = await timed(page, "Tab");
+  expect(tableTabs).toHaveLength(5);
 
   // People: the same for a role.
   await page.getByRole("button", { name: "People", exact: true }).click();
@@ -400,14 +417,14 @@ test("2000 boxes: the table and People open and commit an edit within budget, dr
   expect(people.rows).toBeGreaterThan(10);
   expect(people.rows).toBeLessThanOrEqual(MAX_ROWS);
   expect(people.options).toBeLessThanOrEqual(MAX_OPTIONS);
-  await timeEnter(page);
+  await timeKeys(page);
   const role = page.locator("tr.person-row").nth(4).getByLabel("Role");
   for (let i = 0; i < 7; i++) {
     await role.press("End");
     await role.press(i % 2 ? "Backspace" : "x");
     await role.press("Enter");
   }
-  const peopleEdits = await page.evaluate(() => (window as unknown as { __edits: number[] }).__edits.slice(2));
+  const peopleEdits = await timed(page, "Enter");
   expect(peopleEdits).toHaveLength(5);
   expect(await reads(), "textarea heights read").toBe(0);
   await context.close();
@@ -422,5 +439,6 @@ test("2000 boxes: the table and People open and commit an edit within budget, dr
   expect(report("table opened", opened.Table, TABLE_MS)).toBeLessThan(2 * TABLE_MS);
   expect(report("People opened", opened.People, TABLE_MS)).toBeLessThan(2 * TABLE_MS);
   expect(report("table edit committed", tableEdits, EDIT_MS)).toBeLessThan(2 * EDIT_MS);
+  expect(report("table Tab into the next row", tableTabs, EDIT_MS)).toBeLessThan(2 * EDIT_MS);
   expect(report("People edit committed", peopleEdits, EDIT_MS)).toBeLessThan(2 * EDIT_MS);
 });
