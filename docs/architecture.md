@@ -948,14 +948,14 @@ when a focused element is removed.
   hides the navigation timing that tells a reload from a page opened anew
   (and nothing they check depends on the date).
   The browser runs in UTC (`timezoneId`; WebKit ignores `TZ`), and in WebKit
-  the specs about dates (timeline, table, PTO, saving) run again in
-  America/Los_Angeles and Pacific/Kiritimati, where the day starts 7 hours
-  after UTC's and 14 hours before it. Tests of unsaved drafts open a second
-  tab in the same browser context (so the same `localStorage`), with a clock
-  of its own. An uncaught error or a Content-Security-Policy violation in
-  any tab a test opens fails it. `e2e/a11y.spec.ts` runs axe-core
-  (`@axe-core/playwright`, a test-only dependency) over each view, the
-  editors, menus and dialogs, the broken-rule popup, a box's scale card
+  the specs about dates (timeline, table, PTO, saving, the calendar) run
+  again in America/Los_Angeles and Pacific/Kiritimati, where the day starts
+  7 hours after UTC's and 14 hours before it. Tests of unsaved drafts open a
+  second tab in the same browser context (so the same `localStorage`), with
+  a clock of its own. An uncaught error or a Content-Security-Policy
+  violation in any tab a test opens fails it. `e2e/a11y.spec.ts` runs
+  axe-core (`@axe-core/playwright`, a test-only dependency) over each view,
+  the editors, menus and dialogs, the broken-rule popup, a box's scale card
   and a box being moved against WCAG 2.2 A and AA, in the
   light and the dark theme, and checks the page's structure, names and
   what's announced (an init script records every message the live regions
@@ -966,9 +966,11 @@ when a focused element is removed.
   everything at 320 px, and the page itself never scrolling, in any view;
   touch screens; target sizes), and the unit test
   `src/styles/contrast.test.ts` every colour pair; `e2e/keyboard.spec.ts`
-  checks where focus goes and what keys do, `e2e/timeline-keys.spec.ts`
-  and `e2e/move.spec.ts` the timeline's keyboard grid and moves, and
-  `e2e/drag.spec.ts` dragging. The timeline's specs (those three,
+  checks where focus goes and what keys do, `e2e/calendar.spec.ts` the
+  date fields and their calendar (keys, names, Esc, focus, typed dates),
+  `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's
+  keyboard grid and moves, and `e2e/drag.spec.ts` dragging. The timeline's
+  specs (those three,
   `timeline`, `departments` and `pto`) run again in WebKit with the
   timeline drawing only what's near the screen whatever the roadmap's size
   (`cull`, a test option), skipping only the checks that count every box;
