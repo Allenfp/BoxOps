@@ -307,13 +307,20 @@ test("others' saves wait while a box is moved, and come in after", async ({ page
   await box(page, DAGSTER).focus();
   await press(page, "Space", "ArrowRight");
   github.deploy(github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline v2") }, "Sam Lee", "CDC renamed"));
+  // The check is skipped while it's moved: nothing is fetched.
+  let fetches = 0;
+  page.on("request", (r) => r.url().includes("roadmap.json") && fetches++);
   await pollNow(page);
-  await page.waitForTimeout(300);
+  // A request would be reported a moment later: give it a frame or two before counting none.
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  await page.waitForTimeout(200);
+  expect(fetches).toBe(0);
   await expect(page.locator(".banner", { hasText: "Sam Lee saved" })).toHaveCount(0);
   await expect(box(page, CDC)).toHaveAccessibleName(/^CDC pipeline for orders DB,/);
   await page.keyboard.press("Enter");
   await pollNow(page);
   await expect(page.locator(".banner", { hasText: "Sam Lee saved" })).toBeVisible();
+  expect(fetches).toBe(1);
   await expect(box(page, CDC)).toHaveAccessibleName(/^CDC pipeline v2,/);
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
 });
