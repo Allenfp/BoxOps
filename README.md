@@ -84,7 +84,7 @@ straight to `main`, and the site updates within a minute.
   settings** (title, fiscal year, default zoom, box types and flags) change
   `roadmap/settings.yaml` for everyone and are saved like any other edit.
 - **Browsers and screens.** Made for Safari; Chrome, Edge and Firefox work
-  too (Safari 16.4, Chrome and Edge 111, Firefox 121 or later: the tests
+  too (Safari 16.4, Chrome and Edge 111, Firefox 115 or later: the tests
   run in all three engines), each in its system's own fonts. The app
   follows the system's light or dark theme (or your choice), Windows'
   contrast themes, and the system's setting to reduce motion. In a narrow

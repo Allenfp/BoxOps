@@ -43,8 +43,8 @@
     overflow: hidden;
     clip-path: inset(50%);
   }
-  .app:has(.table-view),
-  .app:has(.table-view) > main,
+  .app:is(.view-table, .view-people),
+  .app:is(.view-table, .view-people) > main,
   .table-view,
   .table-view .table-scroll {
     display: block;

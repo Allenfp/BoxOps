@@ -1429,7 +1429,8 @@ function RoadmapView(props: ViewProps) {
   ];
 
   return (
-    <div className={`app density-${prefs.density}`}>
+    // The view's name too, for printing: the table and People print as long as their rows (styles/print.css).
+    <div className={`app density-${prefs.density} view-${view}`}>
       {/* An explicit tabindex: Safari's Tab otherwise skips links. */}
       <a
         className="skip-link"
