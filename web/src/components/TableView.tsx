@@ -352,6 +352,7 @@ export function TableView(props: Props) {
     defaults: ROW_HEIGHTS,
     pinned: [active, holding, targetKey].filter((k) => k !== null),
     enabled: windowed,
+    arrangement: filters,
   });
   const tableRef = useRef<HTMLTableElement>(null);
   const printing = usePrinting();

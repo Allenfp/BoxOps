@@ -15,7 +15,9 @@
 // (CSS scroll anchoring), so that's done here, the same in every browser
 // (the scroller has `overflow-anchor: none`): after each change drawn, the
 // row that was at the top of the view stays there. Not while a calendar or
-// the Engineers list is open in the table: scrolling closes those.
+// the Engineers list is open in the table: scrolling closes those. Nor
+// across a new sort, search or filter: the table stays scrolled as far as
+// it was, rather than following that row to wherever it's gone.
 
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -70,8 +72,10 @@ export function useWindowedRows(o: {
   pinned: readonly string[];
   /** False: every row is drawn, and nothing here does anything. */
   enabled: boolean;
+  /** What decides which rows are shown, in what order (the sort, search and filters): a change isn't kept in place. */
+  arrangement: string;
 }): WindowedRows {
-  const { keys, kinds, defaults, pinned, enabled } = o;
+  const { keys, kinds, defaults, pinned, enabled, arrangement } = o;
   const scroller = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLTableSectionElement>(null);
 
@@ -123,7 +127,7 @@ export function useWindowedRows(o: {
   }, []);
 
   // The layout last drawn, and where the table was scrolled to then (or since).
-  const before = useRef<{ tops: Float64Array; keys: readonly string[]; top: number } | null>(null);
+  const before = useRef<{ tops: Float64Array; keys: readonly string[]; top: number; arrangement: string } | null>(null);
 
   // Follow scrolling (a frame at a time) and size changes, drawing in the same frame.
   useLayoutEffect(() => {
@@ -216,12 +220,13 @@ export function useWindowedRows(o: {
   // Keep the view in place: the row at its top before this change is where it was. Rows above it that were
   // measured, added or removed (someone else's save), or that changed kind's usual height, would push it. Not if
   // the change scrolled the table itself (focus put back in a row that moved, say): that's where it's meant to be.
+  // Nor if it's a new sort, search or filter: the rows are put in a new order, not moved.
   useLayoutEffect(() => {
     const el = scroller.current;
     const was = before.current;
-    const now = enabled && el ? { tops, keys, top: el.scrollTop } : null;
+    const now = enabled && el ? { tops, keys, top: el.scrollTop, arrangement } : null;
     before.current = now;
-    if (!el || !was || !now || (was.tops === tops && was.keys === keys) || popupOpen(el)) return;
+    if (!el || !was || !now || (was.tops === tops && was.keys === keys) || was.arrangement !== arrangement || popupOpen(el)) return;
     const s = now.top;
     if (s !== was.top) return;
     // The first row there, or after it, that's still there.
@@ -247,12 +252,12 @@ export function useWindowedRows(o: {
       else if (top < s) s = top;
       else if (bottom > s + height) s = bottom - height;
       el.scrollTop = Math.max(0, s);
-      before.current = { tops, keys, top: el.scrollTop }; // where it is now is where it's meant to be
+      before.current = { tops, keys, top: el.scrollTop, arrangement }; // where it is now is where it's meant to be
       const next = where();
       if (next !== latestView.current) setView(next);
       return true;
     },
-    [index, enabled, tops, keys, where],
+    [index, enabled, tops, keys, arrangement, where],
   );
 
   return {

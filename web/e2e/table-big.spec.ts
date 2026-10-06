@@ -264,7 +264,7 @@ test("deleting a row from the keyboard puts focus on the next row's Delete", asy
   await expect(page.locator(".row-delete:focus")).toHaveAttribute("aria-label", `Delete ${next}`);
 });
 
-test("the header's sort buttons, focused or tabbed to, leave the table scrolled where it was", async ({ page, github: _, browserName }) => {
+test("the header's sort buttons, focused, tabbed to or clicked, leave the table scrolled where it was", async ({ page, github: _, browserName }) => {
   await scrollTo(page, 0.4);
   await settled(page);
   const top = () => scroller(page).evaluate((el) => el.scrollTop);
@@ -282,6 +282,13 @@ test("the header's sort buttons, focused or tabbed to, leave the table scrolled 
       expect(await top(), name).toBe(at);
     }
   }
+  // A new sort: other rows where they were, rather than the view following the row that was at its top.
+  const shown = await onScreen(page);
+  await page.getByRole("button", { name: /^FTE/ }).click();
+  await expect(page.locator("th.col-fte")).toHaveAttribute("aria-sort", "ascending");
+  await expect.poll(() => onScreen(page)).not.toEqual(shown);
+  await settled(page);
+  expect(await top()).toBe(at);
 });
 
 test("printing gives every row as shown, and leaves focus where it was", async ({ page, github: _, browserName }) => {
