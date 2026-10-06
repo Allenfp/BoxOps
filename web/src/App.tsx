@@ -24,6 +24,7 @@ import { addWorkdays, prettyDay, startOfWeek } from "./model/dates";
 import { useToday } from "./components/useToday";
 import type { AppInfo, Bundle, Notice } from "./model/bundle";
 import { FORMAT } from "./model/format";
+import { counted, thousands } from "./model/count";
 import { type LoadResult, loadFolder, loadFolderNow, loadParser, rememberParsed, reservedBoxes, reservedDepartments } from "./model/load";
 import type { FileChanges } from "./model/serialize";
 import { type Violation, findViolations } from "./model/relations";
@@ -172,7 +173,7 @@ function newerProblem(e: unknown): string | null {
   const more = e.lines.length - shown.length;
   return (
     `Newer saves aren’t shown, and saving won’t work, until the roadmap folder on GitHub is fixed: ${shown.join("; ")}` +
-    `${more ? `; and ${more} more` : ""}.`
+    `${more ? `; and ${thousands(more)} more` : ""}.`
   );
 }
 
@@ -548,7 +549,7 @@ function OfferBanner({
   onRestore(): void;
   onDiscard(): void;
 }) {
-  const changes = `${offer.count} change${offer.count === 1 ? "" : "s"}`;
+  const changes = counted(offer.count, "change");
   const when = offer.savedAt ? stamp(offer.savedAt) : "";
   const discard = () => {
     if (confirm(`Discard ${offer.restorable ? `these ${changes}` : "these unsaved edits"} for good? This can’t be undone.`)) onDiscard();
@@ -963,7 +964,7 @@ function RoadmapView(props: ViewProps) {
     if (!draft.others) setOthersDismissed(false);
   }, [draft.others]);
   const [storageWarned, setStorageWarned] = useState(false);
-  const unsaved = `${count} unsaved change${count === 1 ? "" : "s"}`;
+  const unsaved = counted(count, "unsaved change");
   const them = count === 1 ? "it" : "them";
   // Unsaved changes in this data format, when the BoxOps an upgrade brings
   // reads another: it won't open them (draftStore's asRecord), only offer
@@ -989,7 +990,7 @@ function RoadmapView(props: ViewProps) {
   /** Undo, where focus goes after discarding, or an undo or redo, takes the Save button away (it turns into "No changes"). */
   const undoButton = useRef<HTMLButtonElement>(null);
   const discardAll = () => {
-    if (confirm(`Discard ${count} change${count === 1 ? "" : "s"}? You can still undo this.`)) {
+    if (confirm(`Discard ${counted(count, "change")}? You can still undo this.`)) {
       setSelected(null);
       draft.discard();
       focusLater([() => undoButton.current, main]);
@@ -1103,7 +1104,7 @@ function RoadmapView(props: ViewProps) {
 
     select(null);
     draft.flush();
-    announce(`Saving ${count} change${count === 1 ? "" : "s"}…`);
+    announce(`Saving ${counted(count, "change")}…`);
     if (!onPage(focusBeforeSave.current)) focusBeforeSave.current = focusLost() ? null : document.activeElement;
     setBusy(true);
     try {
@@ -1239,7 +1240,7 @@ function RoadmapView(props: ViewProps) {
       const fresh = violations.filter((v) => !knownBroken.current!.has(key(v)));
       if (fresh.length) {
         setNewlyBroken(fresh);
-        announce(`That breaks ${fresh.length === 1 ? "a rule" : `${fresh.length} rules`}: ${fresh.map((v) => v.message).join(" ")} Nothing is blocked.`);
+        announce(`That breaks ${fresh.length === 1 ? "a rule" : `${thousands(fresh.length)} rules`}: ${fresh.map((v) => v.message).join(" ")} Nothing is blocked.`);
       }
     }
     knownBroken.current = now;
@@ -1434,7 +1435,7 @@ function RoadmapView(props: ViewProps) {
                     }
                     aria-keyshortcuts="Meta+S Control+S"
                   >
-                    {busy ? "Saving…" : `Save · ${count} change${count === 1 ? "" : "s"}`}
+                    {busy ? "Saving…" : `Save · ${counted(count, "change")}`}
                   </button>
                   <Popover label="More save options" buttonClass="primary split-more" button={<Icon name="chevron-down" size={14} />} className="save-more">
                     {(close) => (
@@ -1447,7 +1448,7 @@ function RoadmapView(props: ViewProps) {
                             discardAll();
                           }}
                         >
-                          Discard {count === 1 ? "this change" : `all ${count} changes`}…
+                          Discard {count === 1 ? "this change" : `all ${thousands(count)} changes`}…
                         </button>
                         <p className="menu-note">
                           {draft.kept
@@ -1633,7 +1634,7 @@ function RoadmapView(props: ViewProps) {
               {draft.conflicts.length > 0 && (
                 <span className="warn-text">
                   {" "}
-                  They also changed {draft.conflicts.length === 1 ? "an item" : `${draft.conflicts.length} items`} you’re
+                  They also changed {draft.conflicts.length === 1 ? "an item" : `${thousands(draft.conflicts.length)} items`} you’re
                   editing; you’ll choose whose version to keep when you save.
                 </span>
               )}

@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, useLayoutEffect, useMemo, useRef, u
 import { NO_FLAG } from "../model/status";
 import { boxScale } from "../model/scale";
 import { jiraKey } from "../model/jira";
+import { counted, thousands } from "../model/count";
 import { CollapseAll } from "./CollapseAll";
 import { formatDay, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import type { Box, Person, Roadmap, TimeOff } from "../model/types";
@@ -521,8 +522,8 @@ export function TableView(props: Props) {
   const shownText =
     shown === 0 && searching
       ? (q ? `No boxes match “${query.trim()}”${dated ? " in these dates" : ""}` : "No boxes in these dates") +
-        (ptoToo ? `; ${ptoShown} PTO ${ptoShown === 1 ? "entry matches" : "entries match"}.` : ".")
-      : `${shown === boxes.length ? "" : `${shown} of `}${boxes.length} box${boxes.length === 1 ? "" : "es"}.`;
+        (ptoToo ? `; ${thousands(ptoShown)} PTO ${ptoShown === 1 ? "entry matches" : "entries match"}.` : ".")
+      : `${shown === boxes.length ? "" : `${thousands(shown)} of `}${counted(boxes.length, "box", "boxes")}.`;
   useAnnounceResults(`${query.trim()}\n${from}\n${to}\n${hideFinished}`, shownText);
   // Nothing to show: say why.
   const empty =
@@ -649,8 +650,8 @@ export function TableView(props: Props) {
           </label>
         )}
         <span className="hint">
-          {shown === boxes.length ? "" : `${shown} of `}
-          {boxes.length} box{boxes.length === 1 ? "" : "es"}
+          {shown === boxes.length ? "" : `${thousands(shown)} of `}
+          {counted(boxes.length, "box", "boxes")}
         </span>
         {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
         {!readOnly && !hasLanes && <span className="hint">Add a department first: boxes go in its lanes.</span>}

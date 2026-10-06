@@ -8,6 +8,7 @@ import { TOKEN_KINDS, failureMessage } from "./github/messages";
 import { readSnapshot } from "./github/read";
 import { type Snapshot, TooManyChanges, canRead } from "./github/snapshot";
 import { getToken, setToken } from "./github/token";
+import { thousands } from "./model/count";
 
 /**
  * The roadmap at the head of `base`'s branch, if anyone saved since `base`
@@ -76,7 +77,7 @@ export async function loadPreview<T extends object>(
       return {
         status: "error",
         title,
-        message: `“${branch}” differs from the deployed roadmap in ${e.count} files, more than BoxOps reads at once (${e.limit}). Check the branch out to see it.`,
+        message: `“${branch}” differs from the deployed roadmap in ${thousands(e.count)} files, more than BoxOps reads at once (${thousands(e.limit)}). Check the branch out to see it.`,
       };
     }
     if (!(e instanceof GitHubFailure)) return { status: "error", title, message: (e as Error).message };

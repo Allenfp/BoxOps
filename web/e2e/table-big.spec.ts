@@ -692,6 +692,22 @@ test("on paper, a date is never broken across lines, however narrow the page", a
   expect(people.filter((n) => n !== 1)).toEqual([]);
 });
 
+test.describe("a thousand boxes and more", () => {
+  test.use({ files: generateRoadmap(1000, "2026-10-03") });
+
+  test("counts are shown with a thousands separator: the table's, People's, the warnings'", async ({ page }) => {
+    await expect(page.locator(".table-toolbar")).toContainText("1,000 boxes");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Synthetic roadmap (1,000 boxes)");
+    await page.locator(".table-search").fill("Document");
+    await expect(page.locator(".table-toolbar")).toContainText(/\d+ of 1,000 boxes/);
+    const warnings = page.locator(".warnings-button");
+    const count = Number((await warnings.innerText()).replace(/\D/g, ""));
+    await expect(warnings).toHaveAccessibleName(`${count.toLocaleString("en-US")} warning${count === 1 ? "" : "s"}`);
+    await page.getByRole("button", { name: "People", exact: true }).click();
+    await expect(page.locator(".table-toolbar")).toContainText("200 engineers");
+  });
+});
+
 test.describe("People", () => {
   test.use({ virtualize: true });
   const person = (page: Page, name: string) => page.locator("tr.person-row").filter({ has: page.locator(`input[aria-label="Name"][value="${name}"]`) });

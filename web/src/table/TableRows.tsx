@@ -10,6 +10,7 @@
 
 import { type CSSProperties, type KeyboardEvent, memo, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import { formatDay, workdays } from "../model/dates";
+import { counted, thousands } from "../model/count";
 import { jiraKey } from "../model/jira";
 import { LINK } from "../model/load";
 import type { PtoRef } from "../model/pto";
@@ -470,7 +471,7 @@ export const GroupRow = memo(function GroupRow({
               <Icon name="chevron-right" size={14} className={`chevron${collapsed ? "" : " open"}`} />
               <span className="dept-name">{dept.name}</span>
               <span className="dept-meta" title={dated.length ? `FTE today. Dated lanes:\n${dated.join("\n")}` : undefined}>
-                {searching ? `${shown} of ${total}` : total} box{total === 1 ? "" : "es"} · {fte} FTE
+                {searching ? `${thousands(shown)} of ${counted(total, "box", "boxes")}` : counted(total, "box", "boxes")} · {fte} FTE
                 {dated.length > 0 && ` today · ${dated.length} dated lane${dated.length === 1 ? "" : "s"}`}
               </span>
             </button>

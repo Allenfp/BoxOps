@@ -14,6 +14,7 @@ import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
+import { thousands } from "../src/model/count";
 import { addWorkdays, formatDay, parseDay } from "../src/model/dates";
 import type { RoadmapFiles } from "../src/model/types";
 
@@ -71,7 +72,7 @@ export function generateRoadmap(boxes: number, today: string): RoadmapFiles {
   const files: RoadmapFiles = {};
   files["settings.yaml"] = toYaml({
     format: 1,
-    title: `Synthetic roadmap (${boxes} boxes)`,
+    title: `Synthetic roadmap (${thousands(boxes)} boxes)`,
     fiscal_year_start_month: 1,
     default_zoom: "months",
     types: TYPES,

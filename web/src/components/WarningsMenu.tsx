@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { Popover } from "./Popover";
 import { Icon } from "./Icon";
 import { announce } from "../a11y/announce";
+import { counted, thousands } from "../model/count";
 
 export interface WarningItem {
   text: string;
@@ -24,22 +25,22 @@ export function WarningsMenu({ groups }: { groups: WarningGroup[] }) {
   // More warnings than before (an edit put a department over capacity, say): the count in the toolbar is said.
   const before = useRef(total);
   useEffect(() => {
-    if (total > before.current) announce(`${total} warning${total === 1 ? "" : "s"} now.`);
+    if (total > before.current) announce(`${counted(total, "warning")} now.`);
     before.current = total;
   }, [total]);
   if (!total) return null;
   return (
     <Popover
       className="warnings-menu"
-      label={`${total} warning${total === 1 ? "" : "s"}`}
+      label={counted(total, "warning")}
       buttonClass="warnings-button"
-      button={<><Icon name="alert" size={14} /> {total}</>}
+      button={<><Icon name="alert" size={14} /> {thousands(total)}</>}
     >
       {(close) =>
         shown.map((g) => (
           <section key={g.title}>
             <h3>
-              {g.title} <span className="count">{g.items.length}</span>
+              {g.title} <span className="count">{thousands(g.items.length)}</span>
             </h3>
             <ul>
               {g.items.map((it, i) => (

@@ -3,6 +3,7 @@ import { LiveRegion, announce } from "../a11y/announce";
 import { FieldError, describedBy } from "./FieldError";
 import { focusAfterRemoving, focusLater, main, onPage, useReturnFocus } from "../a11y/focus";
 import { DEPT_CODE } from "../model/load";
+import { counted } from "../model/count";
 import { deriveDeptCode } from "../model/relations";
 import { COLOR_NAMES, DEPARTMENT_COLORS } from "../model/structure";
 import { formatDay, nextWorkday, parseDay, prettyDay, prevWorkday } from "../model/dates";
@@ -354,7 +355,7 @@ export function DepartmentEditor(props: Props) {
                   <button
                     className="icon-button row-remove"
                     aria-label={`Remove lane ${i + 1}`}
-                    title={count ? `Remove (its ${count} box${count === 1 ? "" : "es"} will need a new lane)` : "Remove"}
+                    title={count ? `Remove (its ${counted(count, "box", "boxes")} will need a new lane)` : "Remove"}
                     onClick={(e) => (count ? askRemove(lane.id, e.currentTarget) : removeLane(e.currentTarget, lane.id))}
                   >
                     <Icon name="x" size={14} />

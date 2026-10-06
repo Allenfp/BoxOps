@@ -5,6 +5,7 @@
 
 import { memo, type ReactNode } from "react";
 import type { Day } from "../model/dates";
+import { counted, thousands } from "../model/count";
 import { EMAIL } from "../model/load";
 import { type PtoRef, ptoRange } from "../model/pto";
 import type { Person } from "../model/types";
@@ -182,7 +183,7 @@ function PtoList(props: { person: Person; hasDepartment: boolean; now: Day; all:
       {list.length > 2 && (
         <li>
           <button className="link-button pto-more" aria-expanded={all} onClick={onMore}>
-            {all ? "Fewer" : `+${list.length - 1} more`}
+            {all ? "Fewer" : `+${thousands(list.length - 1)} more`}
             <span className="sr-only"> PTO for {person.name}</span>
           </button>
         </li>
@@ -228,7 +229,7 @@ export const PeopleGroupRow = memo(function PeopleGroupRow({
               <Icon name="chevron-right" size={14} className={`chevron${collapsed ? "" : " open"}`} />
               <span className="dept-name">{name}</span>
               <span className="dept-meta">
-                {searching ? `${shown} of ${total}` : total} engineer{total === 1 ? "" : "s"}
+                {searching ? `${thousands(shown)} of ${counted(total, "engineer")}` : counted(total, "engineer")}
               </span>
             </button>
           </h3>

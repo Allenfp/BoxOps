@@ -4,6 +4,7 @@
 import { useId, useRef } from "react";
 import { FieldError } from "./FieldError";
 import { slugify } from "../model/draft";
+import { counted } from "../model/count";
 import {
   type Box,
   type BoxStatus,
@@ -172,7 +173,7 @@ function ListEditor<T extends BoxType | BoxStatus>({
               onBlur={(e) => e.target.value.trim() !== e.target.value && rename(i, e.target.value.trim())}
             />
             <span className="hint team-uses">
-              {n ? `${n} box${n === 1 ? "" : "es"}` : ""}
+              {n ? counted(n, "box", "boxes") : ""}
             </span>
             <button
               className="icon-button"
@@ -196,7 +197,7 @@ function ListEditor<T extends BoxType | BoxStatus>({
               aria-label={`Remove ${item.name}`}
               title={
                 n
-                  ? `${n} box${n === 1 ? " uses" : "es use"} this ${noun}: change ${n === 1 ? "it" : "them"} first`
+                  ? `${counted(n, "box uses", "boxes use")} this ${noun}: change ${n === 1 ? "it" : "them"} first`
                   : items.length <= minimum
                     ? `Keep at least one ${noun}`
                     : `Remove`

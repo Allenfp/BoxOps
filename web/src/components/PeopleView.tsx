@@ -1,6 +1,7 @@
 import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CollapseAll } from "./CollapseAll";
 import { type PtoRef, ptoRange } from "../model/pto";
+import { counted, thousands } from "../model/count";
 import type { Person, Roadmap } from "../model/types";
 import { Icon } from "./Icon";
 import { useToday } from "./useToday";
@@ -174,7 +175,7 @@ export function PeopleView(props: Props) {
   // How many a search leaves, said once typing pauses.
   useAnnounceResults(
     q,
-    q && !shown ? `No engineers match “${query.trim()}”.` : `${shown === people.length ? "" : `${shown} of `}${people.length} engineer${people.length === 1 ? "" : "s"}.`,
+    q && !shown ? `No engineers match “${query.trim()}”.` : `${shown === people.length ? "" : `${thousands(shown)} of `}${counted(people.length, "engineer")}.`,
   );
 
   /** Add an engineer (to a department, opened), with the search cleared so they're shown. */
@@ -191,7 +192,7 @@ export function PeopleView(props: Props) {
     },
     remove: (p, button) => {
       const n = boxCount.get(p.id) ?? 0;
-      if (n === 0 || confirm(`Remove ${p.name}? They're on ${n} box${n === 1 ? "" : "es"} and will be unassigned. You can undo this.`)) {
+      if (n === 0 || confirm(`Remove ${p.name}? They're on ${counted(n, "box", "boxes")} and will be unassigned. You can undo this.`)) {
         focusAfterRow(button, ".row-delete");
         onRemove(p.id);
       }
@@ -287,8 +288,8 @@ export function PeopleView(props: Props) {
           onChange={(e) => setQuery(e.target.value)}
         />
         <span className="hint">
-          {shown === people.length ? "" : `${shown} of `}
-          {people.length} engineer{people.length === 1 ? "" : "s"}
+          {shown === people.length ? "" : `${thousands(shown)} of `}
+          {counted(people.length, "engineer")}
         </span>
         {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
         {!readOnly && (

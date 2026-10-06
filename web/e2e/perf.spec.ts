@@ -168,7 +168,7 @@ test("the main JavaScript file is small and holds no YAML parser", () => {
 });
 
 for (const boxes of [2000, 500]) {
-  test(`${boxes} boxes: the timeline shows without the YAML parser, well within ${CEILING_MS} ms`, async ({ browser }) => {
+  test(`${boxes.toLocaleString("en-US")} boxes: the timeline shows without the YAML parser, well within ${CEILING_MS} ms`, async ({ browser }) => {
     roadmap = await bundle(boxes, true);
     const times: number[] = [];
     const drawn: number[] = [];
@@ -186,7 +186,7 @@ for (const boxes of [2000, 500]) {
       await context.close();
     }
     const ms = median(times);
-    console.log(`${boxes} boxes, parsed by the build: timeline painted in ${ms.toFixed(0)} ms (median of ${RUNS}: ${times.map((t) => t.toFixed(0)).join(", ")}), ${drawn[0]} boxes drawn`);
+    console.log(`${boxes.toLocaleString("en-US")} boxes, parsed by the build: timeline painted in ${ms.toFixed(0)} ms (median of ${RUNS}: ${times.map((t) => t.toFixed(0)).join(", ")}), ${drawn[0]} boxes drawn`);
     test.info().annotations.push({ type: `time to timeline, ${boxes} boxes (ms)`, description: ms.toFixed(0) });
     test.info().annotations.push({ type: `boxes drawn, ${boxes} boxes`, description: String(drawn[0]) });
     expect(ms).toBeLessThan(CEILING_MS);
@@ -197,7 +197,7 @@ for (const boxes of [2000, 500]) {
   });
 }
 
-test("2000 boxes: a keyboard move's step, a drag's and a keystroke in the box editor draw again only the departments they're in", async ({ browser }) => {
+test("2,000 boxes: a keyboard move's step, a drag's and a keystroke in the box editor draw again only the departments they're in", async ({ browser }) => {
   roadmap = await bundle(2000, true);
   const context = await fresh(browser);
   const page = await context.newPage();
@@ -259,8 +259,8 @@ test("2000 boxes: a keyboard move's step, a drag's and a keystroke in the box ed
   expect(await drawn(() => page.keyboard.press("Escape"))).toEqual(["dept-01", "dept-02"]);
   const steps = await page.evaluate(() => (window as unknown as { __steps: number[] }).__steps.slice(0, 10));
   const step = median(steps);
-  console.log(`2000 boxes: a keyboard move's step laid out in ${step.toFixed(1)} ms (median of ${steps.length})`);
-  test.info().annotations.push({ type: "keyboard move step, 2000 boxes (ms)", description: step.toFixed(1) });
+  console.log(`2,000 boxes: a keyboard move's step laid out in ${step.toFixed(1)} ms (median of ${steps.length})`);
+  test.info().annotations.push({ type: "keyboard move step, 2,000 boxes (ms)", description: step.toFixed(1) });
 
   // A drag: a move that keeps the day it would land on draws nothing; a day on, its department alone.
   const r = (await box.boundingBox())!;
@@ -281,7 +281,7 @@ test("2000 boxes: a keyboard move's step, a drag's and a keystroke in the box ed
   await context.close();
 });
 
-test("2000 boxes the build didn't parse: parsed in the browser instead (timed for comparison)", async ({ browser }) => {
+test("2,000 boxes the build didn't parse: parsed in the browser instead (timed for comparison)", async ({ browser }) => {
   roadmap = await bundle(2000, false);
   const times: number[] = [];
   for (let run = 0; run < RUNS; run++) {
@@ -292,8 +292,8 @@ test("2000 boxes the build didn't parse: parsed in the browser instead (timed fo
     await context.close();
   }
   const ms = median(times);
-  console.log(`2000 boxes, parsed in the browser: timeline painted in ${ms.toFixed(0)} ms (median of ${RUNS}: ${times.map((t) => t.toFixed(0)).join(", ")})`);
-  test.info().annotations.push({ type: "time to timeline, 2000 boxes parsed in the browser (ms)", description: ms.toFixed(0) });
+  console.log(`2,000 boxes, parsed in the browser: timeline painted in ${ms.toFixed(0)} ms (median of ${RUNS}: ${times.map((t) => t.toFixed(0)).join(", ")})`);
+  test.info().annotations.push({ type: "time to timeline, 2,000 boxes parsed in the browser (ms)", description: ms.toFixed(0) });
   expect(ms).toBeLessThan(CEILING_MS);
 });
 
@@ -372,7 +372,7 @@ const drawnRows = (page: Page, table: string) =>
     table,
   );
 
-test("2000 boxes: the table and People open and commit an edit within budget, drawing only rows near the screen", async ({ browser }) => {
+test("2,000 boxes: the table and People open and commit an edit within budget, drawing only rows near the screen", async ({ browser }) => {
   roadmap = await bundle(2000, true, FIXED_DAY);
   const context = await fresh(browser);
   const page = await context.newPage();
@@ -444,11 +444,11 @@ test("2000 boxes: the table and People open and commit an edit within budget, dr
 
   const report = (what: string, times: number[], target: number) => {
     const ms = median(times);
-    console.log(`2000 boxes: ${what} in ${ms.toFixed(0)} ms (median of ${times.length}: ${times.map((t) => t.toFixed(0)).join(", ")}; target ${target} ms)`);
-    test.info().annotations.push({ type: `${what}, 2000 boxes (ms)`, description: ms.toFixed(0) });
+    console.log(`2,000 boxes: ${what} in ${ms.toFixed(0)} ms (median of ${times.length}: ${times.map((t) => t.toFixed(0)).join(", ")}; target ${target} ms)`);
+    test.info().annotations.push({ type: `${what}, 2,000 boxes (ms)`, description: ms.toFixed(0) });
     return ms;
   };
-  console.log(`2000 boxes: the table draws ${table.rows} rows with data and ${table.options} options, People ${people.rows} and ${people.options}`);
+  console.log(`2,000 boxes: the table draws ${table.rows} rows with data and ${table.options} options, People ${people.rows} and ${people.options}`);
   expect(report("table opened", opened.Table, TABLE_MS)).toBeLessThan(2 * TABLE_MS);
   expect(report("People opened", opened.People, TABLE_MS)).toBeLessThan(2 * TABLE_MS);
   expect(report("table edit committed", tableEdits, EDIT_MS)).toBeLessThan(2 * EDIT_MS);

@@ -4,6 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { main, useReturnFocus } from "../a11y/focus";
+import { thousands } from "../model/count";
 import type { Violation } from "../model/relations";
 import { Icon } from "./Icon";
 
@@ -50,7 +51,7 @@ export function RuleToast({ broken, onDismiss }: { broken: Violation[]; onDismis
       onFocus={() => setHeld(true)}
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setHeld(false)}
     >
-      <strong><Icon name="alert" size={14} /> That breaks {broken.length === 1 ? "a rule" : `${broken.length} rules`}</strong>
+      <strong><Icon name="alert" size={14} /> That breaks {broken.length === 1 ? "a rule" : `${thousands(broken.length)} rules`}</strong>
       <ul>
         {broken.map((v, i) => (
           <li key={i}>{v.message}</li>

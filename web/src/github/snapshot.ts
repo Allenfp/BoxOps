@@ -5,6 +5,7 @@
 // needs, and the failures the app tells apart whichever read it was.
 
 import type { Bundle, BundleSource } from "../model/bundle";
+import { thousands } from "../model/count";
 import type { RoadmapFiles } from "../model/types";
 import { textBlobSha } from "./git-objects";
 
@@ -35,7 +36,7 @@ export class TooManyChanges extends Error {
     readonly limit = MAX_BLOB_FETCHES,
   ) {
     super(
-      `${count} roadmap files changed since this copy was loaded, more than BoxOps reads at once (${limit}). Reload once the site has redeployed.`,
+      `${thousands(count)} roadmap files changed since this copy was loaded, more than BoxOps reads at once (${thousands(limit)}). Reload once the site has redeployed.`,
     );
   }
 }

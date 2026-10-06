@@ -8,6 +8,7 @@
 // or unassigned boxes.) Also what the app and the timeline use to find a
 // department's stretches over capacity.
 
+import { counted } from "./count";
 import { type Day, dayOfWorkIndex, prettyDay, workIndex } from "./dates";
 import { ptoClashes } from "./pto";
 import { findViolations, fullCode } from "./relations";
@@ -123,7 +124,7 @@ export const worstStretch = (over: CapacityStretch[]): CapacityStretch =>
  */
 export function overloadText(over: CapacityStretch[]): string {
   const worst = worstStretch(over);
-  const more = over.length > 1 ? `, and ${over.length - 1} more stretch${over.length > 2 ? "es" : ""}` : "";
+  const more = over.length > 1 ? `, and ${counted(over.length - 1, "more stretch", "more stretches")}` : "";
   return `${worst.fte} FTE planned against ${worst.capacity}, ${prettyDay(worst.from)} – ${prettyDay(worst.to)}${more}`;
 }
 
@@ -192,7 +193,7 @@ const note = (pto: TimeOff) => (pto.note?.trim() ? ` (${pto.note.trim()})` : "")
 export function formatReport(r: Report): string {
   const lines: string[] = ["Departments"];
   for (const d of r.departments) {
-    lines.push(`  ${d.name} (${d.id}): ${d.fte} FTE of lanes, ${d.boxes} box${d.boxes === 1 ? "" : "es"}`);
+    lines.push(`  ${d.name} (${d.id}): ${d.fte} FTE of lanes, ${counted(d.boxes, "box", "boxes")}`);
     if (d.over.length === 0) lines.push("    within capacity");
     for (const s of d.over) lines.push(`    OVER CAPACITY ${range(s)}: ${s.fte} FTE planned of ${s.capacity}`);
     for (const s of d.full) lines.push(`    full (no spare FTE) ${range(s)}`);
