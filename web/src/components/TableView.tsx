@@ -233,9 +233,8 @@ export function TableView(props: Props) {
       if (!s) {
         const lane = lanes.get(b.lane);
         const engineers = (b.engineers ?? []).map((id) => names.get(id) ?? id).join(", ");
-        const text = [`${lane?.deptCode ?? ""}-${b.code}`, jiraKey(b.epic) ?? "", b.title, b.description ?? "", (b.tags ?? []).join(", "), lane?.label ?? "", lane?.dept ?? "", engineers]
-          .join(" ")
-          .toLowerCase();
+        const fields = [`${lane?.deptCode ?? ""}-${b.code}`, jiraKey(b.epic) ?? "", b.title, b.description ?? "", (b.tags ?? []).join(", ")];
+        const text = [...fields, lane?.label ?? "", lane?.dept ?? "", engineers].join(" ").toLowerCase();
         made.set(b, (s = { text, engineers }));
       }
       return s;

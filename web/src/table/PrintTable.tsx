@@ -13,7 +13,22 @@ import type { Settings } from "../model/types";
 import type { PeopleRow, TableRow } from "./tableModel";
 import type { LaneInfo } from "./TableRows";
 
-const BOX_COLUMNS = ["Code", "Title", "Department / lane", "Start", "End", "Working days", "FTE", "Scale", "Engineers", "Type", "Flag", "Epic link", "Tags", "Description"];
+const BOX_COLUMNS = [
+  "Code",
+  "Title",
+  "Department / lane",
+  "Start",
+  "End",
+  "Working days",
+  "FTE",
+  "Scale",
+  "Engineers",
+  "Type",
+  "Flag",
+  "Epic link",
+  "Tags",
+  "Description",
+];
 
 /** The table's rows as they're shown, on paper. */
 export function PrintBoxes({

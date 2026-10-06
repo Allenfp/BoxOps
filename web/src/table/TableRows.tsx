@@ -72,7 +72,27 @@ function HeldNote() {
   return <span className="held-note">Doesn’t match the search or filters: hidden once you leave this row.</span>;
 }
 
-export const BoxRow = memo(function BoxRow({ box: b, rowKey, index, lane, laneOptions, laneCount, typeOptions, statusOptions, typeColor, warnings, flag, readOnly, autoFocus, held, departments, people, names, measure, actions }: {
+export const BoxRow = memo(function BoxRow({
+  box: b,
+  rowKey,
+  index,
+  lane,
+  laneOptions,
+  laneCount,
+  typeOptions,
+  statusOptions,
+  typeColor,
+  warnings,
+  flag,
+  readOnly,
+  autoFocus,
+  held,
+  departments,
+  people,
+  names,
+  measure,
+  actions,
+}: {
   box: Box;
   rowKey: string;
   index: number;
@@ -276,7 +296,18 @@ const FTE_OPTIONS = BOX_FTE_OPTIONS.map((f) => (
   </option>
 ));
 
-export const PtoRow = memo(function PtoRow({ entry, rowKey, index, members, memberCount, readOnly, autoFocus, held, measure, actions }: {
+export const PtoRow = memo(function PtoRow({
+  entry,
+  rowKey,
+  index,
+  members,
+  memberCount,
+  readOnly,
+  autoFocus,
+  held,
+  measure,
+  actions,
+}: {
   entry: PtoEntry;
   rowKey: string;
   index: number;
@@ -362,7 +393,22 @@ export const PtoRow = memo(function PtoRow({ entry, rowKey, index, members, memb
   );
 });
 
-export const GroupRow = memo(function GroupRow({ dept, rowKey, index, shown, total, searching, collapsed, canReorder, readOnly, editable, fte, dated, measure, actions }: {
+export const GroupRow = memo(function GroupRow({
+  dept,
+  rowKey,
+  index,
+  shown,
+  total,
+  searching,
+  collapsed,
+  canReorder,
+  readOnly,
+  editable,
+  fte,
+  dated,
+  measure,
+  actions,
+}: {
   dept: Department;
   rowKey: string;
   index: number;
