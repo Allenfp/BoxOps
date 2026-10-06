@@ -2,7 +2,7 @@
 // served next to index.html. The build writes it (cli/site.ts); the app reads
 // it with readBundle(), which also accepts bundles from before schema 1.
 
-import type { ParsedFile } from "./load.ts"; // with .ts: vite.config.ts imports this file
+import type { ParsedEntry } from "./load.ts"; // with .ts: vite.config.ts imports this file
 import type { RoadmapFiles } from "./types.ts";
 
 /** The bundle layout written by this BoxOps. Tabs of every version read `schema` and `app.build`, so those never move. */
@@ -69,8 +69,12 @@ export interface Notice {
 export interface ParsedFiles {
   /** The build id of the app whose parser made them: an app uses them only if that's its own. */
   parser: string;
-  /** Blob SHA → what the file with that blob (at the path it names) parses to. */
-  files: Record<string, ParsedFile>;
+  /**
+   * Path → what the file there parses to (`blobs` has its blob), without its
+   * path. By path, not blob SHA: a SHA's 40 hex digits don't compress, and
+   * at 2,000 boxes they were a sixth of roadmap.json gzipped.
+   */
+  files: Record<string, ParsedEntry>;
 }
 
 export interface Bundle {
@@ -109,14 +113,19 @@ const count = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v
 function textRecord(v: unknown): Record<string, string> | null {
   return isRecord(v) && Object.values(v).every((x) => typeof x === "string") ? (v as Record<string, string>) : null;
 }
-/** `parsed` if it's what a build writes, as far as a look at each file's outline tells. */
-function readParsed(v: unknown): ParsedFiles | undefined {
+/**
+ * `parsed` if it's what a build writes, as far as a look at each file's
+ * outline tells: each under the path of a file with a blob in `blobs`. One
+ * from an earlier build of 0.1.0, by blob SHA, is left out (its parser was
+ * another build's anyway, which an app never uses).
+ */
+function readParsed(v: unknown, blobs: Record<string, string>): ParsedFiles | undefined {
   if (!isRecord(v) || typeof v.parser !== "string" || !v.parser || !isRecord(v.files)) return undefined;
   const files = v.files;
   const ok = Object.entries(files).every(
-    ([sha, f]) => isSha(sha) && isRecord(f) && typeof f.path === "string" && typeof f.kind === "string" && Array.isArray(f.issues),
+    ([path, f]) => Object.hasOwn(blobs, path) && isRecord(f) && typeof f.kind === "string" && Array.isArray(f.issues),
   );
-  return ok ? { parser: v.parser, files: files as Record<string, ParsedFile> } : undefined;
+  return ok ? { parser: v.parser, files: files as Record<string, ParsedEntry> } : undefined;
 }
 const VISIBILITIES: unknown[] = ["public", "private", "internal"] satisfies Visibility[];
 const LEVELS: unknown[] = ["security", "warning", "info"] satisfies Notice["level"][];
@@ -133,7 +142,8 @@ export function readBundle(raw: unknown): Bundle {
   const app = isRecord(b.app) ? b.app : {};
   const s = isRecord(b.source) ? b.source : {};
   const commit = text(s.commit);
-  const parsed = readParsed(b.parsed);
+  const blobs = textRecord(b.blobs) ?? {};
+  const parsed = readParsed(b.parsed, blobs);
   return {
     schema: count(b.schema),
     format: count(b.format),
@@ -156,7 +166,7 @@ export function readBundle(raw: unknown): Bundle {
       ...(typeof s.run === "string" ? { run: s.run } : {}),
     },
     files,
-    blobs: textRecord(b.blobs) ?? {},
+    blobs,
     ignored: Array.isArray(b.ignored) ? b.ignored.filter((p) => typeof p === "string") : [],
     notices: Array.isArray(b.notices)
       ? b.notices.filter((n): n is Notice => isRecord(n) && LEVELS.includes(n.level) && typeof n.text === "string")

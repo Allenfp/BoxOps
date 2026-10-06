@@ -161,8 +161,8 @@ const CLEAN_BUILD = /^[^+\s]+\+[0-9a-f]{12}$/;
 
 /**
  * The bundle for these files from this source: what buildBundle writes. With
- * `parsed`, each file as this build's parser makes of it, by blob SHA,
- * stamped with the build id. By default only under an id that names the
+ * `parsed`, each file as this build's parser makes of it, by path (without
+ * the path itself), stamped with the build id. By default only under an id that names the
  * app's code exactly: two builds with uncommitted changes, or from outside a
  * git checkout, can share an id but not a parser, and a tab of one would take
  * the other's. `parsed: true` stamps any id (the browser tests, whose app is
@@ -172,7 +172,10 @@ export function assembleBundle(app: AppInfo, source: BundleSource, folder: Roadm
   let parsed: ParsedFiles | undefined;
   if (app.build && (o.parsed ?? CLEAN_BUILD.test(app.build))) {
     parsed = { parser: app.build, files: {} };
-    for (const [path, sha] of Object.entries(folder.blobs)) parsed.files[sha] = parseFile(path, folder.files[path]);
+    for (const path of Object.keys(folder.blobs)) {
+      const { path: _, ...entry } = parseFile(path, folder.files[path]);
+      parsed.files[path] = entry;
+    }
   }
   return {
     schema: SCHEMA,

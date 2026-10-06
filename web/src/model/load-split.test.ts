@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { hashFolder } from "../../cli/site";
 import { generateRoadmap } from "../../scripts/gen-roadmap";
-import { type ParsedFile, forgetParsed, loadFolder, loadFolderNow, rememberParsed } from "./load";
+import { type ParsedEntry, forgetParsed, loadFolder, loadFolderNow, rememberParsed } from "./load";
 import { loadRoadmap, parseFile } from "./parse";
 import type { RoadmapFiles } from "./types";
 
@@ -84,17 +84,20 @@ describe("loading in the app", () => {
   it.each(cases)("loads %s from what the build parsed, as JSON", async (_, all) => {
     forgetParsed();
     const folder = await hashFolder(all);
-    const parsed: Record<string, ParsedFile> = {};
-    for (const [path, sha] of Object.entries(folder.blobs)) parsed[sha] = parseFile(path, folder.files[path]);
-    const fromBuild = JSON.parse(JSON.stringify(parsed)) as Record<string, ParsedFile>;
-    rememberParsed(fromBuild);
+    const parsed: Record<string, ParsedEntry> = {};
+    for (const path of Object.keys(folder.blobs)) {
+      const { path: _, ...entry } = parseFile(path, folder.files[path]);
+      parsed[path] = entry;
+    }
+    const fromBuild = JSON.parse(JSON.stringify(parsed)) as Record<string, ParsedEntry>;
+    rememberParsed(fromBuild, folder.blobs);
     const loaded = await loadFolder(folder);
     // JSON leaves out keys whose value is undefined: nothing else differs.
     expect(loaded).toEqual(loadRoadmap(folder.files, folder.ignored));
     expect(json(loaded)).toBe(json(loadRoadmap(folder.files, folder.ignored)));
     // Taken as given, not parsed again.
     const box = loaded.roadmap.boxes[0];
-    const from = fromBuild[folder.blobs[loaded.sources.boxes.get(box.id)!]];
+    const from = fromBuild[loaded.sources.boxes.get(box.id)!];
     expect(from.kind === "box" && from.box).toBe(box);
   });
 
@@ -107,5 +110,19 @@ describe("loading in the app", () => {
     const next = await loadFolder(edited);
     expect(next.roadmap.boxes.find((b) => b.id === "bx-c93d-dagster-upgrade")?.title).toBe("Dagster 3 upgrade");
     expect(next.roadmap.boxes.filter((b) => first.roadmap.boxes.includes(b))).toHaveLength(first.roadmap.boxes.length - 1);
+  });
+
+  it("takes what the build parsed as what its path's blob parses to: another blob there is parsed itself", async () => {
+    forgetParsed();
+    const path = "boxes/bx-c93d-dagster-upgrade.yaml";
+    const folder = await hashFolder(fixture.files);
+    const edited = await hashFolder({ ...fixture.files, [path]: fixture.files[path].replace("Dagster 2.x upgrade", "Dagster 3 upgrade") });
+    // The build's parse of the file as it was, given with the blobs of the folder as it is now, and without one.
+    const { path: _, ...entry } = parseFile(path, fixture.files[path]);
+    rememberParsed({ [path]: { ...entry, box: entry.kind === "box" ? { ...entry.box!, title: "As parsed" } : null } as ParsedEntry }, folder.blobs);
+    rememberParsed({ "boxes/elsewhere.yaml": entry }, folder.blobs);
+    const title = (r: Awaited<ReturnType<typeof loadFolder>>) => r.roadmap.boxes.find((b) => b.id === "bx-c93d-dagster-upgrade")?.title;
+    expect(title(await loadFolder(edited))).toBe("Dagster 3 upgrade");
+    expect(title(await loadFolder(folder))).toBe("As parsed");
   });
 });

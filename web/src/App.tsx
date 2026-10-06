@@ -246,12 +246,14 @@ async function fromSnapshot(s: Snapshot, preview = false): Promise<Loaded> {
 
 /**
  * A fetched roadmap.json as a snapshot, its files kept for later reads. What
- * the build parsed them to is kept too, if this build's parser did it: then
- * showing them needs no parsing.
+ * the build parsed them to is kept too, if this build's parser did it, each
+ * as what the blob the snapshot has at its path parses to: then showing them
+ * needs no parsing.
  */
 async function snapshotOf(bundle: Bundle): Promise<Snapshot> {
-  if (bundle.parsed?.parser === __BOXOPS_BUILD__) rememberParsed(bundle.parsed.files);
-  return remember(await fromBundle(bundle));
+  const snapshot = await fromBundle(bundle);
+  if (bundle.parsed?.parser === __BOXOPS_BUILD__) rememberParsed(bundle.parsed.files, snapshot.blobs);
+  return remember(snapshot);
 }
 
 /** fromSnapshot() at once, for a snapshot a save brings: saving has loaded the parser. */

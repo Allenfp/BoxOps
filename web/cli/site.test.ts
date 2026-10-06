@@ -54,6 +54,10 @@ describe("buildBundle in GitHub Actions", () => {
     const env = actions(second, { repository: { full_name: "acme/roadmap", private: false, visibility: "public" } });
     const bundle = await buildBundle({ repoDir: r.dir, app: APP, env });
     const blob = (path: string) => r.git(["rev-parse", `${second}:roadmap/${path}`]);
+    const parsed = (path: string, text: string) => {
+      const { path: _, ...entry } = parseFile(path, text);
+      return entry;
+    };
     expect(bundle).toEqual({
       schema: 1,
       format: 1,
@@ -77,13 +81,13 @@ describe("buildBundle in GitHub Actions", () => {
       blobs: { "boxes/b1.yaml": blob("boxes/b1.yaml"), "people.yaml": blob("people.yaml"), "settings.yaml": blob("settings.yaml") },
       ignored: [],
       notices: [],
-      // Each file as this build parses it, by blob SHA, stamped with the build id.
+      // Each file as this build parses it, by path (without its path), stamped with the build id.
       parsed: {
         parser: APP.build,
         files: {
-          [blob("boxes/b1.yaml")]: parseFile("boxes/b1.yaml", "id: b1\ntitle: B1\n"),
-          [blob("people.yaml")]: parseFile("people.yaml", "people: []\n"),
-          [blob("settings.yaml")]: parseFile("settings.yaml", "format: 1\n"),
+          "boxes/b1.yaml": parsed("boxes/b1.yaml", "id: b1\ntitle: B1\n"),
+          "people.yaml": parsed("people.yaml", "people: []\n"),
+          "settings.yaml": parsed("settings.yaml", "format: 1\n"),
         },
       },
     });
@@ -198,7 +202,7 @@ describe("buildBundle locally", () => {
   it("parses the files unless the app has no build id to stamp them with", async () => {
     const { repo: r } = repo();
     const parsed = (app: typeof APP) => buildBundle({ repoDir: r.dir, app, env: {}, warn: () => {} }).then((b) => b.parsed);
-    expect(Object.values((await parsed(APP))!.files).map((f) => f.path)).toEqual(["boxes/b1.yaml", "people.yaml", "settings.yaml"]);
+    expect(Object.keys((await parsed(APP))!.files)).toEqual(["boxes/b1.yaml", "people.yaml", "settings.yaml"]);
     expect(await parsed({ ...APP, build: "" })).toBeUndefined();
   });
 

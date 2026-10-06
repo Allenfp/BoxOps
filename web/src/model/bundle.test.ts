@@ -32,19 +32,25 @@ describe("readBundle", () => {
       notices: [{ level: "info", text: "BoxOps v0.1.1 is out." }],
       parsed: {
         parser: "0.1.0+0123456789ab",
-        files: { ["d".repeat(40)]: { path: "settings.yaml", kind: "settings", issues: [], settings: DEFAULT_SETTINGS, format: 1 } },
+        files: { "settings.yaml": { kind: "settings", issues: [], settings: DEFAULT_SETTINGS, format: 1 } },
       },
     };
     expect(readBundle(JSON.parse(JSON.stringify(bundle)))).toEqual(bundle);
   });
 
-  it("leaves out parsed files that don't look like a build's", () => {
-    const parsed = (p: unknown) => readBundle({ files, parsed: p }).parsed;
-    const file = { path: "settings.yaml", kind: "settings", issues: [] };
-    expect(parsed({ parser: "0.1.0+0123456789ab", files: { ["d".repeat(40)]: file } })).toBeDefined();
-    expect(parsed({ parser: "", files: { ["d".repeat(40)]: file } })).toBeUndefined();
-    expect(parsed({ parser: "0.1.0+0123456789ab", files: { "settings.yaml": file } })).toBeUndefined();
-    expect(parsed({ parser: "0.1.0+0123456789ab", files: { ["d".repeat(40)]: { ...file, issues: null } } })).toBeUndefined();
+  it("leaves out parsed files that don't look like a build's, or aren't by the path of a file with a blob", () => {
+    const blobs = { "settings.yaml": "d".repeat(40) };
+    const parsed = (p: unknown) => readBundle({ files, blobs, parsed: p }).parsed;
+    const file = { kind: "settings", issues: [] };
+    expect(parsed({ parser: "0.1.0+0123456789ab", files: { "settings.yaml": file } })).toBeDefined();
+    expect(parsed({ parser: "", files: { "settings.yaml": file } })).toBeUndefined();
+    expect(parsed({ parser: "0.1.0+0123456789ab", files: { "settings.yaml": { ...file, issues: null } } })).toBeUndefined();
+    expect(parsed({ parser: "0.1.0+0123456789ab", files: { "boxes/b1.yaml": { kind: "box", issues: [] } } })).toBeUndefined();
+    expect(parsed({ parser: "0.1.0+0123456789ab", files: { constructor: file } })).toBeUndefined();
+    // As an earlier build of 0.1.0 wrote them, by blob SHA: left out, and the rest is read.
+    const bySha = readBundle({ files, blobs, parsed: { parser: "0.1.0+0123456789ab", files: { ["d".repeat(40)]: { path: "settings.yaml", ...file } } } });
+    expect(bySha.parsed).toBeUndefined();
+    expect(bySha.files).toEqual(files);
     expect(parsed("yes")).toBeUndefined();
   });
 

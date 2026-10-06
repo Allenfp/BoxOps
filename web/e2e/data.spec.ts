@@ -72,7 +72,7 @@ test("the files as the build parsed them are used by that build only; another pa
     parsed: b.parsed && {
       parser: parser(b),
       files: Object.fromEntries(
-        Object.entries(b.parsed.files).map(([sha, f]) => [sha, f.kind === "box" && f.box?.id === REVENUE ? { ...f, box: { ...f.box, title: "As parsed" } } : f]),
+        Object.entries(b.parsed.files).map(([path, f]) => [path, f.kind === "box" && f.box?.id === REVENUE ? { ...f, box: { ...f.box, title: "As parsed" } } : f]),
       ),
     },
   });

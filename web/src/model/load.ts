@@ -68,7 +68,8 @@ export type Lines = Partial<Record<"id" | "code" | "lane" | "lanes" | "type" | "
 /**
  * What one file holds, on its own (parse.ts), and its problems in the order
  * found; null when the file is skipped. Plain JSON, the same wherever it's
- * made: the build puts these in roadmap.json (`parsed`, by blob SHA).
+ * made: the build puts these in roadmap.json (`parsed`, by path, each
+ * without its path: a ParsedEntry).
  */
 export type ParsedFile = { path: string; issues: FileIssue[] } & (
   | { kind: "settings"; settings: Settings; format: number | null }
@@ -78,6 +79,8 @@ export type ParsedFile = { path: string; issues: FileIssue[] } & (
   /** Not a roadmap file: reported as unexpected. */
   | { kind: "other" }
 );
+/** A ParsedFile without its path, as roadmap.json keeps it: under its path. */
+export type ParsedEntry = ParsedFile extends infer F ? (F extends ParsedFile ? Omit<F, "path"> : never) : never;
 
 /**
  * A problem in a file. `same` stands in for the message in the issue's key
@@ -311,12 +314,17 @@ export function loadParser(): Promise<void> {
 }
 
 /**
- * Keep what these files (blob SHA → parsed file) parse to, so loading them
- * needs no parsing: a bundle's `parsed`. Blobs already known keep what they
- * had, so an unchanged box stays the same object from one load to the next.
+ * Keep what the files at these paths parse to (a bundle's `parsed`), each as
+ * what the blob `blobs` has at its path parses to, so loading them needs no
+ * parsing; a path without a blob is left out. Blobs already known keep what
+ * they had, so an unchanged box stays the same object from one load to the
+ * next.
  */
-export function rememberParsed(files: Record<string, ParsedFile>): void {
-  for (const [sha, file] of Object.entries(files)) if (!parsedBlobs.has(sha)) parsedBlobs.set(sha, file);
+export function rememberParsed(files: Record<string, ParsedEntry>, blobs: Record<string, string>): void {
+  for (const [path, file] of Object.entries(files)) {
+    const sha = Object.hasOwn(blobs, path) ? blobs[path] : undefined;
+    if (sha !== undefined && !parsedBlobs.has(sha)) parsedBlobs.set(sha, { ...file, path } as ParsedFile);
+  }
 }
 
 /** For tests: forget every parsed file. */
