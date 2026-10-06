@@ -1218,6 +1218,11 @@ function sameDept(a: DeptProps, b: DeptProps): boolean {
 
 const DeptSection = memo(function DeptSection(p: DeptProps) {
   const { dept, layout, scale, display, readOnly, now, slotH, actions } = p;
+  // Counted for the browser tests, which check that a drag draws again only the departments it's in.
+  useLayoutEffect(() => {
+    const counts = window.__boxopsTest?.renders;
+    if (counts) counts[dept.id] = (counts[dept.id] ?? 0) + 1;
+  });
 
   // Over capacity is FTE arithmetic; the extra area is where boxes that couldn't be drawn in the lanes go.
   // Only an overload from today on is a warning, as in the app's warnings; past ones are history.

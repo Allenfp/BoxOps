@@ -8,19 +8,26 @@ import { assembleBundle, hashFolder } from "../cli/site";
 import { type AppInfo, type BundleSource, readBundle } from "../src/model/bundle";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 
-// First load of a big roadmap (`npm run perf`, not part of the browser tests):
-// the production build with a generated 2,000-box roadmap (and a 500-box
-// one) as its roadmap.json, served gzipped as Pages does, opened in WebKit as
-// a viewer would, without a token. Checked exactly: the app's main
-// JavaScript file stays under MAIN_LIMIT, and no file with the yaml library
-// is fetched before the timeline shows (the build parsed the files). Timed:
+// A big roadmap (`npm run perf`, not part of the browser tests): the
+// production build with a generated 2,000-box roadmap (and a 500-box one) as
+// its roadmap.json, served gzipped as Pages does, opened in WebKit as a
+// viewer would, without a token. Checked exactly: the app's main JavaScript
+// file stays under MAIN_LIMIT; no file with the yaml library is fetched
+// before the timeline shows (the build parsed the files); the timeline draws
+// at most MAX_DRAWN boxes when it shows, however big the roadmap (only
+// what's near the screen); and a step of a keyboard move or a drag, or a
+// keystroke in the box editor, draws again only the departments it's in
+// (counted by the timeline for tests, window.__boxopsTest.renders). Timed:
 // navigation to the timeline painted, printed for each run; a test fails
 // only above CEILING_MS, generous so a slow CI machine doesn't fail it. The
-// same roadmap without the build's parsing is timed too, for comparison.
+// same roadmap without the build's parsing is timed too, for comparison, and
+// so is a keyboard move's step, printed only.
 
 const MAIN_LIMIT = 400_000;
 const CEILING_MS = 2500;
 const RUNS = 3;
+/** Boxes drawn when the timeline shows, at 1440 × 900: about 70 near the screen, at 500 boxes or 2,000. */
+const MAX_DRAWN = 200;
 
 const DIST = new URL("../dist/", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, DIST), "utf8");
@@ -90,6 +97,8 @@ interface Load {
   painted: number;
   /** The app's JavaScript files fetched by then. */
   scripts: string[];
+  /** Boxes in the page once it's painted. */
+  drawn: number;
 }
 
 /** Open the site, and time it until the timeline is painted. */
@@ -103,7 +112,9 @@ async function load(page: Page): Promise<Load> {
       observer.disconnect();
       const scripts = () => performance.getEntriesByType("resource").flatMap((e) => /\/assets\/([^/]+\.js)$/.exec(e.name)?.[1] ?? []);
       w.__load = { box: performance.now(), scripts: scripts() };
-      requestAnimationFrame(() => setTimeout(() => Object.assign(w.__load!, { painted: performance.now() }), 0));
+      requestAnimationFrame(() =>
+        setTimeout(() => Object.assign(w.__load!, { painted: performance.now(), drawn: document.querySelectorAll(".box").length }), 0),
+      );
     }).observe(document, { childList: true, subtree: true });
   });
   await page.goto(site);
@@ -130,6 +141,7 @@ for (const boxes of [2000, 500]) {
   test(`${boxes} boxes: the timeline shows without the YAML parser, well within ${CEILING_MS} ms`, async ({ browser }) => {
     roadmap = await bundle(boxes, true);
     const times: number[] = [];
+    const drawn: number[] = [];
     for (let run = 0; run < RUNS; run++) {
       const context = await fresh(browser);
       const page = await context.newPage();
@@ -139,16 +151,105 @@ for (const boxes of [2000, 500]) {
       expect(l.scripts, "files fetched before the timeline showed").toContain(MAIN);
       expect(l.scripts.filter((f) => YAML_FILES.includes(f)), "the yaml library, before the timeline showed").toEqual([]);
       expect(fetched.filter((f) => YAML_FILES.includes(f)), "the yaml library, at all").toEqual([]);
-      expect(await page.locator(".box").count()).toBeGreaterThan(0);
       times.push(l.painted);
+      drawn.push(l.drawn);
       await context.close();
     }
     const ms = median(times);
-    console.log(`${boxes} boxes, parsed by the build: timeline painted in ${ms.toFixed(0)} ms (median of ${RUNS}: ${times.map((t) => t.toFixed(0)).join(", ")})`);
+    console.log(`${boxes} boxes, parsed by the build: timeline painted in ${ms.toFixed(0)} ms (median of ${RUNS}: ${times.map((t) => t.toFixed(0)).join(", ")}), ${drawn[0]} boxes drawn`);
     test.info().annotations.push({ type: `time to timeline, ${boxes} boxes (ms)`, description: ms.toFixed(0) });
+    test.info().annotations.push({ type: `boxes drawn, ${boxes} boxes`, description: String(drawn[0]) });
     expect(ms).toBeLessThan(CEILING_MS);
+    // The same each time, and as many as the screen holds, not as the roadmap has.
+    expect(new Set(drawn).size).toBe(1);
+    expect(drawn[0]).toBeGreaterThan(20);
+    expect(drawn[0]).toBeLessThanOrEqual(MAX_DRAWN);
   });
 }
+
+test("2000 boxes: a keyboard move's step, a drag's and a keystroke in the box editor draw again only the departments they're in", async ({ browser }) => {
+  roadmap = await bundle(2000, true);
+  const context = await fresh(browser);
+  const page = await context.newPage();
+  await page.addInitScript(() => (window.__boxopsTest = { renders: {} }));
+  await load(page);
+  const timeline = page.locator(".timeline");
+
+  /** The departments drawn again while `act` runs, and in the frame after: their ids, in order. */
+  const drawn = async (act: () => Promise<unknown>) => {
+    await page.evaluate(() => (window.__boxopsTest!.renders = {}));
+    await act();
+    const counts = await page.evaluate(
+      () => new Promise<Record<string, number>>((done) => requestAnimationFrame(() => setTimeout(() => done({ ...window.__boxopsTest!.renders }), 0))),
+    );
+    return Object.keys(counts).sort();
+  };
+
+  // The second department's heading two thirds of the way down, and a box of the first
+  // department on screen above it, well clear of the edges: nothing a step does scrolls.
+  await timeline.evaluate((el) => {
+    const dept = el.querySelector<HTMLElement>('[data-dept-id="dept-02"]')!;
+    el.scrollTop += dept.getBoundingClientRect().top - el.getBoundingClientRect().top - (el.clientHeight * 2) / 3;
+  });
+  const key = await timeline.evaluate((el) => {
+    const view = el.getBoundingClientRect();
+    const head = el.querySelector(".tl-head")!.getBoundingClientRect().bottom;
+    const boxes = [...el.querySelectorAll<HTMLElement>('[data-dept-id="dept-01"] .lane-track .box')];
+    return boxes.find((b) => {
+      const r = b.getBoundingClientRect();
+      return r.width >= 30 && r.left > view.left + 440 && r.right < view.right - 300 && r.top > head + 30;
+    })?.dataset.cell;
+  });
+  expect(key, "a box of the first department on screen").toBeDefined();
+  const box = page.locator(`[data-cell="${key}"]`);
+  const deptOf = () => box.evaluate((el) => el.closest("[data-dept-id]")!.getAttribute("data-dept-id"));
+
+  // A keyboard move: each step within the department draws it again, and no other.
+  await box.focus();
+  await page.keyboard.press("Space");
+  // How long each step takes: from the key to the page laid out with it (React's commit, then a forced layout).
+  await page.evaluate(() => {
+    const w = window as unknown as { __steps: number[] };
+    w.__steps = [];
+    window.addEventListener("keydown", (e) => {
+      const mc = new MessageChannel();
+      mc.port1.onmessage = () => {
+        void document.body.offsetHeight;
+        w.__steps.push(performance.now() - e.timeStamp);
+      };
+      mc.port2.postMessage(0);
+    }, true);
+  });
+  for (let i = 0; i < 10; i++) expect(await drawn(() => page.keyboard.press(i % 2 ? "ArrowLeft" : "ArrowRight"))).toEqual(["dept-01"]);
+  // Down through its lanes into the next department: the step across draws the two.
+  let across: string[] = [];
+  for (let i = 0; i < 10 && (await deptOf()) === "dept-01"; i++) across = await drawn(() => page.keyboard.press("ArrowDown"));
+  expect(await deptOf()).toBe("dept-02");
+  expect(across).toEqual(["dept-01", "dept-02"]);
+  expect(await drawn(() => page.keyboard.press("Escape"))).toEqual(["dept-01", "dept-02"]);
+  const steps = await page.evaluate(() => (window as unknown as { __steps: number[] }).__steps.slice(0, 10));
+  const step = median(steps);
+  console.log(`2000 boxes: a keyboard move's step laid out in ${step.toFixed(1)} ms (median of ${steps.length})`);
+  test.info().annotations.push({ type: "keyboard move step, 2000 boxes (ms)", description: step.toFixed(1) });
+
+  // A drag: a move that keeps the day it would land on draws nothing; a day on, its department alone.
+  const r = (await box.boundingBox())!;
+  const [x, y] = [r.x + r.width / 2, r.y + r.height / 2];
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 6, y);
+  expect(await drawn(() => page.mouse.move(x + 7, y))).toEqual([]);
+  expect(await drawn(() => page.mouse.move(x + 6 + 3 * 14.7, y))).toEqual(["dept-01"]);
+  expect(await drawn(() => page.keyboard.press("Escape"))).toEqual(["dept-01"]);
+  await page.mouse.up();
+
+  // A keystroke in the box's editor: its department alone.
+  await box.click();
+  const title = page.getByRole("dialog").getByRole("textbox", { name: "Title", exact: true });
+  await title.press("End");
+  expect(await drawn(() => title.press("x"))).toEqual(["dept-01"]);
+  await context.close();
+});
 
 test("2000 boxes the build didn't parse: parsed in the browser instead (timed for comparison)", async ({ browser }) => {
   roadmap = await bundle(2000, false);
