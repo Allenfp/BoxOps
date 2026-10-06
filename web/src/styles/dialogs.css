@@ -16,8 +16,15 @@
   color: var(--text);
   box-shadow: var(--shadow-dialog);
 }
+/* A ::backdrop inherits custom properties only since Safari 17.4, Chrome and Edge 122, Firefox 120: before them
+   --backdrop is unset there, so each theme's own colour is given again, or the page would show through undimmed. */
 .save-dialog::backdrop {
-  background: var(--backdrop);
+  background: var(--backdrop, rgba(16, 24, 40, 0.35));
+}
+@media screen {
+  :root[data-theme="dark"] .save-dialog::backdrop {
+    background: var(--backdrop, rgba(0, 0, 0, 0.55));
+  }
 }
 .save-dialog > * {
   margin-left: 20px;

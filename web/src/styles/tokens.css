@@ -45,6 +45,7 @@
   --shadow-drag: 0 6px 18px rgba(16, 24, 40, 0.25);
   --shadow-float: 0 12px 32px rgba(16, 24, 40, 0.2);
   --shadow-dialog: 0 24px 64px rgba(16, 24, 40, 0.3);
+  /* Behind a dialog; older browsers' copy is in dialogs.css, so a change goes there too. */
   --backdrop: rgba(16, 24, 40, 0.35);
   /* How long a switch, a chevron or a grip takes to move or show: no time at all when the system asks for less motion. */
   --motion: 0.12s;

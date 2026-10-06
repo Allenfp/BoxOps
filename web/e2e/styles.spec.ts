@@ -124,6 +124,26 @@ test("the department editor's own colour is a field like team settings' colours,
   expect(await css(custom, "width", "height", "padding-left")).toEqual({ width: "28px", height: "28px", "padding-left": "2px" });
 });
 
+test("a dialog dims the page behind it in either theme, where a backdrop inherits no custom properties too", async ({ page, github: _ }) => {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", colorScheme);
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("button", { name: "Keyboard shortcuts…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(dialog).toBeVisible();
+    const backdrop = () => dialog.evaluate((d) => getComputedStyle(d, "::backdrop").backgroundColor);
+    const dim = await backdrop();
+    expect(dim, colorScheme).not.toBe("rgba(0, 0, 0, 0)");
+    // As Safari before 17.4, Chrome before 122 and Firefox before 120 have it: no --backdrop on the backdrop.
+    await page.evaluate(() => document.documentElement.style.setProperty("--backdrop", "initial"));
+    expect(await backdrop(), colorScheme).toBe(dim);
+    await page.evaluate(() => document.documentElement.style.removeProperty("--backdrop"));
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  }
+});
+
 test("the table's and People's column headers are shown whole, none running under the next", async ({ page, github: _ }) => {
   for (const view of ["Table", "People"]) {
     await page.getByRole("button", { name: view, exact: true }).click();
