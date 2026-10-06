@@ -387,6 +387,7 @@ test.describe("in a small window", () => {
     await page.getByRole("button", { name: "Table", exact: true }).click();
     await expect(toast).toBeVisible();
     const titles = page.locator(".box-table tr.box-row td.col-title .cell-input");
+    await expect(titles.first()).toBeVisible(); // the table drawn (its code is fetched the first time)
     const top = (await toast.boundingBox())!.y;
     let under = -1;
     for (let i = (await titles.count()) - 1; i >= 0 && under < 0; i--) {
