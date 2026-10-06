@@ -366,6 +366,7 @@ export function TableView(props: Props) {
     enabled: windowed,
     sort: `${sort.key} ${sort.dir}`,
     search: `${q}\n${fromDay ?? ""}\n${toDay ?? ""}`,
+    heading: "group",
   });
   const tableRef = useRef<HTMLTableElement>(null);
   const printing = usePrinting();

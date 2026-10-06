@@ -337,13 +337,15 @@ test("the calendar closes once the table is scrolled till its field is under the
 });
 
 /**
- * Scroll the table till `button` is partly under its sticky header (its top `by` px) or title column (its left
- * `by` px), and say where a click still reaches it (the next frames, and the scroll's event, have passed).
+ * Scroll the table till `button` is partly under its sticky header and the department's heading stuck under that
+ * (its top `by` px) or title column (its left `by` px), and say where a click still reaches it (the next frames, and
+ * the scroll's event, have passed).
  */
 async function halfHidden(page: Page, button: Locator, under: "header" | "title", by: number) {
   const at = (await button.boundingBox())!;
   const edge = (await page.locator(".box-table thead th.col-title").boundingBox())!;
-  const [down, across] = under === "header" ? [at.y - (edge.y + edge.height) + by, 0] : [0, at.x - (edge.x + edge.width) + by];
+  const heading = (await button.locator("xpath=ancestor::tbody[1]").locator("tr.group-row td").boundingBox())!.height;
+  const [down, across] = under === "header" ? [at.y - (edge.y + edge.height + heading) + by, 0] : [0, at.x - (edge.x + edge.width) + by];
   await page.locator(".table-scroll").evaluate((el, [down, across]) => el.scrollBy(across, down), [down, across]);
   await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
   const b = (await button.boundingBox())!;

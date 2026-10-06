@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anchorRow, drawn, heightLearner, layout, rowAt, runs, usual, windowRows } from "./windowMath";
+import { anchorRow, drawn, headingOf, heightLearner, layout, rowAt, runs, usual, windowRows } from "./windowMath";
 
 /** Rows of these heights. */
 const tops = (...heights: number[]) => layout(heights.length, (i) => heights[i]);
@@ -53,6 +53,30 @@ describe("windowRows", () => {
     expect(windowRows(even(100), 0, 100, [99, 70, 70])).toEqual([[0, 2], [69, 72], [98, 100]]);
     // At the ends, and out of range (gone since).
     expect(windowRows(even(5), 1000, 2000, [0, 4, 7, -1])).toEqual([[0, 2], [3, 5]]);
+  });
+
+  it("adds each of the rows drawn on their own (a group's heading stuck at the top), merging as the rest", () => {
+    expect(windowRows(even(100), 2000, 2100, [], [10])).toEqual([[10, 11], [40, 42]]);
+    expect(windowRows(even(100), 2000, 2100, [], [39])).toEqual([[39, 42]]);
+    expect(windowRows(even(100), 2000, 2100, [], [40, -1, 100])).toEqual([[40, 42]]);
+    expect(windowRows(even(100), 2000, 2100, [60], [10])).toEqual([[10, 11], [40, 42], [59, 62]]);
+  });
+});
+
+describe("headingOf", () => {
+  it("is the last heading at or before the row: the heading of its group", () => {
+    const headings = [0, 12, 30, 31];
+    expect(headingOf(headings, 0)).toBe(0);
+    expect(headingOf(headings, 11)).toBe(0);
+    expect(headingOf(headings, 12)).toBe(12);
+    expect(headingOf(headings, 29)).toBe(12);
+    expect(headingOf(headings, 30)).toBe(30);
+    expect(headingOf(headings, 500)).toBe(31);
+  });
+
+  it("is none before the first heading, or with none", () => {
+    expect(headingOf([5, 9], 4)).toBe(-1);
+    expect(headingOf([], 4)).toBe(-1);
   });
 });
 

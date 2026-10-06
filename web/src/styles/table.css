@@ -53,6 +53,8 @@
 /* Every box (and engineer) row is as tall as the others, unless one's being edited or says why a cell won't do. */
 .box-table {
   --box-row: 53px;
+  /* The header's height: a department's heading sticks just under it. */
+  --table-head: 34px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -76,7 +78,7 @@
   font-weight: 600;
   color: var(--text-muted);
   padding: 0 4px;
-  height: 34px;
+  height: var(--table-head);
   white-space: nowrap;
 }
 .sort-button {
@@ -342,8 +344,12 @@
   color: var(--text-muted);
 }
 
-/* Table: department groups */
+/* Table: department groups. A department's heading sticks under the header while its rows are in view: one
+   further down covers it as it gets there (the table draws the one stuck, useWindowedRows.ts). */
 .box-table .group-row td {
+  position: sticky;
+  top: var(--table-head);
+  z-index: var(--z-raised);
   padding: 0;
   height: 36px;
   background: var(--surface);

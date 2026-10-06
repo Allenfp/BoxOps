@@ -71,13 +71,14 @@ async function wholeTab(browser: Browser, github: FakeGitHub): Promise<Page> {
   return tab;
 }
 
-/** Where `el` is, against the table's view: under its sticky header or title column, or off screen. */
+/** Where `el` is, against the table's view: under its sticky header, its department's heading stuck under that, or title column, or off screen. */
 const placeIn = (el: Locator) =>
   el.evaluate((el) => {
     const s = el.closest(".table-scroll")!;
     const view = s.getBoundingClientRect();
     const r = el.getBoundingClientRect();
-    const head = view.top + s.querySelector("thead")!.getBoundingClientRect().height;
+    const heading = el.closest("tr.group-row") ? null : el.closest("tbody")!.querySelector("tr.group-row");
+    const head = view.top + s.querySelector("thead")!.getBoundingClientRect().height + (heading?.getBoundingClientRect().height ?? 0);
     const title = el.closest("td.col-title") ? view.left : (el.closest("tr")!.querySelector("td.col-title")?.getBoundingClientRect().right ?? view.left);
     return { clear: r.top >= head - 1 && r.bottom <= view.top + s.clientHeight + 1 && r.left >= title - 1 && r.right <= view.left + s.clientWidth + 1 };
   });
@@ -142,13 +143,16 @@ test.describe("against the table drawn whole", () => {
   test("in the compact density too, once each kind of row has been drawn, though none of some kinds is drawn now", async ({ page, github, browser }) => {
     const whole = await wholeTab(browser, github);
     for (const p of [page, whole]) await density(p, "Compact");
-    // PTO, Add PTO and a heading drawn (the end of the first department, the start of the second); then only boxes.
+    // PTO, Add PTO and a heading drawn (the end of the first department, the start of the second); then only boxes,
+    // and the heading of their department, stuck under the header (drawn though it's far above).
     await centre(page, "dept-01", 1);
     await expect(page.locator("tr.add-pto-row")).not.toHaveCount(0);
     await centre(page, "dept-03", 0.35);
     await settled(page);
-    const others = page.locator("tr.group-row, tr.pto-table-row, tr.add-pto-row");
+    const others = page.locator("tr.pto-table-row, tr.add-pto-row");
     expect(await others.count()).toBe(0);
+    const headings = () => page.locator("tr.group-row").evaluateAll((rows) => rows.map((r) => (r as HTMLElement).dataset.rowKey));
+    expect(await headings()).toEqual(["g:dept-03"]);
     // The row in the middle of the view growing as it's edited, then as it was: drawn again, measured, while none of those is drawn.
     const middle = await scroller(page).evaluate((el) => {
       const view = el.getBoundingClientRect();
@@ -162,6 +166,7 @@ test.describe("against the table drawn whole", () => {
     await page.locator(".table-search").focus();
     await settled(page);
     expect(await others.count()).toBe(0);
+    expect(await headings()).toEqual(["g:dept-03"]);
     const same = async () => {
       const [drawn, all] = [await departmentHeights(page), await departmentHeights(whole)];
       expect(Math.max(...drawn.map((h, i) => Math.abs(h - all[i]))), `${drawn.join()} against ${all.join()}`).toBeLessThan(1);
@@ -171,6 +176,7 @@ test.describe("against the table drawn whole", () => {
     for (const p of [page, whole]) await density(p, "Comfortable");
     await settled(page);
     expect(await others.count()).toBe(0);
+    expect(await headings()).toEqual(["g:dept-03"]);
     await same();
   });
 });
@@ -282,6 +288,51 @@ test("Tab and Shift+Tab go on to the next row and back, from a row scrolled away
   if (await page.locator(".row-delete:focus").count()) await page.keyboard.press("Shift+Tab");
   await expect(page.locator(':focus[aria-label="Description"]')).toHaveCount(1);
   await expect.poll(() => placeIn(page.locator(":focus"))).toEqual({ clear: true });
+});
+
+/**
+ * Under the header, the heading of the department the rows at the top of the view are in, stuck there though it's far
+ * above (drawn all the same), covering the rows that scroll under it; and the first row with data clear of it.
+ */
+const stuckHeading = (page: Page) =>
+  scroller(page).evaluate((el) => {
+    // The header's cells stick, not the header: where it is is as far down the view as it's tall.
+    const head = el.getBoundingClientRect().top + el.querySelector("thead")!.getBoundingClientRect().height;
+    const left = el.getBoundingClientRect().left + 120;
+    const stuck = document.elementFromPoint(left, head + 5)?.closest("tr");
+    const below = stuck && document.elementFromPoint(left, stuck.querySelector("td")!.getBoundingClientRect().bottom + 5)?.closest("tr");
+    return {
+      stuck: !!stuck?.classList.contains("group-row"),
+      name: stuck?.querySelector(".dept-name")?.textContent,
+      same: !!below && below.closest("tbody") === stuck!.closest("tbody"),
+      // The row itself is above the view, where it is among the rows; its cell is stuck under the header.
+      above: !!stuck && stuck.getBoundingClientRect().top < head - 1 && Math.abs(stuck.querySelector("td")!.getBoundingClientRect().top - head) < 1,
+    };
+  });
+
+test("the department the rows at the top belong to says so: its heading sticks under the header, drawn though it's far above", async ({ page, github: _ }) => {
+  const names = new Set<string>();
+  for (const y of [0.15, 0.4, 0.65, 0.9]) {
+    await scrollTo(page, y);
+    await settled(page);
+    const at = await stuckHeading(page);
+    expect(at, `scrolled ${y} of the way`).toMatchObject({ stuck: true, same: true, above: true });
+    names.add(at.name!);
+  }
+  expect(names.size).toBeGreaterThan(2);
+  // Focus in a row scrolled under it is scrolled clear of it.
+  await scrollTo(page, 0.5);
+  await settled(page);
+  const under = await scroller(page).evaluate((el) => {
+    const head = el.getBoundingClientRect().top + el.querySelector("thead")!.getBoundingClientRect().height;
+    const row = [...el.querySelectorAll<HTMLElement>("tr.box-row")].find((r) => r.getBoundingClientRect().top > head && r.getBoundingClientRect().top < head + 30);
+    return row?.querySelector<HTMLInputElement>('input[aria-label="Title"]')?.value ?? null;
+  });
+  if (under) {
+    const field = page.locator(`tr.box-row input[aria-label="Title"][value="${under}"]`);
+    await field.focus();
+    await expect.poll(() => placeIn(field)).toEqual({ clear: true });
+  }
 });
 
 test("a row moved to another department takes focus with it, and is shown there", async ({ page, github: _ }) => {
@@ -730,6 +781,14 @@ test.describe("People", () => {
     await rows.first().locator(".row-delete").focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(".row-delete:focus")).toHaveAttribute("aria-label", `Remove ${next}`);
+  });
+
+  test("the department the rows at the top belong to says so: its heading sticks under the header", async ({ page }) => {
+    for (const y of [0.3, 0.7]) {
+      await scrollTo(page, y);
+      await settled(page);
+      expect(await stuckHeading(page), `scrolled ${y} of the way`).toMatchObject({ stuck: true, same: true, above: true });
+    }
   });
 
   test("a new search shows its matches from the top; PTO dates are searched too", async ({ page }) => {

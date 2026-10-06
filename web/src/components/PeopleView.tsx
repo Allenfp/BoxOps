@@ -154,6 +154,7 @@ export function PeopleView(props: Props) {
     pinned: [active, holding, targetKey].filter((k) => k !== null),
     enabled: windowed,
     search: q,
+    heading: "group",
   });
   const tableRef = useRef<HTMLTableElement>(null);
   const printing = usePrinting();

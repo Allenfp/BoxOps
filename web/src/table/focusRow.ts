@@ -8,9 +8,10 @@ export const rowKeyOf = (el: EventTarget | null): string | null =>
 
 /**
  * Scroll `scroller` so `el`, in one of its rows, isn't under its sticky
- * header, or its sticky title column (`td.col-title`; People's names,
- * `td.col-name`), which stays put while the rest scrolls sideways, or the
- * broken-rule popup over the bottom right corner, or past its edges.
+ * header, or its department's heading stuck under that (not for the
+ * heading's own row), or its sticky title column (`td.col-title`; People's
+ * names, `td.col-name`), which stays put while the rest scrolls sideways,
+ * or the broken-rule popup over the bottom right corner, or past its edges.
  * WebKit doesn't scroll what Tab focuses clear of them, and `focus()`
  * centres what it scrolls to, so this is done for every focus in a row, by
  * hand. Not for the header's own buttons (always on screen: scrolling for
@@ -22,7 +23,9 @@ export function keepInView(scroller: HTMLElement | null, el: EventTarget | null)
   const view = scroller.getBoundingClientRect();
   const r = el.getBoundingClientRect();
   const headH = scroller.querySelector("thead")?.getBoundingClientRect().height ?? 0;
-  const top = view.top + headH;
+  // Its department's heading, or, not drawn yet (the table was scrolled elsewhere), one as tall: it's drawn stuck once it's scrolled to.
+  const heading = el.closest("tr.group-row") ? null : (el.closest("tbody")?.querySelector("tr.group-row") ?? scroller.querySelector("tbody tr.group-row"));
+  const top = view.top + headH + (heading?.getBoundingClientRect().height ?? 0);
   let bottom = view.top + scroller.clientHeight;
   // Above the popup, if it's over this column (the table leaves room to scroll for that).
   const toast = document.querySelector(".toast")?.getBoundingClientRect();

@@ -32,13 +32,27 @@ export function rowAt(tops: Float64Array, y: number): number {
   return lo;
 }
 
+/** Of `headings` (rows' indexes, in order), the last at or before row `row`: the heading of the group it's in; -1 if none is. */
+export function headingOf(headings: readonly number[], row: number): number {
+  let lo = 0;
+  let hi = headings.length - 1;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (headings[mid] <= row) [found, lo] = [headings[mid], mid + 1];
+    else hi = mid - 1;
+  }
+  return found;
+}
+
 /**
  * The rows to draw, in order and without overlaps: those that reach into
- * pixels `top` to `bottom`, and each of `pinned` (indexes; any out of range
+ * pixels `top` to `bottom`, each of `pinned` (indexes; any out of range
  * are left out) with the rows either side of it, so Tab and Shift+Tab from
- * it always have a row to go to.
+ * it always have a row to go to, and each of `also` on its own (a group's
+ * heading, which sticks to the top of the view while its rows are in it).
  */
-export function windowRows(tops: Float64Array, top: number, bottom: number, pinned: readonly number[] = []): Range[] {
+export function windowRows(tops: Float64Array, top: number, bottom: number, pinned: readonly number[] = [], also: readonly number[] = []): Range[] {
   const n = tops.length - 1;
   const ranges: [number, number][] = [];
   if (n <= 0) return ranges;
@@ -50,6 +64,7 @@ export function windowRows(tops: Float64Array, top: number, bottom: number, pinn
     ranges.push([first, last + 1]);
   }
   for (const i of pinned) if (i >= 0 && i < n) ranges.push([Math.max(0, i - 1), Math.min(n, i + 2)]);
+  for (const i of also) if (i >= 0 && i < n) ranges.push([i, i + 1]);
   ranges.sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];
   for (const r of ranges) {

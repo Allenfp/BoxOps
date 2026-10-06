@@ -28,7 +28,7 @@
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { usePrefs } from "../prefs";
-import { anchorRow, heightLearner, layout, type Range, type Run, runs, windowRows } from "./windowMath";
+import { anchorRow, headingOf, heightLearner, layout, type Range, type Run, rowAt, runs, windowRows } from "./windowMath";
 
 /**
  * A table with more rows than this (boxes, PTO, engineers, headings) draws
@@ -80,8 +80,10 @@ export function useWindowedRows(o: {
   sort?: string;
   /** The search, and dates if there are any: a new one is shown from the top. */
   search: string;
+  /** The kind of row that heads each group (a department's): it sticks to the top of the view while its rows are in it (CSS), so it's drawn then. */
+  heading?: string;
 }): WindowedRows {
-  const { keys, kinds, defaults, pinned, enabled, sort, search } = o;
+  const { keys, kinds, defaults, pinned, enabled, sort, search, heading } = o;
   const scroller = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLTableSectionElement>(null);
 
@@ -102,11 +104,16 @@ export function useWindowedRows(o: {
     [enabled, learner, keys, kinds, index, measured, defaults, density],
   );
 
+  /** Where each group's heading is. */
+  const headings = useMemo(() => (heading ? kinds.flatMap((k, i) => (k === heading ? [i] : [])) : []), [kinds, heading]);
   const ranges = useMemo<Range[]>(() => {
     if (!enabled) return keys.length ? [[0, keys.length]] : [];
     const pins = pinned.map((k) => index.get(k) ?? -1);
-    return windowRows(tops, view.top - OVERSCAN, view.top + view.height + STEP + OVERSCAN, pins);
-  }, [enabled, keys.length, pinned, index, tops, view]);
+    // The heading of the group at the top of the view, wherever it is: it's stuck there. (Those of the groups after
+    // it, up to the one at the top as it's scrolled to, are among the rows near the screen.)
+    const stuck = headingOf(headings, rowAt(tops, view.top));
+    return windowRows(tops, view.top - OVERSCAN, view.top + view.height + STEP + OVERSCAN, pins, [stuck]);
+  }, [enabled, keys.length, pinned, index, tops, view, headings]);
 
   /** Where the scroller is now, in steps; the same object if nothing's changed. */
   const latestView = useRef(view);
@@ -257,9 +264,12 @@ export function useWindowedRows(o: {
       if (!enabled) return true;
       const height = Math.max(0, el.clientHeight - (head.current?.offsetHeight ?? 0));
       const [top, bottom] = [tops[i], tops[i + 1]];
+      // Clear of its group's heading too, stuck to the top of the view (not a heading's own row).
+      const h = headingOf(headings, i);
+      const stuck = h >= 0 && h !== i ? tops[h + 1] - tops[h] : 0;
       let s = el.scrollTop;
       if (align === "center") s = top - Math.max(0, height - (bottom - top)) / 2;
-      else if (top < s) s = top;
+      else if (top - stuck < s) s = top - stuck;
       else if (bottom > s + height) s = bottom - height;
       el.scrollTop = Math.max(0, s);
       before.current = { tops, keys, top: el.scrollTop, sort, search }; // where it is now is where it's meant to be
@@ -267,7 +277,7 @@ export function useWindowedRows(o: {
       if (next !== latestView.current) setView(next);
       return true;
     },
-    [index, enabled, tops, keys, sort, search, where],
+    [index, enabled, tops, keys, sort, search, where, headings],
   );
 
   return {

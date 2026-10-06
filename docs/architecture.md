@@ -864,10 +864,15 @@ when a focused element is removed.
   entry, through edits, a move up its owner's list or to someone else, and
   undo; an engineer's by a key that follows renames of an unsaved person's
   id but is never given to two rows at once.
+- **Headings.** A department's heading sticks under the header while its
+  rows are in view, so the rows at the top always say whose they are (PTO
+  rows have no department column); the next department's heading covers it
+  as it gets there.
 - **Drawing only what's near the screen** (`table/useWindowedRows.ts`,
   `table/windowMath.ts`). Over 200 rows (headings, boxes, PTO, engineers),
   only the rows within 400 px of the screen are drawn, worked out in steps of
-  200 px as the table scrolls and drawn before the frame is painted; the
+  200 px as the table scrolls and drawn before the frame is painted, and the
+  heading of the department at the top of the view, stuck there; the
   rest are spacer rows (hidden from screen readers) as tall as the rows they
   stand for, one `<tbody>` per department as before, so the sticky header
   and title column and dragging departments work as ever. A row is measured
@@ -924,9 +929,9 @@ when a focused element is removed.
   the department (or the one before, or its heading); put elsewhere in its
   row for want of the control itself (one a save disables, or a row's
   Delete, gone while saving), it goes back once that's back. What has
-  focus in a row is scrolled clear of the sticky header and title column
-  (People's names, which stay put the same way), and of the broken-rule
-  popup (the table leaves room to scroll for that), by hand
+  focus in a row is scrolled clear of the sticky header, the heading stuck
+  under it and the title column (People's names, which stay put the same
+  way), and of the broken-rule popup (the table leaves room to scroll for that), by hand
   (`table/focusRow.ts`: WebKit doesn't when Tab moves focus); the header's
   own sort buttons are always on screen, and the scroller has no
   `scroll-padding`, which would have them scroll the table whenever one is
