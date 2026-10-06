@@ -8,13 +8,13 @@ export const rowKeyOf = (el: EventTarget | null): string | null =>
 
 /**
  * Scroll `scroller` so `el`, in one of its rows, isn't under its sticky
- * header, or its sticky title column (`td.col-title`, which stays put while
- * the rest scrolls sideways), or past its edges. WebKit doesn't scroll what
- * Tab focuses clear of them, and `focus()` centres what it scrolls to, so
- * this is done for every focus in a row, by hand. Not for the header's own
- * buttons (always on screen: scrolling for them would move the table on
- * each Tab or click), nor what's in a calendar or the Engineers list (fixed
- * on the screen, over the table).
+ * header, or its sticky title column (`td.col-title`; People's names,
+ * `td.col-name`), which stays put while the rest scrolls sideways, or past
+ * its edges. WebKit doesn't scroll what Tab focuses clear of them, and
+ * `focus()` centres what it scrolls to, so this is done for every focus in a
+ * row, by hand. Not for the header's own buttons (always on screen:
+ * scrolling for them would move the table on each Tab or click), nor what's
+ * in a calendar or the Engineers list (fixed on the screen, over the table).
  */
 export function keepInView(scroller: HTMLElement | null, el: EventTarget | null): void {
   if (!scroller || !(el instanceof HTMLElement) || !el.closest("tbody tr") || el.closest(".calendar, .picker-menu")) return;
@@ -25,7 +25,7 @@ export function keepInView(scroller: HTMLElement | null, el: EventTarget | null)
   const bottom = view.top + scroller.clientHeight;
   if (r.top < top) scroller.scrollTop -= top - r.top;
   else if (r.bottom > bottom) scroller.scrollTop += Math.min(r.bottom - bottom, r.top - top);
-  const sticky = el.closest("tr")?.querySelector("td.col-title");
+  const sticky = el.closest("tr")?.querySelector("td.col-title, td.col-name");
   if (!sticky || sticky.contains(el)) return;
   const left = sticky.getBoundingClientRect().right;
   const right = view.left + scroller.clientWidth;

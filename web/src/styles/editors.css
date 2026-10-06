@@ -353,6 +353,12 @@
 .box-table .date-input:focus-within .date-pick {
   opacity: var(--quiet);
 }
+/* A touch screen has no hover to find it by. */
+@media (hover: none) {
+  .box-table .date-pick {
+    opacity: var(--quiet);
+  }
+}
 
 /* Our own month calendar for date fields (DateInput.tsx): a dialog with a grid of days. */
 .calendar {

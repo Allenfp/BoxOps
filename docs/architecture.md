@@ -673,7 +673,9 @@ when a focused element is removed.
   24 px: their size is the information (time and FTE), and the editor's
   date fields, the keyboard move and expanding the department do the same
   with full-size targets. The **+** buttons are 24 px; they show on hover
-  and focus, and always on a touch screen, which has no hover to find them.
+  and focus, and always on a touch screen, which has no hover to find them
+  (so do the ✎ pencils, a table row's Delete, a table date's calendar
+  button and a department's grip).
 - **Not yet checked by a person.** What a test can't hear needs a person
   with VoiceOver and Safari, NVDA with Firefox or Chrome, and JAWS with
   Edge: how the timeline grid's rows and cells are spoken (a box is
@@ -825,7 +827,8 @@ when a focused element is removed.
   where focus was just before each change and, if it's lost, puts it back on
   the same control in the same row, else the same column in the next row of
   the department (or the one before, or its heading). What has focus in a
-  row is scrolled clear of the sticky header and title column by hand
+  row is scrolled clear of the sticky header and title column (People's
+  names, which stay put the same way) by hand
   (`table/focusRow.ts`: WebKit doesn't when Tab moves focus); the header's
   own sort buttons are always on screen, and the scroller has no
   `scroll-padding`, which would have them scroll the table whenever one is

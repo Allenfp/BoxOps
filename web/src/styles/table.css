@@ -214,8 +214,9 @@
 .box-table .picker-button:disabled {
   cursor: default;
 }
-/* Titles stay pinned while the table scrolls sideways. */
-.box-table .col-title {
+/* Titles (People's names) stay pinned while the table scrolls sideways. */
+.box-table .col-title,
+.people-table .col-name {
   position: sticky;
   left: 0;
   z-index: var(--z-item);
@@ -223,7 +224,8 @@
   box-shadow: 1px 0 0 var(--border);
   white-space: nowrap;
 }
-.box-table th.col-title {
+.box-table th.col-title,
+.people-table th.col-name {
   z-index: var(--z-pinned);
   background: var(--surface-2);
 }
@@ -319,6 +321,12 @@
 }
 .row-delete:hover {
   color: var(--danger);
+}
+/* A touch screen has no hover to find it by: always there. */
+@media (hover: none) {
+  .row-delete {
+    opacity: 1;
+  }
 }
 .empty {
   padding: 24px 16px;
@@ -465,7 +473,8 @@
   padding-top: 9px;
 }
 /* The pinned title column must stay opaque on hover, or scrolled cells show through it. */
-.box-table tbody tr:hover td.col-title {
+.box-table tbody tr:hover td.col-title,
+.people-table tbody tr:hover td.col-name {
   background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
 }
 

@@ -145,3 +145,32 @@ test.describe("at 320 px wide (a phone, or a window zoomed to 400%)", () => {
     expect(await editor.locator(".editor-body").evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
   });
 });
+
+test.describe("at 1024 px wide", () => {
+  test.use({ viewport: { width: 1024, height: 768 } });
+
+  test("People's names stay put while the table scrolls sideways", async ({ page, github: _ }) => {
+    await page.getByRole("button", { name: "People", exact: true }).click();
+    const scroller = page.locator(".table-scroll");
+    const name = page.locator(".people-table td.col-name").first();
+    const x = (await name.boundingBox())!.x;
+    await scroller.evaluate((el) => (el.scrollLeft = el.scrollWidth));
+    expect(await scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(300);
+    expect((await name.boundingBox())!.x).toBe(x);
+  });
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test("what otherwise shows only on hover is always there: ✎, +, a row's Delete, a date's calendar button", async ({ page, browserName, github: _ }) => {
+    test.skip(browserName === "firefox", "Firefox can't emulate a screen without hover");
+    expect(await css(page.locator(".dept-edit").first(), "opacity")).toEqual({ opacity: "1" });
+    expect(await css(page.locator(".pto-add").first(), "opacity")).toEqual({ opacity: "1" });
+    expect(await css(page.locator(".lane-name .edit-icon").first(), "opacity")).toEqual({ opacity: "1" });
+    await page.getByRole("button", { name: "Table", exact: true }).click();
+    await expect(page.locator(".box-table")).toBeVisible();
+    expect(await css(page.locator(".row-delete").first(), "opacity")).toEqual({ opacity: "1" });
+    expect(await css(page.locator(".box-table .date-pick").first(), "opacity")).toEqual({ opacity: "0.75" });
+  });
+});
