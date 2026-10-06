@@ -140,8 +140,12 @@ test.describe("against the table drawn whole", () => {
   });
 });
 
+/** The fourth row with a description, by its key: which is fourth among the rows drawn can change once one has focus. */
+const fourthWithDescription = async (page: Page) =>
+  page.locator(`tr[data-row-key="${await dataRows(page).filter({ has: page.getByLabel("Description") }).nth(3).getAttribute("data-row-key")}"]`);
+
 test("a row being edited stays drawn and keeps what's typed, scrolled away and back", async ({ page, github: _ }) => {
-  const row = dataRows(page).filter({ has: page.getByLabel("Description") }).nth(3);
+  const row = await fourthWithDescription(page);
   const title = await titleOf(row);
   const description = row.getByLabel("Description");
   await description.click();
@@ -158,7 +162,7 @@ test("a row being edited stays drawn and keeps what's typed, scrolled away and b
 });
 
 test("the window losing focus lets go of nothing: a row scrolled away keeps focus, and one edited out stays", async ({ page, github: _ }) => {
-  const description = dataRows(page).filter({ has: page.getByLabel("Description") }).nth(3).getByLabel("Description");
+  const description = (await fourthWithDescription(page)).getByLabel("Description");
   await description.click();
   const field = await description.elementHandle();
   await scrollTo(page, 0.9);
