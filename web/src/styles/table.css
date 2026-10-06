@@ -53,6 +53,7 @@
 /* Every box (and engineer) row is as tall as the others, unless one's being edited or says why a cell won't do. */
 .box-table {
   --box-row: 53px;
+  --line-row: 35px;
   /* The header's height: a department's heading sticks just under it. */
   --table-head: 34px;
   border-collapse: separate;
@@ -119,9 +120,14 @@
 }
 .density-compact .box-table {
   --box-row: 49px;
+  --line-row: 31px;
+}
+/* People's rows take one line, but for those with notes or PTO past one entry (tableModel.ts's twoLines): two, as box rows do. */
+.people-table tr.person-row {
+  height: var(--line-row);
 }
 .box-table tr.box-row,
-.people-table tr.person-row {
+.people-table tr.person-row.two-lines {
   height: var(--box-row);
 }
 /* A row being edited that no longer matches the search or filters: it goes once focus leaves it. */

@@ -54,7 +54,8 @@ const COLUMNS = [
 ];
 
 /** How tall each kind of row is until one's been measured, at the comfortable density. */
-const ROW_HEIGHTS: Record<PeopleRow["kind"], number> = { group: 36, person: 53, empty: 36, "add-dept": 44 };
+/** Each kind of row's height until one's been measured: a person's row takes one line, or two ("person-2", tableModel.ts). */
+const ROW_HEIGHTS: Record<PeopleRow["kind"] | "person-2", number> = { group: 36, person: 35, "person-2": 53, empty: 36, "add-dept": 44 };
 
 export function PeopleView(props: Props) {
   const { roadmap, readOnly = false, collapsed, onToggleDepartment, onAdd, onUpdate, onRemove, onCheckpoint } = props;

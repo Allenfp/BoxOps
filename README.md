@@ -42,7 +42,8 @@ straight to `main`, and the site updates within a minute.
   Tab reaches every row. Printing (⌘P or Ctrl+P) prints every row as
   shown.
 - **People.** The engineer roster: name, department, role, email, manager and
-  notes (two lines until you click or Tab into them), plus their PTO
+  notes (two lines until you click or Tab into them; a row with no notes
+  and at most one PTO entry takes one line), plus their PTO
   (read-only; edit it on the timeline or table; past two entries, it shows
   the current or next one (else the last) and "+N more" for the rest). Boxes
   are assigned engineers from this list. It prints, and draws a big roster,

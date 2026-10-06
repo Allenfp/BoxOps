@@ -75,6 +75,13 @@ export function tableRows(o: {
   return rowsOf(rows, groups);
 }
 
+/**
+ * Whether a person's row in People takes two lines: their notes (two lines,
+ * … for more, until focused), or PTO past one entry (two lines at most: both
+ * entries, or the next and "+N more"). Every other row takes one.
+ */
+export const twoLines = (p: Person): boolean => !!p.notes?.trim() || (p.pto?.length ?? 0) > 1;
+
 /** A row of People. */
 export type PeopleRow =
   | { kind: "group"; key: string; id: string; name: string; color: string; shown: number; total: number }
@@ -86,7 +93,9 @@ export type PeopleRow =
  * People's rows: each department's heading (and No department's, if anyone
  * has none), then its engineers unless it's collapsed (or a row saying it has
  * none); Add department last. While searching, a department with nobody who
- * matches isn't shown, nor Add department.
+ * matches isn't shown, nor Add department. A person's row is of the kind
+ * "person", or "person-2" when it takes two lines (twoLines): rows of a kind
+ * are one height, for drawing only some of them.
  */
 export function peopleRows(o: {
   groups: readonly { id: string; name: string; color: string; total: number; people: readonly { person: Person; key: string; held: boolean }[] }[];
@@ -110,7 +119,8 @@ export function peopleRows(o: {
     groups.push({ id: "add-dept", start: rows.length, end: rows.length + 1 });
     rows.push({ kind: "add-dept", key: "add-dept" });
   }
-  return rowsOf(rows, groups);
+  const r = rowsOf(rows, groups);
+  return { ...r, kinds: rows.map((row) => (row.kind === "person" && twoLines(row.person) ? "person-2" : row.kind)) };
 }
 
 /**

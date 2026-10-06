@@ -12,6 +12,7 @@ import type { Person } from "../model/types";
 import { Icon } from "../components/Icon";
 import { LazySelect } from "../components/LazySelect";
 import { TextCell } from "../components/TextCell";
+import { twoLines } from "./tableModel";
 
 /** People's columns. */
 export const PEOPLE_COLUMNS = 8;
@@ -69,7 +70,7 @@ export const PersonRow = memo(function PersonRow({
   actions: PersonActions;
 }) {
   return (
-    <tr ref={measure} data-row-key={rowKey} aria-rowindex={index} className={`person-row${held ? " held" : ""}`}>
+    <tr ref={measure} data-row-key={rowKey} aria-rowindex={index} className={`person-row${twoLines(p) ? " two-lines" : ""}${held ? " held" : ""}`}>
       <td className="col-name">
         <TextCell
           value={p.name}

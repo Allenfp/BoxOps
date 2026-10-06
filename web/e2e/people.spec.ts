@@ -48,10 +48,24 @@ test("records a manager and wrapping notes", async ({ page, github }) => {
   const open = await size();
   expect(open.fits).toBe(true);
   expect(open.height).toBeGreaterThan(2 * 18 + 10);
-  // Left, two lines, and the row is as tall as the others.
+  // Left, two lines, and the row is as tall as a row with two lines is; the others, with nothing on a second line,
+  // take one.
   await page.locator(".table-search").focus();
   await expect.poll(async () => (await size()).height).toBeLessThanOrEqual(2 * 18 + 10);
-  expect(await page.locator("tr.person-row").evaluateAll((rows) => new Set(rows.map((r) => r.getBoundingClientRect().height)).size)).toBe(1);
+  const height = (row: ReturnType<typeof person>) => row.evaluate((r) => r.getBoundingClientRect().height);
+  await expect(sam).toHaveClass(/two-lines/);
+  expect(await height(sam)).toBe(53);
+  for (const name of ["Alex Kim", "Jordan Diaz", "Priya Shah"]) {
+    await expect(person(page, name)).not.toHaveClass(/two-lines/);
+    expect(await height(person(page, name)), name).toBe(35);
+  }
+  // Its notes cleared, it takes one line again.
+  await notes.fill("");
+  await page.locator(".table-search").focus();
+  await expect.poll(() => height(sam)).toBe(35);
+  await notes.fill("Owns the Dagster migration. Out for two weeks in December, so plan Fivetran work around that.\nPrefers async updates.");
+  await page.locator(".table-search").focus();
+  await expect.poll(() => height(sam)).toBe(53);
 
   await page.locator(".table-search").fill("dana");
   await expect(page.locator('input[aria-label="Name"]')).toHaveCount(1);

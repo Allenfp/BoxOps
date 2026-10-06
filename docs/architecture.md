@@ -892,7 +892,10 @@ when a focused element is removed.
   with its button as the row then moves up), and People shows a person's PTO
   in two lines at most: both entries, or with more, the next one that hasn't
   finished (else the last) and "+N more" (pressed, it stays open for that
-  row, scrolled away and back: People keeps it by the row's key). Safari has
+  row, scrolled away and back: People keeps it by the row's key). A
+  person's row is of one kind or the other: two lines tall with notes or
+  PTO past one entry, else one (`twoLines` in `table/tableModel.ts`), each
+  kind measured on its own. Safari has
   no CSS scroll anchoring, so the table keeps the row at the top of the view
   in place itself when rows above it change (measured, added, removed), in
   every browser (`overflow-anchor: none`); if the change sorted that row

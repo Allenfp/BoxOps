@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Box, Department, Person } from "../model/types";
-import { keepPlace, peopleRows, tableRows } from "./tableModel";
+import { keepPlace, peopleRows, tableRows, twoLines } from "./tableModel";
 
 const dept = (id: string): Department => ({ id, code: id.toUpperCase(), name: id, color: "#4f7cff", order: 1, collapsed: false, lanes: [{ id: `${id}-1`, fte: 1 }] });
 const box = (code: string): Box => ({ id: code, code, title: code, lane: "l", start: 0, end: 0, type: "t", fte: 1 });
@@ -54,6 +54,29 @@ describe("peopleRows", () => {
     expect(r.keys).toEqual(["g:de", "r1", "g:an", "e:an", "add-dept"]);
     expect(r.kinds).toEqual(["group", "person", "group", "empty", "add-dept"]);
     expect(r.rows[0]).toMatchObject({ shown: 1, total: 1 });
+  });
+
+  it("a person's row takes two lines with notes, or PTO past one entry; one line otherwise", () => {
+    const pto = (n: number) => Array.from({ length: n }, (_, i) => ({ start: 100 + i * 10, end: 101 + i * 10 }));
+    const people = [
+      { ...person, id: "a" },
+      { ...person, id: "b", notes: "On call in March" },
+      { ...person, id: "c", notes: "  " },
+      { ...person, id: "d", pto: pto(1) },
+      { ...person, id: "e", pto: pto(2) },
+      { ...person, id: "f", pto: pto(3) },
+    ];
+    expect(people.map(twoLines)).toEqual([false, true, false, false, true, true]);
+    const g = [{ id: "de", name: "Data", color: "#000", total: 6, people: people.map((p, i) => ({ person: p, key: `r${i}`, held: false })) }];
+    expect(peopleRows({ groups: g, collapsed: new Set(), searching: false, addDepartment: false }).kinds).toEqual([
+      "group",
+      "person",
+      "person-2",
+      "person",
+      "person",
+      "person-2",
+      "person-2",
+    ]);
   });
 
   it("a collapsed department is its heading alone; searching shows only departments with matches, open", () => {

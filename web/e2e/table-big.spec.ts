@@ -1,5 +1,5 @@
 import type { Browser, Locator, Page } from "@playwright/test";
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import type { FakeGitHub } from "./fake-github";
 import { choose, expect, heard, openTab, pastPrintTable, test, toolbar } from "./helpers";
@@ -705,6 +705,45 @@ test.describe("a thousand boxes and more", () => {
     await expect(warnings).toHaveAccessibleName(`${count.toLocaleString("en-US")} warning${count === 1 ? "" : "s"}`);
     await page.getByRole("button", { name: "People", exact: true }).click();
     await expect(page.locator(".table-toolbar")).toContainText("200 engineers");
+  });
+});
+
+test.describe("People against itself drawn whole, its rows of one line and of two", () => {
+  // 60 engineers in 6 departments: a third with notes or PTO past one entry (two lines), the rest neither (one).
+  const files = generateRoadmap(300, "2026-10-03");
+  const { people: all } = parse(files["people.yaml"]) as { people: { notes?: string; pto?: unknown[] }[] };
+  all.forEach((p, i) => {
+    if (i % 3 === 0) return;
+    delete p.notes;
+    if (i % 3 === 1) p.pto = p.pto?.slice(0, 1);
+    else delete p.pto;
+  });
+  test.use({ files: { ...files, "people.yaml": stringify({ people: all }) }, virtualize: true });
+  test.slow();
+
+  test("spacers stand for rows of either height: each department takes the same room as drawn whole, wherever it's scrolled", async ({
+    page,
+    github,
+    browser,
+  }) => {
+    const whole = await wholeTab(browser, github);
+    for (const p of [page, whole]) {
+      await p.getByRole("button", { name: "People", exact: true }).click();
+      await expect(p.locator(".people-table")).toBeVisible();
+    }
+    const heights = (p: Page) => p.locator(".people-table tbody.dept-group").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+    // Both kinds of row, each one height.
+    const rows = await whole.locator("tr.person-row").evaluateAll((rs) => rs.map((r) => [r.classList.contains("two-lines"), r.getBoundingClientRect().height] as const));
+    const of = (two: boolean) => [...new Set(rows.filter(([t]) => t === two).map(([, h]) => h))];
+    expect(of(false)).toHaveLength(1);
+    expect(of(true)).toHaveLength(1);
+    expect(of(false)[0]).toBeLessThan(of(true)[0]);
+    expect(await dataRows(page).count()).toBeLessThan(await dataRows(whole).count());
+    for (const y of [0, 0.3, 0.6, 1]) {
+      await scrollTo(page, y);
+      await settled(page);
+      expect(await heights(page), `scrolled ${y} of the way`).toEqual(await heights(whole));
+    }
   });
 });
 

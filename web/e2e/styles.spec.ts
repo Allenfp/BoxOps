@@ -671,17 +671,42 @@ test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, ed
   expect(await crowded(page)).toEqual([]);
 });
 
-test("People's rows stay as tall as each other with two PTO entries listed, in either density", async ({ page, github }) => {
+test("People's rows take one line, or two with PTO past one entry (as a box row does), each kind one height, in either density", async ({
+  page,
+  github,
+}) => {
   await bookPto(page, github);
   await page.getByRole("button", { name: "People", exact: true }).click();
   const rows = page.locator("tr.person-row");
   await expect(rows.first()).toBeVisible();
-  const heights = () => rows.evaluateAll((rs) => [...new Set(rs.map((r) => r.getBoundingClientRect().height))]);
-  const [comfortable] = await heights();
-  expect(await heights()).toEqual([comfortable]);
+  /** Each row's height, by name; then the heights of the one-line rows and of the two-line ones. */
+  const heights = async () => {
+    const all = await rows.evaluateAll((rs) =>
+      rs.map((r) => ({ name: (r.querySelector('input[aria-label="Name"]') as HTMLInputElement).value, height: r.getBoundingClientRect().height })),
+    );
+    const of = (names: string[], two: boolean) => [...new Set(all.filter((r) => names.includes(r.name) === two).map((r) => r.height))];
+    return { one: of(["Morgan Chen", "Priya Shah"], false), two: of(["Morgan Chen", "Priya Shah"], true) };
+  };
+  const comfortable = await heights();
+  expect(comfortable.one).toHaveLength(1);
+  expect(comfortable.two).toHaveLength(1);
+  expect(comfortable.one[0]).toBeLessThan(comfortable.two[0] - 15);
+  // A two-line row is as tall as a box row in the table.
+  const boxRow = async () => {
+    await page.getByRole("button", { name: "Table", exact: true }).click();
+    const h = await page.locator("tr.box-row").first().evaluate((r) => r.getBoundingClientRect().height);
+    await page.getByRole("button", { name: "People", exact: true }).click();
+    await expect(rows.first()).toBeVisible();
+    return h;
+  };
+  expect(comfortable.two[0]).toBe(await boxRow());
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("dialog", { name: "Settings" }).getByRole("group", { name: "Density" }).getByRole("button", { name: "Compact" }).click();
   await page.keyboard.press("Escape");
-  await expect.poll(async () => (await heights())[0]).toBeLessThan(comfortable);
-  expect(await heights()).toHaveLength(1);
+  await expect.poll(async () => (await heights()).two[0]).toBeLessThan(comfortable.two[0]);
+  const compact = await heights();
+  expect(compact.one).toHaveLength(1);
+  expect(compact.two).toHaveLength(1);
+  expect(compact.one[0]).toBeLessThan(comfortable.one[0]);
+  expect(compact.two[0]).toBe(await boxRow());
 });
