@@ -23,8 +23,26 @@ import { PX_PER_DAY } from "../src/timeline/scale";
 // only above CEILING_MS, generous so a slow CI machine doesn't fail it. The
 // same roadmap without the build's parsing is timed too, for comparison, and
 // so is a keyboard move's step, printed only.
+//
+// The table and People at 2,000 boxes and 400 engineers with 3 PTO entries
+// each, on a roadmap generated around a fixed day (the page's clock fixed
+// there too, page.clock.setFixedTime): opening each (from the other view,
+// to the new view laid out) and an edit committed with Enter (from the key
+// to the page laid out with it), the median of 5 after 2 to warm up, each
+// failing above twice its target (TABLE_MS, EDIT_MS); and exactly, at most
+// MAX_ROWS rows with data drawn and MAX_OPTIONS <option>s on the page, and
+// no textarea measured (its scrollHeight read: that lays the page out).
 
 const MAIN_LIMIT = 400_000;
+/** Opening the table or People at 2,000 boxes, target (ms); failing above twice this. */
+const TABLE_MS = 300;
+/** An edit committed there, target (ms); failing above twice this. */
+const EDIT_MS = 50;
+/** Rows with data (boxes, PTO, engineers) drawn at once, and <option>s on the page, at most. */
+const MAX_ROWS = 70;
+const MAX_OPTIONS = 1500;
+/** The day the table's roadmap is generated around, and the page's clock fixed at. */
+const FIXED_DAY = "2026-10-05";
 const CEILING_MS = 2500;
 const RUNS = 3;
 /** Boxes drawn when the timeline shows, at 1440 × 900: about 70 near the screen, at 500 boxes or 2,000. */
@@ -71,9 +89,9 @@ test.beforeAll(async () => {
 });
 test.afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
-/** roadmap.json for a generated roadmap of `boxes` boxes, as a deploy of a private repository serves it. */
-async function bundle(boxes: number, parsed: boolean): Promise<Uint8Array> {
-  const folder = await hashFolder(generateRoadmap(boxes, today()));
+/** roadmap.json for a generated roadmap of `boxes` boxes around `day`, as a deploy of a private repository serves it. */
+async function bundle(boxes: number, parsed: boolean, day = today()): Promise<Uint8Array> {
+  const folder = await hashFolder(generateRoadmap(boxes, day));
   const commit = "c0ffee".padEnd(40, "0");
   const source: BundleSource = {
     repo: "acme/roadmap",
@@ -266,4 +284,143 @@ test("2000 boxes the build didn't parse: parsed in the browser instead (timed fo
   console.log(`2000 boxes, parsed in the browser: timeline painted in ${ms.toFixed(0)} ms (median of ${RUNS}: ${times.map((t) => t.toFixed(0)).join(", ")})`);
   test.info().annotations.push({ type: "time to timeline, 2000 boxes parsed in the browser (ms)", description: ms.toFixed(0) });
   expect(ms).toBeLessThan(CEILING_MS);
+});
+
+/** Counts reads of a textarea's scrollHeight (`__textareaReads`): each makes the browser lay the page out. */
+function countTextareaReads() {
+  const w = window as unknown as { __textareaReads: number };
+  w.__textareaReads = 0;
+  const height = Object.getOwnPropertyDescriptor(Element.prototype, "scrollHeight")!;
+  Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
+    get() {
+      w.__textareaReads++;
+      return height.get!.call(this);
+    },
+    configurable: true,
+  });
+}
+
+/** Switch to `view`, and time it: from the click to the new view (`shows`) on the page and laid out. */
+const timeSwitch = (page: Page, view: string, shows: string) =>
+  page.evaluate(
+    ([view, shows]) =>
+      new Promise<number>((done) => {
+        const t0 = performance.now();
+        new MutationObserver((_, observer) => {
+          if (!document.querySelector(shows)) return;
+          observer.disconnect();
+          // After React's commit, and anything it set off at once.
+          const mc = new MessageChannel();
+          mc.port1.onmessage = () => {
+            void document.body.offsetHeight;
+            done(performance.now() - t0);
+          };
+          mc.port2.postMessage(0);
+        }).observe(document.body, { childList: true, subtree: true });
+        [...document.querySelectorAll<HTMLElement>('[aria-label="View"] button')].find((b) => b.textContent === view)!.click();
+      }),
+    [view, shows],
+  );
+
+/** Time edits committed with Enter from now on (`__edits`, emptied each time): from the key to the page laid out with the edit. */
+const timeEnter = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as { __edits?: number[] };
+    if (w.__edits) return void (w.__edits = []);
+    w.__edits = [];
+    window.addEventListener(
+      "keydown",
+      (e) => {
+        if (e.key !== "Enter") return;
+        const t0 = performance.now();
+        const mc = new MessageChannel();
+        mc.port1.onmessage = () => {
+          void document.body.offsetHeight;
+          w.__edits!.push(performance.now() - t0);
+        };
+        mc.port2.postMessage(0);
+      },
+      true,
+    );
+  });
+
+/** What a table on the page draws: rows with data, and <option>s. */
+const drawnRows = (page: Page, table: string) =>
+  page.evaluate(
+    (table) => ({
+      rows: document.querySelectorAll(`${table} tr.box-row, ${table} tr.pto-table-row, ${table} tr.person-row`).length,
+      options: document.querySelectorAll(`${table} option`).length,
+    }),
+    table,
+  );
+
+test("2000 boxes: the table and People open and commit an edit within budget, drawing only rows near the screen", async ({ browser }) => {
+  roadmap = await bundle(2000, true, FIXED_DAY);
+  const context = await fresh(browser);
+  const page = await context.newPage();
+  await page.clock.setFixedTime(new Date(`${FIXED_DAY}T09:00:00Z`));
+  await page.addInitScript(countTextareaReads);
+  await load(page);
+  const reads = () => page.evaluate(() => (window as unknown as { __textareaReads: number }).__textareaReads);
+
+  const opened = { Table: [] as number[], People: [] as number[] };
+  for (let run = 0; run < 7; run++) {
+    for (const [view, shows] of [["Table", ".box-table:not(.people-table)"], ["People", ".people-table"]] as const) {
+      const ms = await timeSwitch(page, view, shows);
+      if (run >= 2) opened[view].push(ms);
+      await page.waitForTimeout(100);
+    }
+  }
+  expect(await reads(), "textarea heights read").toBe(0);
+
+  // The table, on screen: only the rows near it, and a lane's options only once its select is used.
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await expect(page.locator(".box-table:not(.people-table)")).toBeVisible();
+  const table = await drawnRows(page, ".box-table");
+  expect(table.rows).toBeGreaterThan(10);
+  expect(table.rows).toBeLessThanOrEqual(MAX_ROWS);
+  expect(table.options).toBeLessThanOrEqual(MAX_OPTIONS);
+
+  // A title changed and committed with Enter, five times after two.
+  await timeEnter(page);
+  const title = page.locator("tr.box-row").nth(4).getByLabel("Title");
+  for (let i = 0; i < 7; i++) {
+    await title.press("End");
+    await title.press(i % 2 ? "Backspace" : "x");
+    await title.press("Enter");
+  }
+  const tableEdits = await page.evaluate(() => (window as unknown as { __edits: number[] }).__edits.slice(2));
+  expect(tableEdits).toHaveLength(5);
+  await expect(page.locator(".draft-status")).toContainText("Save · 1 change");
+
+  // People: the same for a role.
+  await page.getByRole("button", { name: "People", exact: true }).click();
+  await expect(page.locator(".people-table")).toBeVisible();
+  const people = await drawnRows(page, ".people-table");
+  expect(people.rows).toBeGreaterThan(10);
+  expect(people.rows).toBeLessThanOrEqual(MAX_ROWS);
+  expect(people.options).toBeLessThanOrEqual(MAX_OPTIONS);
+  await timeEnter(page);
+  const role = page.locator("tr.person-row").nth(4).getByLabel("Role");
+  for (let i = 0; i < 7; i++) {
+    await role.press("End");
+    await role.press(i % 2 ? "Backspace" : "x");
+    await role.press("Enter");
+  }
+  const peopleEdits = await page.evaluate(() => (window as unknown as { __edits: number[] }).__edits.slice(2));
+  expect(peopleEdits).toHaveLength(5);
+  expect(await reads(), "textarea heights read").toBe(0);
+  await context.close();
+
+  const report = (what: string, times: number[], target: number) => {
+    const ms = median(times);
+    console.log(`2000 boxes: ${what} in ${ms.toFixed(0)} ms (median of ${times.length}: ${times.map((t) => t.toFixed(0)).join(", ")}; target ${target} ms)`);
+    test.info().annotations.push({ type: `${what}, 2000 boxes (ms)`, description: ms.toFixed(0) });
+    return ms;
+  };
+  console.log(`2000 boxes: the table draws ${table.rows} rows with data and ${table.options} options, People ${people.rows} and ${people.options}`);
+  expect(report("table opened", opened.Table, TABLE_MS)).toBeLessThan(2 * TABLE_MS);
+  expect(report("People opened", opened.People, TABLE_MS)).toBeLessThan(2 * TABLE_MS);
+  expect(report("table edit committed", tableEdits, EDIT_MS)).toBeLessThan(2 * EDIT_MS);
+  expect(report("People edit committed", peopleEdits, EDIT_MS)).toBeLessThan(2 * EDIT_MS);
 });
