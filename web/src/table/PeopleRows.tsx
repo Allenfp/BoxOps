@@ -151,9 +151,9 @@ export const PersonRow = memo(function PersonRow({
 
 /**
  * A person's PTO, read-only: each entry opens its block on the timeline, where
- * it's edited. Two entries at most until "+N more" is pressed (every row is as
- * tall as the next): with more, the first that hasn't finished (else the
- * last), then the button.
+ * it's edited. Two lines at most until "+N more" is pressed (every row is as
+ * tall as the next): both entries, or with more, the first that hasn't
+ * finished (else the last), then the button.
  */
 function PtoList(props: { person: Person; hasDepartment: boolean; now: Day; all: boolean; onMore(): void; onShow?(ref: PtoRef): void }) {
   const { person, hasDepartment, now, all, onMore, onShow } = props;

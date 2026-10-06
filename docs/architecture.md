@@ -848,11 +848,12 @@ when a focused element is removed.
   row's button is clicked, a cell stays as it was until the press is over,
   or the rows below would move under the pointer and its click land
   elsewhere, and a calendar or the Engineers list that click opened moves
-  with its button as the row then moves up), and People shows at most two PTO
-  entries before "+N more" (pressed, it stays open for that row, scrolled
-  away and back: People keeps it by the row's key). Safari has no CSS
-  scroll anchoring, so the table keeps the row at the top of the view in
-  place itself when rows above it change (measured, added, removed), in
+  with its button as the row then moves up), and People shows a person's PTO
+  in two lines at most: both entries, or with more, the next one that hasn't
+  finished (else the last) and "+N more" (pressed, it stays open for that
+  row, scrolled away and back: People keeps it by the row's key). Safari has
+  no CSS scroll anchoring, so the table keeps the row at the top of the view
+  in place itself when rows above it change (measured, added, removed), in
   every browser (`overflow-anchor: none`); if the change sorted that row
   elsewhere (an edit let go of, an undo, someone else's save), the first
   after it that's still in its place is kept instead (`anchorRow`), the view

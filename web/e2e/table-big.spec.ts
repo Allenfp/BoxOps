@@ -678,6 +678,21 @@ test.describe("People", () => {
     await expect(someone.locator(".pto-list li")).toHaveCount(4);
   });
 
+  test("folded, PTO past two entries shows the first that hasn't finished, not the first of all, and the button", async ({ page }) => {
+    // Their email has their id, which no one else's does.
+    await page.getByLabel("Search engineers").fill(`${someone.id}@example.com`);
+    const row = page.locator("tr.person-row");
+    await expect(row).toHaveCount(1);
+    const range = (t: { start: string; end: string }) => (t.start === t.end ? t.start : `${t.start} – ${t.end}`);
+    const [over] = someone.pto; // in date order: the first is over
+    const next = someone.pto.find((t) => t.end >= "2026-10-03")!;
+    const items = row.locator(".pto-list li");
+    await expect(items).toHaveCount(2);
+    await expect(items.first()).toContainText(range(next));
+    await expect(row.locator(".pto-list")).not.toContainText(range(over));
+    await expect(items.last().locator(".pto-more")).toHaveAccessibleName(`+${someone.pto.length - 1} more PTO for ${someone.name}`);
+  });
+
   test("two new engineers in a row, the second sorted after the first, each keep their own row (#79)", async ({ page }) => {
     await scrollTo(page, 0.5);
     const add = page.getByRole("button", { name: "Add an engineer to Data 1" });

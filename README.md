@@ -42,10 +42,11 @@ straight to `main`, and the site updates within a minute.
   shown.
 - **People.** The engineer roster: name, department, role, email, manager and
   notes (two lines until you click or Tab into them), plus their PTO
-  (read-only; edit it on the timeline or table; past two entries, "+N more"
-  shows the rest). Boxes are assigned engineers from this list. It prints,
-  and draws a big roster, as the table does; its search looks through every
-  column, PTO's dates and notes too.
+  (read-only; edit it on the timeline or table; past two entries, it shows
+  the current or next one (else the last) and "+N more" for the rest). Boxes
+  are assigned engineers from this list. It prints, and draws a big roster,
+  as the table does; its search looks through every column, PTO's dates and
+  notes too.
 - **Printing.** The table and People print every row; the timeline prints
   what's on screen, at its zoom and dates. The toolbar's controls are left
   out, and the colours print, in the light theme on white whichever theme
