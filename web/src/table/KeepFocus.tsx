@@ -1,5 +1,6 @@
 import { Component, type ReactNode, type RefObject } from "react";
 import { focusLost, tabbable } from "../a11y/focus";
+import { keepInView } from "./focusRow";
 
 /** Where focus was: its row's key and place, the cell it was in (by class), and the control (by name or class). */
 interface Spot {
@@ -68,7 +69,9 @@ export class KeepFocus extends Component<Props> {
       const group = row(spot.keys[heading]);
       to = around(1) ?? around(-1) ?? (group && tabbable(group)[0]);
     }
-    to?.focus({ preventScroll: true });
+    if (!to) return;
+    to.focus({ preventScroll: true });
+    keepInView(table.closest(".table-scroll"), to);
   }
 
   render(): ReactNode {

@@ -116,6 +116,9 @@ export function useWindowedRows(o: {
     return v.top === top && v.height === height ? v : { top, height };
   }, []);
 
+  // The layout last drawn, and where the table was scrolled to then (or since).
+  const before = useRef<{ tops: Float64Array; keys: readonly string[]; top: number } | null>(null);
+
   // Follow scrolling (a frame at a time) and size changes, drawing in the same frame.
   useLayoutEffect(() => {
     const el = scroller.current;
@@ -127,6 +130,7 @@ export function useWindowedRows(o: {
       if (next !== latestView.current) flushSync(() => setView(next));
     };
     const onScroll = () => {
+      if (before.current) before.current.top = el.scrollTop;
       if (!frame) frame = requestAnimationFrame(update);
     };
     const resized = new ResizeObserver(update);
@@ -202,20 +206,22 @@ export function useWindowedRows(o: {
   );
 
   // Keep the view in place: the row at its top before this change is where it was. Rows above it that were
-  // measured, added or removed (someone else's save), or that changed kind's usual height, would push it.
-  const before = useRef<{ tops: Float64Array; keys: readonly string[] } | null>(null);
+  // measured, added or removed (someone else's save), or that changed kind's usual height, would push it. Not if
+  // the change scrolled the table itself (focus put back in a row that moved, say): that's where it's meant to be.
   useLayoutEffect(() => {
     const el = scroller.current;
     const was = before.current;
-    before.current = enabled ? { tops, keys } : null;
-    if (!el || !was || !enabled || (was.tops === tops && was.keys === keys) || popupOpen(el)) return;
-    const s = el.scrollTop;
+    const now = enabled && el ? { tops, keys, top: el.scrollTop } : null;
+    before.current = now;
+    if (!el || !was || !now || (was.tops === tops && was.keys === keys) || popupOpen(el)) return;
+    const s = now.top;
+    if (s !== was.top) return;
     // The first row there, or after it, that's still there.
     for (let i = rowAt(was.tops, s); i >= 0 && i < was.keys.length; i++) {
       const j = index.get(was.keys[i]);
       if (j === undefined) continue;
       const moved = tops[j] - was.tops[i];
-      if (Math.abs(moved) >= 1) el.scrollTop = s + moved;
+      if (Math.abs(moved) >= 1) now.top = el.scrollTop = s + moved;
       return;
     }
   });
@@ -233,7 +239,7 @@ export function useWindowedRows(o: {
       else if (top < s) s = top;
       else if (bottom > s + height) s = bottom - height;
       el.scrollTop = Math.max(0, s);
-      before.current = { tops, keys }; // where it is now is where it's meant to be
+      before.current = { tops, keys, top: el.scrollTop }; // where it is now is where it's meant to be
       const next = where();
       if (next !== latestView.current) setView(next);
       return true;
