@@ -7,6 +7,7 @@ import { type Browser, type Page, expect, test } from "@playwright/test";
 import { assembleBundle, hashFolder } from "../cli/site";
 import { type AppInfo, type BundleSource, readBundle } from "../src/model/bundle";
 import { generateRoadmap } from "../scripts/gen-roadmap";
+import { PX_PER_DAY } from "../src/timeline/scale";
 
 // A big roadmap (`npm run perf`, not part of the browser tests): the
 // production build with a generated 2,000-box roadmap (and a 500-box one) as
@@ -239,7 +240,7 @@ test("2000 boxes: a keyboard move's step, a drag's and a keystroke in the box ed
   await page.mouse.down();
   await page.mouse.move(x + 6, y);
   expect(await drawn(() => page.mouse.move(x + 7, y))).toEqual([]);
-  expect(await drawn(() => page.mouse.move(x + 6 + 3 * 14.7, y))).toEqual(["dept-01"]);
+  expect(await drawn(() => page.mouse.move(x + 6 + 3 * PX_PER_DAY.months, y))).toEqual(["dept-01"]);
   expect(await drawn(() => page.keyboard.press("Escape"))).toEqual(["dept-01"]);
   await page.mouse.up();
 
