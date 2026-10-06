@@ -45,7 +45,7 @@ dialog > .dialog-head {
   z-index: calc(var(--z-field-note) + 1);
   background: var(--surface);
 }
-/* While there's more to scroll to: at the foot of what shows, the last of it fading out under it. */
+/* While there's more to scroll to: at the foot of what shows, the last of it fading out under it, the label on solid ground. */
 .save-dialog > .more-below {
   position: sticky;
   bottom: 0;
@@ -59,7 +59,7 @@ dialog > .dialog-head {
   gap: 4px;
   font-size: 12px;
   color: var(--text-muted);
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--surface) 0%, transparent), var(--surface) 55%);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--surface) 0%, transparent), var(--surface) 20px);
   pointer-events: none;
 }
 .save-dialog > .more-below.done {
