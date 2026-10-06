@@ -71,6 +71,16 @@ test("the department editor's own colour is a field like team settings' colours,
   expect(await css(custom, "width", "height", "padding-left")).toEqual({ width: "28px", height: "28px", "padding-left": "2px" });
 });
 
+test("the table's and People's column headers are shown whole, none running under the next", async ({ page, github: _ }) => {
+  for (const view of ["Table", "People"]) {
+    await page.getByRole("button", { name: view, exact: true }).click();
+    const main = page.getByRole("main", { name: view });
+    await expect(main.locator("tbody tr").first()).toBeVisible();
+    const cut = await main.locator("thead th").evaluateAll((ths) => ths.filter((th) => th.scrollWidth > th.clientWidth).map((th) => th.textContent));
+    expect(cut, view).toEqual([]);
+  }
+});
+
 test("a warning longer than the warnings menu wraps, read in full rather than cut off", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
   const panel = page.getByRole("dialog", { name: /^\d+ warnings?$/ });

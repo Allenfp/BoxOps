@@ -54,8 +54,8 @@
   border-spacing: 0;
   table-layout: fixed;
   width: 100%;
-  /* The other columns' widths add up to 1908px; the rest (366px, at this width) is Description. */
-  min-width: 2274px;
+  /* The other columns' widths add up to 1932px; the rest (366px, at this width) is Description. */
+  min-width: 2298px;
   font-size: 13px;
 }
 .box-table th {
@@ -201,8 +201,9 @@
 .box-table th.col-scale {
   text-align: right;
 }
+/* With its sort button's own 6px, 12px: the header ends where the numbers do. */
 .box-table th.col-days {
-  padding-right: 12px;
+  padding-right: 6px;
 }
 .col-engineers {
   width: 190px;
@@ -246,7 +247,7 @@
   width: 132px;
 }
 .col-days {
-  width: 96px;
+  width: 120px;
   text-align: right;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
