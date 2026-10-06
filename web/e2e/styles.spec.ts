@@ -157,6 +157,75 @@ test.describe("at 320 px wide (a phone, or a window zoomed to 400%)", () => {
     await expect(editor).toBeInViewport({ ratio: 1 });
     expect(await editor.locator(".editor-body").evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
   });
+
+  /** What in `el` (the element itself included) reaches past the window's or `el`'s sides, or scrolls sideways. */
+  const sticksOut = (el: Locator) =>
+    el.evaluate((e) => {
+      const { left, right } = e.getBoundingClientRect();
+      const name = (c: Element) => `${c.tagName} ${c.getAttribute("aria-label") ?? c.textContent!.trim().slice(0, 20)}`;
+      return [
+        ...(left < 0 || right > innerWidth ? [`${name(e)} is past the window's side`] : []),
+        ...[e, ...e.querySelectorAll(".editor-body")].filter((c) => c.scrollWidth > c.clientWidth).map((c) => `${name(c)} scrolls sideways`),
+        ...[...e.querySelectorAll("*")]
+          .filter((c) => {
+            if (c instanceof SVGElement) return false; // an icon's button is named instead
+            const r = c.getBoundingClientRect();
+            return r.width > 0 && (r.left < left - 0.5 || r.right > right + 0.5);
+          })
+          .map((c) => `${name(c)} is past the dialog's side`),
+      ];
+    });
+
+  const parts: [string, (page: Page) => Promise<Locator>][] = [
+    [
+      "the department editor (with a lane's dates set)",
+      async (page) => {
+        await page.getByRole("button", { name: "Edit Data Engineering" }).click();
+        const dialog = page.getByRole("dialog", { name: "Edit Data Engineering" });
+        await dialog.getByRole("button", { name: "From (set when lane 4 opens)" }).click();
+        await dialog.getByRole("button", { name: "Until (set when lane 4 closes)" }).click();
+        await expect(dialog.getByLabel("Until (lane 4 closes)")).toBeVisible();
+        return dialog;
+      },
+    ],
+    [
+      "the PTO editor",
+      async (page) => {
+        await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+        return page.getByRole("dialog", { name: /^Edit PTO/ });
+      },
+    ],
+    [
+      "team settings",
+      async (page) => {
+        await page.getByRole("button", { name: "Settings", exact: true }).click();
+        await page.getByRole("button", { name: "Team settings…" }).click();
+        return page.getByRole("dialog", { name: "Team settings" });
+      },
+    ],
+  ];
+  for (const [name, open] of parts) {
+    test(`${name} fits across it, wrapping rather than running off the side`, async ({ page, github: _ }) => {
+      const dialog = await open(page);
+      await expect(dialog).toBeVisible();
+      expect(await sticksOut(dialog)).toEqual([]);
+    });
+  }
+
+  test.describe("signed out", () => {
+    test.use({ signedIn: false });
+
+    test("the save dialog fits across it", async ({ page, github: _ }) => {
+      await page.getByRole("button", { name: "Settings", exact: true }).click();
+      await page.getByRole("button", { name: "Team settings…" }).click();
+      await page.getByLabel("Roadmap title").fill("Platform Roadmap");
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Save · 1 change" }).click();
+      const dialog = page.getByRole("dialog", { name: "Connect to GitHub to save" });
+      await expect(dialog).toBeVisible();
+      expect(await sticksOut(dialog)).toEqual([]);
+    });
+  });
 });
 
 test.describe("at 1024 px wide", () => {
