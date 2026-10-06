@@ -61,15 +61,21 @@ export function Popover(props: {
 
   // Inside the window, wherever its button is (a narrow one wraps the toolbar): moved right if it
   // would spill past the left edge, and no taller than the room below (contents still to load too).
+  // Again as the window's resized while it's open.
   useLayoutEffect(() => {
     const el = panel.current;
     if (!open || !el) return;
-    el.style.translate = "";
-    el.style.maxHeight = "";
-    const r = el.getBoundingClientRect();
-    if (r.left < EDGE) el.style.translate = `${EDGE - r.left}px 0`;
-    const room = Math.max(0, window.innerHeight - EDGE - r.top);
-    if (!(parseFloat(getComputedStyle(el).maxHeight) <= room)) el.style.maxHeight = `${room}px`;
+    const clamp = () => {
+      el.style.translate = "";
+      el.style.maxHeight = "";
+      const r = el.getBoundingClientRect();
+      if (r.left < EDGE) el.style.translate = `${EDGE - r.left}px 0`;
+      const room = Math.max(0, window.innerHeight - EDGE - r.top);
+      if (!(parseFloat(getComputedStyle(el).maxHeight) <= room)) el.style.maxHeight = `${room}px`;
+    };
+    clamp();
+    window.addEventListener("resize", clamp);
+    return () => window.removeEventListener("resize", clamp);
   }, [open]);
 
   /** A choice made in the panel: focus goes back to the button, unless the choice put it somewhere (a dialog it opened). */

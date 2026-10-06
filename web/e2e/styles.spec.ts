@@ -88,6 +88,19 @@ test("a warning longer than the warnings menu wraps, read in full rather than cu
   expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
 
+test("a menu open as the window's made smaller is kept inside it", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+  const panel = page.getByRole("dialog", { name: /^\d+ warnings?$/ });
+  await expect(panel.locator(".link-button").first()).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 400 });
+  const inside = () =>
+    panel.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight;
+    });
+  await expect.poll(inside).toBe(true);
+});
+
 test("in a high-contrast theme, what only colour showed stays: the chosen view, Today, progress, switches, the picked day", async ({ page, browserName, github: _ }) => {
   test.skip(browserName !== "chromium", "only Chromium emulates Windows' contrast themes (forced colours)");
   await page.emulateMedia({ forcedColors: "active" });
