@@ -33,13 +33,15 @@ straight to `main`, and the site updates within a minute.
   or Tab into it. A row you're editing stays where it is, and shown, until
   you leave it, even if the edit sorts it elsewhere or the search no longer
   matches it (it says so). A big roadmap (over 200 rows) draws only the
-  rows near the screen, so the browser's Find (⌘F or Ctrl+F) sees only
-  those; the table's search finds anything. Printing (⌘P or Ctrl+P) prints
-  every row as shown.
+  rows near the screen, so the browser's Find (⌘F or Ctrl+F), and a screen
+  reader's browse mode, see only those; the table's search finds anything,
+  and Tab reaches every row. Printing (⌘P or Ctrl+P) prints every row as
+  shown.
 - **People.** The engineer roster: name, department, role, email, manager and
-  notes, plus their PTO (read-only; edit it on the timeline or table; past
-  two entries, "+N more" shows the rest). Boxes are assigned engineers from
-  this list. It prints, and draws a big roster, as the table does.
+  notes (two lines until you click or Tab into them), plus their PTO
+  (read-only; edit it on the timeline or table; past two entries, "+N more"
+  shows the rest). Boxes are assigned engineers from this list. It prints,
+  and draws a big roster, as the table does.
 - **Printing.** The table and People print every row; the timeline prints
   what's on screen, at its zoom and dates. The toolbar's controls are left
   out, and the colours print.

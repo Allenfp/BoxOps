@@ -759,10 +759,10 @@ when a focused element is removed.
   (250 ms at 250 rows); drawing only what's near the screen, about 50 ms at
   any size: at 2,000 boxes, 26 rows with data.
 - **Long selects** (`components/LazySelect.tsx`). A select with more than 30
-  options (the Lane, with every lane of every department; People's
-  Department) holds only its chosen option until a press, focus or a key
-  reaches it, which fill it before its list opens. The Engineers list sorts
-  the roster only while it's open.
+  options (the Lane, with every lane of every department; a PTO row's
+  Engineer; People's Department) holds only its chosen option until a
+  press, focus or a key reaches it, which fill it before its list opens.
+  The Engineers list sorts the roster only while it's open.
 - **Focus.** The row focus is in (or a press is in: Safari doesn't focus a
   button that's clicked) is drawn wherever it is, with a row either side, so
   Tab and Shift+Tab always have somewhere to go (`table/useActiveRow.ts`).
