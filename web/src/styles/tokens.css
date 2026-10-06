@@ -5,6 +5,9 @@
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-2: #f0f2f5;
+  /* Panels over the page (popovers, editors, the calendar, dialogs, the broken-rule popup): lighter in the dark theme. */
+  --surface-raised: var(--surface);
+  --surface-raised-2: var(--surface-2);
   --text: #1c2330;
   --text-muted: #5e687b;
   --border: #e3e6eb;
@@ -15,13 +18,23 @@
   --on-today: #ffffff;
   --warn: #c2410c;
   --warn-bg: #fff1e6;
+  --success: #21a67a;
+  --success-text: #178a64;
   --accent: #3560e6;
   /* Behind white text: primary buttons, the picked day. */
   --accent-fill: var(--accent);
+  --accent-fill-hover: color-mix(in srgb, var(--accent-fill) 88%, #000);
+  --on-accent: #ffffff;
   --updated: #0d9488;
   --seg-track: #eceef2;
   --seg-on: #ffffff;
+  /* Elevation: a raised control, a field's popup, what's being dragged, panels and popups, dialogs. */
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.1), 0 0 0 0.5px rgba(16, 24, 40, 0.06);
+  --shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.15);
+  --shadow-drag: 0 6px 18px rgba(16, 24, 40, 0.25);
+  --shadow-float: 0 12px 32px rgba(16, 24, 40, 0.2);
+  --shadow-dialog: 0 24px 64px rgba(16, 24, 40, 0.3);
+  --backdrop: rgba(16, 24, 40, 0.35);
   /*
    * What's drawn over what. Inside a scrolling view (the timeline, the table): items, a selected or
    * focused one (and the Today line, the table's header), the pinned label or title column, what has
@@ -55,6 +68,8 @@
     --bg: #0f1218;
     --surface: #161a22;
     --surface-2: #1d222c;
+    --surface-raised: #1d222c;
+    --surface-raised-2: #262c38;
     --text: #e6e9ef;
     --text-muted: #949cab;
     --border: #262c38;
@@ -64,11 +79,30 @@
     --on-today: #0f1218;
     --warn: #fb923c;
     --warn-bg: #3a2414;
+    --success: #34d399;
+    --success-text: #4ade80;
     --accent: #4f7cff;
     --accent-fill: #3560e6;
     --updated: #2dd4bf;
     --seg-track: #0f1218;
     --seg-on: #262c38;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --shadow-drag: 0 6px 18px rgba(0, 0, 0, 0.55);
+    --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.55);
+    --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.6);
+    --backdrop: rgba(0, 0, 0, 0.55);
   }
+}
+
+/* Panels over the page, and what's in them: on the raised surface (lighter than the page in the dark theme). */
+.popover-panel,
+.editor,
+.calendar,
+.save-dialog,
+.picker-menu,
+.scale-pop,
+.toast {
+  --surface: var(--surface-raised);
+  --surface-2: var(--surface-raised-2);
 }

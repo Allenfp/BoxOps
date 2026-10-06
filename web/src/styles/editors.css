@@ -8,7 +8,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.22);
+  box-shadow: var(--shadow-float);
   padding: 0 14px;
   max-height: calc(100vh - 16px);
   display: flex;
@@ -171,7 +171,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.2);
+  box-shadow: var(--shadow-float);
   padding: 4px;
 }
 .picker-option {
@@ -323,7 +323,7 @@
   border: 1px solid var(--today);
   border-radius: 6px;
   background: var(--surface);
-  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.15);
+  box-shadow: var(--shadow-pop);
   white-space: nowrap;
 }
 /* 24 px, a big enough target (WCAG 2.5.8). */
@@ -362,7 +362,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.2);
+  box-shadow: var(--shadow-float);
   font-size: 12px;
   font-weight: 400;
   color: var(--text);
@@ -431,7 +431,7 @@
 /* In full, a weekend too (one typed in the table's date range). */
 .calendar-day.selected {
   background: var(--accent-fill);
-  color: #fff;
+  color: var(--on-accent);
   opacity: 1;
 }
 .calendar-foot {

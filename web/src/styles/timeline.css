@@ -367,7 +367,7 @@
 .box.dragging {
   z-index: var(--z-dragged);
   opacity: 0.92;
-  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.28);
+  box-shadow: var(--shadow-drag);
 }
 .drag-dates {
   position: absolute;
@@ -715,7 +715,7 @@ button.collapse-all:hover {
 }
 .pto-block.dragging {
   z-index: var(--z-dragged);
-  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.22);
+  box-shadow: var(--shadow-drag);
 }
 
 /* Lane dates: outside them a lane is closed (no capacity), hatched out. */
@@ -764,7 +764,7 @@ button.collapse-all:hover {
   border-radius: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.22);
+  box-shadow: var(--shadow-float);
   font-size: 12px;
   line-height: 18px;
   color: var(--text);
