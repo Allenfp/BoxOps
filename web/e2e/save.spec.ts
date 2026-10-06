@@ -251,6 +251,8 @@ for (const visibility of ["public", "private"] as const) {
       await page.clock.fastForward(6_000);
       // The seconds show once it's slow; only the step is announced, not every second.
       await expect(page.locator(".save-progress")).toHaveText("Writing the commit… 6 s");
+      // Past the 150 ms before a message is written, short of the next second.
+      await page.clock.runFor(500);
       expect(await heard(page)).toContain("Writing the commit…");
       expect(await heard(page)).not.toMatch(/\d s/);
       await page.clock.fastForward(25_000);
