@@ -97,6 +97,20 @@ test("the key and the keyboard shortcuts open from the menu", async ({ page, git
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toContainText("Undo");
 });
 
+test("the menu's dialogs write apostrophes curly, as the rest of BoxOps does", async ({ page, github: _ }) => {
+  for (const item of ["Keyboard shortcuts…", "Key…", "Team settings…"]) {
+    await openMenu(page);
+    await menu(page).getByRole("button", { name: item }).click();
+    const dialog = page.getByRole("dialog", { name: item.slice(0, -1) });
+    await expect(dialog).toBeVisible();
+    const text = await dialog.innerText();
+    expect(text, item).not.toMatch(/'/);
+    if (item === "Keyboard shortcuts…") expect(text).toContain("department’s name");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  }
+});
+
 test("in team settings, a flag moved from the keyboard keeps the focus, place after place", async ({ page, github: _ }) => {
   await openMenu(page);
   await menu(page).getByRole("button", { name: "Team settings…" }).click();
