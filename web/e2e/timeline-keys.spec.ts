@@ -181,6 +181,66 @@ test("Enter opens a box or PTO block, and closing puts focus back on it; so does
   await expect(block).toBeFocused();
 });
 
+test("closed with ✕ or deleted with a click, an editor gives focus back without scrolling the timeline", async ({ page, github: _ }) => {
+  const timeline = page.locator(".timeline");
+  const scroll = () => timeline.evaluate((el) => [el.scrollLeft, el.scrollTop]);
+  /** The timeline scrolled across till `x` px into `cell` is at the label column's edge. */
+  const scrollTo = async (cell: Locator, x: number) => {
+    const [b, view] = [(await cell.boundingBox())!, (await timeline.boundingBox())!];
+    await timeline.evaluate((el, dx) => (el.scrollLeft += dx), b.x + x - (view.x + 240));
+  };
+  /** Click `cell` 40 px clear of the label column, where it shows. */
+  const clickShown = async (cell: Locator) => {
+    const [b, view] = [(await cell.boundingBox())!, (await timeline.boundingBox())!];
+    await cell.click({ position: { x: view.x + 240 + 40 - b.x, y: 10 } });
+  };
+  /** The timeline is where it was, and stays there. */
+  const stays = async (at: number[]) => {
+    await page.waitForTimeout(300);
+    expect(await scroll()).toEqual(at);
+  };
+  await page.getByRole("button", { name: "Weeks", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+
+  // A long box, its start scrolled away to the left, its title typed in (a key: no longer the pointer's), then ✕.
+  const warehouse = box(page, "bx-a1f0-warehouse-migration");
+  await scrollTo(warehouse, 400);
+  await clickShown(warehouse);
+  await editor.getByRole("textbox", { name: "Title", exact: true }).press("End");
+  await page.keyboard.type(" v2");
+  let at = await scroll();
+  await editor.getByRole("button", { name: "Close" }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(warehouse).toBeFocused();
+  expect(await isFocusVisible(warehouse)).toBe(false);
+  await stays(at);
+
+  // Deleted: focus goes to the department's next box by start, off screen to the right, and it's left there.
+  await scrollTo(box(page, "bx-0a7c-terraform-cleanup"), 0);
+  await box(page, "bx-e5a2-on-call-q4").click({ position: { x: 20, y: 10 } });
+  at = await scroll();
+  await editor.getByRole("button", { name: "Delete" }).click();
+  await expect(box(page, CDC)).toBeFocused();
+  await expect(box(page, CDC)).not.toBeInViewport();
+  await stays(at);
+
+  // A PTO block the same, its start under the label column.
+  await page.getByRole("button", { name: "Add PTO in Data Engineering" }).click();
+  const pto = page.getByRole("dialog", { name: /^Edit PTO for / });
+  await expect(pto.getByLabel("Engineer")).toBeFocused();
+  await page.keyboard.press("Escape");
+  const block = page.locator(".pto-block").first();
+  await expect(block).toBeFocused();
+  await scrollTo(block, 100);
+  await clickShown(block);
+  await pto.getByLabel("Note").fill("Conference");
+  at = await scroll();
+  await pto.getByRole("button", { name: "Close" }).click();
+  await expect(pto).toHaveCount(0);
+  await expect(block).toBeFocused();
+  await stays(at);
+});
+
 test.describe("in a small window", () => {
   test.use({ viewport: { width: 900, height: 420 } });
 

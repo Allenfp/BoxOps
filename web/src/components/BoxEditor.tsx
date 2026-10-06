@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { type MouseEvent, useEffect, useId, useRef, useState } from "react";
 import { popoverWidth, useAnchor } from "./useAnchor";
 import { boxScale, SCALE_HELP } from "../model/scale";
 import { NO_FLAG } from "../model/status";
@@ -12,7 +12,8 @@ import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { LiveRegion } from "../a11y/announce";
 import { FieldError, describedBy } from "./FieldError";
-import { focusAfterRemoving, loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
+import { BY_CLICK, focusAfterRemoving, loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
+import { markPressed } from "./useGridFocus";
 
 const WIDTH = 440;
 
@@ -30,7 +31,8 @@ interface Props {
   onRemoveIncoming(fromBoxId: string, type: RelationType): void;
   /** `field` groups keystrokes in one field into a single undo step. */
   onChange(patch: Partial<Box>, field: string): void;
-  onDelete(): void;
+  /** `clicked`: by a click, not a key: focus goes beside it without scrolling the timeline. */
+  onDelete(clicked: boolean): void;
   onClose(): void;
   /** A cell of the timeline (TimelineHandle.cell), drawn first if a big roadmap left it out, off screen: where focus goes back to. */
   cell(key: string): Element | null;
@@ -77,9 +79,19 @@ export function BoxEditor(props: Props) {
   // Closed (or gone some other way: saved, undone, someone else's save): focus goes back to the
   // box, drawn again if it's off screen (no longer open, a big roadmap would leave it out); with
   // the box gone too, to what opened it, else beside the box. Not after a click elsewhere, which
-  // is where the user went (focus going back would scroll).
+  // is where the user went (focus going back would scroll). After a click on ✕ or Delete, it goes
+  // back as after a press in the timeline: scrolling nothing, the view staying where the user had it.
   const clickedAway = useRef(false);
-  useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`box:${box.id}`) ?? onPage(opener) ?? props.beside() ?? main())));
+  const clicked = useRef(false);
+  /** Whether ✕ or Delete was clicked, rather than pressed from the keyboard (a key's click has no click count). */
+  const byClick = (e: MouseEvent) => {
+    clicked.current = e.detail > 0;
+    if (clicked.current) markPressed();
+    return clicked.current;
+  };
+  useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`box:${box.id}`) ?? onPage(opener) ?? props.beside() ?? main())), {
+    how: () => (clicked.current ? BY_CLICK : undefined),
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -207,7 +219,14 @@ export function BoxEditor(props: Props) {
           onChange={(e) => onChange({ title: e.target.value }, "title")}
           onBlur={(e) => e.target.value.trim() !== e.target.value && onChange({ title: e.target.value.trim() }, "title")}
         />
-        <button className="icon-button" onClick={onClose} aria-label="Close">
+        <button
+          className="icon-button"
+          onClick={(e) => {
+            byClick(e);
+            onClose();
+          }}
+          aria-label="Close"
+        >
           <Icon name="x" size={16} />
         </button>
       </div>
@@ -492,7 +511,7 @@ export function BoxEditor(props: Props) {
           {prettyDay(box.start)} – {prettyDay(box.end)} · {days} working day{days === 1 ? "" : "s"} ·{" "}
           <span title={SCALE_HELP}>Scale {boxScale(box)}</span>
         </span>
-        <button className="danger" onClick={onDelete}>
+        <button className="danger" onClick={(e) => onDelete(byClick(e))}>
           Delete
         </button>
       </div>

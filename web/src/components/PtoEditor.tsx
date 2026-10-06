@@ -1,7 +1,7 @@
 // Edit one PTO block: whose it is, its dates and a note. Opens from the block
 // on the timeline, like the box editor.
 
-import { useEffect, useId, useRef, useState } from "react";
+import { type MouseEvent, useEffect, useId, useRef, useState } from "react";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import { ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import type { Department, Person, TimeOff } from "../model/types";
@@ -10,7 +10,8 @@ import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { LiveRegion } from "../a11y/announce";
 import { FieldError, describedBy } from "./FieldError";
-import { loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
+import { BY_CLICK, loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
+import { markPressed } from "./useGridFocus";
 
 const WIDTH = 360;
 
@@ -23,7 +24,8 @@ interface Props {
   onChange(patch: Partial<TimeOff>, field: string): void;
   /** Give this PTO to someone else. */
   onReassign(personId: string): void;
-  onDelete(): void;
+  /** `clicked`: by a click, not a key: focus goes beside it without scrolling the timeline. */
+  onDelete(clicked: boolean): void;
   onClose(): void;
   /** A cell of the timeline (TimelineHandle.cell), drawn first if a big roadmap left it out, off screen: where focus goes back to. */
   cell(key: string): Element | null;
@@ -38,9 +40,19 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
 
   // Closed (or gone some other way): focus goes back to the PTO block, drawn again if it's off
   // screen (as for a box); with the block gone too, to what opened it, else beside the block. Not
-  // after a click elsewhere, which is where the user went (focus going back would scroll).
+  // after a click elsewhere, which is where the user went (focus going back would scroll). After a
+  // click on ✕ or Delete, without scrolling (as for a box).
   const clickedAway = useRef(false);
-  useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`pto:${key}`) ?? onPage(opener) ?? beside() ?? main())));
+  const clicked = useRef(false);
+  /** Whether ✕ or Delete was clicked, rather than pressed from the keyboard (a key's click has no click count). */
+  const byClick = (e: MouseEvent) => {
+    clicked.current = e.detail > 0;
+    if (clicked.current) markPressed();
+    return clicked.current;
+  };
+  useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`pto:${key}`) ?? onPage(opener) ?? beside() ?? main())), {
+    how: () => (clicked.current ? BY_CLICK : undefined),
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -126,7 +138,14 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
             </optgroup>
           ))}
         </select>
-        <button className="icon-button" onClick={onClose} aria-label="Close">
+        <button
+          className="icon-button"
+          onClick={(e) => {
+            byClick(e);
+            onClose();
+          }}
+          aria-label="Close"
+        >
           <Icon name="x" size={16} />
         </button>
       </div>
@@ -162,7 +181,7 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
         <span className="hint">
           {ptoRange(pto)} · {days} working day{days === 1 ? "" : "s"}
         </span>
-        <button className="danger" onClick={onDelete}>
+        <button className="danger" onClick={(e) => onDelete(byClick(e))}>
           Delete
         </button>
       </div>

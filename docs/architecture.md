@@ -673,7 +673,11 @@ when a focused element is removed.
   focuses it without the keyboard's ring or the card, and so does putting
   focus back on it after a drop: browsers draw a ring whenever a script
   moves focus, so it's told by whether a key or a press came last
-  (`focusByPress`).
+  (`focusByPress`). An editor closed with a click on ✕, or its box or
+  block deleted with one, gives focus back the same way, scrolling
+  nothing (`BY_CLICK`, `markPressed`): the view stays where the pointer
+  left it. From the keyboard (Esc, or Enter on ✕ or Delete) the cell
+  focus goes to is scrolled into view.
 - **Contrast.** Text meets 4.5:1, and 3:1 what shows a control or its
   state (a field's edge, a switch, the chosen segment, a box's progress
   mark and resize grips, a collapsed department's boxes) or is all there

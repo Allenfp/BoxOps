@@ -42,6 +42,11 @@ let pressed = false;
  */
 export const focusByPress = (): boolean => pressed;
 
+/** Focus about to come back to the timeline follows a click elsewhere (an editor's ✕ or Delete): as one in it, it scrolls nothing and shows no ring. */
+export const markPressed = (): void => {
+  pressed = true;
+};
+
 /** Room (px) kept around a cell scrolled into view. */
 const MARGIN = 8;
 
