@@ -547,8 +547,9 @@ when a focused element is removed.
   box or PTO block went too (someone else's save deleted it, or an undo)
   hands it to the one beside it, as its Delete button does. On the
   timeline, focus a re-render took (a box moved to another row, a
-  department moved, undo) goes back to the same cell, else the one beside
-  it; a cell moved along its row (dropped past another) React focuses
+  department moved, undo, someone else's save deleting it) goes back to
+  the same cell, else the one beside it (drawn first if off screen); a
+  cell moved along its row (dropped past another) React focuses
   again itself. A banner (a part that couldn't load, too, after Try
   again) or the broken-rule popup going with focus in it hands focus to
   the roadmap (focus elsewhere stays put; the popup doesn't go by itself

@@ -285,15 +285,16 @@ export function useGridFocus(
       // from a field (a lane's name being typed), whose own code puts it back after its key's
       // events: now, Enter's keypress would press the button it's put on.
       if (last.current && !last.current.isConnected && !(last.current instanceof HTMLInputElement)) {
-        const keys = [active.current, ...fallbacks.current].filter((k) => k !== null);
-        const el = keys.map(find).find(Boolean);
+        // The first of them still in the grid, drawn or not: the box after a deleted one, though
+        // it's off screen and the lane's + isn't.
+        const rows = o.current.rows();
+        const next = [active.current, ...fallbacks.current].find((k) => k !== null && (find(k) || place(rows, k)));
+        const el = find(next ?? null);
         if (el) {
           drawing.current = null;
           return focus(el);
         }
-        // The cell beside it is off screen, not drawn: draw it, and focus it after that render.
-        const rows = o.current.rows();
-        const next = keys.find((k) => place(rows, k));
+        // It's off screen, not drawn: draw it, and focus it after that render.
         if (next && drawing.current !== next) {
           active.current = remembered = drawing.current = next;
           return o.current.draw();

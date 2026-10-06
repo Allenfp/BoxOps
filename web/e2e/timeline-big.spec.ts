@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import type { FakeGitHub } from "./fake-github";
-import { expect, openTab, test, toolbar } from "./helpers";
+import { boxFile, expect, openTab, pollNow, test, toolbar } from "./helpers";
 
 // A big roadmap's timeline draws only what's near the screen (Timeline.tsx,
 // timeline/rows.ts), and nothing on screen is ever missing from it: each
@@ -301,6 +301,26 @@ test("a box open in its editor stays drawn, scrolled far away; deleted, focus go
   await expect(focused).toBeInViewport();
   expect(await focused.evaluate((el) => el.closest("[data-row]")?.getAttribute("data-row"))).toBe(`lane:${dept(1)}-8`);
   await expect(toolbar(page)).toContainText("Save · 1 change");
+});
+
+test("a focused box someone else deleted gives focus to the box beside it, drawn wherever it is", async ({ page, github }) => {
+  const focused = page.locator('[role="grid"] :focus');
+  // The January box, at weeks zoom, months before the next in its row, which isn't drawn.
+  await page.getByRole("button", { name: "Weeks", exact: true }).click();
+  await scrollTo(page, 0, 0);
+  await cell(page, `lane:${dept(1)}-8`).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(cell(page, `box:${JAN}`)).toBeFocused();
+  const drawn = await page.locator("[data-cell]").evaluateAll((els) => els.map((el) => el.getAttribute("data-cell")));
+  github.deploy(github.otherSave({ [boxFile(JAN)]: () => undefined }, "Sam Lee", "January dropped"));
+  await pollNow(page);
+  await expect(cell(page, `box:${JAN}`)).toHaveCount(0);
+  // Not the lane's + or name, though they're drawn: the next box, as Delete would.
+  await expect(focused).toHaveAttribute("data-cell", /^box:/);
+  expect(drawn).not.toContain(await focused.getAttribute("data-cell"));
+  await expect(focused).toBeInViewport();
+  expect(await focused.evaluate((el) => el.closest("[data-row]")?.getAttribute("data-row"))).toBe(`lane:${dept(1)}-8`);
 });
 
 test("what the app focuses or shows is drawn wherever it is: from the warnings, from People, and after a delete in an editor", async ({ page, github: _ }) => {
