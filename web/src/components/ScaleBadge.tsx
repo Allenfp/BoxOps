@@ -31,7 +31,7 @@ export function ScaleBadge({ box, departments, className }: Props) {
   const [hovered, setHovered] = useState(false);
   /** The box it's in has keyboard focus. */
   const [focused, setFocused] = useState(false);
-  /** Put away with Escape (or another key), until the pointer or focus brings it back. */
+  /** Put away with Escape (or another key, a press or the wheel), until the pointer or focus brings it back. */
   const [away, setAway] = useState(false);
   const leaving = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** Where the number is on screen, as of when the card was shown or the page last scrolled. */
