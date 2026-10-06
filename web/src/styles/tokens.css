@@ -1,0 +1,74 @@
+/* Colours, shadows, stacking and type: the light theme, then the dark one. Everything else uses these. */
+
+:root {
+  /* Text colours meet WCAG AA contrast (4.5:1) on the surfaces and box fills they're used on. */
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --text: #1c2330;
+  --text-muted: #5e687b;
+  --border: #e3e6eb;
+  --grid: #eef0f3;
+  --grid-major: #d5d9e0;
+  --today: #d7363c;
+  /* Text on the Today flag. */
+  --on-today: #ffffff;
+  --warn: #c2410c;
+  --warn-bg: #fff1e6;
+  --accent: #3560e6;
+  /* Behind white text: primary buttons, the picked day. */
+  --accent-fill: var(--accent);
+  --updated: #0d9488;
+  --seg-track: #eceef2;
+  --seg-on: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.1), 0 0 0 0.5px rgba(16, 24, 40, 0.06);
+  /*
+   * What's drawn over what. Inside a scrolling view (the timeline, the table): items, a selected or
+   * focused one (and the Today line, the table's header), the pinned label or title column, what has
+   * focus in it, a box or PTO block being dragged (and its dates), the timeline's header and its corner.
+   */
+  --z-item: 1;
+  --z-raised: 2;
+  --z-pinned: 3;
+  --z-pinned-focus: 4;
+  --z-dragged: 5;
+  --z-head: 6;
+  --z-corner: 7;
+  /* Over the page: the box and PTO editors, panels and popups, the broken-rule popup, the calendar, the skip link. */
+  --z-editor: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-calendar: 80;
+  --z-skip-link: 100;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/*
+ * Dark theme: data-theme on <html>, from the theme preference (prefs.ts; light, dark or the system's), set by
+ * index.html before the first paint. On screen only: paper is white, so printing is always in the light theme.
+ */
+@media screen {
+  :root[data-theme="dark"] {
+    --bg: #0f1218;
+    --surface: #161a22;
+    --surface-2: #1d222c;
+    --text: #e6e9ef;
+    --text-muted: #949cab;
+    --border: #262c38;
+    --grid: #1d222b;
+    --grid-major: #2e3542;
+    --today: #ff6369;
+    --on-today: #0f1218;
+    --warn: #fb923c;
+    --warn-bg: #3a2414;
+    --accent: #4f7cff;
+    --accent-fill: #3560e6;
+    --updated: #2dd4bf;
+    --seg-track: #0f1218;
+    --seg-on: #262c38;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+}

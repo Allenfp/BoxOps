@@ -1,0 +1,495 @@
+/* Dialogs (components/Modal.tsx): saving, the department editor, the key and shortcuts, team settings. */
+
+/* A preview of a private repository asks for a token on the page itself. */
+.save-dialog.load-token {
+  margin: 48px auto;
+}
+
+/* A dialog's frame, then the save dialog's parts. */
+.save-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 64px rgba(16, 24, 40, 0.3);
+}
+.save-dialog::backdrop {
+  background: rgba(16, 24, 40, 0.35);
+}
+.save-dialog > * {
+  margin-left: 20px;
+  margin-right: 20px;
+}
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 14px 12px 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.dialog-head h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.save-dialog h3 {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 14px 0 6px;
+}
+.change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 13px;
+}
+.change-list li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--grid);
+}
+.kind {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.kind-added {
+  background: color-mix(in srgb, #21a67a 18%, transparent);
+  color: #178a64;
+}
+.kind-changed {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+.kind-deleted {
+  background: color-mix(in srgb, var(--today) 15%, transparent);
+  color: var(--today);
+}
+.files {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.files ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.callout {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.callout ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.callout.error {
+  background: color-mix(in srgb, var(--today) 12%, var(--surface));
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--today) 40%, transparent);
+}
+.callout.warn {
+  background: var(--warn-bg);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+}
+.save-dialog .form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+.save-dialog .form label,
+.save-dialog .form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.save-dialog input,
+.save-dialog textarea {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.save-dialog textarea {
+  resize: vertical;
+}
+.save-dialog .hint a {
+  color: var(--accent);
+}
+.token-help {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.token-help a {
+  color: var(--accent);
+  font-weight: 600;
+}
+.token-help ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.token-help .hint {
+  margin: 4px 0 0;
+}
+.broad-token,
+.not-token {
+  color: var(--warn);
+  font-weight: 400;
+}
+.dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+.save-dialog .form .dialog-foot {
+  margin: 6px -20px 0;
+}
+.save-dialog .lead {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 14px;
+  margin-bottom: 4px;
+}
+.save-dialog .form .lead {
+  margin-left: 0;
+  margin-right: 0;
+}
+.save-dialog > .hint {
+  display: block;
+  margin-top: 8px;
+}
+.conflict-list {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Pre-save check */
+.save-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+.save-list li {
+  padding: 2px 0;
+}
+.save-dialog .callout.warn ul {
+  margin: 4px 0;
+  font-weight: 600;
+}
+.save-dialog > h3 {
+  margin: 14px 20px 6px;
+}
+.save-dialog > .change-list {
+  margin: 0 20px;
+}
+
+/* Department editor */
+.button-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.lane-list {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lane-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lane-edit-row input {
+  flex: 1;
+}
+.lane-edit-row select,
+.dept-editor .remove-callout select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 6px;
+}
+.lane-edit-row .icon-button {
+  font-size: 14px;
+  padding: 2px 6px;
+}
+.row-remove:hover:not(:disabled) {
+  color: var(--today);
+}
+.remove-callout {
+  margin: 6px 0 0 !important;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+}
+.color-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.swatch-button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.swatch-button.chosen {
+  border-color: var(--surface);
+  box-shadow: 0 0 0 2px var(--text);
+}
+.color-choice input[type="color"] {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+}
+.lane-dates-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 2px 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.lane-dates-row .lane-date {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+}
+.lane-dates-row .link-button {
+  font-size: 12px;
+  padding: 0;
+}
+.save-dialog .lane-dates-row input,
+.lane-dates-row input {
+  width: auto;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+.lane-dates-row .icon-button {
+  font-size: 14px;
+  padding: 0 4px;
+}
+.lane-dates-row .date-input input {
+  width: 118px;
+}
+.button-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Key and shortcuts dialogs */
+.key-body {
+  padding: 4px 0 18px;
+  columns: 2;
+  column-gap: 28px;
+}
+.key-body ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  break-inside: avoid;
+}
+.key-body li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.key-body .status-mark {
+  margin-right: 0;
+}
+.key-warn {
+  width: 10px;
+  color: var(--warn);
+  font-weight: 600;
+}
+.key-overflow {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+.key-tips li {
+  color: var(--text-muted);
+}
+.key-updated {
+  width: 7px;
+  height: 7px;
+  margin: 0 1.5px;
+  border-radius: 50%;
+  background: var(--updated);
+}
+.key-pto {
+  display: inline-block;
+  width: 22px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border-radius: 3px;
+  border: 1px solid var(--grid-major);
+  background: repeating-linear-gradient(-45deg, var(--surface-2) 0 3px, var(--surface) 3px 6px);
+}
+.key-modal {
+  width: min(560px, calc(100vw - 32px));
+}
+.key-body h3 {
+  margin: 14px 0 4px;
+  break-after: avoid;
+}
+.shortcuts-modal {
+  width: min(460px, calc(100vw - 32px));
+}
+.shortcuts {
+  margin: 4px 20px 18px;
+}
+.shortcuts table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 10px;
+}
+.shortcuts caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 2px;
+}
+.shortcuts th,
+.shortcuts td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--grid);
+  text-align: left;
+  font-weight: 400;
+}
+.shortcuts tr:last-child > * {
+  border-bottom: 0;
+}
+.shortcuts th {
+  width: 46%;
+  white-space: pre;
+}
+
+/* Team settings */
+.team-settings {
+  width: min(560px, calc(100vw - 32px));
+}
+.team-intro {
+  margin-top: 12px !important;
+  margin-bottom: 4px !important;
+}
+.team-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.team-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.team-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+}
+.team-problem {
+  flex-basis: 100%;
+}
+.team-list .team-name {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.team-list .team-name.invalid {
+  border-color: var(--today);
+}
+.team-uses {
+  width: 64px;
+  text-align: right;
+  font-size: 12px;
+}
+.color-input {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 4px;
+}
+.team-list .icon-button:disabled {
+  opacity: 0.3;
+}
+.team-settings select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  width: 100%;
+}
+.save-dialog:focus {
+  outline: none;
+}

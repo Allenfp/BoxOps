@@ -1,0 +1,610 @@
+/* The Table and People views. */
+
+/* Table view */
+
+.table-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.table-search {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  width: min(320px, 50vw);
+}
+.table-toolbar .primary {
+  margin-left: auto;
+}
+/*
+ * No scroll-padding for the sticky header: it would have the header's own
+ * buttons, always in it, scroll the table whenever they're focused. What's
+ * focused in a row is scrolled clear of it by hand (table/focusRow.ts).
+ */
+.table-scroll {
+  flex: 1;
+  overflow: auto;
+}
+/* Drawing only the rows near the screen, the table keeps the view in place itself (useWindowedRows.ts). */
+.table-scroll.windowed {
+  overflow-anchor: none;
+}
+/* Every box (and engineer) row is as tall as the others, unless one's being edited or says why a cell won't do. */
+.box-table {
+  --box-row: 53px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  width: 100%;
+  /* The other columns' widths add up to 1908px; the rest (366px, at this width) is Description. */
+  min-width: 2274px;
+  font-size: 13px;
+}
+.box-table th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-raised);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0 4px;
+  height: 34px;
+  white-space: nowrap;
+}
+.sort-button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 6px 6px;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.sort-button:hover {
+  background: transparent;
+  color: var(--text);
+}
+.sort-mark {
+  font-size: 9px;
+  width: 9px;
+  color: var(--accent);
+}
+.box-table td {
+  border-bottom: 1px solid var(--grid);
+  padding: 3px 4px;
+  vertical-align: middle;
+}
+.box-table tbody tr td:first-child {
+  border-left: 4px solid var(--dept, transparent);
+}
+.box-table tbody tr:not(.spacer):hover td {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+/* Rows a big table doesn't draw: as tall as they'd be, ruled like box rows, in their department's colour. */
+.box-table tr.spacer td {
+  padding: 0;
+  border-bottom: 0;
+  background: repeating-linear-gradient(transparent 0 calc(var(--box-row) - 1px), var(--grid) calc(var(--box-row) - 1px) var(--box-row));
+}
+.density-compact .box-table {
+  --box-row: 49px;
+}
+.box-table tr.box-row,
+.people-table tr.person-row {
+  height: var(--box-row);
+}
+/* A row being edited that no longer matches the search or filters: it goes once focus leaves it. */
+.held-note {
+  display: block;
+  padding: 0 7px 3px;
+  font-size: 12px;
+  color: var(--warn);
+  white-space: normal;
+}
+.box-table tr.updated td {
+  background: color-mix(in srgb, var(--updated) 9%, var(--surface));
+}
+.box-table tr.updated td:first-child {
+  border-left-color: var(--updated);
+}
+.box-table tr.conflict td {
+  background: color-mix(in srgb, var(--warn) 9%, var(--surface));
+}
+.box-table tr.conflict td:first-child {
+  border-left-color: var(--warn);
+}
+
+/* Cells read as text until hovered or focused. */
+.box-table input,
+.box-table select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 6px;
+  width: 100%;
+  min-width: 0;
+}
+.box-table input:hover:not(:disabled),
+.box-table select:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.box-table input:focus,
+.box-table select:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.box-table select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.box-table :disabled {
+  cursor: default;
+  opacity: 1;
+}
+.cell-input.invalid {
+  border-color: var(--today);
+}
+/* Number columns: right-aligned, tabular figures, headers aligned with them. */
+.col-fte {
+  width: 64px;
+  text-align: right;
+}
+.box-table td.col-fte select {
+  text-align: right;
+  text-align-last: right;
+  font-variant-numeric: tabular-nums;
+}
+.col-scale {
+  width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.box-table td.col-scale {
+  padding-right: 12px;
+}
+.box-table th.col-days .sort-button,
+.box-table th.col-fte .sort-button,
+.box-table th.col-scale .sort-button {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+.box-table th.col-days,
+.box-table th.col-fte,
+.box-table th.col-scale {
+  text-align: right;
+}
+.col-engineers {
+  width: 190px;
+}
+.box-table .picker-button {
+  border-color: transparent;
+  background: transparent;
+}
+.box-table tr:hover .picker-button:not(:disabled) {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.box-table .picker-button:disabled {
+  cursor: default;
+}
+/* Titles stay pinned while the table scrolls sideways. */
+.box-table .col-title {
+  position: sticky;
+  left: 0;
+  z-index: var(--z-item);
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--border);
+  white-space: nowrap;
+}
+.box-table th.col-title {
+  z-index: var(--z-pinned);
+  background: var(--surface-2);
+}
+.col-title {
+  width: 260px;
+}
+.col-title .cell-input {
+  font-weight: 600;
+}
+.col-lane {
+  width: 230px;
+}
+.col-date {
+  width: 132px;
+}
+.col-days {
+  width: 96px;
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  padding-right: 12px !important;
+}
+.col-type {
+  width: 170px;
+}
+.col-status {
+  width: 130px;
+}
+.col-epic {
+  width: 240px;
+}
+.col-tags {
+  width: 160px;
+}
+.col-actions {
+  width: 40px;
+  text-align: center;
+}
+/* Empty cells stay quiet; their hint shows when you point at or edit them. */
+.box-table input::placeholder {
+  color: transparent;
+}
+.box-table tr:hover input::placeholder,
+.box-table input:focus::placeholder {
+  color: var(--text-muted);
+}
+.type-cell,
+.epic-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Why a saved cell's value won't do, under it (TextCell). */
+.cell-problem {
+  display: block;
+  flex-basis: 100%;
+  padding: 0 7px 3px;
+  white-space: normal;
+}
+/* Only the problem wraps: the field shrinks so the ↗ stays on its line. */
+.epic-cell {
+  flex-wrap: wrap;
+}
+.epic-cell .cell-input {
+  flex: 1 1 0;
+}
+.type-cell .swatch {
+  flex: none;
+  margin-left: 6px;
+}
+.open-link {
+  flex: none;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 0 4px;
+}
+.status-select {
+  font-weight: 600;
+}
+.box-table .status-select {
+  color: var(--text-muted);
+}
+.box-table .status-select.flagged {
+  color: var(--warn);
+  font-weight: 600;
+}
+.row-delete {
+  opacity: 0;
+}
+.box-table tr:hover .row-delete,
+.row-delete:focus-visible {
+  opacity: 1;
+}
+.row-delete:hover {
+  color: var(--today);
+}
+.empty {
+  padding: 24px 16px;
+  color: var(--text-muted);
+}
+
+/* Table: department groups */
+.box-table .group-row td {
+  padding: 0;
+  height: 36px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-left: 4px solid var(--dept);
+}
+.box-table tbody tr.group-row:hover td {
+  background: var(--surface-2);
+}
+.group-head {
+  position: sticky;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+}
+.group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.group-toggle:hover,
+.group-toggle:disabled {
+  background: transparent;
+  opacity: 1;
+  cursor: pointer;
+}
+.group-toggle:disabled {
+  cursor: default;
+}
+.group-toggle .dept-meta {
+  font-weight: 400;
+}
+.group-add {
+  opacity: 0.55;
+}
+.group-row:hover .group-add,
+.group-add:focus-visible {
+  opacity: 1;
+}
+.empty-row td {
+  padding: 10px 16px !important;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/*
+ * A description or notes (TextCell): two lines, … for more, until focused;
+ * then as many as it needs. A copy of the text in the same grid cell sets
+ * the height (no script measures it), and shows the two lines on top of the
+ * field, whose own text is hidden until it's focused.
+ */
+.grow-wrap {
+  display: grid;
+}
+.grow-wrap > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+/* Over the field, but under the sticky title column (--z-item) that the table scrolls sideways beneath. */
+.box-table .grow-text {
+  position: relative;
+  z-index: 0;
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text);
+  border: 1px solid transparent;
+  padding: 4px 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.grow-wrap:not(:focus-within) .grow-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.grow-wrap:not(:focus-within) textarea.cell-input {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.grow-wrap:focus-within .grow-text {
+  visibility: hidden;
+}
+/* High-contrast modes force the field's text to show: the field shows its own two lines, the copy only sizes it. */
+@media (forced-colors: active) {
+  .grow-wrap .grow-text {
+    visibility: hidden;
+  }
+  .grow-wrap:not(:focus-within) textarea.cell-input {
+    color: FieldText;
+    -webkit-text-fill-color: FieldText;
+  }
+}
+.box-table textarea.cell-input {
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 6px;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: block;
+}
+.box-table textarea.cell-input:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.box-table textarea.cell-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.box-table tbody tr:not(.group-row) td {
+  vertical-align: top;
+}
+.box-table tbody tr:not(.group-row) td.col-days,
+.box-table tbody tr:not(.group-row) td.col-scale {
+  padding-top: 9px;
+}
+/* The pinned title column must stay opaque on hover, or scrolled cells show through it. */
+.box-table tbody tr:hover td.col-title {
+  background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
+}
+
+/* People view */
+.people-table {
+  min-width: 1480px;
+}
+.people-table .col-pto {
+  width: 180px;
+}
+.people-table .col-name {
+  width: 220px;
+}
+.people-table .col-dept {
+  width: 180px;
+}
+.people-table .col-role {
+  width: 200px;
+}
+.people-table .col-email {
+  width: 230px;
+}
+.people-table .col-manager {
+  width: 190px;
+}
+.th-label {
+  display: inline-block;
+  padding: 6px;
+}
+.group-edit {
+  opacity: 0.55;
+}
+.group-row:hover .group-edit,
+.group-edit:focus-visible {
+  opacity: 1;
+}
+.box-table .add-dept-row td {
+  padding: 10px 12px !important;
+  border-bottom: 0;
+  background: transparent !important;
+}
+.add-dept-row .add-button,
+.add-pto-row .add-button {
+  margin-left: -8px;
+}
+.add-pto-row .add-button {
+  font-size: 12px;
+}
+.cell-code {
+  display: block;
+  padding: 2px 7px 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+/* A Jira key standing in for the BoxOps code */
+.box-code.jira,
+.cell-code.jira {
+  color: var(--accent);
+}
+/* "Changed by someone else", as the key shows it. */
+.row-updated {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--updated);
+  vertical-align: middle;
+}
+.cell-code .box-warn {
+  margin-left: 4px;
+}
+.code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  text-transform: uppercase;
+  max-width: 140px;
+}
+.pto-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.pto-list .link-button {
+  font-size: 12px;
+  padding: 0;
+}
+.pto-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pto-table-row .cell-code.pto-chip {
+  display: inline-block;
+  flex: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+}
+.add-pto-row td {
+  padding: 2px 8px 6px;
+}
+.density-compact .box-table td {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+.density-compact .box-table input,
+.density-compact .box-table select {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* Table toolbar: date range and "Hide finished boxes" */
+.date-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.date-filter .date-input input[type="text"] {
+  width: 128px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.date-filter .date-input input[type="text"]:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: var(--accent);
+}
+.date-filter .icon-button {
+  padding: 3px;
+}
+.table-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  color: var(--text);
+}
+.date-sep {
+  color: var(--text-muted);
+}

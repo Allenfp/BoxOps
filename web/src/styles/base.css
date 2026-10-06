@@ -1,0 +1,318 @@
+/* The page, and controls used all over: buttons, links, hints, the segmented control, the switch. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+button:hover {
+  background: var(--surface-2);
+}
+
+.splash {
+  padding: 48px;
+  color: var(--text-muted);
+}
+.splash.error {
+  color: var(--warn);
+}
+
+/* The error boundary's screen (components/ErrorBoundary.tsx), and a roadmap that couldn't load (LoadScreen.tsx). */
+.crash {
+  max-width: 640px;
+  padding: 48px 24px;
+  margin: 0 auto;
+  color: var(--text);
+}
+.crash h1 {
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+.crash h1:focus,
+.popover-panel:focus {
+  outline: none;
+}
+.crash-message {
+  white-space: pre-wrap;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.crash-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.crash-actions a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+/* The banners and the view under the toolbar. Focused by the skip link, and when focus has nowhere better to go (a11y/focus.ts). */
+.app > main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.app > main:focus {
+  outline: none;
+}
+
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* "Skip to roadmap": the first stop for Tab, shown only while it has focus. */
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: var(--z-skip-link);
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.skip-link:not(:focus) {
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+}
+/* Segmented control: a grey track with the chosen option raised on a white pill. */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--seg-track);
+}
+.segmented button {
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.segmented button:hover {
+  background: transparent;
+  color: var(--text);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--seg-on);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+/* A view's tab while its code is on the way. */
+.segmented button[aria-busy="true"] {
+  color: var(--text);
+  cursor: progress;
+}
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+button.icon-only {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+button.icon-only:disabled,
+button.icon-only[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+.warn-text {
+  color: var(--warn);
+}
+.pill {
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+button:disabled,
+button[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+.menu-item:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.danger-text {
+  color: var(--today);
+}
+.menu-note {
+  margin: 4px 10px 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.icon {
+  flex: none;
+  display: inline-block;
+  vertical-align: -0.2em;
+}
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  line-height: 1;
+  padding: 5px;
+  border-radius: 6px;
+  color: var(--text-muted);
+}
+.icon-button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+button.danger {
+  color: var(--today);
+}
+button.danger:hover {
+  background: color-mix(in srgb, var(--today) 10%, var(--surface));
+  border-color: var(--today);
+}
+
+button.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: #fff;
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled, [aria-disabled="true"]) {
+  background: color-mix(in srgb, var(--accent-fill) 88%, #000);
+}
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: inherit;
+  text-decoration: underline;
+}
+.link-button:hover {
+  background: none;
+}
+/* Every "add" action: a quiet button with a plus. The one solid button per view is its main action. */
+.add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.add-button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.add-button.small {
+  gap: 3px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+/* A checkbox drawn as a switch. */
+.toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  position: relative;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  border-radius: 9px;
+  background: var(--grid-major);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.toggle input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s;
+}
+.toggle input[type="checkbox"]:checked {
+  background: var(--accent);
+}
+.toggle input[type="checkbox"]:checked::after {
+  transform: translateX(12px);
+}
+.toggle {
+  cursor: pointer;
+}
+kbd {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text);
+}

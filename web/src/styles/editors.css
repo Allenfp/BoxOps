@@ -1,0 +1,444 @@
+/* The box and PTO editors, and what they and the table share: the Engineers list, date fields and the calendar. */
+
+/* Box editor popover */
+
+.editor {
+  position: fixed;
+  z-index: var(--z-editor);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.22);
+  padding: 0 14px;
+  max-height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Head and footer stay put; the fields between them scroll. */
+.editor-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0 -14px;
+  padding: 0 14px 4px;
+}
+.editor-section + .editor-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.editor-section h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.editor-section h3 .hint {
+  margin-left: 4px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.editor-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 12px 0 0 -6px;
+}
+.editor-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 -14px 10px;
+  padding: 10px 10px 8px 14px;
+  border-top: 4px solid var(--accent);
+  border-radius: 10px 10px 0 0;
+}
+.editor-title {
+  flex: 1;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.editor-title:hover,
+.editor-title:focus {
+  border-color: var(--border);
+  outline: none;
+  background: var(--surface-2);
+}
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+}
+.editor-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 0;
+}
+.editor-grid .span-2 {
+  grid-column: span 2;
+}
+.editor input,
+.editor select,
+.editor textarea {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  width: 100%;
+  min-width: 0;
+}
+.editor textarea {
+  resize: vertical;
+}
+.editor input:focus,
+.editor select:focus,
+.editor textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-color: var(--accent);
+}
+.with-action {
+  display: flex;
+  gap: 6px;
+}
+.button-link {
+  flex: none;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.field-error {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--today);
+}
+.editor-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px -14px 0;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* Engineer picker */
+.picker {
+  position: relative;
+  min-width: 0;
+}
+.picker-button {
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 5px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.picker-button.empty {
+  color: var(--text-muted);
+}
+.picker-menu {
+  position: absolute;
+  z-index: var(--z-popover);
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.2);
+  padding: 4px;
+}
+.picker-option {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: var(--text) !important;
+  cursor: pointer;
+}
+.picker-option:hover {
+  background: var(--surface-2);
+}
+.picker-option input {
+  width: auto !important;
+  margin: 0;
+}
+.picker-empty {
+  margin: 6px 8px;
+}
+.picker-add {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.picker-add input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+.editor .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.editor .field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.field-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+/* Box editor: code and rules */
+.code-chip {
+  flex: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.rule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rule-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-weight: 400;
+  color: var(--text);
+  font-size: 13px;
+}
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.rule-row > span:first-child {
+  flex: none;
+}
+.rule-list li.incoming .rule-row > span:first-child {
+  flex: 1;
+}
+/* The rule type sizes to its text; the other box takes the rest of the row. */
+.editor .rule-row select {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.editor .rule-row select:nth-of-type(2) {
+  flex: 1 1 0;
+}
+.rule-warning {
+  font-size: 12px;
+  color: var(--warn);
+  line-height: 1.4;
+}
+.add-rule {
+  margin-top: 6px;
+}
+.pto-chip,
+.cell-code.pto-chip {
+  font-family: inherit;
+  color: var(--text-muted);
+  background: repeating-linear-gradient(-45deg, var(--surface-2) 0 4px, var(--surface) 4px 8px);
+}
+.pto-editor select.editor-title {
+  appearance: auto;
+}
+
+/* Date fields: plain YYYY-MM-DD text, with our calendar behind a button in it. */
+.date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.date-input > input[type="text"] {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  padding-right: 28px !important;
+}
+.date-input.invalid > input[type="text"] {
+  border-color: var(--today) !important;
+}
+/* What's wrong with what's typed, just under the field: over what's below, not pushing it
+   down, so nothing moves as it goes (when focus leaves, under the press that took it). */
+.date-problem {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: var(--z-head);
+  padding: 2px 6px;
+  border: 1px solid var(--today);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.15);
+  white-space: nowrap;
+}
+/* 24 px, a big enough target (WCAG 2.5.8). */
+.date-pick {
+  position: absolute;
+  right: 2px;
+  display: inline-grid;
+  place-items: center;
+  padding: 5px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+.date-pick:hover {
+  opacity: 1;
+  background: var(--surface-2);
+  color: var(--text);
+}
+/* In the table the picker only shows on hover, so dates read as plain text. */
+.box-table .date-pick {
+  opacity: 0;
+}
+.box-table tr:hover .date-pick,
+.box-table .date-input:focus-within .date-pick {
+  opacity: 0.6;
+}
+
+/* Our own month calendar for date fields (DateInput.tsx): a dialog with a grid of days. */
+.calendar {
+  position: fixed;
+  z-index: var(--z-calendar);
+  width: 232px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.2);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text);
+  cursor: default;
+  user-select: none;
+}
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.calendar-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 13px;
+}
+.icon.flip {
+  transform: rotate(180deg);
+}
+/* Six weeks high whatever the month, so the calendar keeps its size and place (taller with
+   bigger text, as Safari's text-only zoom or a minimum font size makes it, not spilling over). */
+.calendar-days {
+  min-height: 206px;
+}
+.calendar-grid {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 2px;
+}
+.calendar-grid th {
+  padding: 0 0 2px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-align: center;
+}
+.calendar-day {
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.calendar-day:hover {
+  background: var(--surface-2);
+}
+.calendar-day:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 0;
+}
+/* Weekends can't be picked: shown, but greyed out. */
+.calendar-day.weekend {
+  color: var(--text-muted);
+  opacity: 0.55;
+  cursor: default;
+}
+.calendar-day.weekend:not(.selected):hover {
+  background: none;
+}
+.calendar-day.today {
+  box-shadow: inset 0 0 0 1px var(--today);
+}
+/* In full, a weekend too (one typed in the table's date range). */
+.calendar-day.selected {
+  background: var(--accent-fill);
+  color: #fff;
+  opacity: 1;
+}
+.calendar-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+}

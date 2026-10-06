@@ -27,6 +27,9 @@ web/
                             letters in any keyboard layout)
     site.ts                 the site's roadmap.json, app updates, reloading
     saving.ts               what saving needs, fetched once editing starts
+    styles.css              imports styles/ in cascade order: tokens (colours,
+                            shadows, stacking, fonts, both themes), base,
+                            toolbar, timeline, table, editors, dialogs, print
     components/             Timeline, TableView, PeopleView, BoxEditor,
                             DepartmentEditor, EngineerPicker, SaveDialog,
                             TokenForm, TextCell, LoadScreen (load failures),

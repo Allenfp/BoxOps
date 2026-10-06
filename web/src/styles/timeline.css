@@ -1,0 +1,877 @@
+/* The timeline: header, departments, lanes, boxes, PTO, the collapsed chart, and reordering. */
+
+/* Timeline scaffolding: one scroll container, sticky header row and label column. */
+
+.timeline {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: var(--surface);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tl-canvas {
+  position: relative;
+  min-height: 100%;
+}
+/* Room to scroll the last rows up clear of the broken-rule popup, so focus is never under it. */
+.app:has(.toast) .tl-canvas {
+  padding-bottom: 240px;
+}
+.tl-head {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-head);
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.tl-corner {
+  position: sticky;
+  left: 0;
+  z-index: var(--z-corner);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.tl-bands {
+  position: relative;
+  flex: none;
+}
+.tl-band {
+  position: relative;
+  height: 24px;
+}
+.tl-band.band-0 {
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.tl-band.band-1 {
+  height: 22px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.band-cell {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-left: 1px solid var(--border);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+.band-cell span {
+  padding: 0 6px;
+}
+/* Coarse labels (month / quarter) stay readable while their cell scrolls past. */
+.band-0 .band-cell span {
+  position: sticky;
+  left: calc(var(--label-w) + 2px);
+}
+.today-flag {
+  position: absolute;
+  bottom: 2px;
+  transform: translateX(-50%);
+  background: var(--today);
+  color: var(--on-today);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 15px;
+  padding: 0 5px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.tl-body {
+  position: relative;
+}
+.tl-grid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+.grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--grid);
+}
+.grid-line.major {
+  background: var(--grid-major);
+}
+.today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--today);
+  z-index: var(--z-raised);
+  pointer-events: none;
+}
+
+/* Rows */
+
+.row {
+  display: flex;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+.label {
+  position: sticky;
+  left: 0;
+  z-index: var(--z-pinned);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+.track {
+  position: relative;
+  flex: none;
+}
+
+.dept-row {
+  background: var(--surface);
+}
+.dept-label {
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-left: 4px solid var(--dept);
+  border-radius: 0;
+  text-align: left;
+  font-weight: 600;
+  background: var(--surface);
+}
+.dept-label:hover {
+  background: var(--surface-2);
+}
+.chevron {
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+.chevron.open {
+  transform: rotate(90deg);
+}
+.dept-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dept-meta {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.dept-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.dept-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dept-text .dept-meta {
+  font-size: 11px;
+}
+.dept-over {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--warn);
+}
+
+.lane-label {
+  padding-left: 32px;
+  font-size: 13px;
+  border-left: 4px solid var(--dept);
+}
+.lane-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 13px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 3px 6px;
+  margin-left: -7px;
+  cursor: text;
+}
+.lane-name:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+.edit-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+  opacity: 0;
+}
+.lane-name:hover .edit-icon,
+.lane-name:focus-visible .edit-icon {
+  opacity: 1;
+}
+.lane-name-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 3px 6px;
+  margin-left: -7px;
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Boxes. --c is the box type's colour, and the only colour a box carries:
+   status is the small mark before the title, warnings are one ⚠. */
+
+.box {
+  position: absolute;
+  border-radius: 5px;
+  padding: 0 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  /* clip, not hidden: hidden would make the box a scroll container and break the sticky title. */
+  overflow: clip;
+  z-index: var(--z-item);
+  cursor: default;
+  background: color-mix(in srgb, var(--c) 15%, var(--surface));
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+}
+.box-title {
+  font-weight: 600;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+  /* Long boxes keep their title in view when they start off-screen to the left. */
+  position: sticky;
+  left: calc(var(--label-w) + 8px);
+}
+.box.progress-finished {
+  background: color-mix(in srgb, var(--c) 7%, var(--surface));
+  border-color: color-mix(in srgb, var(--c) 25%, transparent);
+  color: var(--text-muted);
+}
+.box.compact {
+  height: 4px;
+  top: 15px;
+  padding: 0;
+  border-radius: 2px;
+  background: var(--c);
+  opacity: 0.3;
+  border: 0;
+  cursor: pointer;
+}
+/* Focused, it and its ring are drawn in full. */
+.box.compact:focus-visible {
+  opacity: 1;
+}
+
+/* Progress, from the dates: ○ not started, ◐ under way, ● finished. */
+.status-mark {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--c);
+  vertical-align: -0.5px;
+}
+.progress-underway .status-mark {
+  background: linear-gradient(90deg, var(--c) 50%, transparent 50%);
+}
+.progress-finished .status-mark {
+  background: var(--c);
+}
+/* A flag someone set (At risk, Late, Blocked): the one word on a box in the warning colour. */
+.box-flag {
+  margin-right: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-weight: 600;
+  line-height: 1;
+}
+.box.half .box-flag {
+  padding: 0 4px;
+}
+
+/* Editing: drag, resize, select */
+
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: ew-resize;
+  z-index: 1;
+}
+.handle.start {
+  left: 0;
+}
+.handle.end {
+  right: 0;
+}
+.box:hover .handle::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.45;
+}
+.box.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  z-index: var(--z-raised);
+}
+/* Focus back on a box or PTO block once its editor closes: a ring unlike the selection's. */
+.box:focus-visible,
+.pto-block:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  z-index: var(--z-raised);
+}
+.box.dragging {
+  z-index: var(--z-dragged);
+  opacity: 0.92;
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.28);
+}
+.drag-dates {
+  position: absolute;
+  top: -18px;
+  z-index: var(--z-dragged);
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--text);
+  color: var(--surface);
+  white-space: nowrap;
+  pointer-events: none;
+}
+body.dragging-move,
+body.dragging-move * {
+  cursor: grabbing !important;
+}
+body.dragging-resize,
+body.dragging-resize * {
+  cursor: ew-resize !important;
+}
+
+/* Collapse all / Expand all, beside the departments. */
+button.collapse-all {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+button.collapse-all:hover {
+  background: none;
+  text-decoration: underline;
+}
+.lane-name.static {
+  cursor: default;
+}
+.lane-name.static:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Someone else changed this box while we were editing it too. */
+.box.conflict {
+  border-color: var(--warn);
+  border-style: dashed;
+}
+
+/* Changed by someone else since this tab loaded; cleared once reviewed. */
+.box.updated::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--updated);
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+
+/* A department's lanes: a row each (label and track), then the extra area. Rows are exactly
+   as tall as their slots (no border or padding of their own adds to it), so slot maths from
+   the top of .dept-lanes holds; a box taller than its lane is drawn over the row below. */
+.dept-lanes {
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+.lane-row {
+  display: flex;
+}
+.lane-row > .lane-label {
+  padding-right: 6px;
+  border-bottom: 1px solid var(--grid);
+  overflow: hidden;
+}
+.lane-row:last-child > .lane-label {
+  border-bottom: 0;
+}
+/* What has focus in a label is drawn whole, its ring too, over the rows beside it: a half-FTE
+   lane's row is shorter than its name and + (22 px, 18 compact, against 24). */
+.label:focus-within {
+  z-index: var(--z-pinned-focus);
+}
+.lane-row > .lane-label:focus-within {
+  overflow: visible;
+}
+/* The lane's name and pills: the row's header. */
+.lane-head {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lane-row.drop-target > .lane-label {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+.lane-row > .overflow-label {
+  background: var(--surface);
+}
+.overflow-note {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.overflow-note.warn-text {
+  color: var(--warn);
+  font-weight: 500;
+}
+.lane-track {
+  border-bottom: 1px solid var(--grid);
+}
+.lane-row.drop-target > .lane-track {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.overflow-band {
+  border-top: 1px dashed var(--grid-major);
+}
+.grid-line.week {
+  background: color-mix(in srgb, var(--grid-major) 60%, var(--grid));
+}
+
+/* Boxes vary in height with FTE; the title is centred on the first full lane. */
+.box:not(.compact) {
+  line-height: 36px;
+  cursor: grab;
+  touch-action: none;
+}
+.box.half {
+  line-height: 14px;
+  padding: 0 6px;
+}
+.box-people {
+  position: absolute;
+  top: 4px;
+  margin-top: 6px;
+  line-height: 1;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+}
+.box.half .box-people {
+  top: 1px;
+  margin-top: 0;
+}
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.box.half .avatar {
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+}
+/* Boxes that don't fit the lanes' FTE: a warning edge on the box itself. */
+.box.overflowing {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+
+/* Department heading: a toggle plus an edit button. */
+.label.dept-label {
+  padding: 0;
+  gap: 0;
+}
+/* The <h3> around a department's toggle, in every view: a heading for screen readers, nothing to see. */
+.dept-heading {
+  margin: 0;
+  font: inherit;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+/* A department heading's cells in the timeline's grid: the heading (with its toggle), and ✎. */
+.dept-cell {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+}
+.dept-cell > .dept-heading {
+  flex: 1;
+  height: 100%;
+}
+.edit-cell,
+.add-cell {
+  display: flex;
+  align-items: center;
+}
+.dept-toggle {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  font-weight: 600;
+}
+.dept-toggle:hover {
+  background: transparent;
+}
+.dept-edit {
+  opacity: 0;
+  margin-right: 6px;
+}
+.dept-label:hover .dept-edit,
+.dept-edit:focus-visible {
+  opacity: 1;
+}
+.add-dept-row {
+  border-bottom: 0;
+}
+/* An empty roadmap: what to do first, where the departments would be. */
+.empty-roadmap {
+  position: sticky;
+  left: 0;
+  width: min(520px, 100vw);
+  padding: 24px 16px;
+  color: var(--text-muted);
+}
+.empty-roadmap p {
+  margin: 0 0 12px;
+}
+.empty-roadmap strong {
+  color: var(--text);
+}
+.add-dept-row .label {
+  border-right: 0;
+  background: transparent;
+  padding: 8px 12px;
+}
+
+/* Box codes (DE-A1F) and broken rules */
+.box-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  color: var(--text-muted);
+  margin-right: 6px;
+}
+.box-warn {
+  margin-right: 5px;
+  color: var(--warn);
+  font-weight: 600;
+}
+.box.rule-broken {
+  border-color: var(--warn);
+}
+
+/* PTO: engineers away. Grey and hatched, so it reads as "not work" next to boxes. */
+
+.pto-row .pto-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  color: var(--text-muted);
+}
+.pto-label .lane-name {
+  flex: 1;
+}
+/* Hover-only add buttons (and while focused), in place of written instructions; 24 px across, a target easy to hit.
+   On a touch screen, with no hover (nor double-click) to find them by, they're always there. */
+.pto-add,
+.lane-add {
+  padding: 5px;
+  opacity: 0;
+}
+.pto-label:hover .pto-add,
+.pto-add:focus-visible,
+.lane-label:hover .lane-add,
+.lane-add:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .pto-add,
+  .lane-add {
+    opacity: 1;
+  }
+}
+.pto-track {
+  position: relative;
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+}
+.pto-block {
+  position: absolute;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 14px;
+  white-space: nowrap;
+  overflow: clip;
+  z-index: var(--z-item);
+  color: var(--text-muted);
+  border: 1px solid var(--grid-major);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-2) 0 4px,
+    color-mix(in srgb, var(--surface-2) 40%, var(--surface)) 4px 8px
+  );
+  cursor: grab;
+  touch-action: none;
+}
+.pto-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+  position: sticky;
+  left: calc(var(--label-w) + 6px);
+}
+.pto-text strong {
+  font-weight: 600;
+  color: var(--text);
+}
+.pto-block:hover .handle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.45;
+}
+.pto-block.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  z-index: var(--z-raised);
+}
+.pto-block.dragging {
+  z-index: var(--z-dragged);
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.22);
+}
+
+/* Lane dates: outside them a lane is closed (no capacity), hatched out. */
+.lane-closed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--grid-major) 35%, transparent) 0 2px,
+    transparent 2px 7px
+  );
+  border-bottom: 1px solid var(--grid);
+}
+.pill.lane-dates {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scale (FTE × working days), right of the engineers' initials. */
+.box-scale {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.box.half .box-scale {
+  line-height: 14px;
+}
+
+/* The scale number is underlined; hovering it (or focus on its box) shows .scale-pop, which the pointer can move onto. */
+.scale-number {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+.scale-pop {
+  position: fixed;
+  z-index: var(--z-popover);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.22);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text);
+}
+
+/* Compact density: shorter rows and slightly smaller text (row heights are set in Timeline.tsx). */
+.density-compact .box {
+  font-size: 11.5px;
+}
+.density-compact .box:not(.compact) {
+  line-height: 28px;
+}
+.density-compact .box.half {
+  line-height: 10px;
+  font-size: 10px;
+}
+.density-compact .box-people {
+  margin-top: 2px;
+}
+.density-compact .box.compact {
+  top: 13px;
+}
+
+/* ---- Collapsed department: capacity used ---- */
+/* The chart is a cell of the timeline's grid: focus outlines all of it. */
+.use-cell {
+  position: absolute;
+  inset: 0;
+}
+.use-cell:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+.use-chart {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: block;
+  overflow: visible;
+}
+.use-full {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.55;
+}
+.use-marks {
+  color: var(--dept);
+}
+.use-marks.over {
+  color: var(--warn);
+}
+.use-chart.bars .use-marks rect {
+  fill: currentColor;
+  opacity: 0.75;
+}
+.use-chart.line polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.use-chart .use-area {
+  fill: currentColor;
+  opacity: 0.14;
+  stroke: none;
+}
+.use-hit {
+  fill: transparent;
+}
+.use-hit:hover {
+  fill: var(--text);
+  opacity: 0.05;
+}
+
+/* ---- Reordering departments by dragging their headings ---- */
+.dept-grip {
+  position: absolute;
+  top: 50%;
+  left: -2px;
+  transform: translateY(-50%);
+  display: flex;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 0.12s;
+  z-index: 1;
+}
+.grabbable:hover > .dept-grip {
+  opacity: 0.7;
+}
+.reorder-line {
+  position: fixed;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--accent);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: var(--z-editor);
+  box-shadow: 0 0 0 1px var(--surface);
+}
+.reordering-this {
+  opacity: 0.45;
+}
+body.reordering,
+body.reordering * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
+}

@@ -1,0 +1,302 @@
+/* The toolbar and what opens from it (warnings, save options, settings), the banners under it, and the broken-rule popup. */
+
+/* Three zones: what you're looking at (left), how (middle), and your
+   changes plus help (right). The middle stays centred. */
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+/* The brand: logo and name, with room before the view switch. */
+.toolbar h1 {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  margin: 0 20px 0 -2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.logo {
+  flex: none;
+  display: block;
+}
+.toolbar-zone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toolbar-zone button {
+  white-space: nowrap;
+}
+.toolbar-zone.end {
+  justify-content: flex-end;
+}
+/* Narrow windows: the zones stack rather than overlap. */
+@media (max-width: 1220px) {
+  .toolbar {
+    grid-template-columns: minmax(max-content, 1fr) auto;
+    row-gap: 8px;
+  }
+  .toolbar-zone.middle {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+}
+.warnings-button {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  background: var(--warn-bg);
+  font-weight: 600;
+}
+
+/* Toolbar popovers */
+.popover {
+  position: relative;
+}
+.popover-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: var(--z-popover);
+  min-width: 220px;
+  max-width: min(460px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow: auto;
+  padding: 10px 14px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18);
+  font-size: 13px;
+}
+.popover-panel h3 {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.popover-panel h3:first-child,
+.popover-panel section:first-child h3 {
+  margin-top: 0;
+}
+.popover-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.popover-panel li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.warnings-menu .popover-panel {
+  width: 440px;
+}
+.warnings-menu section + section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.warnings-menu li {
+  display: block;
+  line-height: 1.4;
+}
+.warnings-menu .link-button {
+  text-align: left;
+  color: var(--text);
+  text-decoration: none;
+}
+.warnings-menu .link-button:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.popover-panel .count {
+  font-weight: 400;
+}
+
+/* Undo, Redo and Save: the draft's status. */
+.draft-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  margin: 0 2px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.today-button {
+  color: var(--text);
+}
+
+/* A private repository without a token shows the deployed copy (no GitHub calls); the button says what that means. */
+.site-copy > button {
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  padding: 5px 4px;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.site-copy .popover-panel {
+  width: 300px;
+}
+
+/* What a save is doing, beside the Save button while it runs. */
+.save-progress {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Save · N changes ▾ */
+.split-button {
+  display: inline-flex;
+}
+.split-button > button.primary {
+  border-radius: 6px 0 0 6px;
+  white-space: nowrap;
+}
+.split-button .split-more {
+  border-radius: 0 6px 6px 0;
+  border-left: 1px solid color-mix(in srgb, #fff 35%, var(--accent));
+  padding: 5px 7px;
+  font-size: 12px;
+  height: 100%;
+}
+.save-more .popover-panel {
+  width: 260px;
+  padding: 6px;
+}
+
+/* Banners under the toolbar: a save done, someone else's, an update, notices. */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-bottom: 1px solid var(--border);
+}
+.banner.success {
+  background: color-mix(in srgb, #21a67a 14%, var(--surface));
+}
+/* Notices from roadmap.json, in plain text: a security release and the like. */
+.banner.notice-security,
+.banner.notice-warning {
+  background: var(--warn-bg);
+}
+.banner.notice-security > span {
+  font-weight: 600;
+}
+.banner a {
+  color: var(--accent);
+  font-weight: 600;
+}
+.banner .icon-button {
+  margin-left: auto;
+}
+.banner .warn-text {
+  font-weight: 600;
+}
+
+/* The broken-rule popup. */
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: var(--z-toast);
+  width: min(440px, calc(100vw - 32px));
+  padding: 12px 40px 12px 14px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border));
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.22);
+  font-size: 13px;
+}
+.toast strong {
+  color: var(--warn);
+}
+.toast ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.toast .icon-button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+/* Settings (gear) menu */
+.settings-menu .popover-panel {
+  width: 320px;
+  max-height: calc(100vh - 64px);
+  padding: 8px 12px 10px;
+}
+.settings-menu section + section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.settings-menu h3 {
+  margin: 2px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+  padding: 2px 0;
+  font-weight: 400;
+  color: var(--text);
+}
+.setting-row select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  max-width: 170px;
+}
+.segmented.small button {
+  padding: 2px 9px;
+  font-size: 12px;
+}
+.settings-menu .menu-item {
+  margin: 0 -10px;
+  width: calc(100% + 20px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text);
+  text-decoration: none;
+}
+.settings-menu .menu-item.danger-text {
+  color: var(--today);
+}
+.settings-menu .menu-item:disabled {
+  color: var(--text-muted);
+}
+.settings-menu .menu-note {
+  margin: 0 0 4px;
+}
+.settings-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
