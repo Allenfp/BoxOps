@@ -15,6 +15,7 @@ import { announce, useAnnounceResults } from "../a11y/announce";
 import { focusAfterRow, focusLater } from "../a11y/focus";
 import { keeper } from "../keeper";
 import { boxKeys, PtoKeys } from "../table/rowKeys";
+import type { AddedPto } from "../table/addedPto";
 import { keepPlace, type TableRow, tableRows } from "../table/tableModel";
 import { DRAW_ALL_UP_TO, useWindowedRows } from "../table/useWindowedRows";
 import { KeepFocus } from "../table/KeepFocus";
@@ -67,6 +68,8 @@ interface Props {
   onReassignPto?(ref: PtoRef, personId: string): void;
   onAddPto?(departmentId: string): PtoRef | null;
   onRemovePto?(ref: PtoRef): void;
+  /** PTO added in this session, shown though finished PTO is hidden (a week off added on a weekend has ended). */
+  addedPto?: AddedPto;
 }
 
 type SortKey = "title" | "lane" | "start" | "end" | "days" | "fte" | "scale" | "engineers" | "type" | "status";
@@ -124,14 +127,13 @@ export function TableView(props: Props) {
   const hasLanes = departments.some((d) => d.lanes.length > 0);
 
   // Kept from one render to the next: values that keep their identity while they say the same, keys for PTO,
-  // the order last shown (a row being edited keeps its place in it), and what was added here.
+  // and the order last shown (a row being edited keeps its place in it).
   const [kept] = useState(() => ({
     names: keeper(sameNames),
     roster: keeper(sameRoster),
     ptoKeys: new PtoKeys(),
     order: new Map<string, string[]>(),
     sorted: "",
-    added: new Set<string>(),
   }));
 
   // Lane order and labels, for the lane column and for sorting by it.
@@ -317,10 +319,10 @@ export function TableView(props: Props) {
       const dept = entry.person.department;
       if (!dept) continue;
       const { pto, person } = entry;
-      // Finished PTO goes with finished boxes, but not PTO added here (a week off this week, on a weekend).
+      // Finished PTO goes with finished boxes, but not PTO added in this session (a week off this week, on a weekend).
       const ok =
         inDates(pto.start, pto.end) &&
-        !(hideFinished && pto.end < now && !kept.added.has(key)) &&
+        !(hideFinished && pto.end < now && !props.addedPto?.has(pto)) &&
         (!q || `pto ${person.name} ${pto.note ?? ""}`.toLowerCase().includes(q));
       if (!ok && key !== held && key !== targetKey) continue;
       const list = out.get(dept) ?? [];
@@ -330,7 +332,7 @@ export function TableView(props: Props) {
     for (const [id, list] of out) out.set(id, keepPlace(list, (r) => r.key, kept.order.get(`pto:${id}`) ?? [], held));
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fromDay and toDay stand in for inDates, as above
-  }, [entries, entryKeys, showPto, q, fromDay, toDay, hideFinished, now, held, targetKey, kept]);
+  }, [entries, entryKeys, showPto, q, fromDay, toDay, hideFinished, now, held, targetKey, kept, props.addedPto]);
 
   const model = useMemo(
     () =>
@@ -383,10 +385,7 @@ export function TableView(props: Props) {
         return;
       }
     }
-    if (win.scrollTo(targetKey, "center")) {
-      reached.current = targetKey;
-      kept.added.add(targetKey);
-    }
+    if (win.scrollTo(targetKey, "center")) reached.current = targetKey;
   });
 
   /** A date that wasn't used as typed (a weekend), or that took the other end with it, is said: the cell just shows the result. */

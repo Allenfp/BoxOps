@@ -71,7 +71,8 @@ interface Entry {
   pto: TimeOff;
 }
 
-const samePto = (a: TimeOff, b: TimeOff) => a.start === b.start && a.end === b.end && (a.note ?? "") === (b.note ?? "");
+/** The same dates and note. */
+export const samePto = (a: TimeOff, b: TimeOff) => a.start === b.start && a.end === b.end && (a.note ?? "") === (b.note ?? "");
 
 /**
  * Keys for PTO entries, `p<n>`. An entry is a PTO object on a person: as long

@@ -37,6 +37,7 @@ import { Icon } from "./components/Icon";
 import { noteDraft, runningFine } from "./components/ErrorBoundary";
 import { LoadProblem, PreviewToken, liveUrl } from "./components/LoadScreen";
 import { SiteError, fetchBundle, guardReload, isNewerApp, movesForward, reloadApp } from "./site";
+import { AddedPto } from "./table/addedPto";
 
 interface Loaded extends LoadResult, Snapshot {
   /** Showing a branch other than the one this site was built from (`?ref=`). */
@@ -868,8 +869,21 @@ function RoadmapView(props: ViewProps) {
     const person = draft.people.find((p) => p.id === personId);
     if (person) draft.updatePerson(personId, { pto: change(person.pto ?? []) }, key);
   };
+  // PTO added in this session: the table shows it though finished PTO is hidden, through edits and saves, in any view.
+  const [addedPto] = useState(() => new AddedPto());
+  addedPto.follow(draft.people);
   const updatePto = (ref: PtoRef, patch: Partial<TimeOff>, key?: string) =>
-    setPtoList(ref.personId, (list) => list.map((t, i) => (i === ref.index ? { ...t, ...patch } : t)), key);
+    setPtoList(
+      ref.personId,
+      (list) =>
+        list.map((t, i) => {
+          if (i !== ref.index) return t;
+          const edited = { ...t, ...patch };
+          addedPto.replace(t, edited);
+          return edited;
+        }),
+      key,
+    );
   const removePto = (ref: PtoRef) => {
     const pto = ptoOf(ref);
     const name = draft.people.find((p) => p.id === ref.personId)?.name;
@@ -883,7 +897,9 @@ function RoadmapView(props: ViewProps) {
       draft.people.find((p) => p.id === who.personId) ??
       [...draft.people].filter((p) => p.department === who.departmentId).sort((a, b) => a.name.localeCompare(b.name))[0];
     if (!person) return null;
-    setPtoList(person.id, (list) => [...list, { ...dates }]);
+    const pto = { ...dates };
+    addedPto.add(pto);
+    setPtoList(person.id, (list) => [...list, pto]);
     draft.checkpoint();
     return { personId: person.id, index: person.pto?.length ?? 0 };
   };
@@ -1800,6 +1816,7 @@ function RoadmapView(props: ViewProps) {
                 const start = startOfWeek(now);
                 return addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
               }}
+              addedPto={addedPto}
             />
           ) : (
             <Timeline

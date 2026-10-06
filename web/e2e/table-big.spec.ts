@@ -309,7 +309,7 @@ test("Add box, with the table scrolled to the end, a department collapsed and da
   await expect(page.locator(':focus[aria-label="Lane"]').locator("xpath=ancestor::tr").getByLabel("Title")).toHaveValue("Hiring plan");
 });
 
-test("Add PTO with finished PTO hidden: the new week off is shown, scrolled to and focused", async ({ page, github: _ }) => {
+test("Add PTO with finished PTO hidden: the new week off is shown, scrolled to and focused, and stays shown", async ({ page, github: _ }) => {
   await page.getByRole("switch", { name: /Hide finished boxes/ }).check();
   await scrollTo(page, 1);
   const add = page.locator('[data-dept-id="dept-12"]').getByRole("button", { name: "Add PTO" });
@@ -317,9 +317,24 @@ test("Add PTO with finished PTO hidden: the new week off is shown, scrolled to a
   // This week's Monday to Friday, already over on the tests' Saturday.
   const engineer = page.locator(':focus[aria-label="Engineer"]');
   await expect(engineer).toHaveCount(1);
-  const row = engineer.locator("xpath=ancestor::tr");
+  const row = page.locator(`tr[data-row-key="${await engineer.evaluate((el) => el.closest("tr")!.dataset.rowKey)}"]`);
   await expect(row.getByLabel("PTO start")).toHaveValue("2026-09-28");
   await expect.poll(() => placeIn(engineer)).toEqual({ clear: true });
+
+  // Added this session, it stays shown: given a note and to someone else, and after the timeline and back.
+  await row.getByLabel("PTO note").fill("Dentist");
+  await page.keyboard.press("Enter");
+  const other = people.filter((p) => p.department === "dept-12").toSorted((a, b) => a.name.localeCompare(b.name))[1];
+  await choose(row.getByLabel("Engineer"), other.id);
+  await expect(row.getByLabel("Engineer")).toHaveValue(other.id);
+  await page.getByRole("button", { name: "Timeline", exact: true }).click();
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await expect(page.locator(".box-table")).toBeVisible();
+  await scrollTo(page, 1);
+  const kept = page.locator('[data-dept-id="dept-12"] tr.pto-table-row').filter({ has: page.locator('input[aria-label="PTO note"][value="Dentist"]') });
+  await expect(kept).toHaveCount(1);
+  await expect(kept.getByLabel("Engineer")).toHaveValue(other.id);
+  await expect(kept.getByLabel("PTO end")).toHaveValue("2026-10-02");
 });
 
 test("deleting a row from the keyboard puts focus on the next row's Delete", async ({ page, github: _ }) => {

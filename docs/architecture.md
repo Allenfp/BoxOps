@@ -725,8 +725,10 @@ when a focused element is removed.
   data first (`table/tableModel.ts`): each department's heading, then its
   boxes (or that it has none), PTO and Add PTO; in People, its engineers. A
   search looks in text worked out once a box or person. Hide finished boxes
-  hides finished PTO in the table too, but not PTO added there (a week off
-  added on a weekend has already ended).
+  hides finished PTO in the table too, but not PTO added in this session,
+  in any view (a week off added on a weekend has already ended): the app
+  keeps track of it through edits, a new engineer, undo and saves, and
+  while another view is shown (`table/addedPto.ts`).
 - **Keys** (`table/rowKeys.ts`). A box's row is keyed by its code, which
   never changes (an unsaved box's id follows its title); a PTO entry's by the
   entry, through edits, a move up its owner's list or to someone else, and

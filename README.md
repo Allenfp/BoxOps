@@ -28,13 +28,14 @@ straight to `main`, and the site updates within a minute.
   links, description) plus its **Scale** (FTE × working days, also shown on each
   timeline box), grouped by department, with search, sorting, a date range
   (boxes and PTO that overlap it) and a **Hide finished boxes and PTO**
-  switch. PTO rows sit under each department's boxes. A description shows
-  two lines until you click or Tab into it. A row you're editing stays
-  where it is, and shown, until you leave it, even if the edit sorts it
-  elsewhere or the search no longer matches it (it says so). A big roadmap
-  (over 200 rows) draws only the rows near the screen, so the browser's
-  Find (⌘F or Ctrl+F) sees only those; the table's search finds anything.
-  Printing (⌘P or Ctrl+P) prints every row as shown.
+  switch (PTO added since you opened the page stays). PTO rows sit under
+  each department's boxes. A description shows two lines until you click
+  or Tab into it. A row you're editing stays where it is, and shown, until
+  you leave it, even if the edit sorts it elsewhere or the search no longer
+  matches it (it says so). A big roadmap (over 200 rows) draws only the
+  rows near the screen, so the browser's Find (⌘F or Ctrl+F) sees only
+  those; the table's search finds anything. Printing (⌘P or Ctrl+P) prints
+  every row as shown.
 - **People.** The engineer roster: name, department, role, email, manager and
   notes, plus their PTO (read-only; edit it on the timeline or table; past
   two entries, "+N more" shows the rest). Boxes are assigned engineers from
