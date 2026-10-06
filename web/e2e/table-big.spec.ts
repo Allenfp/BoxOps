@@ -11,8 +11,9 @@ import { choose, expect, heard, openTab, pastPrintTable, test, toolbar } from ".
 // entries in 12 departments of 8 lanes (generated around the tests' today),
 // about 1,000 rows. People has 120 engineers, fewer rows than are
 // ever left out, so its tests have it draw only what's near the screen
-// anyway (`virtualize`). The clock is fixed rather than started at today:
-// these tests never move it on, and nothing they check waits on it.
+// anyway (`virtualize`). Only the date is fixed, at today's: these tests
+// never move the clock on, and the rows' measuring and what they wait for
+// (settled) go by the browser's own frames, not a fake clock's timers.
 
 const files = generateRoadmap(600, "2026-10-03");
 test.use({ files, fakeClock: "fixed" });
@@ -537,7 +538,7 @@ test("a new search or new dates show their rows from the top; hiding finished ro
   await page.getByRole("switch", { name: "Hide finished boxes and PTO" }).check();
   await expect.poll(top).toBeLessThan(scrolled);
   await settled(page);
-  expect(Math.abs((await at()) - was)).toBeLessThanOrEqual(2);
+  await expect.poll(async () => Math.abs((await at()) - was)).toBeLessThanOrEqual(2);
 });
 
 test("rows above the view getting shorter (compact density) leave the row at its top where it was", async ({ page, github: _ }) => {
@@ -562,7 +563,7 @@ test("rows above the view getting shorter (compact density) leave the row at its
   await page.keyboard.press("Escape");
   await expect.poll(boxHeight).toBeLessThan(comfortable);
   await settled(page);
-  expect(Math.abs((await row.evaluate(below)) - before)).toBeLessThanOrEqual(2);
+  await expect.poll(async () => Math.abs((await row.evaluate(below)) - before)).toBeLessThanOrEqual(2);
 });
 
 test("the row at the top of the view sorted elsewhere by an edit: the view stays, not following it", async ({ page, github: _ }) => {
@@ -594,7 +595,7 @@ test("the row at the top of the view sorted elsewhere by an edit: the view stays
   await page.locator(".table-toolbar .hint").click();
   await expect.poll(() => row.evaluate((r) => r.nextElementSibling?.getAttribute("data-row-key")).catch(() => null)).not.toBe(next);
   await settled(page);
-  expect(Math.abs((await after.evaluate(below)) - was)).toBeLessThanOrEqual(2);
+  await expect.poll(async () => Math.abs((await after.evaluate(below)) - was)).toBeLessThanOrEqual(2);
 });
 
 test("printing gives every row as shown, and leaves focus where it was", async ({ page, github: _, browserName }) => {

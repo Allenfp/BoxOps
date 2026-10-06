@@ -33,8 +33,10 @@ export const boxFile = (id: string) => `boxes/${id}.yaml`;
  * `files` are the roadmap's, in place of the fixture's. `fakeClock: false`
  * leaves the browser's own clock, and with it the navigation timing that
  * Playwright's fake one hides (it says no page is a reload); `"fixed"`
- * fixes the time at today's 09:00 (page.clock.setFixedTime) rather than
- * starting it there, for tests that never move the clock on. `cull: true`
+ * fixes the date and time at today's 09:00 and fakes nothing else, for
+ * tests that never move the clock on and wait on the browser's own frames
+ * (Playwright's clock, setFixedTime too, makes requestAnimationFrame a
+ * 16 ms timer, out of step with ResizeObserver and drawing). `cull: true`
  * has the timeline draw only what's near the screen, as it does for a big
  * roadmap, whatever the roadmap's size (false: all of it, always);
  * `virtualize` does the same for the table's and People's rows. Every
@@ -80,7 +82,7 @@ export const test = base.extend<{
   csp: async ({ watched }, use) => use(watched.csp),
   github: async ({ page, signedIn, visibility, files, fakeClock, cull, virtualize, timezoneId }, use) => {
     const github = await FakeGitHub.create(files, { visibility });
-    if (fakeClock === "fixed") await page.clock.setFixedTime(morningIn(timezoneId));
+    if (fakeClock === "fixed") await page.addInitScript(fixDate, morningIn(timezoneId).getTime());
     else if (fakeClock) await page.clock.install({ time: morningIn(timezoneId) });
     if (cull !== undefined) await page.context().addInitScript((c) => (window.__boxopsTest = { ...window.__boxopsTest, cull: c }), cull);
     if (virtualize !== undefined) await page.context().addInitScript((v) => (window.__boxopsTest = { ...window.__boxopsTest, virtualize: v }), virtualize);
@@ -188,6 +190,19 @@ export async function saveKeyTaken(page: Page): Promise<boolean> {
   );
   await save(page);
   return page.evaluate(() => (window as Seen).saveKeyTaken === true);
+}
+
+/**
+ * Fixes `Date` at `at` (ms): `new Date()` and `Date.now()` are always then.
+ * Timers, animation frames and performance.now() are the browser's own.
+ */
+function fixDate(at: number) {
+  const RealDate = Date;
+  window.Date = new Proxy(RealDate, {
+    construct: (target, args, newTarget) => Reflect.construct(target, args.length ? args : [at], newTarget),
+    apply: () => new RealDate(at).toString(),
+    get: (target, key, receiver) => (key === "now" ? () => at : Reflect.get(target, key, receiver)),
+  });
 }
 
 /**
