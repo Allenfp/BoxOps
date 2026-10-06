@@ -20,6 +20,24 @@
   --seg-track: #eceef2;
   --seg-on: #ffffff;
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.1), 0 0 0 0.5px rgba(16, 24, 40, 0.06);
+  /*
+   * What's drawn over what. Inside a scrolling view (the timeline, the table): items, a selected or
+   * focused one (and the Today line, the table's header), the pinned label or title column, what has
+   * focus in it, a box or PTO block being dragged (and its dates), the timeline's header and its corner.
+   */
+  --z-item: 1;
+  --z-raised: 2;
+  --z-pinned: 3;
+  --z-pinned-focus: 4;
+  --z-dragged: 5;
+  --z-head: 6;
+  --z-corner: 7;
+  /* Over the page: the box and PTO editors, panels and popups, the broken-rule popup, the calendar, the skip link. */
+  --z-editor: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-calendar: 80;
+  --z-skip-link: 100;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   font-size: 13px;
   color: var(--text);
@@ -151,7 +169,7 @@ button:hover {
   position: absolute;
   top: 8px;
   left: 8px;
-  z-index: 100;
+  z-index: var(--z-skip-link);
   padding: 6px 12px;
   border-radius: 6px;
   background: var(--surface);
@@ -281,7 +299,7 @@ button.icon-only[aria-disabled="true"] {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 60;
+  z-index: var(--z-popover);
   min-width: 220px;
   max-width: min(460px, calc(100vw - 32px));
   max-height: 70vh;
@@ -401,7 +419,7 @@ button.icon-only[aria-disabled="true"] {
 .tl-head {
   position: sticky;
   top: 0;
-  z-index: 6;
+  z-index: var(--z-head);
   display: flex;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -409,7 +427,7 @@ button.icon-only[aria-disabled="true"] {
 .tl-corner {
   position: sticky;
   left: 0;
-  z-index: 7;
+  z-index: var(--z-corner);
   flex: none;
   display: flex;
   flex-direction: column;
@@ -494,7 +512,7 @@ button.icon-only[aria-disabled="true"] {
   bottom: 0;
   width: 1px;
   background: var(--today);
-  z-index: 2;
+  z-index: var(--z-raised);
   pointer-events: none;
 }
 
@@ -508,7 +526,7 @@ button.icon-only[aria-disabled="true"] {
 .label {
   position: sticky;
   left: 0;
-  z-index: 3;
+  z-index: var(--z-pinned);
   flex: none;
   display: flex;
   align-items: center;
@@ -649,7 +667,7 @@ button.icon-only[aria-disabled="true"] {
   white-space: nowrap;
   /* clip, not hidden: hidden would make the box a scroll container and break the sticky title. */
   overflow: clip;
-  z-index: 1;
+  z-index: var(--z-item);
   cursor: default;
   background: color-mix(in srgb, var(--c) 15%, var(--surface));
   color: var(--text);
@@ -746,24 +764,24 @@ button.icon-only[aria-disabled="true"] {
 .box.selected {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  z-index: 2;
+  z-index: var(--z-raised);
 }
 /* Focus back on a box or PTO block once its editor closes: a ring unlike the selection's. */
 .box:focus-visible,
 .pto-block:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
-  z-index: 2;
+  z-index: var(--z-raised);
 }
 .box.dragging {
-  z-index: 5;
+  z-index: var(--z-dragged);
   opacity: 0.92;
   box-shadow: 0 6px 18px rgba(16, 24, 40, 0.28);
 }
 .drag-dates {
   position: absolute;
   top: -18px;
-  z-index: 6;
+  z-index: var(--z-dragged);
   font-size: 12px;
   padding: 1px 6px;
   border-radius: 4px;
@@ -883,7 +901,7 @@ button.collapse-all:hover {
 
 .editor {
   position: fixed;
-  z-index: 50;
+  z-index: var(--z-editor);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1391,7 +1409,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .box-table th {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: var(--z-raised);
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
   text-align: left;
@@ -1549,13 +1567,13 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .box-table .col-title {
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: var(--z-item);
   background: var(--surface);
   box-shadow: 1px 0 0 var(--border);
   white-space: nowrap;
 }
 .box-table th.col-title {
-  z-index: 3;
+  z-index: var(--z-pinned);
   background: var(--surface-2);
 }
 .col-title {
@@ -1731,7 +1749,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 /* What has focus in a label is drawn whole, its ring too, over the rows beside it: a half-FTE
    lane's row is shorter than its name and + (22 px, 18 compact, against 24). */
 .label:focus-within {
-  z-index: 4;
+  z-index: var(--z-pinned-focus);
 }
 .lane-row > .lane-label:focus-within {
   overflow: visible;
@@ -1833,7 +1851,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 }
 .picker-menu {
   position: absolute;
-  z-index: 60;
+  z-index: var(--z-popover);
   top: calc(100% + 4px);
   left: 0;
   min-width: 220px;
@@ -1914,7 +1932,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   grid-area: 1 / 1;
   min-width: 0;
 }
-/* Over the field, but under the sticky title column (z-index 1) that the table scrolls sideways beneath. */
+/* Over the field, but under the sticky title column (--z-item) that the table scrolls sideways beneath. */
 .box-table .grow-text {
   position: relative;
   z-index: 0;
@@ -2289,7 +2307,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 70;
+  z-index: var(--z-toast);
   width: min(440px, calc(100vw - 32px));
   padding: 12px 40px 12px 14px;
   border-radius: 10px;
@@ -2385,7 +2403,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   line-height: 14px;
   white-space: nowrap;
   overflow: clip;
-  z-index: 1;
+  z-index: var(--z-item);
   color: var(--text-muted);
   border: 1px solid var(--grid-major);
   background: repeating-linear-gradient(
@@ -2423,10 +2441,10 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .pto-block.selected {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  z-index: 2;
+  z-index: var(--z-raised);
 }
 .pto-block.dragging {
-  z-index: 5;
+  z-index: var(--z-dragged);
   box-shadow: 0 6px 18px rgba(16, 24, 40, 0.22);
 }
 .pto-chip,
@@ -2552,7 +2570,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 }
 .scale-pop {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-popover);
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--surface);
@@ -2584,7 +2602,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   position: absolute;
   top: calc(100% + 2px);
   left: 0;
-  z-index: 6;
+  z-index: var(--z-head);
   padding: 2px 6px;
   border: 1px solid var(--today);
   border-radius: 6px;
@@ -2920,7 +2938,7 @@ kbd {
 /* Our own month calendar for date fields (DateInput.tsx): a dialog with a grid of days. */
 .calendar {
   position: fixed;
-  z-index: 80;
+  z-index: var(--z-calendar);
   width: 232px;
   padding: 8px;
   background: var(--surface);
@@ -3080,7 +3098,7 @@ kbd {
   background: var(--accent);
   border-radius: 1px;
   pointer-events: none;
-  z-index: 50;
+  z-index: var(--z-editor);
   box-shadow: 0 0 0 1px var(--surface);
 }
 .reordering-this {
