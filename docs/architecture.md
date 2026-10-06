@@ -617,20 +617,22 @@ when a focused element is removed.
 - **Keys.** ⌘ and Ctrl both work everywhere; labels say ⌘ on Apple's
   platforms and Ctrl elsewhere (`a11y/keys.ts`). A letter is matched by
   `key`, or by its place (`code`) when the layout doesn't type Latin
-  letters. No shortcut takes Alt: Windows reports AltGr as Ctrl+Alt, and
-  AltGr+S types Polish ś, not a save. Undo, redo and ⌘S never act behind
-  the save dialog, the key or the shortcuts list, nor with a menu open
-  (with focus in it, on its button or nowhere); in the editors they do, as
-  the editing happens there. In a text field ⌘Z is the field's own (a
-  select, checkbox or switch has none: there it's the app's), but in a
-  table cell left with Enter or Esc, until
-  something's typed, it's the app's (`data-settled`), as it was once focus
-  had left. Delete and Backspace delete only the box or PTO block that has
-  focus on the timeline, once however long they're held, and nothing from
-  anywhere else (a stray Backspace in an editor used to delete what it
-  edited); the editors' Delete button deletes too. Outside a text field,
-  Backspace is never the browser's Back. N and ? are the only single-letter
-  keys, and only on the timeline (WCAG 2.1.4).
+  letters. No letter shortcut takes Alt (Windows reports AltGr as Ctrl+Alt,
+  and AltGr+S types Polish ś, not a save); Alt goes with arrow keys only:
+  Option/Alt+↓ in a date field, Option/Alt+↑ ↓ on a department's name,
+  Option/Alt+← → on a box or PTO block picked up. Undo, redo and ⌘S never
+  act behind the save dialog, the key or the shortcuts list, nor with a menu
+  open (with focus in it, on its button or nowhere); in the editors they do,
+  as the editing happens there. In a text field ⌘Z is the field's own (a
+  select, checkbox or switch has none: there it's the app's), but in a table
+  cell left with Enter or Esc, until something's typed, it's the app's
+  (`data-settled`), as it was once focus had left. Delete and Backspace
+  delete only the box or PTO block that has focus on the timeline, once
+  however long they're held, and nothing from anywhere else (a stray
+  Backspace in an editor used to delete what it edited); the editors' Delete
+  button deletes too. Outside a text field, Backspace is never the browser's
+  Back. N and ? are the only single-letter keys, and only on the timeline
+  (WCAG 2.1.4).
 - **The timeline** is an APG layout grid (`components/useGridFocus.ts`,
   `timeline/keyboard.ts`): rows are a department's heading, each lane, its
   extra area and its PTO, each with a short name of its own ("Data
