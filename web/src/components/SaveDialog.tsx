@@ -4,6 +4,7 @@ import { main, onPage, useReturnFocus } from "../a11y/focus";
 import type { FailureKind, GitHubFailure } from "../github/api";
 import { TOKEN_KINDS, failureMessage } from "../github/messages";
 import type { Source } from "../github/read";
+import { counted } from "../model/count";
 import type { ChangeLine } from "../model/summary";
 import { Icon } from "./Icon";
 import { TokenForm, TokenHelp } from "./TokenForm";
@@ -210,7 +211,7 @@ export function SaveDialog({
               Back to editing
             </button>
             <button className="primary" onClick={onReviewed}>
-              Save {lines.length} change{lines.length === 1 ? "" : "s"}
+              Save {counted(lines.length, "change")}
             </button>
           </footer>
         </>
@@ -486,7 +487,7 @@ function Updated({
       </p>
       {saves.length > 0 && (
         <ul className="save-list">
-          {saves.length > MAX_SAVES && <li className="hint">…and {saves.length - MAX_SAVES} earlier saves</li>}
+          {saves.length > MAX_SAVES && <li className="hint">…and {counted(saves.length - MAX_SAVES, "earlier save")}</li>}
           {shown.map((c, i) => (
             <li key={i}>
               <strong>{c.author}</strong> saved “{c.subject}”
@@ -568,7 +569,7 @@ function ChangeList({ lines }: { lines: ChangeLine[] }) {
   return (
     <details className="files">
       <summary>
-        {lines.length} change{lines.length === 1 ? "" : "s"} to save
+        {counted(lines.length, "change")} to save
       </summary>
       <Lines lines={lines} />
     </details>
