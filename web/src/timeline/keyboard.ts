@@ -20,7 +20,7 @@ export interface NavCell {
 }
 export interface NavRow {
   cells: NavCell[];
-  /** A department's heading (Page Up and Page Down go between these). */
+  /** A department's heading (Page Up and Page Down go to the one above or below). */
   heading: boolean;
 }
 export interface At {
@@ -50,7 +50,8 @@ export function nearest(cells: NavCell[], day: Day): number {
  * not the earliest. Up and down go to the next row with cells: from a box,
  * to the cell nearest `anchor` in time (the day being looked at, kept
  * through a run of ups and downs); from a label, to the label in the same
- * place. Page Up and Page Down go to the previous or next department heading.
+ * place. Page Up and Page Down go to the department heading above or below:
+ * from inside a department, Page Up goes to its own.
  */
 export function navigate(rows: NavRow[], at: At, key: NavKey, anchor: Day): At | null {
   const cells = rows[at.row]?.cells ?? [];

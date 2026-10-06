@@ -289,7 +289,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
       ["← → ↑ ↓", "Between lanes, boxes and PTO; up and down to what runs at the same time"],
       [`Home, End  or  ${shortcut("←")} ${shortcut("→")}`, "Start or end of the row"],
       [`${shortcut("↑")} ${shortcut("↓")}`, "First or last of the timeline"],
-      [PAGE_KEYS, "Previous or next department"],
+      [PAGE_KEYS, "The department heading above or below"],
       ["Enter", "Open the box or PTO"],
       ["Space", "Pick the box or PTO up, to move it"],
       ["N", "New box in the lane (after the box you're on), or PTO in a PTO row"],

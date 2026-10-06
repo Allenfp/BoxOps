@@ -93,26 +93,26 @@ straight to `main`, and the site updates within a minute.
   are always there.
 - **Keyboard and screen readers.** "Skip to roadmap" is the first stop for
   Tab. The timeline is one Tab stop: the arrow keys go between lanes, boxes
-  and PTO (up and down to what runs at the same time), Home and End (or ⌘
-  or Ctrl with ← →) to the ends of a row, Page Up and Page Down between
-  departments. Enter opens a box or PTO; Space picks it up to move it with
-  the arrow keys (Shift for a week, Option or Alt for its end date only, ↑ ↓
-  for its lane), Enter drops it and Esc puts it back. N adds a box in a
-  lane (or PTO in a PTO row), Delete deletes the box or PTO you're on, and
-  Option or Alt with ↑ ↓ on a department's name moves it, in the table too.
-  ? lists the keys. Dialogs and the box and PTO editors keep Tab inside
-  them, Esc closes them (and the toolbar's menus, which close too once
-  focus leaves them), and focus goes back where it was. In the table and
-  People, Enter keeps what's typed and stays in the cell (⌘Z or Ctrl+Z then
-  undoes it), and Esc puts a text cell back; a choice, or a whole date, is
-  kept at once (⌘Z or Ctrl+Z undoes it). Dates are typed as YYYY-MM-DD, kept
-  as soon as they're whole, in an editor too (Esc drops half of one;
-  deleting the text of one that can be left out, like a lane's or the
-  table's date range, clears it); **Choose date** beside one, or Option or
-  Alt with ↓ in it, opens a calendar, where the arrow keys move a working
-  day or a week, Home and End go to Monday and Friday, Page Up and Page Down
-  a month (with Shift, a year), Enter picks, and Esc closes the calendar
-  alone. Saves, other people's saves, search results, broken rules,
+  and PTO (up and down to what runs at the same time), Home and End (or ⌘ or
+  Ctrl with ← →) to the ends of a row, Page Up and Page Down to the
+  department heading above or below. Enter opens a box or PTO; Space picks
+  it up to move it with the arrow keys (Shift for a week, Option or Alt for
+  its end date only, ↑ ↓ for its lane), Enter drops it and Esc puts it back.
+  N adds a box in a lane (or PTO in a PTO row), Delete deletes the box or
+  PTO you're on, and Option or Alt with ↑ ↓ on a department's name moves it,
+  in the table too. ? lists the keys. Dialogs and the box and PTO editors
+  keep Tab inside them, Esc closes them (and the toolbar's menus, which
+  close too once focus leaves them), and focus goes back where it was. In
+  the table and People, Enter keeps what's typed and stays in the cell (⌘Z
+  or Ctrl+Z then undoes it), and Esc puts a text cell back; a choice, or a
+  whole date, is kept at once (⌘Z or Ctrl+Z undoes it). Dates are typed as
+  YYYY-MM-DD, kept as soon as they're whole, in an editor too (Esc drops
+  half of one; deleting the text of one that can be left out, like a lane's
+  or the table's date range, clears it); **Choose date** beside one, or
+  Option or Alt with ↓ in it, opens a calendar, where the arrow keys move a
+  working day or a week, Home and End go to Monday and Friday, Page Up and
+  Page Down a month (with Shift, a year), Enter picks, and Esc closes the
+  calendar alone. Saves, other people's saves, search results, broken rules,
   deletions (with how to undo them), moves and what they'd do (a department
   over capacity, a rule broken, someone on PTO), departments and lanes moved
   in the department editor, engineers added from the Engineers list and

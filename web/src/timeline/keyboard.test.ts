@@ -60,10 +60,14 @@ describe("navigate", () => {
     expect(navigate(rows, { row: 7, col: 0 }, "down", OCT)).toEqual({ row: 8, col: 0 });
   });
 
-  it("Page Up and Down go between department headings; first and last to the grid's ends", () => {
+  it("Page Up and Down go to the department heading above or below; first and last to the grid's ends", () => {
     expect(navigate(rows, { row: 3, col: 2 }, "pageDown", OCT)).toEqual({ row: 8, col: 0 });
+    // From inside a department, Page Up goes to its own heading; from there, to the one before.
     expect(navigate(rows, { row: 3, col: 2 }, "pageUp", OCT)).toEqual({ row: 0, col: 0 });
+    expect(navigate(rows, { row: 7, col: 0 }, "pageUp", OCT)).toEqual({ row: 0, col: 0 });
+    expect(navigate(rows, { row: 8, col: 1 }, "pageUp", OCT)).toEqual({ row: 0, col: 0 });
     expect(navigate(rows, { row: 0, col: 1 }, "pageUp", OCT)).toBeNull();
+    expect(navigate(rows, { row: 8, col: 0 }, "pageDown", OCT)).toBeNull();
     expect(navigate(rows, { row: 5, col: 0 }, "first", OCT)).toEqual({ row: 0, col: 0 });
     expect(navigate(rows, { row: 5, col: 0 }, "last", OCT)).toEqual({ row: 8, col: 1 });
     expect(navigate(rows, { row: 8, col: 1 }, "last", OCT)).toBeNull();
