@@ -1,13 +1,14 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Browser, Locator, Page } from "@playwright/test";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import type { FakeGitHub } from "./fake-github";
 import { choose, expect, openTab, test, toolbar } from "./helpers";
 
 // A big roadmap's table draws only the rows near the screen
 // (table/useWindowedRows.ts), and nothing on screen is ever missing from it:
-// checked against the same table drawn whole in a second tab. 600 boxes and
-// 360 PTO entries in 12 departments of 8 lanes (generated around the tests'
-// today), about 1,000 rows. People has 120 engineers, fewer rows than are
+// checked against the same table drawn whole in a second window (a smaller
+// roadmap, so drawing it whole takes less time). 600 boxes and 360 PTO
+// entries in 12 departments of 8 lanes (generated around the tests' today),
+// about 1,000 rows. People has 120 engineers, fewer rows than are
 // ever left out, so its tests have it draw only what's near the screen
 // anyway (`virtualize`). The clock is fixed rather than started at today:
 // these tests never move it on, and nothing they check waits on it.
@@ -35,13 +36,19 @@ const onScreen = (page: Page) =>
       .map((r) => `${r.getAttribute("aria-rowindex")} ${(r.querySelector("input, select, button") as HTMLInputElement | null)?.value ?? r.textContent}`);
   });
 
-/** The same roadmap in another tab, its table drawn whole, however big. */
-async function wholeTab(page: Page, github: FakeGitHub): Promise<Page> {
-  page.context().once("page", (tab) => void tab.addInitScript(() => (window.__boxopsTest = { virtualize: false })));
-  const tab = await openTab(page.context(), github);
+/**
+ * The same roadmap in another window, its table drawn whole, however big. A
+ * window of its own (a browser context): Chromium hides a tab behind another
+ * in the same window, and slows its clock right down.
+ */
+async function wholeTab(browser: Browser, github: FakeGitHub): Promise<Page> {
+  const { viewport, timezoneId } = test.info().project.use;
+  const context = await browser.newContext({ viewport, timezoneId });
+  await context.addInitScript(() => (window.__boxopsTest = { virtualize: false }));
+  const tab = await openTab(context, github);
   await tab.getByRole("button", { name: "Table", exact: true }).click();
-  // About 1,000 rows, every one drawn, while the other tests run: given time.
-  await expect(tab.locator(".box-table")).toBeVisible({ timeout: 20_000 });
+  // About 500 rows, every one drawn, while the other tests run: given time.
+  await expect(tab.locator(".box-table")).toBeVisible({ timeout: 60_000 });
   return tab;
 }
 
@@ -61,52 +68,58 @@ test.beforeEach(async ({ page, github: _ }) => {
   await expect(page.locator(".box-table")).toBeVisible();
 });
 
-test("only rows near the screen are drawn; the table counts every row, and spacers stand for the rest", async ({ page, github }) => {
-  const whole = await wholeTab(page, github);
-  const all = await whole.locator(".box-table tbody tr").count();
-  expect(await dataRows(whole).count()).toBeGreaterThan(900);
-  const drawn = await dataRows(page).count();
-  expect(drawn).toBeGreaterThan(10);
-  expect(drawn).toBeLessThanOrEqual(70);
-  // A select with every lane in it lists only its chosen one until it's used.
-  expect(await page.locator(".box-table option").count()).toBeLessThanOrEqual(drawn * 25);
+test.describe("against the table drawn whole", () => {
+  // 300 boxes and 180 PTO entries in 6 departments: about 500 rows, drawn whole in the other window.
+  test.use({ files: generateRoadmap(300, "2026-10-03") });
+  test.slow();
 
-  // Every row is counted; each one drawn says which it is, in order; spacers are hidden.
-  const table = page.locator(".box-table");
-  await expect(table).toHaveAttribute("aria-rowcount", String(all + 1));
-  await expect(table.locator("thead tr")).toHaveAttribute("aria-rowindex", "1");
-  const indexes = () => table.locator("tbody tr[aria-rowindex]").evaluateAll((els) => els.map((r) => Number(r.getAttribute("aria-rowindex"))));
-  expect((await indexes())[0]).toBe(2);
-  expect(await indexes()).toEqual((await indexes()).toSorted((a, b) => a - b));
-  await expect(table.locator("tr.spacer").first()).toHaveAttribute("aria-hidden", "true");
-  await scrollTo(page, 1);
-  await expect.poll(async () => (await indexes()).at(-1)).toBe(all + 1);
+  test("only rows near the screen are drawn; the table counts every row, and spacers stand for the rest", async ({ page, github, browser }) => {
+    const whole = await wholeTab(browser, github);
+    const all = await whole.locator(".box-table tbody tr").count();
+    expect(await dataRows(whole).count()).toBeGreaterThan(450);
+    const drawn = await dataRows(page).count();
+    expect(drawn).toBeGreaterThan(10);
+    expect(drawn).toBeLessThanOrEqual(70);
+    // A select with every lane in it lists only its chosen one until it's used.
+    expect(await page.locator(".box-table option").count()).toBeLessThanOrEqual(drawn * 25);
 
-  // Spacers are as tall as what they stand for: each department takes the same room as drawn whole.
-  const heights = (p: Page) => p.locator(".box-table [data-reorder-id]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
-  expect(await heights(page)).toEqual(await heights(whole));
-});
+    // Every row is counted; each one drawn says which it is, in order; spacers are hidden.
+    const table = page.locator(".box-table");
+    await expect(table).toHaveAttribute("aria-rowcount", String(all + 1));
+    await expect(table.locator("thead tr")).toHaveAttribute("aria-rowindex", "1");
+    const indexes = () => table.locator("tbody tr[aria-rowindex]").evaluateAll((els) => els.map((r) => Number(r.getAttribute("aria-rowindex"))));
+    expect((await indexes())[0]).toBe(2);
+    expect(await indexes()).toEqual((await indexes()).toSorted((a, b) => a - b));
+    await expect(table.locator("tr.spacer").first()).toHaveAttribute("aria-hidden", "true");
+    await scrollTo(page, 1);
+    await expect.poll(async () => (await indexes()).at(-1)).toBe(all + 1);
 
-test("nothing on screen is missing, wherever the table is scrolled", async ({ page, github }) => {
-  const whole = await wholeTab(page, github);
-  for (const y of [0, 0.5, 1, 0.13, 0.77, 0.4]) {
-    for (const p of [page, whole]) await scrollTo(p, y);
-    const expected = await onScreen(whole);
-    expect(expected.length).toBeGreaterThan(5);
-    await expect.poll(() => onScreen(page), { message: `at ${y}` }).toEqual(expected);
-  }
-  // Scrolled a step at a time, as a wheel or trackpad does, the rows on screen are drawn too.
-  await scrollTo(page, 0.3);
-  for (let i = 0; i < 10; i++) {
-    await page.mouse.move(700, 500);
-    await page.mouse.wheel(0, 400);
-    await expect
-      .poll(() => scroller(page).evaluate((el) => {
-        const r = el.getBoundingClientRect();
-        return [0.2, 0.5, 0.9].map((f) => document.elementFromPoint(r.left + 300, r.top + 40 + (el.clientHeight - 40) * f)?.closest("tr")?.className.split(" ")[0]);
-      }))
-      .not.toContain("spacer");
-  }
+    // Spacers are as tall as what they stand for: each department takes the same room as drawn whole.
+    const heights = (p: Page) => p.locator(".box-table [data-reorder-id]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+    expect(await heights(page)).toEqual(await heights(whole));
+  });
+
+  test("nothing on screen is missing, wherever the table is scrolled", async ({ page, github, browser }) => {
+    const whole = await wholeTab(browser, github);
+    for (const y of [0, 0.5, 1, 0.13, 0.77, 0.4]) {
+      for (const p of [page, whole]) await scrollTo(p, y);
+      const expected = await onScreen(whole);
+      expect(expected.length).toBeGreaterThan(5);
+      await expect.poll(() => onScreen(page), { message: `at ${y}` }).toEqual(expected);
+    }
+    // Scrolled a step at a time, as a wheel or trackpad does, the rows on screen are drawn too.
+    await scrollTo(page, 0.3);
+    for (let i = 0; i < 10; i++) {
+      await page.mouse.move(700, 500);
+      await page.mouse.wheel(0, 400);
+      await expect
+        .poll(() => scroller(page).evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          return [0.2, 0.5, 0.9].map((f) => document.elementFromPoint(r.left + 300, r.top + 40 + (el.clientHeight - 40) * f)?.closest("tr")?.className.split(" ")[0]);
+        }))
+        .not.toContain("spacer");
+    }
+  });
 });
 
 test("a row being edited stays drawn and keeps what's typed, scrolled away and back", async ({ page, github: _ }) => {
