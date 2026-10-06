@@ -642,13 +642,13 @@ when a focused element is removed.
   something say why they don't. The dates along the top, grid lines,
   hatching and drag labels are hidden from screen readers. The popup is
   drawn under the editors, menus and dialogs, so it never hides what has
-  focus in them either. A box's scale
-  card shows on hover and while the box has keyboard focus; the pointer
-  can move onto it and Escape puts it away (WCAG 1.4.13). Pressing a box or
-  PTO block (to drag it, say) focuses it without the keyboard's ring or
-  the card, and so does putting focus back on it after a drop: browsers
-  draw a ring whenever a script moves focus, so it's told by whether a key
-  or a press came last (`focusByPress`).
+  focus in them either. A box's scale card shows on hover and while the
+  box has keyboard focus; the pointer can move onto it and Escape puts it
+  away (WCAG 1.4.13). Pressing a box or PTO block (to drag it, say)
+  focuses it without the keyboard's ring or the card, and so does putting
+  focus back on it after a drop: browsers draw a ring whenever a script
+  moves focus, so it's told by whether a key or a press came last
+  (`focusByPress`).
 - **Contrast.** Text meets 4.5:1 and what shows a control or its state (a
   field's edge, a switch, the chosen segment, a box's progress mark and
   resize grips, a collapsed department's boxes) 3:1, in both themes. A
@@ -907,34 +907,34 @@ when a focused element is removed.
   their own class says, not as a broader rule would; Windows' contrast
   themes, emulated in Chromium; less motion; a long title at 1280 px and
   everything at 320 px; touch screens; target sizes), and the unit test
-  `src/styles/contrast.test.ts` every colour pair; `e2e/keyboard.spec.ts` checks where focus goes and what keys
-  do, `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's
-  keyboard grid and moves, and `e2e/drag.spec.ts` dragging. The timeline's
-  specs (those three, `timeline`, `departments` and `pto`) run again in
-  WebKit with the timeline drawing only what's near the screen whatever the
-  roadmap's size (`cull`, a test option), skipping only the checks that
-  count every box; `e2e/timeline-big.spec.ts` checks a 600-box
-  roadmap against itself drawn whole: nothing on screen missing at any
-  scroll or zoom, focus and moves kept drawn, what the app focuses or shows
-  (from the warnings, from People, after an editor's Delete) drawn, the
-  grid's rows counted. The table's and People's specs (`table`, `people`,
-  `pto`, `keyboard`, and `departments` for headings dragged and moved in
-  the table) run again in WebKit with only the rows near the screen
-  drawn (`virtualize`, a test option), and `e2e/table-big.spec.ts` checks a
-  big table (300 boxes) against itself drawn whole in another window (every
-  row counted, nothing on screen missing however it's scrolled) and a
-  600-box one for the rest: rows being edited kept (and their place, the
-  window losing focus too), focus going with a row that moves (a PTO entry
-  given to someone else too) or is deleted, Tab across what's drawn, the
-  view kept in place as rows above it get shorter or are hidden but not
-  across a new sort, a new search or dates shown from the top, the
-  header's buttons never scrolling it and letting go of the row
-  being edited, finished PTO hidden (but not PTO added, after another view
-  too), new rows scrolled to and focused, printing every row on pages no
-  bigger than the rows, dates unbroken. Its clock is fixed
-  (`page.clock.setFixedTime`), as nothing it checks moves it on.
-  WebKit's Tab skips buttons, as Safari's does by default, so those tests
-  focus a control and check where focus lands.
+  `src/styles/contrast.test.ts` every colour pair; `e2e/keyboard.spec.ts`
+  checks where focus goes and what keys do, `e2e/timeline-keys.spec.ts`
+  and `e2e/move.spec.ts` the timeline's keyboard grid and moves, and
+  `e2e/drag.spec.ts` dragging. The timeline's specs (those three,
+  `timeline`, `departments` and `pto`) run again in WebKit with the
+  timeline drawing only what's near the screen whatever the roadmap's size
+  (`cull`, a test option), skipping only the checks that count every box;
+  `e2e/timeline-big.spec.ts` checks a 600-box roadmap against itself drawn
+  whole: nothing on screen missing at any scroll or zoom, focus and moves
+  kept drawn, what the app focuses or shows (from the warnings, from
+  People, after an editor's Delete) drawn, the grid's rows counted. The
+  table's and People's specs (`table`, `people`, `pto`, `keyboard`, and
+  `departments` for headings dragged and moved in the table) run again in
+  WebKit with only the rows near the screen drawn (`virtualize`, a test
+  option), and `e2e/table-big.spec.ts` checks a big table (300 boxes)
+  against itself drawn whole in another window (every row counted, nothing
+  on screen missing however it's scrolled) and a 600-box one for the rest:
+  rows being edited kept (and their place, the window losing focus too),
+  focus going with a row that moves (a PTO entry given to someone else
+  too) or is deleted, Tab across what's drawn, the view kept in place as
+  rows above it get shorter or are hidden but not across a new sort, a new
+  search or dates shown from the top, the header's buttons never scrolling
+  it and letting go of the row being edited, finished PTO hidden (but not
+  PTO added, after another view too), new rows scrolled to and focused,
+  printing every row on pages no bigger than the rows, dates unbroken. Its
+  clock is fixed (`page.clock.setFixedTime`), as nothing it checks moves
+  it on. WebKit's Tab skips buttons, as Safari's does by default, so those
+  tests focus a control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build with a generated 2,000-box roadmap
   (`scripts/gen-roadmap.ts`; and a 500-box one) as its `roadmap.json`,

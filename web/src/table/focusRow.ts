@@ -10,9 +10,10 @@ export const rowKeyOf = (el: EventTarget | null): string | null =>
  * Scroll `scroller` so `el`, in one of its rows, isn't under its sticky
  * header, or its sticky title column (`td.col-title`; People's names,
  * `td.col-name`), which stays put while the rest scrolls sideways, or the
- * broken-rule popup over the bottom right corner, or past its edges. WebKit doesn't scroll what Tab focuses clear of them, and
- * `focus()` centres what it scrolls to, so this is done for every focus in a
- * row, by hand. Not for the header's own buttons (always on screen:
+ * broken-rule popup over the bottom right corner, or past its edges.
+ * WebKit doesn't scroll what Tab focuses clear of them, and `focus()`
+ * centres what it scrolls to, so this is done for every focus in a row, by
+ * hand. Not for the header's own buttons (always on screen:
  * scrolling for them would move the table on each Tab or click), nor what's
  * in a calendar or the Engineers list (fixed on the screen, over the table).
  */
