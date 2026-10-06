@@ -48,11 +48,13 @@ export interface WindowedRows {
   ranges: readonly Range[];
   /** Rows `start` to `end` (a department's) as what to draw: rows, and spacers as tall as the rest. */
   runs(start: number, end: number): Run[];
-  /** For a row's <tr ref>: measures it while it's drawn. The same function every time for one key. */
+  /** For a row's <tr ref>: measures it while it's drawn (only some are). The same function every time for one key. */
   measure(key: string): (el: HTMLElement | null) => void;
   /** Scroll the row with this key into view (`center`: to the middle), drawing what's there at once. False if there's no such row. */
   scrollTo(key: string, align?: "nearest" | "center"): boolean;
 }
+
+const none = () => {};
 
 /** Something that closes when the table scrolls is open in it. */
 const popupOpen = (scroller: HTMLElement) => !!scroller.querySelector(".calendar, .picker-menu");
@@ -154,7 +156,7 @@ export function useWindowedRows(o: {
   // it's painted (drawn at once, rows that come into view would be observed too late for this frame: the browser
   // reports that as an error), and the view kept in place then (below).
   const observer = useRef<ResizeObserver | null>(null);
-  const frame = useRef(0);
+  const measuring = useRef(0);
   const observe = useCallback((el: HTMLElement) => {
     observer.current ??= new ResizeObserver((entries) => {
       // Drawn again only if a row isn't as tall as it was taken to be.
@@ -168,9 +170,9 @@ export function useWindowedRows(o: {
         const i = index.get(key);
         if (i === undefined || i + 1 >= tops.length || tops[i + 1] - tops[i] !== h) changed = true;
       }
-      if (changed && !frame.current) {
-        frame.current = requestAnimationFrame(() => {
-          frame.current = 0;
+      if (changed && !measuring.current) {
+        measuring.current = requestAnimationFrame(() => {
+          measuring.current = 0;
           flushSync(() => setMeasured(new Map(sizes.current)));
         });
       }
@@ -180,13 +182,15 @@ export function useWindowedRows(o: {
   useLayoutEffect(
     () => () => {
       observer.current?.disconnect();
-      cancelAnimationFrame(frame.current);
+      cancelAnimationFrame(measuring.current);
     },
     [],
   );
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const measure = useCallback(
     (key: string) => {
+      // Every row drawn, nothing to measure.
+      if (!enabled) return none;
       let ref = refs.current.get(key);
       if (!ref) {
         let drawnAs: HTMLElement | null = null;
@@ -206,7 +210,7 @@ export function useWindowedRows(o: {
       }
       return ref;
     },
-    [observe],
+    [enabled, observe],
   );
 
   // Keep the view in place: the row at its top before this change is where it was. Rows above it that were
