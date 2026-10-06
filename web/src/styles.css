@@ -2902,9 +2902,10 @@ kbd {
 .icon.flip {
   transform: rotate(180deg);
 }
-/* Six weeks high whatever the month, so the calendar keeps its size and place. */
+/* Six weeks high whatever the month, so the calendar keeps its size and place (taller with
+   bigger text, as Safari's text-only zoom or a minimum font size makes it, not spilling over). */
 .calendar-days {
-  height: 206px;
+  min-height: 206px;
 }
 .calendar-grid {
   width: 100%;
@@ -2940,15 +2941,17 @@ kbd {
   opacity: 0.55;
   cursor: default;
 }
-.calendar-day.weekend:hover {
+.calendar-day.weekend:not(.selected):hover {
   background: none;
 }
 .calendar-day.today {
   box-shadow: inset 0 0 0 1px var(--today);
 }
+/* In full, a weekend too (one typed in the table's date range). */
 .calendar-day.selected {
   background: var(--accent-fill);
   color: #fff;
+  opacity: 1;
 }
 .calendar-foot {
   display: flex;
