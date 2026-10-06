@@ -363,9 +363,10 @@
   outline-offset: 2px;
   z-index: var(--z-raised);
 }
-/* Focus from a press, or left there after a drag: no ring (useGridFocus.ts), but a thin edge, as Delete, Space and N act on it. */
-.box:focus:not(:focus-visible),
-.pto-block:focus:not(:focus-visible) {
+/* Focus from a press, or left there after a drag: no ring (useGridFocus.ts), but a thin edge, as Delete, Space and N act on it.
+   No more specific than .box: a selected or dragged box looks as it does. */
+.box:where(:focus:not(:focus-visible)),
+.pto-block:where(:focus:not(:focus-visible)) {
   outline: 1px solid var(--text);
   outline-offset: 2px;
   z-index: var(--z-raised);

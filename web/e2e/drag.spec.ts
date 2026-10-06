@@ -227,9 +227,12 @@ test("a box or PTO block pressed and dragged has focus, but not the keyboard's r
     await page.mouse.move(1300, 850);
     await page.waitForTimeout(300);
   };
-  // Sideways: focus stays on it, with no ring and no card.
+  // Sideways: focus stays on it, with no ring and no card; drawn over everything else as it's dragged.
   await hold(page, DAGSTER, -MONTH_PX * 5, 0);
   await expect(card).toHaveCount(0);
+  expect(await box(page, DAGSTER).evaluate((el) => getComputedStyle(el).zIndex)).toBe(
+    await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--z-dragged").trim()),
+  );
   await release();
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-07 – 2026-10-16");
   await expect(box(page, DAGSTER)).toBeFocused();
