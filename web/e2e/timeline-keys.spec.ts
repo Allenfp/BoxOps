@@ -246,16 +246,27 @@ test.describe("in a small window", () => {
 
   test("focus is never hidden under the header, the label column or the broken-rule popup", async ({ page, github: _ }) => {
     const timeline = page.locator(".timeline");
-    /** The focused cell lies inside what's on screen of the timeline, clear of its sticky parts and the popup. */
+    /**
+     * The focused cell lies inside what's on screen of the timeline, clear of its sticky parts and the popup.
+     * Across, its start is right of the label column (a box may run on past the right edge); not for what's
+     * in the label column, or a collapsed department's chart, as wide as the timeline: they only go up and down.
+     */
     const inView = async () => {
       const r = (await page.evaluate(() => {
-        const b = document.activeElement!.getBoundingClientRect();
-        return { left: b.left, top: b.top, right: b.right, bottom: b.bottom };
+        const el = document.activeElement!;
+        const b = el.getBoundingClientRect();
+        return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, side: !!el.closest(".label, .use-cell") };
       }))!;
       const t = (await timeline.boundingBox())!;
       const head = (await page.locator(".tl-head").boundingBox())!;
       expect(r.top).toBeGreaterThanOrEqual(head.y + head.height);
       expect(r.bottom).toBeLessThanOrEqual(t.y + t.height);
+      if (!r.side) {
+        expect(r.left).toBeGreaterThanOrEqual(t.x + 240);
+        expect(r.left).toBeLessThan(t.x + t.width);
+        // One well narrower than the view shows whole.
+        if (r.right - r.left < t.width - 300) expect(r.right).toBeLessThanOrEqual(t.x + t.width);
+      }
       const toast = (await page.locator(".toast").count()) ? await page.locator(".toast").boundingBox() : null;
       if (toast && r.right > toast.x && r.left < toast.x + toast.width) expect(r.bottom).toBeLessThanOrEqual(toast.y);
       return r;
@@ -266,8 +277,7 @@ test.describe("in a small window", () => {
     await timeline.evaluate((el) => (el.scrollLeft += 900));
     await page.keyboard.press("ArrowLeft");
     await expect(box(page, DAGSTER)).toBeFocused();
-    const r = await inView();
-    expect(r.left).toBeGreaterThanOrEqual((await timeline.boundingBox())!.x + 240);
+    await inView();
 
     // Down the grid, past what fits: each cell scrolled into view.
     for (let i = 0; i < 12; i++) {
