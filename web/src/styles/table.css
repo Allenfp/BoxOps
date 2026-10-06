@@ -143,8 +143,8 @@
   border-left-color: var(--warn);
 }
 
-/* Cells read as text until hovered or focused. */
-.box-table input,
+/* Cells read as text until hovered or focused (not the Engineers list's fields, open in a cell: its own). */
+.box-table input:where(:not(.picker-menu *)),
 .box-table select {
   font: inherit;
   font-size: 13px;
@@ -156,12 +156,12 @@
   width: 100%;
   min-width: 0;
 }
-.box-table input:hover:not(:disabled),
+.box-table input:hover:not(:disabled):where(:not(.picker-menu *)),
 .box-table select:hover:not(:disabled) {
   border-color: var(--border);
   background: var(--surface);
 }
-.box-table input:focus,
+.box-table input:focus:where(:not(.picker-menu *)),
 .box-table select:focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
   border-color: var(--accent);
@@ -172,7 +172,7 @@
   -webkit-appearance: none;
   cursor: pointer;
 }
-.box-table :disabled {
+.box-table :disabled:where(:not(.picker-menu *)) {
   cursor: default;
   opacity: 1;
 }
@@ -277,7 +277,7 @@
   text-align: center;
 }
 /* Empty cells stay quiet; their hint shows when you point at or edit them. */
-.box-table input::placeholder {
+.box-table input:where(:not(.picker-menu *))::placeholder {
   color: transparent;
 }
 .box-table tr:hover input::placeholder,

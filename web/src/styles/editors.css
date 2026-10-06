@@ -214,6 +214,11 @@
   border-radius: 5px;
   padding: 4px 6px;
 }
+/* Focused, its checkboxes and field have the ring every field has in the editors, in the table too. */
+.picker-menu input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-color: var(--accent);
+}
 .editor .field {
   display: flex;
   flex-direction: column;

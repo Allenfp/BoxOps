@@ -38,6 +38,36 @@ test("the Engineers list's names are list items, not the editor's field labels",
   });
 });
 
+test("the Engineers list open in a table cell looks as it does in the box editor: its field's hint shows, Add is faded", async ({ page, github: _ }) => {
+  const list = page.getByRole("dialog", { name: "Engineers" });
+  /** How the list's new-name field (and its hint) and its Add button (nothing typed) look, the pointer away; and the field focused. */
+  const looks = async () => {
+    await expect(list).toBeVisible();
+    await page.mouse.move(1, 600);
+    const field = list.getByRole("textbox", { name: "New engineer name" });
+    const props = ["border-top-color", "background-color", "outline-style", "outline-color"];
+    const looks = {
+      field: await css(field, ...props),
+      hint: await field.evaluate((e) => getComputedStyle(e, "::placeholder").color),
+      add: await css(list.getByRole("button", { name: "Add", exact: true }), "opacity"),
+    };
+    const tick = list.getByRole("checkbox").first();
+    await tick.focus();
+    const ticked = await css(tick, "outline-style", "outline-color");
+    await field.focus();
+    return { ...looks, focused: await css(field, ...props), ticked };
+  };
+  await box(page, DAGSTER).click();
+  await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ }).click();
+  const editor = await looks();
+  expect(editor.add.opacity).not.toBe("1");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  await page.locator(".box-table tr.box-row").first().getByRole("button", { name: /^Engineers/ }).click();
+  expect(await looks()).toEqual(editor);
+});
+
 test("the Engineers list isn't cut off by the box editor's scrolling fields: the last name and the add field show", async ({ page, github: _ }) => {
   await box(page, DAGSTER).click();
   await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ }).click();
