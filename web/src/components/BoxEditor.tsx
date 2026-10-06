@@ -32,6 +32,8 @@ interface Props {
   onChange(patch: Partial<Box>, field: string): void;
   onDelete(): void;
   onClose(): void;
+  /** A cell of the timeline (TimelineHandle.cell), drawn first if a big roadmap left it out, off screen: where focus goes back to. */
+  cell(key: string): Element | null;
 }
 
 type Optional = "description" | "tags" | "links" | "rules";
@@ -49,7 +51,7 @@ const splitList = (text: string, sep: RegExp) =>
     .filter(Boolean);
 
 export function BoxEditor(props: Props) {
-  const { box, settings, departments, people, boxes, violations, onAddPerson, onChange, onDelete, onClose } = props;
+  const { box, settings, departments, people, boxes, violations, onAddPerson, onChange, onDelete, onClose, cell } = props;
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const ids = { titleError: useId(), start: useId(), end: useId(), note: useId(), epicError: useId(), epicHint: useId(), linksError: useId() };
@@ -71,11 +73,10 @@ export function BoxEditor(props: Props) {
   }
 
   // Closed (or gone some other way: saved, undone, someone else's save): focus goes back to the
-  // box. Not after a click elsewhere, which is where the user went (focus going back would scroll).
+  // box, drawn again if it's off screen (no longer open, a big roadmap would leave it out). Not
+  // after a click elsewhere, which is where the user went (focus going back would scroll).
   const clickedAway = useRef(false);
-  useReturnFocus(ref, (opener) =>
-    clickedAway.current ? null : (document.querySelector(`[data-box-id="${CSS.escape(box.id)}"]`) ?? onPage(opener) ?? main()),
-  );
+  useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`box:${box.id}`) ?? onPage(opener) ?? main())));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

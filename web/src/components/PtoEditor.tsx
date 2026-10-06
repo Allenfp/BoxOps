@@ -25,19 +25,20 @@ interface Props {
   onReassign(personId: string): void;
   onDelete(): void;
   onClose(): void;
+  /** A cell of the timeline (TimelineHandle.cell), drawn first if a big roadmap left it out, off screen: where focus goes back to. */
+  cell(key: string): Element | null;
 }
 
-export function PtoEditor({ target, pto, people, departments, onChange, onReassign, onDelete, onClose }: Props) {
+export function PtoEditor({ target, pto, people, departments, onChange, onReassign, onDelete, onClose, cell }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const key = ptoKey(target);
   const pos = useAnchor(ref, `[data-pto-key="${CSS.escape(key)}"]`, WIDTH, [key, pto]);
 
-  // Closed (or gone some other way): focus goes back to the PTO block. Not after a click
-  // elsewhere, which is where the user went (focus going back would scroll).
+  // Closed (or gone some other way): focus goes back to the PTO block, drawn again if it's off
+  // screen (as for a box). Not after a click elsewhere, which is where the user went (focus going
+  // back would scroll).
   const clickedAway = useRef(false);
-  useReturnFocus(ref, (opener) =>
-    clickedAway.current ? null : (document.querySelector(`[data-pto-key="${CSS.escape(key)}"]`) ?? onPage(opener) ?? main()),
-  );
+  useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`pto:${key}`) ?? onPage(opener) ?? main())));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

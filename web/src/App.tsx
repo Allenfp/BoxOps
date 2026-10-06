@@ -1870,6 +1870,7 @@ function RoadmapView(props: ViewProps) {
               removePto(selectedPto);
             }}
             onClose={() => selectPto(null)}
+            cell={timelineCell}
           />
         </Suspense>
       )}
@@ -1898,6 +1899,7 @@ function RoadmapView(props: ViewProps) {
               removeBox(selectedBox.id);
             }}
             onClose={() => select(null)}
+            cell={timelineCell}
           />
         </Suspense>
       )}
