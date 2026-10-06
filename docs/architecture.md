@@ -43,6 +43,13 @@ web/
                             consequences (what a keyboard move would do),
                             rows (a department's rows and cells as data, and
                             what's near enough the screen to draw)
+    table/                  the table's and People's rows: tableModel (rows
+                            as data), rowKeys (React keys that stay with a
+                            row), windowMath and useWindowedRows (drawing only
+                            what's near the screen), KeepFocus and
+                            useActiveRow (focus in rows that move),
+                            TableRows and PeopleRows (the memoized rows),
+                            PrintTable (every row, on paper)
     github/                 api (REST and GraphQL client, timeouts, errors),
                             read (newer commits by SHA diff), save (commit,
                             conflicts, retries), messages (errors in words),
@@ -523,8 +530,10 @@ when a focused element is removed.
   with focus in it hands focus to the roadmap (focus elsewhere stays put;
   the popup doesn't go by itself while focus is in it). A deleted box or
   PTO block hands focus to its neighbour, a deleted table row to the next
-  row's Delete, a removed rule or lane to the next one's ✕ (else the one
-  before's, else Add), a cleared lane date to its +; a save gives it back
+  row's Delete (and focus a change takes from a table row that moves goes
+  back to it: see [The table and People](#the-table-and-people)), a
+  removed rule or lane to the next one's ✕ (else the one before's, else
+  Add), a cleared lane date to its +; a save gives it back
   where it was, or to the saved banner; Enter and Esc in a table cell and a
   lane renamed in place keep it there, and a date field's calendar gives it
   back to what opened it (its button, or the field).
@@ -640,7 +649,10 @@ when a focused element is removed.
   ⌘← and ⌘→ (Home and End on the grid) never going Back or Forward in a Mac
   browser with history, and a big roadmap's timeline (over 300 boxes and PTO
   blocks): that the row count and each row's place are said, and what
-  browse mode makes of the departments it doesn't draw. And a finger
+  browse mode makes of the departments it doesn't draw; the same for a big
+  table and People (over 200 rows), the note in a row being edited that no
+  longer matches the search, and People's "+N more" PTO. Printing from a
+  real print dialog (the tests emulate print media). And a finger
   dragging a box on a real touch screen (iPad Safari, Android Chrome): the
   tests send touches to Chromium alone.
 
@@ -702,6 +714,73 @@ when a focused element is removed.
   stretch from today on, against the lanes open on those days; past overloads
   are history. "Today" moves on at midnight in a tab left open.
 
+## The table and People
+
+- **Rows** (`table/TableRows.tsx`, `table/PeopleRows.tsx`) are memoized
+  components given only what's their own (the box or person, its lane, its
+  warnings as text, flags) and one object of functions that never changes, so
+  an edit draws again only the rows it changed. The rows are worked out as
+  data first (`table/tableModel.ts`): each department's heading, then its
+  boxes (or that it has none), PTO and Add PTO; in People, its engineers. A
+  search looks in text worked out once a box or person. Hide finished boxes
+  hides finished PTO in the table too, but not PTO added there (a week off
+  added on a weekend has already ended).
+- **Keys** (`table/rowKeys.ts`). A box's row is keyed by its code, which
+  never changes (an unsaved box's id follows its title); a PTO entry's by the
+  entry, through edits, a move up its owner's list or to someone else, and
+  undo; an engineer's by a key that follows renames of an unsaved person's
+  id but is never given to two rows at once.
+- **Drawing only what's near the screen** (`table/useWindowedRows.ts`,
+  `table/windowMath.ts`). Over 200 rows (headings, boxes, PTO, engineers),
+  only the rows within 400 px of the screen are drawn, worked out in steps of
+  200 px as the table scrolls and drawn before the frame is painted; the
+  rest are spacer rows (hidden from screen readers) as tall as the rows they
+  stand for, one `<tbody>` per department as before, so the sticky header
+  and title column and dragging departments work as ever. A row is measured
+  as it's drawn (a ResizeObserver); one not drawn is as tall as the rows of
+  its kind drawn now. Rows of a kind are one height: descriptions and notes
+  show two lines until focused (sized by CSS, a copy of the text in the same
+  grid cell: no script measures them), and People shows at most two PTO
+  entries before "+N more". Safari has no CSS scroll anchoring, so the table
+  keeps the row at the top of the view in place itself when rows above it
+  change (measured, added, removed), in every browser (`overflow-anchor:
+  none`), unless the change itself scrolled the table, or a calendar or the
+  Engineers list is open (scrolling closes them). The table counts every row
+  (`aria-rowcount`) and each row drawn says which it is (`aria-rowindex`).
+  Drawn whole, a table costs about 1 ms a row to open in WebKit on an M1
+  (250 ms at 250 rows); drawing only what's near the screen, about 50 ms at
+  any size: at 2,000 boxes, 26 rows with data.
+- **Long selects** (`components/LazySelect.tsx`). A select with more than 30
+  options (the Lane, with every lane of every department; People's
+  Department) holds only its chosen option until a press, focus or a key
+  reaches it, which fill it before its list opens. The Engineers list sorts
+  the roster only while it's open.
+- **Focus.** The row focus is in (or a press is in: Safari doesn't focus a
+  button that's clicked) is drawn wherever it is, with a row either side, so
+  Tab and Shift+Tab always have somewhere to go (`table/useActiveRow.ts`).
+  While it has focus, it keeps its place and stays shown though an edit
+  would sort it elsewhere or the search or dates leave it out (a note in it
+  says so); a new sort, search or filter puts it where it goes, and so does
+  focus leaving it, once a press has finished (a row moving as a press began
+  would leave another under the pointer). A change that moves a focused row
+  (to another department, re-sorted) or deletes it loses focus without a
+  blur in WebKit and Firefox, so `table/KeepFocus.tsx` sees where focus was
+  just before each change and, if it's lost, puts it back on the same
+  control in the same row, else the same column in the next row of the
+  department (or the one before, or its heading). What has focus is
+  scrolled clear of the sticky header and title column by hand (WebKit
+  ignores `scroll-padding` when Tab moves focus). Add box, Add PTO and Add
+  engineer clear the search (and dates), open the department, and scroll to
+  the new row, which takes focus.
+- **Printing** (`table/PrintTable.tsx`, `table/usePrinting.ts`). On paper the
+  table and People are a plain table of every row as shown (search, dates,
+  sort, collapsed departments), drawn as printing starts; the interactive
+  one is clipped away, so focus stays where it was. Everywhere, the
+  toolbar's controls, banners and the table's own toolbar are left out and
+  colours print; the timeline prints what's on screen.
+- **Limits.** On a big roadmap the browser's Find and a screen reader's
+  browse mode reach only the rows drawn; the table's search covers every row.
+
 ## Tests and CI
 
 - **Unit tests** (Vitest, `web/src/**/*.test.ts` and `web/cli/**/*.test.ts`)
@@ -748,7 +827,14 @@ when a focused element is removed.
   roadmap against itself drawn whole: nothing on screen missing at any
   scroll or zoom, focus and moves kept drawn, what the app focuses or shows
   (from the warnings, from People, after an editor's Delete) drawn, the
-  grid's rows counted.
+  grid's rows counted. The table's and People's specs (`table`, `people`,
+  `pto`, `keyboard`) run again in WebKit with only the rows near the screen
+  drawn (`virtualize`, a test option), and `e2e/table-big.spec.ts` checks a
+  600-box table against itself drawn whole: every row counted, nothing on
+  screen missing however it's scrolled, rows being edited kept (and their
+  place), focus going with a row that moves, Tab across what's drawn, new
+  rows scrolled to and focused, printing every row. Its clock is fixed
+  (`page.clock.setFixedTime`), as nothing it checks moves it on.
   WebKit's Tab skips buttons, as Safari's does by default, so those tests
   focus a control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
@@ -763,7 +849,12 @@ when a focused element is removed.
   `window.__boxopsTest`). It prints the time from navigation to the
   timeline painted (median of 3), failing only above 2,500 ms, and a
   keyboard move's step; the same roadmap without the build's parsing is
-  timed for comparison. CI runs it after the browser tests.
+  timed for comparison. On a 2,000-box roadmap generated around a fixed day
+  (the page's clock fixed there too), it times opening the table and People
+  (targets 300 ms, failing above 600) and an edit committed there with
+  Enter (50 ms, failing above 100), the median of 5 after 2, and checks
+  exactly that each draws at most 70 rows with data and 1,500 options, and
+  that no textarea's height is read. CI runs it after the browser tests.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
   the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
   doesn't support TypeScript 7 yet.) A deliberate exception is a

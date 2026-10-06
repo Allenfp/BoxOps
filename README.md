@@ -27,11 +27,21 @@ straight to `main`, and the site updates within a minute.
 - **Table.** Every box as an editable row (dates, FTE, engineers, flag,
   links, description) plus its **Scale** (FTE × working days, also shown on each
   timeline box), grouped by department, with search, sorting, a date range
-  (boxes and PTO that overlap it) and a **Hide finished boxes** switch. PTO
-  rows sit under each department's boxes.
+  (boxes and PTO that overlap it) and a **Hide finished boxes and PTO**
+  switch. PTO rows sit under each department's boxes. A description shows
+  two lines until you click into it. A row you're editing stays where it
+  is, and shown, until you leave it, even if the edit sorts it elsewhere or
+  the search no longer matches it (it says so). A big roadmap (over 200
+  rows) draws only the rows near the screen, so the browser's Find (⌘F or
+  Ctrl+F) sees only those; the table's search finds anything. Printing
+  (⌘P or Ctrl+P) prints every row as shown.
 - **People.** The engineer roster: name, department, role, email, manager and
-  notes, plus their PTO (read-only; edit it on the timeline or table). Boxes
-  are assigned engineers from this list.
+  notes, plus their PTO (read-only; edit it on the timeline or table; past
+  two entries, "+N more" shows the rest). Boxes are assigned engineers from
+  this list. It prints, and draws a big roster, as the table does.
+- **Printing.** The table and People print every row; the timeline prints
+  what's on screen, at its zoom and dates. The toolbar's controls are left
+  out, and the colours print.
 - **Saving.** Edits stay in your browser until you press **Save** (⌘S, or
   Ctrl+S on Windows and Linux), each tab's on its own; edits left in a tab
   you closed are offered back in the roadmap's other tabs, or the next time
@@ -116,7 +126,7 @@ npm run typecheck  # TypeScript, browser and Node code apart (npm run build chec
 npm test           # unit tests
 npx playwright install webkit chromium firefox  # once: the browsers the browser tests use
 npm run e2e        # browser tests (Playwright: WebKit, Chromium and Firefox)
-npm run perf       # a 2,000-box roadmap in WebKit: sizes and what's drawn checked, times printed
+npm run perf       # a 2,000-box roadmap in WebKit: sizes and what's drawn checked, the table's times too
 npm run validate   # check the roadmap files
 npm run report     # capacity and staffing summary
 npm run gen-roadmap -- 2000 2026-10-03 <folder>  # a synthetic roadmap (boxes, "today") for scale tests
