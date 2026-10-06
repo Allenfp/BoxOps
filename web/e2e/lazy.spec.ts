@@ -1,11 +1,12 @@
 import type { Page, Route } from "@playwright/test";
 import { REPO, TOKEN } from "./fake-github";
-import { DAGSTER, dragDays, expect, heard, save, test, toolbar } from "./helpers";
+import { DAGSTER, box, boxDates, dragDays, expect, heard, save, test, toolbar } from "./helpers";
 
 // Code fetched when it's first needed: what saving needs (with the yaml
 // library) once someone starts editing, never just to show the roadmap; a
 // view when the pointer reaches its tab; editors once the roadmap is up; the
-// GitHub client once the roadmap shows.
+// GitHub client once the roadmap shows; a keyboard move once the timeline
+// has focus.
 
 /** The app's JavaScript files the page has asked for, by name without the hash: "index", "parse", "saving", "TableView"… */
 function scripts(page: Page): string[] {
@@ -59,6 +60,44 @@ test.describe("a private repository, a token pasted later", () => {
     release();
     await expect.poll(() => github.calls("ref")).toBe(1);
   });
+});
+
+test("Space on a box before a keyboard move's code is here picks the box up once it is, and the keys pressed meanwhile move it", async ({
+  page,
+  github: _,
+}) => {
+  const asked = scripts(page);
+  const release = await holdBack(page, "keyMove");
+  await page.reload();
+  await expect(page.locator(".box").first()).toBeVisible();
+  expect(asked).not.toContain("keyMove");
+  // Fetched once the timeline has focus.
+  await box(page, DAGSTER).focus();
+  await expect.poll(() => asked).toContain("keyMove");
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
+  await expect(box(page, DAGSTER)).toBeFocused(); // the arrow went nowhere else
+  release();
+  await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
+  await expect(page.locator(".drag-dates")).toContainText("2026-09-22 – 2026-11-02");
+  await expect(box(page, DAGSTER)).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-22 – 2026-11-02");
+});
+
+test("a press before a keyboard move's code is here leaves the box where it is", async ({ page, github: _ }) => {
+  const release = await holdBack(page, "keyMove");
+  await page.reload();
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Space");
+  await page.mouse.click(5, 300); // the label column
+  release();
+  await page.waitForTimeout(300);
+  await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
+  await expect(toolbar(page)).toContainText("No changes");
 });
 
 test("a save made before saving's code arrives waits for it, and saves once", async ({ page, github }) => {

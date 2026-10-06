@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { parseDay } from "../model/dates";
 import type { Department } from "../model/types";
-import { type NavRow, boxName, laneName, laneSequence, navigate, nearest, ptoName } from "./keyboard";
+import { type NavRow, boxName, laneName, navigate, nearest, ptoName } from "./keyboard";
+import { laneSequence } from "./keyMove";
 
 const d = (s: string) => parseDay(s)!;
 const label = {};

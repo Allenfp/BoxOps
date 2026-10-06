@@ -47,6 +47,8 @@ web/
     timeline/               scale (time ↔ pixels), layout (lanes, capacity),
                             drag (moves in working days, where a dragged box
                             lands), keyboard (where the arrow keys go, names),
+                            keyMove (moving a box or PTO block from the
+                            keyboard, fetched once the timeline has focus),
                             consequences (what a keyboard move would do),
                             rows (a department's rows and cells as data, and
                             what's near enough the screen to draw)
@@ -477,9 +479,11 @@ against data the new code wrote.
   editors and team settings a second after the roadmap shows, unless it's
   read-only; the GitHub client and reader once the roadmap shows, for the
   check for newer saves (`remote.ts`; never for a private repository
-  without a token); the settings menu's contents when the pointer reaches
-  the gear; the save dialog, saving's code and the YAML parser once someone
-  starts editing.
+  without a token); a keyboard move's code once the timeline has focus (a
+  box picked up before it's here is picked up once it is, if focus is still
+  on it and nothing was pressed, and the keys pressed meanwhile move it);
+  the settings menu's contents when the pointer reaches the gear; the save
+  dialog, saving's code and the YAML parser once someone starts editing.
   File names change only with the app's code (the build time is in
   `index.html`), so a tab left open across roadmap saves can still fetch
   them. A part that can't be fetched (the connection dropped, or an app

@@ -1,7 +1,8 @@
 // The timeline from the keyboard, the parts that are plain arithmetic and
-// words: where the arrow keys go between cells, what a box or PTO block is
-// called, and the lanes a box moves through. Tested on their own; the focus
-// handling is components/useGridFocus.ts, the keys components/Timeline.tsx.
+// words: where the arrow keys go between cells, and what a box or PTO block
+// is called. Tested on their own; the focus handling is
+// components/useGridFocus.ts, the keys components/Timeline.tsx, and moving
+// a box or PTO block keyMove.ts.
 //
 // The timeline is a grid of rows (a department's heading, each lane, its
 // extra area, its PTO) whose cells are the row's controls (labels) and then
@@ -9,9 +10,7 @@
 // cells, so up and down go by time, not by column.
 
 import { type Day, prettyDay, workdays } from "../model/dates";
-import { closedRanges } from "../model/lanes";
-import type { Box, Department, TimeOff } from "../model/types";
-import { type DepartmentLayout, slotsOf } from "./layout";
+import type { Department, TimeOff } from "../model/types";
 
 /** A cell, as navigation sees it: boxes and PTO blocks have dates, labels don't. */
 export interface NavCell {
@@ -160,38 +159,4 @@ export function laneName(departments: Department[], laneId: string): string {
     if (i >= 0) return `${d.name} / ${d.lanes[i].name ?? `FTE ${i + 1}`}`;
   }
   return laneId;
-}
-
-/** The lanes a box moves through with up and down, top to bottom: those of the departments that are open. */
-export function laneSequence(departments: Department[], collapsed: ReadonlySet<string>): { lane: string; dept: string }[] {
-  return departments.filter((d) => !collapsed.has(d.id)).flatMap((d) => d.lanes.map((l) => ({ lane: l.id, dept: d.id })));
-}
-
-/**
- * Whether `box` would be drawn in `laneId` for its dates: some slot of the
- * lane starts room enough for it, clear of the other boxes as they're drawn
- * and of closed lanes. If not, the layout draws it in the nearest free space
- * (or the extra area), which a move says.
- */
-export function fitsInLane(dept: Department, layout: DepartmentLayout, boxes: Box[], box: Pick<Box, "id" | "start" | "end" | "fte">, laneId: string): boolean {
-  const lane = layout.lanes.get(laneId);
-  if (!lane) return false;
-  const overlaps = (start: Day, end: Day) => start <= box.end && box.start <= end;
-  const taken = (s: number) =>
-    dept.lanes.some((l) => {
-      const at = layout.lanes.get(l.id)!;
-      return s >= at.slot && s < at.slot + at.slots && closedRanges(l).some(([a, b]) => overlaps(a, b));
-    }) ||
-    boxes.some((b) => {
-      const p = b.id !== box.id && overlaps(b.start, b.end) ? layout.boxes.get(b.id) : undefined;
-      return p !== undefined && !p.overflow && s >= p.slot && s < p.slot + p.slots;
-    });
-  const need = slotsOf(box.fte);
-  for (let s = lane.slot; s < lane.slot + lane.slots; s++) {
-    if (s + need > layout.capacity) continue;
-    let free = true;
-    for (let k = s; k < s + need && free; k++) free = !taken(k);
-    if (free) return true;
-  }
-  return false;
 }

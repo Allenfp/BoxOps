@@ -5,7 +5,7 @@ import { parseDay } from "../model/dates";
 import { loadRoadmap } from "../model/parse";
 import type { Box } from "../model/types";
 import { boxFacts, consequences, ptoFacts } from "./consequences";
-import { fitsInLane } from "./keyboard";
+import { fitsInLane } from "./keyMove";
 import { layoutDepartment } from "./layout";
 
 const fixture = (await readRoadmapDir(fileURLToPath(new URL("../../e2e/fixtures/roadmap", import.meta.url)))).files;
