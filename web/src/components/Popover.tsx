@@ -3,8 +3,11 @@
 // focus goes into the panel; Escape, or a choice made in it, puts focus back
 // on the button (a click elsewhere leaves it where the click put it).
 
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { focusLater, tabbable } from "../a11y/focus";
+
+/** The least room between a panel and the window's edge (px). */
+const EDGE = 8;
 
 export function Popover(props: {
   className?: string;
@@ -54,6 +57,19 @@ export function Popover(props: {
       document.removeEventListener("pointerdown", away);
       document.removeEventListener("keydown", esc, true);
     };
+  }, [open]);
+
+  // Inside the window, wherever its button is (a narrow one wraps the toolbar): moved right if it
+  // would spill past the left edge, and no taller than the room below (contents still to load too).
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!open || !el) return;
+    el.style.translate = "";
+    el.style.maxHeight = "";
+    const r = el.getBoundingClientRect();
+    if (r.left < EDGE) el.style.translate = `${EDGE - r.left}px 0`;
+    const room = Math.max(0, window.innerHeight - EDGE - r.top);
+    if (!(parseFloat(getComputedStyle(el).maxHeight) <= room)) el.style.maxHeight = `${room}px`;
   }, [open]);
 
   /** A choice made in the panel: focus goes back to the button, unless the choice put it somewhere (a dialog it opened). */

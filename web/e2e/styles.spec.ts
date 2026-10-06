@@ -110,3 +110,38 @@ test.describe("with less motion asked for", () => {
     expect(new Set(seen.filter((x) => x > 0)).size).toBe(1);
   });
 });
+
+test.describe("at 1280 px wide", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("a long roadmap title is cut short (whole in its tooltip), and Save and the gear stay on screen", async ({ page, github: _ }) => {
+    const title = "Enterprise Data Platform Engineering Roadmap 2026–2027";
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("button", { name: "Team settings…" }).click();
+    await page.getByLabel("Roadmap title").fill(title);
+    await page.keyboard.press("Escape");
+    const h1 = page.getByRole("heading", { level: 1 });
+    await expect(h1).toHaveText(title);
+    await expect(h1).toHaveAttribute("title", title);
+    expect(await h1.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
+    await expect(page.getByRole("button", { name: "Save · 1 change" })).toBeInViewport({ ratio: 1 });
+    await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeInViewport({ ratio: 1 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+});
+
+test.describe("at 320 px wide (a phone, or a window zoomed to 400%)", () => {
+  test.use({ viewport: { width: 320, height: 640 } });
+
+  test("nothing runs off the side: the toolbar wraps, and the box editor is as wide as the window", async ({ page, github: _ }) => {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const name of ["People", "Quarters", "Today", "Undo", "Settings"]) {
+      await expect(page.getByRole("button", { name, exact: true })).toBeInViewport({ ratio: 1 });
+    }
+    await box(page, DAGSTER).focus();
+    await page.keyboard.press("Enter");
+    const editor = page.getByRole("dialog", { name: /^Edit / });
+    await expect(editor).toBeInViewport({ ratio: 1 });
+    expect(await editor.locator(".editor-body").evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+  });
+});

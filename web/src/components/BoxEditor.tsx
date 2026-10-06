@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useAnchor } from "./useAnchor";
+import { popoverWidth, useAnchor } from "./useAnchor";
 import { boxScale, SCALE_HELP } from "../model/scale";
 import { NO_FLAG } from "../model/status";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
@@ -180,7 +180,7 @@ export function BoxEditor(props: Props) {
       // Modal for the keyboard and screen readers (Tab stays inside); a click outside closes it.
       aria-modal="true"
       aria-label={`Edit ${box.title || "box"}`}
-      style={{ width: WIDTH, top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}
+      style={{ width: popoverWidth(WIDTH), top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}
       onKeyDown={loopTab}
     >
       {/* VoiceOver reads only live regions inside a modal dialog while it's open. */}

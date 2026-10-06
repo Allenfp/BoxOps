@@ -69,8 +69,9 @@ button:hover {
   font-weight: 600;
 }
 
+/* The window as it is, a phone's browser bars shown or not (dvh: 100vh would be as tall as with them hidden). */
 .app {
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }

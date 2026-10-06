@@ -1,10 +1,11 @@
 /* The toolbar and what opens from it (warnings, save options, settings), the banners under it, and the broken-rule popup. */
 
 /* Three zones: what you're looking at (left), how (middle), and your
-   changes plus help (right). The middle stays centred. */
+   changes plus help (right). The middle stays centred. Short of room, the
+   roadmap's title gives way (…, whole in its tooltip), never Save. */
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
   gap: 16px;
   padding: 10px 16px;
@@ -30,6 +31,12 @@
   align-items: center;
   gap: 8px;
 }
+.toolbar-zone.start {
+  min-width: 0;
+}
+.toolbar .segmented {
+  flex: none;
+}
 .toolbar-zone button {
   white-space: nowrap;
 }
@@ -39,13 +46,26 @@
 /* Narrow windows: the zones stack rather than overlap. */
 @media (max-width: 1220px) {
   .toolbar {
-    grid-template-columns: minmax(max-content, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     row-gap: 8px;
   }
   .toolbar-zone.middle {
     grid-row: 2;
     grid-column: 1 / -1;
     justify-content: center;
+  }
+}
+/* A phone, or a window zoomed to 400%: a row each, and what doesn't fit on one wraps to the next. */
+@media (max-width: 720px) {
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .toolbar-zone {
+    flex-wrap: wrap;
+  }
+  .toolbar h1 {
+    flex: 1 1 8em;
+    margin-right: 0;
   }
 }
 .warnings-button {
@@ -66,7 +86,7 @@
   z-index: var(--z-popover);
   min-width: 220px;
   max-width: min(460px, calc(100vw - 32px));
-  max-height: 70vh;
+  max-height: 70dvh;
   overflow: auto;
   padding: 10px 14px 12px;
   background: var(--surface);
@@ -238,7 +258,7 @@
 /* Settings (gear) menu */
 .settings-menu .popover-panel {
   width: 320px;
-  max-height: calc(100vh - 64px);
+  max-height: calc(100dvh - 64px);
   padding: 8px 12px 10px;
 }
 .settings-menu section + section {

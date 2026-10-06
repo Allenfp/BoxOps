@@ -1425,7 +1425,8 @@ function RoadmapView(props: ViewProps) {
       <header className="toolbar">
         <div className="toolbar-zone start">
           <Logo />
-          <h1>{draft.settings.title}</h1>
+          {/* Cut short (…) when the toolbar is short of room: whole in its tooltip. */}
+          <h1 title={draft.settings.title}>{draft.settings.title}</h1>
           <div className="segmented" role="group" aria-label="View">
             {VIEWS.map((v) => (
               <button

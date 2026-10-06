@@ -480,6 +480,15 @@ against data the new code wrote.
   a save. The app keeps no failure, but WebKit and Chromium keep a module
   file that failed to load until the page reloads, so a second failure
   offers Reload only.
+- **Screens.** The app is as tall as the window as it is (`100dvh`: a
+  phone's browser bars shown or not). Short of room, the toolbar's title
+  gives way first, cut short with … (whole in its tooltip), so Save and the
+  gear stay on screen; below 1220 px the zoom takes a row of its own, and
+  below 720 px (a phone, or a window zoomed to 400%) each part of the
+  toolbar has a row and wraps. The box and PTO editors are as wide as the
+  window when it's narrower than they are, and menus are moved and cut
+  short to stay inside it (WCAG 1.4.10; the timeline and the tables are
+  two-dimensional, and scroll both ways).
 - **Title.** `document.title` follows the team title in `settings.yaml`
   (plus the branch for a preview); `index.html` says "BoxOps" until then.
 - **Errors.** An error boundary around the app shows a recovery screen with
