@@ -43,6 +43,7 @@ import { type DragMode, dragDays, dropLane, movedDates } from "../timeline/drag"
 import { type GridRow, OVERFLOW, type PtoEntry, boxRows, deptGridRows, drawRange, overlaps, ptoOrder } from "../timeline/rows";
 import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
+import { keeper } from "../keeper";
 import { UseChart } from "./UseChart";
 import { reorderByKey, useReorder } from "./useReorder";
 import { focusLater } from "../a11y/focus";
@@ -1708,15 +1709,6 @@ function grouper<T>(same: (a: T, b: T) => boolean) {
       if (was && was.length === list.length && was.every((x, i) => same(x, list[i]))) groups.set(k, was);
     }
     return (last = groups);
-  };
-}
-
-/** Returns what it's given, or what it returned last time while that's the `same`. One per component, as grouper. */
-function keeper<T>(same: (a: T, b: T) => boolean): (next: T) => T {
-  let last: { value: T } | null = null;
-  return (next) => {
-    if (!last || !same(last.value, next)) last = { value: next };
-    return last.value;
   };
 }
 
