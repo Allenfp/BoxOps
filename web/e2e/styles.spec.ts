@@ -124,6 +124,28 @@ test("the department editor's own colour is a field like team settings' colours,
   expect(await css(custom, "width", "height", "padding-left")).toEqual({ width: "28px", height: "28px", "padding-left": "2px" });
 });
 
+test("a table cell that won't do stays red while it's pointed at or focused, as a date field does", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const title = page.locator(".box-table tr.box-row").first().getByRole("textbox", { name: "Title" });
+  await title.fill("");
+  await expect(title).toHaveAttribute("aria-invalid", "true");
+  const red = await page.evaluate(() => {
+    const probe = document.body.appendChild(document.createElement("span"));
+    probe.style.color = "var(--danger)";
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return c;
+  });
+  const edge = async () => (await css(title, "border-top-color"))["border-top-color"];
+  // Focused (to put it right), pointed at too, then pointed at with focus gone.
+  expect(await edge()).toBe(red);
+  await title.hover();
+  expect(await edge()).toBe(red);
+  await page.getByRole("searchbox", { name: "Search boxes" }).focus();
+  await title.hover();
+  expect(await edge()).toBe(red);
+});
+
 test("a dialog dims the page behind it in either theme, where a backdrop inherits no custom properties too", async ({ page, github: _ }) => {
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });

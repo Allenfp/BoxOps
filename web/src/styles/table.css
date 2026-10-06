@@ -176,9 +176,6 @@
   cursor: default;
   opacity: 1;
 }
-.cell-input.invalid {
-  border-color: var(--danger);
-}
 /* Number columns: right-aligned, tabular figures, headers aligned with them. */
 .col-fte {
   width: 64px;
@@ -477,6 +474,11 @@
   outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
   border-color: var(--accent);
   background: var(--surface);
+}
+/* A cell that won't do: red while it's wrong, hovered or focused too (as a date field is). After the rules above, and
+   more specific than them. */
+.box-table :is(input, textarea).cell-input.invalid[aria-invalid] {
+  border-color: var(--danger);
 }
 .box-table tbody tr:not(.group-row) td:where(:not(.calendar *)) {
   vertical-align: top;
