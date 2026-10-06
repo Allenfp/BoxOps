@@ -843,20 +843,21 @@ when a focused element is removed.
   away and back: People keeps it by the row's key). Safari has no CSS
   scroll anchoring, so the table keeps the row at the top of the view in
   place itself when rows above it change (measured, added, removed), in
-  every browser (`overflow-anchor: none`), unless the change itself
-  scrolled the table (a calendar or the Engineers list open in it moves
-  with its button). A new sort isn't kept in
-  place that way: the table stays scrolled as far as it was, showing what's
-  sorted there now, in every browser. A new search or new dates show their
-  rows from the top, drawn whole or not (on a big table the search stands
-  in for the browser's Find, so its first match is never out of sight
-  above the view); Hide finished, like someone else's save, keeps the row
-  at the top in place (or the first after it that's still shown). The
-  table counts every row (`aria-rowcount`) and each row drawn says which
-  it is (`aria-rowindex`).
-  Drawn whole, a table costs about 1 ms a row to open in WebKit on an M1
-  (250 ms at 250 rows); drawing only what's near the screen, about 50 ms at
-  any size: at 2,000 boxes, 26 rows with data.
+  every browser (`overflow-anchor: none`); if the change sorted that row
+  elsewhere (an edit let go of, an undo, someone else's save), the first
+  after it that's still in its place is kept instead (`anchorRow`), the view
+  not following it. Not if the change itself scrolled the table (a calendar
+  or the Engineers list open in it moves with its button). A new sort isn't
+  kept in place that way: the table stays scrolled as far as it was, showing
+  what's sorted there now, in every browser. A new search or new dates show
+  their rows from the top, drawn whole or not (on a big table the search
+  stands in for the browser's Find, so its first match is never out of sight
+  above the view); Hide finished, like someone else's save, keeps the row at
+  the top in place (or the first after it that's still shown). The table
+  counts every row (`aria-rowcount`) and each row drawn says which it is
+  (`aria-rowindex`). Drawn whole, a table costs about 1 ms a row to open in
+  WebKit on an M1 (250 ms at 250 rows); drawing only what's near the screen,
+  about 50 ms at any size: at 2,000 boxes, 26 rows with data.
 - **Long selects** (`components/LazySelect.tsx`). A select with more than 30
   options (the Lane, with every lane of every department; a PTO row's
   Engineer; People's Department) holds only its chosen option until a

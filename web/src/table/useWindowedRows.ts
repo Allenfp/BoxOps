@@ -14,7 +14,8 @@
 // Safari doesn't keep the view in place when what's above it changes height
 // (CSS scroll anchoring), so that's done here, the same in every browser
 // (the scroller has `overflow-anchor: none`): after each change drawn, the
-// row that was at the top of the view stays there (a calendar or the
+// row that was at the top of the view stays there, unless the change sorted
+// it elsewhere: then the first after it that it didn't (a calendar or the
 // Engineers list open in the table moves with its button). Not across a
 // new sort: the table stays scrolled as far as it was, rather than
 // following that row to wherever it's sorted. A new search or new dates
@@ -25,7 +26,7 @@
 
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { layout, type Range, type Run, rowAt, runs, usual, windowRows } from "./windowMath";
+import { anchorRow, layout, type Range, type Run, runs, usual, windowRows } from "./windowMath";
 
 /**
  * A table with more rows than this (boxes, PTO, engineers, headings) draws
@@ -245,14 +246,11 @@ export function useWindowedRows(o: {
     if (!el || !was || !now || (was.tops === tops && was.keys === keys) || was.sort !== sort || was.search !== search) return;
     const s = now.top;
     if (s !== was.top) return;
-    // The first row there, or after it, that's still there.
-    for (let i = rowAt(was.tops, s); i >= 0 && i < was.keys.length; i++) {
-      const j = index.get(was.keys[i]);
-      if (j === undefined) continue;
-      const moved = tops[j] - was.tops[i];
-      if (Math.abs(moved) >= 1) now.top = el.scrollTop = s + moved;
-      return;
-    }
+    // The row there, or the first after it that's still there and not sorted elsewhere by the change (windowMath.ts).
+    const at = anchorRow(was.keys, was.tops, s, index);
+    if (!at) return;
+    const moved = tops[at.is] - was.tops[at.was];
+    if (Math.abs(moved) >= 1) now.top = el.scrollTop = s + moved;
   });
 
   const scrollTo = useCallback(

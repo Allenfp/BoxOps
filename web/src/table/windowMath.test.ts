@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drawn, layout, rowAt, runs, usual, windowRows } from "./windowMath";
+import { anchorRow, drawn, layout, rowAt, runs, usual, windowRows } from "./windowMath";
 
 /** Rows of these heights. */
 const tops = (...heights: number[]) => layout(heights.length, (i) => heights[i]);
@@ -99,5 +99,38 @@ describe("usual", () => {
     expect(usual([52, 52, 70, 52, 34])).toBe(52);
     expect(usual([70, 52])).toBe(52);
     expect(usual([])).toBeUndefined();
+  });
+});
+
+describe("anchorRow", () => {
+  /** Where each of these keys is. */
+  const at = (...keys: string[]) => new Map(keys.map((k, i) => [k, i]));
+  const keys = ["a", "b", "c", "d", "e", "f"];
+  const t = even(6); // each row 50 px
+
+  it("is the row at the pixel, wherever it is now, as rows are added, removed or reordered around it", () => {
+    expect(anchorRow(keys, t, 120, at(...keys))).toEqual({ was: 2, is: 2 });
+    expect(anchorRow(keys, t, 120, at("x", "a", "b", "c", "d", "e", "f"))).toEqual({ was: 2, is: 3 });
+    expect(anchorRow(keys, t, 120, at("b", "c", "d", "e", "f"))).toEqual({ was: 2, is: 1 });
+    expect(anchorRow(keys, t, 120, at("b", "a", "c", "e", "d", "f"))).toEqual({ was: 2, is: 2 });
+    // Rows added just after it, or just before it, leave it where it is among the rest.
+    expect(anchorRow(keys, t, 120, at("a", "b", "c", "x", "y", "d", "e", "f"))).toEqual({ was: 2, is: 2 });
+    expect(anchorRow(keys, t, 120, at("a", "b", "x", "c", "d", "e", "f"))).toEqual({ was: 2, is: 3 });
+  });
+
+  it("gone, it's the first row after it that's still there", () => {
+    expect(anchorRow(keys, t, 120, at("a", "b", "e", "f"))).toEqual({ was: 4, is: 2 });
+  });
+
+  it("sorted elsewhere by the change (earlier, or later), it's the next row that's in its place", () => {
+    expect(anchorRow(keys, t, 120, at("c", "a", "b", "d", "e", "f"))).toEqual({ was: 3, is: 3 });
+    // Later: the row after it is out of place against it too, so the one after that (which moved as far).
+    expect(anchorRow(keys, t, 120, at("a", "b", "d", "e", "f", "c"))).toEqual({ was: 4, is: 3 });
+    expect(anchorRow(keys, t, 120, at("a", "b", "d", "c", "e", "f"))).toEqual({ was: 4, is: 4 });
+  });
+
+  it("none, with no rows, or none of those from the pixel on still there", () => {
+    expect(anchorRow([], tops(), 0, at())).toBeNull();
+    expect(anchorRow(keys, t, 120, at("a", "b"))).toBeNull();
   });
 });

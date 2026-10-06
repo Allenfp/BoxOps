@@ -495,6 +495,38 @@ test("rows above the view getting shorter (compact density) leave the row at its
   expect(Math.abs((await row.evaluate(below)) - before)).toBeLessThanOrEqual(2);
 });
 
+test("the row at the top of the view sorted elsewhere by an edit: the view stays, not following it", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: /^Title/ }).click();
+  await scrollTo(page, 0.5);
+  await settled(page);
+  /** How far a row is below the sticky header. */
+  const below = (row: Element) => {
+    const view = row.closest(".table-scroll")!;
+    return row.getBoundingClientRect().top - view.getBoundingClientRect().top - view.querySelector("thead")!.getBoundingClientRect().height;
+  };
+  // A box on screen with a box above it in its department (a new first title sorts it there), and the row after it.
+  const [key, next] = await scroller(page).evaluate((el) => {
+    const top = el.getBoundingClientRect().top + el.querySelector("thead")!.getBoundingClientRect().height;
+    const row = [...el.querySelectorAll<HTMLElement>("tr.box-row")].find(
+      (r) => r.getBoundingClientRect().top > top + 100 && r.previousElementSibling?.matches("tr.box-row") && r.nextElementSibling?.matches("tr[data-row-key]"),
+    )!;
+    return [row.dataset.rowKey!, (row.nextElementSibling as HTMLElement).dataset.rowKey!];
+  });
+  const row = page.locator(`tr[data-row-key="${key}"]`);
+  await row.getByLabel("Title").fill("Aaa first");
+  await page.keyboard.press("Enter");
+  // Still where it was while it's being edited; then scrolled till it's the row at the top, partly under the header.
+  await scroller(page).evaluate((el, by) => (el.scrollTop += by), (await row.evaluate(below)) + 10);
+  await settled(page);
+  const after = page.locator(`tr[data-row-key="${next}"]`);
+  const was = await after.evaluate(below);
+  // Focus leaves it: it goes to the top of its department, out of sight above. The row after it stays put.
+  await page.locator(".table-toolbar .hint").click();
+  await expect.poll(() => row.evaluate((r) => r.nextElementSibling?.getAttribute("data-row-key")).catch(() => null)).not.toBe(next);
+  await settled(page);
+  expect(Math.abs((await after.evaluate(below)) - was)).toBeLessThanOrEqual(2);
+});
+
 test("printing gives every row as shown, and leaves focus where it was", async ({ page, github: _, browserName }) => {
   const count = Number(await page.locator(".box-table").getAttribute("aria-rowcount"));
   await page.locator("tr.box-row").first().getByLabel("Title").focus();

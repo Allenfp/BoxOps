@@ -76,6 +76,31 @@ export function runs(tops: Float64Array, start: number, end: number, ranges: rea
   return out;
 }
 
+/**
+ * The row to keep in place, the view not moving, across a change to the rows:
+ * of the rows at `y` and after it before the change (`keys`, laid out as
+ * `tops`), the first that's still there (`now`: where each key is now) and
+ * still where it was among the rows around it, after the row before it and
+ * before the one after (those still there). Not one an edit, an undo or
+ * someone else's save has sorted elsewhere: the view would follow it there.
+ * Its index before the change and now; null if there's none.
+ */
+export function anchorRow(keys: readonly string[], tops: Float64Array, y: number, now: ReadonlyMap<string, number>): { was: number; is: number } | null {
+  /** Where the nearest row to `i` that's still there, going `step`, is now; past either end if none is. */
+  const near = (i: number, step: 1 | -1) => {
+    for (let k = i + step; k >= 0 && k < keys.length; k += step) {
+      const j = now.get(keys[k]);
+      if (j !== undefined) return j;
+    }
+    return step * Infinity;
+  };
+  for (let i = rowAt(tops, y); i >= 0 && i < keys.length; i++) {
+    const j = now.get(keys[i]);
+    if (j !== undefined && near(i, -1) < j && j < near(i, 1)) return { was: i, is: j };
+  }
+  return null;
+}
+
 /** Whether row `i` is drawn by these ranges. */
 export const drawn = (ranges: readonly Range[], i: number): boolean => ranges.some(([from, to]) => i >= from && i < to);
 
