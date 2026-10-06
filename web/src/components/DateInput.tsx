@@ -79,7 +79,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
   const field = useRef<HTMLSpanElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
-  const ids = { error: useId(), hint: useId(), value: useId(), dialog: useId() };
+  const ids = { error: useId(), hint: useId(), label: useId(), value: useId(), dialog: useId() };
   const day = parseDay(value);
   const shown = draft ?? value;
   const wrong = draft === null ? null : problem(draft);
@@ -186,7 +186,8 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
           className="date-pick"
           tabIndex={pickerTabStop ? undefined : -1}
           aria-label="Choose date"
-          aria-describedby={day === null ? undefined : ids.value}
+          // Which date, by the field's label (Start and End's buttons have one name), and the date in it.
+          aria-describedby={describedBy(rest["aria-labelledby"] ?? (rest["aria-label"] && ids.label), day !== null && ids.value)}
           aria-haspopup="dialog"
           aria-expanded={!!calendar}
           aria-controls={calendar ? ids.dialog : undefined}
@@ -199,6 +200,11 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
       {!disabled && (
         <span id={ids.hint} hidden>
           {HINT}
+        </span>
+      )}
+      {!disabled && rest["aria-label"] && (
+        <span id={ids.label} hidden>
+          {rest["aria-label"]}
         </span>
       )}
       {day !== null && (
