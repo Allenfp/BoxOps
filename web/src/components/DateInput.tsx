@@ -84,6 +84,9 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
   const shown = draft ?? value;
   const wrong = draft === null ? null : problem(draft);
 
+  // Made read-only while it's open (a table row while a save runs, say): it goes, and nothing in it can be picked.
+  if (disabled && calendar) setCalendar(null);
+
   const open = (opener: HTMLElement, byKey: boolean) => {
     const anchor = field.current?.getBoundingClientRect();
     if (anchor) setCalendar({ anchor, opener, byKey });
