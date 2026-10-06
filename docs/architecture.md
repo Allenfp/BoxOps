@@ -104,10 +104,10 @@ both.
     blob `blobs` gives its path parses to, so showing a deploy needs no YAML
     parsing; files from GitHub and bundles from another build are parsed in
     the browser. The dev server and `.dirty` or `+unknown` builds leave them
-    out, as their app can change under one build id. They about double the
-    file: at 2,000 boxes, 184 KB gzipped becomes 310 KB (370 KB when they
-    were kept by blob SHA, whose 40 hex digits don't compress; such a
-    `parsed`, from an earlier build, is left out).
+    out, as their app can change under one build id. They make the file
+    about 1.7 times the size: at 2,000 boxes, 184 KB gzipped becomes 310 KB
+    (370 KB when they were kept by blob SHA, whose 40 hex digits don't
+    compress; such a `parsed`, from an earlier build, is left out).
 
   A local build whose `roadmap/` has uncommitted changes reads the files on
   disk instead: `tree` is null and the bundle is marked `local`. The dev server
@@ -690,9 +690,10 @@ when a focused element is removed.
   half a screen of the days on screen, measured as the timeline scrolls or
   changes size, in steps of half a screen, and drawn before the frame is
   painted. What has focus, what's open in an editor, what's being dragged or
-  moved and a cell the app asks for (to focus it; until the timeline next
-  scrolls) are drawn wherever they are. At 2,000 boxes the timeline first
-  shows about 70 of them.
+  moved and a cell the app asks for (to focus it, as a closing editor does its
+  box or PTO block, or to scroll to it; until the timeline next scrolls) are
+  drawn wherever they are. At 2,000 boxes the timeline first shows about 70
+  of them.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes, which says over capacity
