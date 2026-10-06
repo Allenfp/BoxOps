@@ -1,6 +1,7 @@
 import { type MouseEvent, useEffect, useId, useRef, useState } from "react";
 import { popoverWidth, useAnchor } from "./useAnchor";
 import { boxScale, SCALE_HELP } from "../model/scale";
+import { counted } from "../model/count";
 import { NO_FLAG } from "../model/status";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import { jiraKey } from "../model/jira";
@@ -508,7 +509,7 @@ export function BoxEditor(props: Props) {
 
       <div className="editor-foot">
         <span className="hint">
-          {prettyDay(box.start)} – {prettyDay(box.end)} · {days} working day{days === 1 ? "" : "s"} ·{" "}
+          {prettyDay(box.start)} – {prettyDay(box.end)} · {counted(days, "working day")} ·{" "}
           <span title={SCALE_HELP}>Scale {boxScale(box)}</span>
         </span>
         <button className="danger" onClick={(e) => onDelete(byClick(e))}>

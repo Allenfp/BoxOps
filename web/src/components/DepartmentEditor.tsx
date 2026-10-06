@@ -432,7 +432,7 @@ export function DepartmentEditor(props: Props) {
                 {isRemoving && (
                   <div className="callout warn remove-callout">
                     <span id={question}>
-                      {count} box{count === 1 ? " is" : "es are"} in this lane. Move {count === 1 ? "it" : "them"} to:
+                      {counted(count, "box", "boxes")} {count === 1 ? "is" : "are"} in this lane. Move {count === 1 ? "it" : "them"} to:
                     </span>
                     <span className="button-row">
                       <LanePicker
@@ -487,7 +487,7 @@ export function DepartmentEditor(props: Props) {
           {deptBoxes > 0 ? (
             <>
               <span id={question}>
-                Delete <strong>{dept.name}</strong>? Its {deptBoxes} box{deptBoxes === 1 ? "" : "es"} will move to:
+                Delete <strong>{dept.name}</strong>? Its {counted(deptBoxes, "box", "boxes")} will move to:
               </span>
               <LanePicker
                 departments={sorted}
@@ -505,7 +505,7 @@ export function DepartmentEditor(props: Props) {
           )}
           {deptPeople > 0 && (
             <p className="hint" id={peopleNote}>
-              {deptPeople} engineer{deptPeople === 1 ? "" : "s"} in it will stay on the roster with no department.
+              {counted(deptPeople, "engineer")} in it will stay on the roster with no department.
             </p>
           )}
           <span className="button-row">

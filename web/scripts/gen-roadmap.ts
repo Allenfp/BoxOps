@@ -199,5 +199,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     mkdirSync(dirname(join(dir, path)), { recursive: true });
     writeFileSync(join(dir, path), text);
   }
-  console.log(`${Object.keys(files).length} files in ${dir}`);
+  console.log(`${thousands(Object.keys(files).length)} files in ${dir}`);
 }

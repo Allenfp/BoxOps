@@ -3,6 +3,7 @@
 
 import { type MouseEvent, useEffect, useId, useRef, useState } from "react";
 import { formatDay, isWeekend, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
+import { counted } from "../model/count";
 import { ptoKey, ptoRange, type PtoRef } from "../model/pto";
 import type { Department, Person, TimeOff } from "../model/types";
 import { popoverWidth, useAnchor } from "./useAnchor";
@@ -179,7 +180,7 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
 
       <div className="editor-foot">
         <span className="hint">
-          {ptoRange(pto)} · {days} working day{days === 1 ? "" : "s"}
+          {ptoRange(pto)} · {counted(days, "working day")}
         </span>
         <button className="danger" onClick={(e) => onDelete(byClick(e))}>
           Delete

@@ -18,6 +18,7 @@ import {
 } from "react";
 import { flagName, PROGRESS_NAME, progress } from "../model/status";
 import { boxScale, scaleSentence } from "../model/scale";
+import { counted } from "../model/count";
 import { jiraKey } from "../model/jira";
 import { ScaleBadge, ScaleCard } from "./ScaleBadge";
 import { capacityOn, hasDates, laneDates } from "../model/lanes";
@@ -1451,7 +1452,7 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
                     style={style}
                     title={[
                       `PTO · ${entry.person.name}`,
-                      `${ptoRange(live)} · ${days} working day${days === 1 ? "" : "s"}`,
+                      `${ptoRange(live)} · ${counted(days, "working day")}`,
                       live.note,
                     ]
                       .filter(Boolean)

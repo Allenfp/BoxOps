@@ -4,6 +4,7 @@ import { flagName } from "./status";
 import { ptoChanges, ptoRange } from "./pto";
 import { laneDates } from "./lanes";
 import { prettyDay, workdays } from "./dates";
+import { counted, thousands } from "./count";
 import { type Changes, departmentsReordered, diffDraft, type DraftState, normalize } from "./draft";
 import { RELATION_TYPES, fullCode } from "./relations";
 import type { Box, Department, Person, Settings } from "./types";
@@ -142,7 +143,7 @@ export function describeChanges(base: DraftState, draft: DraftState, changes: Ch
     const was = baseDepts.get(d.id);
     if (!was) {
       const fte = d.lanes.reduce((n, l) => n + l.fte, 0);
-      lines.push({ kind: "added", text: `Added department **${d.name}** (${d.lanes.length} lane${d.lanes.length === 1 ? "" : "s"}, ${fte} FTE)` });
+      lines.push({ kind: "added", text: `Added department **${d.name}** (${counted(d.lanes.length, "lane")}, ${fte} FTE)` });
       continue;
     }
     const before = lines.length;
@@ -245,6 +246,6 @@ export function commitMessage(lines: ChangeLine[]): string {
   // One line per change: a line break in a title can't start a trailer (Co-authored-by: …) of its own.
   const plain = (t: string) => t.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
   const subject =
-    lines.length === 1 ? shorten(plain(lines[0].subject ?? lines[0].text), 72) : lines.length ? `Roadmap: ${lines.length} changes` : "Roadmap: update";
+    lines.length === 1 ? shorten(plain(lines[0].subject ?? lines[0].text), 72) : lines.length ? `Roadmap: ${thousands(lines.length)} changes` : "Roadmap: update";
   return [subject, "", ...lines.map((l) => `- ${plain(l.text)}`), "", "Saved from the BoxOps web app."].join("\n");
 }

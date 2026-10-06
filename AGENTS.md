@@ -92,7 +92,8 @@ of one box's changes go on its one bullet; a department gets a bullet per
 change (each lane's too), and an engineer one per PTO entry. With exactly one
 bullet, the subject is that bullet (without its "(was …)" parts, at most 72
 characters); otherwise it's `Roadmap: <n> changes`, where `<n>` is the
-number of bullets (the app's Save button counts the same way). Word them
+number of bullets, with a thousands separator (`Roadmap: 1,200 changes`;
+the app's Save button counts the same way). Word them
 like this (`<range>` is like `2026-03-02 – 2026-03-20`: dates are always
 `YYYY-MM-DD`, as everywhere in the app; a lane is `<Department> / <lane
 label>`; `<code>` is always the full code with its prefix, like `DE-K7P`;

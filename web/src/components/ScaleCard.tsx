@@ -14,6 +14,7 @@
 import { type CSSProperties, type RefObject, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { letter } from "../a11y/keys";
+import { counted } from "../model/count";
 import { amount, percent, scaleStats } from "../model/scale";
 import type { Box, Department } from "../model/types";
 
@@ -111,7 +112,7 @@ export function ScaleCard({ box, departments, anchor, hover, focused, onClose }:
       <strong>Scale {stats.scale}</strong>
       <span className="hint">
         {" "}
-        = {box.fte} FTE × {stats.days} working day{stats.days === 1 ? "" : "s"}
+        = {box.fte} FTE × {counted(stats.days, "working day")}
       </span>
       <div>
         ≈ {amount(stats.in.week)} weeks · {amount(stats.in.month)} months · {amount(stats.in.quarter)} quarters

@@ -295,7 +295,7 @@ describe("saveRoadmap", () => {
     const { g, save } = await setup();
     await expect(save({ validate: () => ["boxes/a.yaml: lane: x doesn't exist"] })).rejects.toThrow(/would leave the roadmap invalid/);
     const many = Object.fromEntries(Array.from({ length: 1001 }, (_, i) => [`boxes/x${i}.yaml`, `id: x${i}\n`]));
-    await expect(save({ changes: many })).rejects.toThrow(/too big for one commit/);
+    await expect(save({ changes: many })).rejects.toThrow(/too big for one commit \(1,001 files, /);
     expect(g.calls("graphql")).toBe(0);
   });
 

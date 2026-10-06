@@ -109,6 +109,8 @@ describe("commitMessage", () => {
     expect(long.split("\n")[0].length).toBeLessThanOrEqual(72);
     expect(long.split("\n")[0].endsWith("…")).toBe(true);
     expect(commitMessage([{ kind: "added", text: "a" }, { kind: "deleted", text: "b" }]).split("\n")[0]).toBe("Roadmap: 2 changes");
+    // Counted as the Save button counts them.
+    expect(commitMessage(Array.from({ length: 1200 }, (_, i) => ({ kind: "added" as const, text: `${i}` }))).split("\n")[0]).toBe("Roadmap: 1,200 changes");
     // Never a count of nothing.
     expect(commitMessage([]).split("\n")[0]).toBe("Roadmap: update");
   });

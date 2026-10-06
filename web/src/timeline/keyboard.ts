@@ -10,6 +10,7 @@
 // cells, so up and down go by time, not by column.
 
 import { type Day, prettyDay, workdays } from "../model/dates";
+import { counted } from "../model/count";
 import type { Department, TimeOff } from "../model/types";
 
 /** A cell, as navigation sees it: boxes and PTO blocks have dates, labels don't. */
@@ -101,10 +102,7 @@ export function navigate(rows: NavRow[], at: At, key: NavKey, anchor: Day): At |
 /** Dates as they're said: "2026-09-14 to 2026-10-23", or the one day. */
 export const spokenRange = (start: Day, end: Day) => (start === end ? prettyDay(start) : `${prettyDay(start)} to ${prettyDay(end)}`);
 
-export const workingDays = (start: Day, end: Day) => {
-  const n = workdays(start, end);
-  return `${n} working day${n === 1 ? "" : "s"}`;
-};
+export const workingDays = (start: Day, end: Day) => counted(workdays(start, end), "working day");
 
 export interface BoxNameParts {
   title: string;
@@ -144,7 +142,7 @@ export function boxName(p: BoxNameParts): string {
     `scale ${p.scale}`,
     p.engineers.length ? p.engineers.join(", ") : "no engineer assigned",
     p.flag,
-    p.rules > 0 && `breaks ${p.rules === 1 ? "a rule" : `${p.rules} rules`}`,
+    p.rules > 0 && `breaks ${p.rules === 1 ? "a rule" : counted(p.rules, "rule")}`,
     p.clash && "someone else also changed it",
     p.updated && !p.clash && "changed by someone else",
   ]

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseDay } from "../model/dates";
 import type { Department } from "../model/types";
-import { type NavRow, boxName, laneName, navigate, nearest, ptoName } from "./keyboard";
+import { type NavRow, boxName, laneName, navigate, nearest, ptoName, workingDays } from "./keyboard";
 import { laneSequence } from "./keyMove";
 
 const d = (s: string) => parseDay(s)!;
@@ -94,6 +94,13 @@ describe("names", () => {
     expect(boxName({ ...base, ...at("2026-10-07", "2026-10-07"), scale: 1, rules: 1, updated: true })).toBe(
       "Dagster 2.x upgrade, DE-D9U, 2026-10-07, 1 FTE, scale 1, no engineer assigned, breaks a rule, changed by someone else",
     );
+    expect(boxName({ ...base, rules: 1200 })).toContain(", breaks 1,200 rules");
+  });
+
+  it("working days, counted with a thousands separator", () => {
+    expect(workingDays(parseDay("2026-10-07")!, parseDay("2026-10-07")!)).toBe("1 working day");
+    // 2026-01-05 to 2030-11-01: 1,260 weekdays.
+    expect(workingDays(parseDay("2026-01-05")!, parseDay("2030-11-01")!)).toBe("1,260 working days");
   });
 
   it("a PTO block, and a lane", () => {

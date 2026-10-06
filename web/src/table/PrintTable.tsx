@@ -6,6 +6,7 @@
 
 import { Fragment } from "react";
 import { type Day, formatDay, workdays } from "../model/dates";
+import { counted } from "../model/count";
 import { jiraKey } from "../model/jira";
 import { boxScale } from "../model/scale";
 import { flagName } from "../model/status";
@@ -69,7 +70,7 @@ export function PrintBoxes({
               return (
                 <tr key={r.key} className="print-group">
                   <th colSpan={BOX_COLUMNS.length} scope="rowgroup">
-                    {r.dept.name} · {n} box{n === 1 ? "" : "es"}
+                    {r.dept.name} · {counted(n, "box", "boxes")}
                     {collapsed(r.dept.id) ? " (collapsed)" : ""}
                   </th>
                 </tr>
@@ -157,7 +158,7 @@ export function PrintPeople({ rows, collapsed }: { rows: readonly PeopleRow[]; c
               return (
                 <tr key={r.key} className="print-group">
                   <th colSpan={PEOPLE_COLUMNS.length} scope="rowgroup">
-                    {r.name} · {r.total} engineer{r.total === 1 ? "" : "s"}
+                    {r.name} · {counted(r.total, "engineer")}
                     {r.id && collapsed(r.id) ? " (collapsed)" : ""}
                   </th>
                 </tr>

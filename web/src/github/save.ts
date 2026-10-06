@@ -22,6 +22,7 @@
 // if it holds our content in every changed file, the save already landed.
 
 import { FORMAT } from "../model/format";
+import { counted } from "../model/count";
 import { settingsFormat } from "../model/parse";
 import { isRoadmapPath } from "../model/paths";
 import { type FileChanges, applyChanges } from "../model/serialize";
@@ -132,7 +133,7 @@ export async function saveRoadmap(req: SaveRequest): Promise<SaveResult> {
   const size = Object.values(contents).reduce((n, c) => n + c.length, 0);
   if (paths.length > MAX_FILES || size > MAX_BASE64) {
     throw new Error(
-      `This save is too big for one commit (${paths.length} files, ${(size / 1024 / 1024).toFixed(1)} MB). Undo some changes, save, then redo them.`,
+      `This save is too big for one commit (${counted(paths.length, "file")}, ${(size / 1024 / 1024).toFixed(1)} MB). Undo some changes, save, then redo them.`,
     );
   }
   const { headline, body } = commitParts(req.message);

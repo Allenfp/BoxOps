@@ -8,6 +8,7 @@
 
 import { type PointerEvent as ReactPointerEvent, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { announce } from "../a11y/announce";
+import { thousands } from "../model/count";
 import { followPointer, swallowNextClick } from "./followPointer";
 
 const THRESHOLD = 4;
@@ -156,6 +157,6 @@ export function reorderByKey(
     return null;
   }
   move!(id, j);
-  announce(`${name} moved ${up ? "up" : "down"}, ${j + 1} of ${order.length}.`);
+  announce(`${name} moved ${up ? "up" : "down"}, ${thousands(j + 1)} of ${thousands(order.length)}.`);
   return j;
 }

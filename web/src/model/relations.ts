@@ -3,6 +3,7 @@
 // shown like over capacity is.
 
 import { type Day, prettyDay, workdays } from "./dates";
+import { counted } from "./count";
 import type { Box, Department, Relation, RelationType } from "./types";
 
 interface RuleKind {
@@ -94,7 +95,7 @@ export interface Violation {
   message: string;
 }
 
-const days = (n: number) => `${n} working day${n === 1 ? "" : "s"}`;
+const days = (n: number) => counted(n, "working day");
 
 /** Why a rule doesn't hold, in words with dates: "it ends 2027-02-26 and the other starts 2027-02-22". */
 function explain(type: RelationType, a: Box, b: Box): string {

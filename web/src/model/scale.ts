@@ -2,6 +2,7 @@
 // Derived from the box, never stored.
 
 import { addWorkdays, workdays } from "./dates";
+import { counted } from "./count";
 import { capacityOn } from "./lanes";
 import type { Box, Department } from "./types";
 
@@ -41,7 +42,7 @@ export function scaleStats(box: Box, departments: Department[]): ScaleStats {
 /** The scale in words: "Scale 30 (1 FTE × 30 working days): about 6 weeks, 1.5 months or 0.5 quarters; 29% of Data Engineering while it runs." */
 export function scaleSentence(box: Box, departments: Department[]): string {
   const s = scaleStats(box, departments);
-  const days = `${s.days} working day${s.days === 1 ? "" : "s"}`;
+  const days = counted(s.days, "working day");
   const share = s.dept ? `; ${percent(s.dept.share)} of ${s.dept.name} while it runs` : "";
   return `Scale ${s.scale} (${box.fte} FTE × ${days}): about ${amount(s.in.week)} weeks, ${amount(s.in.month)} months or ${amount(s.in.quarter)} quarters${share}.`;
 }

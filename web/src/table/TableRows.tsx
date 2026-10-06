@@ -472,7 +472,7 @@ export const GroupRow = memo(function GroupRow({
               <span className="dept-name">{dept.name}</span>
               <span className="dept-meta" title={dated.length ? `FTE today. Dated lanes:\n${dated.join("\n")}` : undefined}>
                 {searching ? `${thousands(shown)} of ${counted(total, "box", "boxes")}` : counted(total, "box", "boxes")} · {fte} FTE
-                {dated.length > 0 && ` today · ${dated.length} dated lane${dated.length === 1 ? "" : "s"}`}
+                {dated.length > 0 && ` today · ${counted(dated.length, "dated lane")}`}
               </span>
             </button>
           </h3>
