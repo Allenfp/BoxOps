@@ -48,8 +48,10 @@ function place(el: HTMLElement, button: HTMLElement) {
  * editor's scrolling fields or the table don't cut it off. A scroll moves it
  * with the button (the table scrolls a clicked button clear of its header or
  * title column as it opens), until the editor's fields or the table are
- * scrolled till the button is out of sight: then it closes. A resize closes
- * it too, except while a new name is typed: then it moves with the button.
+ * scrolled till the button is out of sight: then it closes. So do rows above
+ * it in the table getting shorter or taller (a description closing as the
+ * click that left it ends). A resize closes it too, except while a new name
+ * is typed: then it moves with the button.
  */
 export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, emptyLabel, names: given }: Props) {
   const label = "Engineers";
@@ -96,11 +98,16 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
         if (ref.current?.contains(document.activeElement) || document.activeElement === document.body) button.current?.focus();
       }
     };
+    // The table it's in changing height: a row above it may have, moving the button.
+    const rows = new ResizeObserver(() => menu.current && button.current && place(menu.current, button.current));
+    const table = button.current?.closest("table");
+    if (table) rows.observe(table);
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("scroll", adrift, true);
     window.addEventListener("resize", adrift);
     return () => {
+      rows.disconnect();
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("scroll", adrift, true);

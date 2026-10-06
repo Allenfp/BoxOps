@@ -105,7 +105,8 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
   // A press elsewhere closes it, leaving focus where the press put it (put nowhere, a press on
   // text say, it goes back to what opened it); so does a resize. A scroll moves it with the field (a
   // table scrolls a clicked button clear of its header or title column as it opens), until what
-  // opened it is scrolled out of sight: then it closes too.
+  // opened it is scrolled out of sight: then it closes too. So do a table's rows above it getting
+  // shorter or taller (a description closing as the click that left it ends).
   useEffect(() => {
     if (!calendar) return;
     const inCalendar = (t: EventTarget | null) => t instanceof Node && !!dialog.current?.contains(t);
@@ -123,10 +124,18 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
       if (inCalendar(document.activeElement)) calendar.opener.focus({ preventScroll: true });
       setCalendar(null);
     };
+    // The table it's in changing height: a row above it may have, moving the field.
+    const rows = new ResizeObserver(() => {
+      const at = field.current?.getBoundingClientRect();
+      if (at && (at.top !== calendar.anchor.top || at.left !== calendar.anchor.left)) setCalendar({ ...calendar, anchor: at });
+    });
+    const table = field.current?.closest("table");
+    if (table) rows.observe(table);
     document.addEventListener("pointerdown", away, true);
     window.addEventListener("scroll", adrift, true);
     window.addEventListener("resize", adrift);
     return () => {
+      rows.disconnect();
       document.removeEventListener("pointerdown", away, true);
       window.removeEventListener("scroll", adrift, true);
       window.removeEventListener("resize", adrift);

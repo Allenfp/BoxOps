@@ -65,6 +65,17 @@ test("records a manager and wrapping notes", async ({ page, github }) => {
   expect(github.file("people.yaml")).toContain("so plan Fivetran work around that.\n      Prefers async updates.\n");
 });
 
+test("a click on a row below notes being left reaches what was clicked; the notes close once it has", async ({ page, github: _ }) => {
+  const notes = person(page, "Alex Kim").getByLabel("Notes");
+  await notes.fill("One\nTwo\nThree\nFour\nFive\nSix");
+  // The press takes focus from the notes: had they gone to two lines then, the rows below would have moved up
+  // under the pointer before the release, and the click with them.
+  await person(page, "Jordan Diaz").hover();
+  await person(page, "Jordan Diaz").getByRole("button", { name: "Remove Jordan Diaz" }).click();
+  await expect(person(page, "Jordan Diaz")).toHaveCount(0);
+  await expect.poll(() => notes.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(2 * 18 + 10);
+});
+
 test("removing an engineer unassigns them, and undo brings it all back", async ({ page, github }) => {
   await page.getByRole("button", { name: "Timeline" }).click();
   await page.locator(`[data-box-id="${DAGSTER}"]`).click();

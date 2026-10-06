@@ -826,7 +826,11 @@ when a focused element is removed.
   as it's drawn (a ResizeObserver); one not drawn is as tall as the rows of
   its kind drawn now. Rows of a kind are one height: descriptions and notes
   show two lines until focused (sized by CSS, a copy of the text in the same
-  grid cell: no script measures them), and People shows at most two PTO
+  grid cell: no script measures them; left by a press, as when another
+  row's button is clicked, a cell stays as it was until the press is over,
+  or the rows below would move under the pointer and its click land
+  elsewhere, and a calendar or the Engineers list that click opened moves
+  with its button as the row then moves up), and People shows at most two PTO
   entries before "+N more" (pressed, it stays open for that row, scrolled
   away and back: People keeps it by the row's key). Safari has no CSS
   scroll anchoring, so the table keeps the row at the top of the view in

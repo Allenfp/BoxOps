@@ -401,9 +401,10 @@
 
 /*
  * A description or notes (TextCell): two lines, … for more, until focused;
- * then as many as it needs. A copy of the text in the same grid cell sets
- * the height (no script measures it), and shows the two lines on top of the
- * field, whose own text is hidden until it's focused.
+ * then as many as it needs (and while a press that took focus away is still
+ * down: .open). A copy of the text in the same grid cell sets the height (no
+ * script measures it), and shows the two lines on top of the field, whose
+ * own text is hidden until it's focused.
  */
 .grow-wrap {
   display: grid;
@@ -425,17 +426,17 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.grow-wrap:not(:focus-within) .grow-text {
+.grow-wrap:not(:focus-within, .open) .grow-text {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
-.grow-wrap:not(:focus-within) textarea.cell-input {
+.grow-wrap:not(:focus-within, .open) textarea.cell-input {
   color: transparent;
   -webkit-text-fill-color: transparent;
 }
-.grow-wrap:focus-within .grow-text {
+.grow-wrap:is(:focus-within, .open) .grow-text {
   visibility: hidden;
 }
 /* High-contrast modes force the field's text to show: the field shows its own two lines, the copy only sizes it. */
@@ -443,7 +444,7 @@
   .grow-wrap .grow-text {
     visibility: hidden;
   }
-  .grow-wrap:not(:focus-within) textarea.cell-input {
+  .grow-wrap:not(:focus-within, .open) textarea.cell-input {
     color: FieldText;
     -webkit-text-fill-color: FieldText;
   }

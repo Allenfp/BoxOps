@@ -16,7 +16,10 @@ import { FieldError } from "./FieldError";
  * has a red edge while it's typed in; once saved like that, `problem` says
  * why under it (tied to it, and announced), so the colour isn't all there
  * is to go by. A cell taken off the page mid-edit (WebKit says nothing when
- * a focused field goes) saves what was typed.
+ * a focused field goes) saves what was typed. Focus taken by a press (on
+ * another row's button, say) leaves before the press is over: until it is,
+ * the cell stays as it was (every line; no problem note coming or going),
+ * or the rows below would move under the pointer, and its click with them.
  */
 export function TextCell({
   value,
@@ -90,6 +93,15 @@ export function TextCell({
     [],
   );
 
+  // Left mid-press: as it was with focus (`open`), saying what it said then, until the press is over.
+  const [left, setLeft] = useState<{ wrong: boolean } | null>(null);
+  const settling = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    watchPresses();
+    return () => settling.current?.();
+  }, []);
+  const shownWrong = left ? left.wrong : wrong;
+
   const props = {
     ref,
     className: `cell-input${multiline ? " multiline" : ""}${bad ? " invalid" : ""}`,
@@ -98,9 +110,14 @@ export function TextCell({
     disabled: readOnly,
     "aria-label": ariaLabel,
     "aria-invalid": bad || undefined,
-    "aria-describedby": wrong ? problemId : undefined,
+    "aria-describedby": shownWrong ? problemId : undefined,
     "data-settled": settled || undefined,
-    onFocus: () => (editing.current = true),
+    onFocus: () => {
+      editing.current = true;
+      settling.current?.();
+      settling.current = null;
+      setLeft(null);
+    },
     onChange: (e: { target: { value: string } }) => {
       editing.current = true;
       setSettled(false);
@@ -110,6 +127,14 @@ export function TextCell({
       editing.current = false;
       unsaved.current = null;
       setSettled(false);
+      if (pressing) {
+        setLeft({ wrong: !!wrong });
+        settling.current?.();
+        settling.current = afterPress(() => {
+          settling.current = null;
+          setLeft(null);
+        });
+      }
       commit();
       onBlur();
     },
@@ -131,7 +156,7 @@ export function TextCell({
   return (
     <>
       {multiline ? (
-        <div className="grow-wrap">
+        <div className={`grow-wrap${left ? " open" : ""}`}>
           <div className="grow-text" aria-hidden="true">
             {/* The space keeps a last empty line's height. */}
             {`${text} `}
@@ -142,8 +167,38 @@ export function TextCell({
         <input {...props} />
       )}
       <FieldError id={problemId} className="field-error cell-problem">
-        {wrong && problem}
+        {shownWrong && problem}
       </FieldError>
     </>
   );
+}
+
+/**
+ * A press is under way (a pointer is down), anywhere on the page, as far as the page heard: a key
+ * says not (a select's own menu may have taken the release). Watched once, from the first cell
+ * drawn, for all of them.
+ */
+let pressing = false;
+let watching = false;
+function watchPresses() {
+  if (watching) return;
+  watching = true;
+  window.addEventListener("pointerdown", () => (pressing = true), true);
+  for (const type of ["pointerup", "pointercancel", "keydown"]) window.addEventListener(type, () => (pressing = false), true);
+}
+
+/** Run `then` once the press under way is over (or a key is pressed) and its click has gone where it was meant to. Returns a function that cancels it. */
+function afterPress(then: () => void): () => void {
+  const ends = ["pointerup", "pointercancel", "keydown"] as const;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => ends.forEach((type) => window.removeEventListener(type, over, true));
+  function over() {
+    stop();
+    timer = setTimeout(then, 0);
+  }
+  ends.forEach((type) => window.addEventListener(type, over, true));
+  return () => {
+    stop();
+    clearTimeout(timer);
+  };
 }

@@ -152,6 +152,39 @@ test("a description shows two lines until it has focus, then every line; scrolle
   expect(covered).toEqual({ overlap: true, on: "col-title" });
 });
 
+test("a click on a row below a description being left reaches what was clicked; the description closes once it has", async ({ page, github: _ }) => {
+  const rows = page.locator("tr.box-row");
+  const description = rows.first().getByLabel("Description");
+  await description.fill("One\nTwo\nThree\nFour\nFive\nSix");
+  // The press takes focus from the description: had it gone to two lines then, the rows below would have moved
+  // up under the pointer before the release, and the click with them.
+  const button = rows.nth(1).getByRole("button", { name: /^Engineers/ });
+  await button.click();
+  const list = page.getByRole("dialog", { name: "Engineers" });
+  await expect(list).toBeVisible();
+  await expect.poll(() => description.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(2 * 18 + 10);
+  // The list went with its button as the row moved up; so does a calendar with its field.
+  const [b, l] = [(await button.boundingBox())!, (await list.boundingBox())!];
+  expect(Math.abs(l.y - (b.y + b.height))).toBeLessThan(8);
+  await page.keyboard.press("Escape");
+  await description.fill("One\nTwo\nThree\nFour\nFive\nSix");
+  const start = rows.nth(1).getByRole("textbox", { name: "Start" });
+  await rows.nth(1).locator("td.col-date").first().getByRole("button", { name: "Choose date" }).click();
+  const calendar = page.getByRole("dialog", { name: "Choose date" });
+  await expect(calendar).toBeVisible();
+  await expect.poll(() => description.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(2 * 18 + 10);
+  const [f, c] = [(await start.boundingBox())!, (await calendar.boundingBox())!];
+  expect(Math.abs(c.y - (f.y + f.height))).toBeLessThan(8);
+  await page.keyboard.press("Escape");
+
+  // A title left blank says why under it (the row gets taller) once the click that left it is over, not before.
+  const title = rows.nth(1).getByLabel("Title");
+  await title.fill("");
+  await rows.nth(2).getByRole("button", { name: /^Engineers/ }).click();
+  await expect(list).toBeVisible();
+  await expect(rows.nth(1).locator(".cell-problem")).toHaveText("A title is required.");
+});
+
 test("departments collapse, shared with the timeline", async ({ page, github: _ }) => {
   const group = (name: string) => page.locator(".group-toggle", { hasText: name });
   await expect(group("ML Platform")).toHaveAttribute("aria-expanded", "false");
