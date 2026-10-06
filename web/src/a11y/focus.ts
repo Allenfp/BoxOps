@@ -32,21 +32,17 @@ export function firstOnPage(targets: Target[]): HTMLElement | null {
  * Once the change under way has reached the page (the next frame), focus the
  * first of `targets` there, unless something has taken focus meanwhile.
  * `from`: focus may also be taken back from that element (one a closing
- * dialog put it on). `options`: how (BY_CLICK).
+ * dialog put it on). `clicked`: it follows a click rather than a key (an
+ * editor's ✕ or Delete), so it scrolls nothing, the view staying where the
+ * pointer left it, and shows no ring; after a key, it's scrolled into view
+ * (WCAG 2.4.11).
  */
-export function focusLater(targets: Target[], from?: Element | null, options?: FocusOptions): void {
+export function focusLater(targets: Target[], from?: Element | null, clicked?: boolean): void {
   requestAnimationFrame(() => {
     if (!focusLost() && document.activeElement !== from) return;
-    firstOnPage(targets)?.focus(options);
+    firstOnPage(targets)?.focus(clicked ? { preventScroll: true, focusVisible: false } : undefined);
   });
 }
-
-/**
- * Focus put somewhere after a click rather than a key (an editor's ✕ or
- * Delete): it scrolls nothing, the view staying where the pointer left it,
- * and shows no ring. After a key, it's scrolled into view (WCAG 2.4.11).
- */
-export const BY_CLICK: FocusOptions = { preventScroll: true, focusVisible: false };
 
 /**
  * The roadmap (<main>): where focus goes when there's nowhere better, and
@@ -69,19 +65,19 @@ export const main = (): HTMLElement | null => {
  * had focus before it opened (null if that was nothing). A native <dialog> is
  * closed first, so the rest of the page is no longer inert. `ifLost: false`:
  * only if it had focus (a banner, which focus may never have been near: a
- * click in WebKit leaves it on <body>). `how`: how it's focused, asked as it
- * goes (BY_CLICK if a click closed it).
+ * click in WebKit leaves it on <body>). `clicked`: asked as it goes, whether
+ * a click closed it (focusLater).
  */
 export function useReturnFocus(
   ref: RefObject<HTMLElement | null>,
   where: (opener: HTMLElement | null) => Element | null | undefined,
-  { ifLost = true, how }: { ifLost?: boolean; how?: () => FocusOptions | undefined } = {},
+  { ifLost = true, clicked }: { ifLost?: boolean; clicked?: () => boolean } = {},
 ): void {
   // What had focus when this first rendered, before anything in it took it.
   const [opener] = useState(() => (focusLost() ? null : (document.activeElement as HTMLElement)));
-  const latest = useRef({ where, how });
+  const latest = useRef({ where, clicked });
   useLayoutEffect(() => {
-    latest.current = { where, how };
+    latest.current = { where, clicked };
   });
   useLayoutEffect(() => {
     const el = ref.current;
@@ -93,7 +89,7 @@ export function useReturnFocus(
         el.close();
         from = document.activeElement; // where closing put it (what had focus when it opened)
       }
-      focusLater([() => latest.current.where(opener)], from, latest.current.how?.());
+      focusLater([() => latest.current.where(opener)], from, latest.current.clicked?.());
     };
   }, [ref, opener, ifLost]);
 }

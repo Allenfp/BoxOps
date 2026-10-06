@@ -677,10 +677,10 @@ when a focused element is removed.
   moves focus, so it's told by whether a key or a press came last
   (`focusByPress`). An editor closed with a click on ✕, or its box or
   block deleted with one, gives focus back the same way, scrolling
-  nothing (`BY_CLICK`, `markPressed`): the view stays where the pointer
-  left it. From the keyboard (Esc, or Enter on ✕ or Delete) the cell
-  focus goes to is scrolled into view. Focus from a press shows a thin
-  edge all the same, as Delete, Space and N act on it.
+  nothing (`focusLater`'s `clicked`, `markPressed`): the view stays where
+  the pointer left it. From the keyboard (Esc, or Enter on ✕ or Delete)
+  the cell focus goes to is scrolled into view. Focus from a press shows a
+  thin edge all the same, as Delete, Space and N act on it.
 - **Contrast.** Text meets 4.5:1, and 3:1 what shows a control or its
   state (a field's edge, a switch, the chosen segment, a box's progress
   mark and resize grips, a collapsed department's boxes) or is all there

@@ -18,7 +18,7 @@ import { Popover } from "./components/Popover";
 import { Banner } from "./components/Banner";
 import { announce, useAnnounce } from "./a11y/announce";
 import { letter, shortcut, undoHint } from "./a11y/keys";
-import { BY_CLICK, type Target, firstOnPage, focusLater, focusLost, main, onPage, useReturnFocus } from "./a11y/focus";
+import { type Target, firstOnPage, focusLater, focusLost, main, onPage, useReturnFocus } from "./a11y/focus";
 import { scrollBehavior } from "./a11y/motion";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
@@ -862,7 +862,7 @@ function RoadmapView(props: ViewProps) {
     return [...near.map((b) => () => timelineCell(`box:${b.id}`)), () => deptHeading(dept)];
   };
   /** Once box `id` is deleted from the timeline, focus goes beside it (besideBox), else to the roadmap; after a click, without scrolling. */
-  const focusAfterBox = (id: string, clicked: boolean) => focusLater([...besideBox(id), main], null, clicked ? BY_CLICK : undefined);
+  const focusAfterBox = (id: string, clicked: boolean) => focusLater([...besideBox(id), main], null, clicked);
   /** Where focus goes once PTO `ref` is gone: the next block in its department's row (by start), else the one before, else Add PTO there, else its heading. As besideBox. */
   const besidePto = (ref: PtoRef): Target[] => {
     const dept = draft.people.find((p) => p.id === ref.personId)?.department;
@@ -877,7 +877,7 @@ function RoadmapView(props: ViewProps) {
     return [...near.map((e) => () => timelineCell(`pto:${keyAfter(e)}`)), () => (dept ? timelineCell(`pto-add:${dept}`) : null), () => deptHeading(dept)];
   };
   /** Once PTO `ref` is deleted, focus goes beside it (besidePto), else to the roadmap; after a click, without scrolling. */
-  const focusAfterPto = (ref: PtoRef, clicked: boolean) => focusLater([...besidePto(ref), main], null, clicked ? BY_CLICK : undefined);
+  const focusAfterPto = (ref: PtoRef, clicked: boolean) => focusLater([...besidePto(ref), main], null, clicked);
 
   // PTO lives on the person; a block is picked out by its owner and position.
   const [selectedPto, setSelectedPto] = useState<(PtoRef & { session: number }) | null>(null);

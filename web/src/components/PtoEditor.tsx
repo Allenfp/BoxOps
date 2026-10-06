@@ -10,7 +10,7 @@ import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { LiveRegion } from "../a11y/announce";
 import { FieldError, describedBy } from "./FieldError";
-import { BY_CLICK, loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
+import { loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
 import { markPressed } from "./useGridFocus";
 
 const WIDTH = 360;
@@ -51,7 +51,7 @@ export function PtoEditor({ target, pto, people, departments, onChange, onReassi
     return clicked.current;
   };
   useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`pto:${key}`) ?? onPage(opener) ?? beside() ?? main())), {
-    how: () => (clicked.current ? BY_CLICK : undefined),
+    clicked: () => clicked.current,
   });
 
   useEffect(() => {

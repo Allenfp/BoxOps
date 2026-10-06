@@ -12,7 +12,7 @@ import { Icon } from "./Icon";
 import { DateInput } from "./DateInput";
 import { LiveRegion } from "../a11y/announce";
 import { FieldError, describedBy } from "./FieldError";
-import { BY_CLICK, focusAfterRemoving, loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
+import { focusAfterRemoving, loopTab, main, onPage, useReturnFocus } from "../a11y/focus";
 import { markPressed } from "./useGridFocus";
 
 const WIDTH = 440;
@@ -90,7 +90,7 @@ export function BoxEditor(props: Props) {
     return clicked.current;
   };
   useReturnFocus(ref, (opener) => (clickedAway.current ? null : (cell(`box:${box.id}`) ?? onPage(opener) ?? props.beside() ?? main())), {
-    how: () => (clicked.current ? BY_CLICK : undefined),
+    clicked: () => clicked.current,
   });
 
   useEffect(() => {
