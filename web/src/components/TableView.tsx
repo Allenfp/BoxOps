@@ -358,6 +358,7 @@ export function TableView(props: Props) {
     pinned: [active, holding, targetKey].filter((k) => k !== null),
     enabled: windowed,
     sort: `${sort.key} ${sort.dir}`,
+    search: `${q}\n${fromDay ?? ""}\n${toDay ?? ""}`,
   });
   const tableRef = useRef<HTMLTableElement>(null);
   const printing = usePrinting();

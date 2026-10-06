@@ -17,8 +17,11 @@
 // row that was at the top of the view stays there. Not while a calendar or
 // the Engineers list is open in the table: scrolling closes those. Nor
 // across a new sort: the table stays scrolled as far as it was, rather than
-// following that row to wherever it's sorted. (A search or filter keeps
-// it, or the first row after it that's still shown, in place.)
+// following that row to wherever it's sorted. A new search or new dates
+// show their rows from the top, drawn whole or not (on a big table, the
+// search stands in for the browser's Find). Anything else that changes
+// which rows are shown (Hide finished, someone else's save) keeps the row
+// at the top, or the first after it that's still shown, in place.
 
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -71,12 +74,14 @@ export function useWindowedRows(o: {
   defaults: Readonly<Record<string, number>>;
   /** Rows drawn wherever they are, with a row either side: what's focused, what's about to be. */
   pinned: readonly string[];
-  /** False: every row is drawn, and nothing here does anything. */
+  /** False: every row is drawn, and nothing here does anything but go to the top for a new search. */
   enabled: boolean;
   /** The rows' sort, if they can be sorted another way: a new one isn't kept in place. */
   sort?: string;
+  /** The search, and dates if there are any: a new one is shown from the top. */
+  search: string;
 }): WindowedRows {
-  const { keys, kinds, defaults, pinned, enabled, sort } = o;
+  const { keys, kinds, defaults, pinned, enabled, sort, search } = o;
   const scroller = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLTableSectionElement>(null);
 
@@ -128,7 +133,7 @@ export function useWindowedRows(o: {
   }, []);
 
   // The layout last drawn, and where the table was scrolled to then (or since).
-  const before = useRef<{ tops: Float64Array; keys: readonly string[]; top: number; sort: string | undefined } | null>(null);
+  const before = useRef<{ tops: Float64Array; keys: readonly string[]; top: number; sort: string | undefined; search: string } | null>(null);
 
   // Follow scrolling (a frame at a time) and size changes, drawing in the same frame.
   useLayoutEffect(() => {
@@ -218,16 +223,29 @@ export function useWindowedRows(o: {
     [enabled, observe],
   );
 
+  // A new search or new dates: their rows from the top, drawn there at once (kept in place below, the view would
+  // stay among rows that happened to be where it was, with matches above it and nothing to say so).
+  const searched = useRef(search);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (searched.current === search) return;
+    searched.current = search;
+    if (!el || el.scrollTop === 0) return;
+    el.scrollTop = 0;
+    const next = enabled ? where() : latestView.current;
+    if (next !== latestView.current) setView(next);
+  }, [search, enabled, where]);
+
   // Keep the view in place: the row at its top before this change is where it was. Rows above it that were
   // measured, added or removed (someone else's save), or that changed kind's usual height, would push it. Not if
   // the change scrolled the table itself (focus put back in a row that moved, say): that's where it's meant to be.
-  // Nor if it's a new sort: the rows are put in a new order, not moved.
+  // Nor if it's a new sort, search or dates: the rows are put in a new order, or start from the top (above).
   useLayoutEffect(() => {
     const el = scroller.current;
     const was = before.current;
-    const now = enabled && el ? { tops, keys, top: el.scrollTop, sort } : null;
+    const now = enabled && el ? { tops, keys, top: el.scrollTop, sort, search } : null;
     before.current = now;
-    if (!el || !was || !now || (was.tops === tops && was.keys === keys) || was.sort !== sort || popupOpen(el)) return;
+    if (!el || !was || !now || (was.tops === tops && was.keys === keys) || was.sort !== sort || was.search !== search || popupOpen(el)) return;
     const s = now.top;
     if (s !== was.top) return;
     // The first row there, or after it, that's still there.
@@ -253,12 +271,12 @@ export function useWindowedRows(o: {
       else if (top < s) s = top;
       else if (bottom > s + height) s = bottom - height;
       el.scrollTop = Math.max(0, s);
-      before.current = { tops, keys, top: el.scrollTop, sort }; // where it is now is where it's meant to be
+      before.current = { tops, keys, top: el.scrollTop, sort, search }; // where it is now is where it's meant to be
       const next = where();
       if (next !== latestView.current) setView(next);
       return true;
     },
-    [index, enabled, tops, keys, sort, where],
+    [index, enabled, tops, keys, sort, search, where],
   );
 
   return {

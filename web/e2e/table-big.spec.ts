@@ -290,7 +290,11 @@ test("a row edited out of the dates or into the finished stays, saying so, until
   await rows.first().getByLabel("Title").focus();
   await expect(edited).toHaveCount(0);
   await page.getByLabel("From date").fill("");
-  await expect(edited).toHaveCount(0);
+  // (New dates show the table from the top: back to the department.)
+  await page.locator('[data-dept-id="dept-02"]').evaluate((el) => el.scrollIntoView());
+  await settled(page);
+  await expect(rows.first()).toBeVisible();
+  expect(await edited.count()).toBe(0);
   await page.getByRole("switch", { name: /Hide finished boxes/ }).uncheck();
   await expect(edited).toHaveCount(1);
 });
@@ -409,6 +413,44 @@ test("the header's sort buttons, focused, tabbed to or clicked, leave the table 
   await expect.poll(() => onScreen(page)).not.toEqual(shown);
   await settled(page);
   expect(await top()).toBe(at);
+});
+
+test("a new search or new dates show their rows from the top; hiding finished rows keeps the view in place", async ({ page, github: _ }) => {
+  const top = () => scroller(page).evaluate((el) => el.scrollTop);
+  const first = async () => (await onScreen(page))[0];
+  const scrolledDown = async () => {
+    await scrollTo(page, 0.6);
+    await settled(page);
+    expect(await top()).toBeGreaterThan(0);
+  };
+  // Typed while scrolled down: the first match at the top, not the rows that happened to be where the view was.
+  await scrolledDown();
+  await page.locator(".table-search").fill("pto");
+  await expect.poll(top).toBe(0);
+  await expect.poll(first).toMatch(/^2 /);
+  await scrolledDown();
+  await page.locator(".table-search").fill("");
+  await expect.poll(top).toBe(0);
+  // Dates set and cleared, the same.
+  await scrolledDown();
+  await page.getByLabel("From date").fill("2026-11-02");
+  await expect.poll(top).toBe(0);
+  await expect.poll(first).toMatch(/^2 /);
+  await scrolledDown();
+  await page.getByRole("button", { name: "Clear dates" }).click();
+  await expect.poll(top).toBe(0);
+
+  // Hiding finished boxes takes rows away above the view: the heading at its top stays there.
+  await page.locator('[data-dept-id="dept-07"]').evaluate((el) => el.scrollIntoView());
+  await settled(page);
+  const heading = page.locator('[data-dept-id="dept-07"] tr.group-row');
+  const at = () => heading.evaluate((el) => Math.round(el.getBoundingClientRect().top - el.closest(".table-scroll")!.getBoundingClientRect().top));
+  const was = await at();
+  const scrolled = await top();
+  await page.getByRole("switch", { name: "Hide finished boxes and PTO" }).check();
+  await expect.poll(top).toBeLessThan(scrolled);
+  await settled(page);
+  expect(Math.abs((await at()) - was)).toBeLessThanOrEqual(2);
 });
 
 test("rows above the view getting shorter (compact density) leave the row at its top where it was", async ({ page, github: _ }) => {
@@ -546,6 +588,17 @@ test.describe("People", () => {
     await rows.first().locator(".row-delete").focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(".row-delete:focus")).toHaveAttribute("aria-label", `Remove ${next}`);
+  });
+
+  test("a new search shows its matches from the top", async ({ page }) => {
+    const top = () => scroller(page).evaluate((el) => el.scrollTop);
+    await scrollTo(page, 0.6);
+    await settled(page);
+    expect(await top()).toBeGreaterThan(0);
+    const name = people.at(-1)!.name;
+    await page.getByLabel("Search engineers").fill(name);
+    await expect.poll(top).toBe(0);
+    await expect(page.locator("tr.person-row").first().getByLabel("Name")).toHaveValue(name);
   });
 
   test("printing gives every engineer as shown", async ({ page }) => {

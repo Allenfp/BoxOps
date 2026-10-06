@@ -146,6 +146,7 @@ export function PeopleView(props: Props) {
     defaults: ROW_HEIGHTS,
     pinned: [active, holding, targetKey].filter((k) => k !== null),
     enabled: windowed,
+    search: q,
   });
   const tableRef = useRef<HTMLTableElement>(null);
   const printing = usePrinting();
