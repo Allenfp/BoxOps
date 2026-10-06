@@ -16,7 +16,7 @@ import { focusAfterRow, focusLater } from "../a11y/focus";
 import { keeper } from "../keeper";
 import { boxKeys, PtoKeys } from "../table/rowKeys";
 import { keepPlace, type TableRow, tableRows } from "../table/tableModel";
-import { useWindowedRows } from "../table/useWindowedRows";
+import { DRAW_ALL_UP_TO, useWindowedRows } from "../table/useWindowedRows";
 import { KeepFocus } from "../table/KeepFocus";
 import { rowKeyOf } from "../table/focusRow";
 import { useActiveRow } from "../table/useActiveRow";
@@ -85,13 +85,6 @@ const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: null, label: "Description", className: "col-desc" },
   { key: null, label: "", className: "col-actions" },
 ];
-
-/**
- * A table with more rows than this (boxes, PTO, headings) draws only those
- * near the screen, and what has focus: up to it, all of them, so the
- * browser's Find and a screen reader's browse mode reach every row.
- */
-export const DRAW_ALL_UP_TO = 300;
 
 /** How tall each kind of row is until one's been measured (they're measured as they're drawn). */
 const ROW_HEIGHTS: Record<TableRow["kind"], number> = { group: 36, box: 53, empty: 33, pto: 35, "add-pto": 31, "add-dept": 49 };
@@ -590,7 +583,7 @@ export function TableView(props: Props) {
         );
       }
       case "empty":
-        return <EmptyRow key={r.key} {...common} text={`No boxes in ${r.dept.name} yet.`} />;
+        return <EmptyRow key={r.key} {...common} text={`No boxes in ${r.dept.name} yet.`} columns={COLUMN_COUNT} />;
       case "add-pto":
         return <AddRow key={r.key} {...common} className="add-pto-row" label="Add PTO" columns={COLUMN_COUNT} onClick={() => actions.addPto(r.dept.id)} />;
       case "add-dept":

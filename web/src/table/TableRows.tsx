@@ -429,11 +429,23 @@ export const GroupRow = memo(function GroupRow({ dept, rowKey, index, shown, tot
   );
 });
 
-/** A row of text across the table: a department with no boxes yet. */
-export const EmptyRow = memo(function EmptyRow({ rowKey, index, text, measure }: { rowKey: string; index: number; text: string; measure(el: HTMLElement | null): void }) {
+/** A row of text across the table: a department with no boxes (or engineers) yet. */
+export const EmptyRow = memo(function EmptyRow({
+  rowKey,
+  index,
+  text,
+  columns,
+  measure,
+}: {
+  rowKey: string;
+  index: number;
+  text: string;
+  columns: number;
+  measure(el: HTMLElement | null): void;
+}) {
   return (
     <tr ref={measure} data-row-key={rowKey} aria-rowindex={index} className="empty-row">
-      <td colSpan={COLUMN_COUNT}>{text}</td>
+      <td colSpan={columns}>{text}</td>
     </tr>
   );
 });

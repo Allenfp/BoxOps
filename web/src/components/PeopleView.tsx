@@ -1,12 +1,19 @@
-import { type CSSProperties, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CollapseAll } from "./CollapseAll";
-import { EMAIL } from "../model/load";
-import { type PtoRef, ptoRange } from "../model/pto";
+import type { PtoRef } from "../model/pto";
 import type { Person, Roadmap } from "../model/types";
-import { TextCell } from "./TextCell";
 import { Icon } from "./Icon";
+import { useToday } from "./useToday";
 import { useAnnounceResults } from "../a11y/announce";
 import { focusAfterRow } from "../a11y/focus";
+import { RowKeys } from "../table/rowKeys";
+import { keepPlace, type PeopleRow, peopleRows } from "../table/tableModel";
+import { DRAW_ALL_UP_TO, useWindowedRows } from "../table/useWindowedRows";
+import { KeepFocus } from "../table/KeepFocus";
+import { rowKeyOf } from "../table/focusRow";
+import { useActiveRow } from "../table/useActiveRow";
+import { AddRow, EmptyRow, SpacerRow } from "../table/TableRows";
+import { PEOPLE_COLUMNS, PeopleGroupRow, type PersonActions, PersonRow } from "../table/PeopleRows";
 
 interface Props {
   roadmap: Roadmap;
@@ -43,22 +50,19 @@ const COLUMNS = [
   { label: "", className: "col-actions" },
 ];
 
+/** How tall each kind of row is until one's been measured. */
+const ROW_HEIGHTS: Record<PeopleRow["kind"], number> = { group: 36, person: 53, empty: 33, "add-dept": 49 };
+
 export function PeopleView(props: Props) {
-  const { roadmap, readOnly, collapsed, onToggleDepartment, onAdd, onUpdate, onRemove, onCheckpoint } = props;
+  const { roadmap, readOnly = false, collapsed, onToggleDepartment, onAdd, onUpdate, onRemove, onCheckpoint } = props;
   const { departments, people, boxes } = roadmap;
   const [query, setQuery] = useState("");
-  const [focusId, setFocusId] = useState<string | null>(null);
+  const q = query.trim().toLowerCase();
+  const now = useToday();
 
-  // Stable row keys while an unsaved person's id follows their name.
-  const rowKeys = useRef(new Map<string, string>());
-  const keyFor = (id: string) => {
-    if (!rowKeys.current.has(id)) rowKeys.current.set(id, id);
-    return rowKeys.current.get(id)!;
-  };
-  const update = (id: string, patch: Partial<Omit<Person, "id">>) => {
-    const next = onUpdate(id, patch);
-    if (next !== id) rowKeys.current.set(next, keyFor(id));
-  };
+  // Kept from one render to the next: row keys (which follow an unsaved person's id as it follows their name), and
+  // the order last shown (a row being edited keeps its place in it).
+  const [kept] = useState(() => ({ keys: new RowKeys("r"), order: new Map<string, string[]>(), searched: "" }));
 
   /** How many boxes each person is on, to warn before removing them. */
   const boxCount = useMemo(() => {
@@ -66,37 +70,185 @@ export function PeopleView(props: Props) {
     for (const b of boxes) for (const id of b.engineers ?? []) n.set(id, (n.get(id) ?? 0) + 1);
     return n;
   }, [boxes]);
-  const deptIds = new Set(departments.map((d) => d.id));
-  const q = query.trim().toLowerCase();
-  const matches = (p: Person) =>
-    !q ||
-    [p.name, p.role ?? "", p.email ?? "", p.manager ?? "", p.notes ?? ""]
-      .join(" ")
-      .toLowerCase()
-      .includes(q);
+  const deptIds = useMemo(() => new Set(departments.map((d) => d.id)), [departments]);
+  const deptNames = useMemo(() => new Map([...departments.map((d) => [d.id, d.name] as const), [NO_DEPT, "No department"]]), [departments]);
+  const departmentOptions = useMemo(
+    () => [
+      ...departments.map((d) => (
+        <option key={d.id} value={d.id}>
+          {d.name}
+        </option>
+      )),
+      <option key={NO_DEPT} value={NO_DEPT}>
+        No department
+      </option>,
+    ],
+    [departments],
+  );
+  // What a search looks in, worked out once a person (and again only for one who's changed).
+  const searchable = useMemo(() => {
+    const made = new WeakMap<Person, string>();
+    return (p: Person) => {
+      let s = made.get(p);
+      if (s === undefined) made.set(p, (s = [p.name, p.role ?? "", p.email ?? "", p.manager ?? "", p.notes ?? ""].join(" ").toLowerCase()));
+      return s;
+    };
+  }, []);
+  const deptOf = (p: Person) => (p.department && deptIds.has(p.department) ? p.department : NO_DEPT);
+  const keyOf = useMemo(() => {
+    const keys = kept.keys.keys(people.map((p) => p.id));
+    return new Map(people.map((p, i) => [p, keys[i]]));
+  }, [kept, people]);
 
-  const groups = [
-    ...departments.map((d) => ({ id: d.id, name: d.name, color: d.color })),
-    { id: NO_DEPT, name: "No department", color: "#8a94a6" },
-  ].map((g) => ({
-    ...g,
-    all: people.filter((p) => (p.department && deptIds.has(p.department) ? p.department : NO_DEPT) === g.id),
-  }));
-  const shown = people.filter(matches).length;
+  // The row focus is in, drawn wherever it is; and the row that keeps its place and stays shown while it has
+  // focus, though an edit would sort it elsewhere or the search leave it out. Searching puts it where it goes.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { active, held: holding, handlers: rowFocus } = useActiveRow(scrollRef);
+  const held = kept.searched === q ? holding : null;
+  // An engineer just added: drawn, scrolled to and their name focused, until it's had focus.
+  const [target, setTarget] = useState<string | null>(null);
+  const targetKey = target === null ? null : (keyOf.get(people.find((p) => p.id === target)!) ?? null);
+
+  const groups = useMemo(() => {
+    const all = new Map<string, Person[]>([...departments.map((d) => [d.id, [] as Person[]] as const), [NO_DEPT, []]]);
+    for (const p of people) all.get(deptOf(p))!.push(p);
+    return [...departments.map((d) => ({ id: d.id, name: d.name, color: d.color })), { id: NO_DEPT, name: "No department", color: "#8a94a6" }]
+      .filter((g) => g.id !== NO_DEPT || all.get(NO_DEPT)!.length > 0)
+      .map((g) => {
+        const list = all.get(g.id)!;
+        const shown = list
+          .flatMap((person) => {
+            const key = keyOf.get(person)!;
+            const ok = !q || searchable(person).includes(q);
+            return ok || key === held || key === targetKey ? [{ person, key, held: !ok && key !== targetKey }] : [];
+          })
+          .sort((a, b) => a.person.name.localeCompare(b.person.name));
+        return { ...g, total: list.length, people: keepPlace(shown, (r) => r.key, kept.order.get(g.id) ?? [], held) };
+      });
+    // deptOf is a new function every render: deptIds stands in for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+  }, [departments, people, deptIds, keyOf, q, searchable, held, targetKey, kept]);
+  const shown = groups.reduce((n, g) => n + g.people.filter((r) => !r.held).length, 0);
+
+  const model = useMemo(
+    () => peopleRows({ groups, collapsed, searching: q !== "", addDepartment: !readOnly && !!props.onAddDepartment }),
+    [groups, collapsed, q, readOnly, props.onAddDepartment],
+  );
+  const windowed = window.__boxopsTest?.virtualize ?? model.rows.length > DRAW_ALL_UP_TO;
+  const win = useWindowedRows({
+    keys: model.keys,
+    kinds: model.kinds,
+    defaults: ROW_HEIGHTS,
+    pinned: [active, holding, targetKey].filter((k) => k !== null),
+    enabled: windowed,
+  });
+  const tableRef = useRef<HTMLTableElement>(null);
+
+  // What was shown is what a row being edited keeps its place in; a new search, once shown, too.
+  useLayoutEffect(() => {
+    kept.order = new Map(groups.map((g) => [g.id, g.people.map((r) => r.key)]));
+    kept.searched = q;
+  });
+  // An engineer just added: their department opened, scrolled to (drawn there at once); focus goes there as it's drawn.
+  const reached = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!targetKey || reached.current === targetKey) return;
+    if (win.scrollTo(targetKey, "center")) reached.current = targetKey;
+  });
+
   // How many a search leaves, said once typing pauses.
   useAnnounceResults(
     q,
     q && !shown ? `No engineers match “${query.trim()}”.` : `${shown === people.length ? "" : `${shown} of `}${people.length} engineer${people.length === 1 ? "" : "s"}.`,
   );
 
-  const remove = (p: Person, button: HTMLElement) => {
-    const n = boxCount.get(p.id) ?? 0;
-    if (
-      n === 0 ||
-      confirm(`Remove ${p.name}? They're on ${n} box${n === 1 ? "" : "es"} and will be unassigned. You can undo this.`)
-    ) {
-      focusAfterRow(button, ".row-delete");
-      onRemove(p.id);
+  /** Add an engineer (to a department, opened), with the search cleared so they're shown. */
+  const add = (department?: string) => {
+    setQuery("");
+    if (department && collapsed.has(department)) onToggleDepartment(department);
+    setTarget(onAdd(department));
+  };
+  // What the rows do: these functions, always the latest (rows are memoized, given one object that never changes).
+  const handlers: PersonActions = {
+    update: (id, patch) => {
+      const next = onUpdate(id, patch);
+      if (next !== id) kept.keys.rename(id, next);
+    },
+    remove: (p, button) => {
+      const n = boxCount.get(p.id) ?? 0;
+      if (n === 0 || confirm(`Remove ${p.name}? They're on ${n} box${n === 1 ? "" : "es"} and will be unassigned. You can undo this.`)) {
+        focusAfterRow(button, ".row-delete");
+        onRemove(p.id);
+      }
+    },
+    checkpoint: () => onCheckpoint(),
+    showPto: props.onShowPto && ((ref) => props.onShowPto?.(ref)),
+    toggle: (id) => onToggleDepartment(id),
+    edit: (id) => props.onEditDepartment?.(id),
+    add: (id) => add(id),
+    addDepartment: () => props.onAddDepartment?.(),
+  };
+  const act = useRef(handlers);
+  useLayoutEffect(() => {
+    act.current = handlers;
+  });
+  const canShowPto = !!props.onShowPto;
+  const actions = useMemo<PersonActions>(
+    () => ({
+      update: (id, patch) => act.current.update(id, patch),
+      remove: (p, button) => act.current.remove(p, button),
+      checkpoint: () => act.current.checkpoint(),
+      showPto: canShowPto ? (ref) => act.current.showPto?.(ref) : undefined,
+      toggle: (id) => act.current.toggle(id),
+      edit: (id) => act.current.edit(id),
+      add: (id) => act.current.add(id),
+      addDepartment: () => act.current.addDepartment(),
+    }),
+    [canShowPto],
+  );
+
+  const row = (r: PeopleRow, i: number) => {
+    const common = { rowKey: r.key, index: i + 2, measure: win.measure(r.key) };
+    switch (r.kind) {
+      case "group":
+        return (
+          <PeopleGroupRow
+            key={r.key}
+            {...common}
+            id={r.id}
+            name={r.name}
+            shown={r.shown}
+            total={r.total}
+            searching={q !== ""}
+            collapsed={r.id !== NO_DEPT && collapsed.has(r.id) && !q}
+            readOnly={readOnly}
+            editable={!!props.onEditDepartment}
+            actions={actions}
+          />
+        );
+      case "person": {
+        const department = deptOf(r.person);
+        return (
+          <PersonRow
+            key={r.key}
+            {...common}
+            person={r.person}
+            department={department}
+            departmentName={deptNames.get(department) ?? ""}
+            departmentOptions={departmentOptions}
+            departmentCount={departments.length + 1}
+            readOnly={readOnly}
+            autoFocus={r.key === targetKey}
+            held={r.held}
+            now={now}
+            actions={actions}
+          />
+        );
+      }
+      case "empty":
+        return <EmptyRow key={r.key} {...common} text={`No engineers in ${r.name} yet.`} columns={PEOPLE_COLUMNS} />;
+      case "add-dept":
+        return <AddRow key={r.key} {...common} className="add-dept-row" label="Add department" columns={PEOPLE_COLUMNS} onClick={actions.addDepartment} />;
     }
   };
 
@@ -117,223 +269,62 @@ export function PeopleView(props: Props) {
         </span>
         {departments.length > 0 && <CollapseAll all={props.allCollapsed} onToggle={props.onToggleAll} />}
         {!readOnly && (
-          <button
-            className="primary"
-            onClick={() => {
-              setQuery("");
-              setFocusId(onAdd());
-            }}
-          >
+          <button className="primary" onClick={() => add()}>
             <Icon name="plus" size={14} />
             Add engineer
           </button>
         )}
       </div>
 
-      <div className="table-scroll">
-        <table className="box-table people-table">
-          <thead>
-            <tr>
-              {COLUMNS.map((c, i) => (
-                <th key={i} className={c.className}>
-                  {c.label ? <span className="th-label">{c.label}</span> : <span className="sr-only">Actions</span>}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          {/* keyFor reads rowKeys while rendering, on purpose; it only ever adds id → id, so a second render is harmless. */}
-          {/* eslint-disable-next-line react-hooks/refs -- stable row keys, see above */}
-          {groups.map((g) => {
-            const rows = g.all.filter(matches).sort((a, b) => a.name.localeCompare(b.name));
-            if (g.id === NO_DEPT && g.all.length === 0) return null;
-            if (q && rows.length === 0) return null;
-            const isCollapsed = g.id !== NO_DEPT && collapsed.has(g.id) && !q;
-            return (
-              <tbody key={g.id || "none"} className="dept-group" data-dept-id={g.id || undefined} style={{ "--dept": g.color } as CSSProperties}>
-                <tr className="group-row">
-                  <td colSpan={COLUMNS.length}>
-                    <div className="group-head">
-                      <h3 className="dept-heading">
-                        <button
-                          className="group-toggle"
-                          onClick={() => g.id !== NO_DEPT && onToggleDepartment(g.id)}
-                          aria-expanded={!isCollapsed}
-                          disabled={!!q || g.id === NO_DEPT}
-                        >
-                          <Icon name="chevron-right" size={14} className={`chevron${isCollapsed ? "" : " open"}`} />
-                          <span className="dept-name">{g.name}</span>
-                          <span className="dept-meta">
-                            {q ? `${rows.length} of ${g.all.length}` : g.all.length} engineer{g.all.length === 1 ? "" : "s"}
-                          </span>
-                        </button>
-                      </h3>
-                      {!readOnly && g.id !== NO_DEPT && props.onEditDepartment && (
-                        <button
-                          className="icon-button group-edit"
-                          title="Edit department and lanes"
-                          aria-label={`Edit ${g.name}`}
-                          onClick={() => props.onEditDepartment!(g.id)}
-                        >
-                          <Icon name="pencil" size={14} />
-                        </button>
-                      )}
-                      {!readOnly && g.id !== NO_DEPT && (
-                        <button
-                          className="icon-button group-add"
-                          title={`Add an engineer to ${g.name}`}
-                          aria-label={`Add an engineer to ${g.name}`}
-                          onClick={() => {
-                            setQuery("");
-                            if (collapsed.has(g.id)) onToggleDepartment(g.id);
-                            setFocusId(onAdd(g.id));
-                          }}
-                        >
-                          <Icon name="plus" size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                {!isCollapsed && rows.length === 0 && (
-                  <tr className="empty-row">
-                    <td colSpan={COLUMNS.length}>No engineers in {g.name} yet.</td>
-                  </tr>
-                )}
-                {!isCollapsed &&
-                  rows.map((p) => (
-                      <tr key={keyFor(p.id)}>
-                        <td className="col-name">
-                          <TextCell
-                            value={p.name}
-                            required
-                            problem="A name is required."
-                            readOnly={readOnly}
-                            autoFocus={focusId === p.id}
-                            onCommit={(name) => update(p.id, { name: name.trim() })}
-                            onBlur={onCheckpoint}
-                            ariaLabel="Name"
-                          />
-                        </td>
-                        <td className="col-dept">
-                          <select
-                            value={p.department && deptIds.has(p.department) ? p.department : NO_DEPT}
-                            disabled={readOnly}
-                            aria-label="Department"
-                            onChange={(e) => update(p.id, { department: e.target.value || undefined })}
-                          >
-                            {departments.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.name}
-                              </option>
-                            ))}
-                            <option value={NO_DEPT}>No department</option>
-                          </select>
-                        </td>
-                        <td className="col-role">
-                          <TextCell
-                            value={p.role ?? ""}
-                            readOnly={readOnly}
-                            placeholder="e.g. Data Engineer"
-                            onCommit={(role) => update(p.id, { role: role.trim() || undefined })}
-                            onBlur={onCheckpoint}
-                            ariaLabel="Role"
-                          />
-                        </td>
-                        <td className="col-email">
-                          <TextCell
-                            value={p.email ?? ""}
-                            readOnly={readOnly}
-                            placeholder="name@company.com"
-                            invalid={(v) => v !== "" && !EMAIL.test(v)}
-                            problem="That isn’t an email address."
-                            onCommit={(email) => update(p.id, { email: email.trim() || undefined })}
-                            onBlur={onCheckpoint}
-                            ariaLabel="Email"
-                          />
-                        </td>
-                        <td className="col-manager">
-                          <TextCell
-                            value={p.manager ?? ""}
-                            readOnly={readOnly}
-                            placeholder="Manager's name"
-                            onCommit={(manager) => update(p.id, { manager: manager.trim() || undefined })}
-                            onBlur={onCheckpoint}
-                            ariaLabel="Manager"
-                          />
-                        </td>
-                        <td className="col-pto">
-                          <PtoList person={p} hasDepartment={!!p.department && deptIds.has(p.department)} onShow={props.onShowPto} />
-                        </td>
-                        <td className="col-notes">
-                          <TextCell
-                            value={p.notes ?? ""}
-                            readOnly={readOnly}
-                            multiline
-                            onCommit={(notes) => update(p.id, { notes: notes.trim() || undefined })}
-                            onBlur={onCheckpoint}
-                            ariaLabel="Notes"
-                          />
-                        </td>
-                        <td className="col-actions">
-                          {!readOnly && (
-                            <button
-                              className="icon-button row-delete"
-                              title={`Remove ${p.name}`}
-                              aria-label={`Remove ${p.name}`}
-                              onClick={(e) => remove(p, e.currentTarget)}
-                            >
-                              <Icon name="x" size={14} />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                  ))}
-              </tbody>
-            );
-          })}
-          {!readOnly && props.onAddDepartment && !q && (
-            <tbody>
-              <tr className="add-dept-row">
-                <td colSpan={COLUMNS.length}>
-                  <button className="add-button" onClick={props.onAddDepartment}>
-                    <Icon name="plus" size={14} />
-                    Add department
-                  </button>
-                </td>
+      <div
+        className={`table-scroll${windowed ? " windowed" : ""}`}
+        ref={(el) => {
+          scrollRef.current = el;
+          win.scroller.current = el;
+        }}
+        {...rowFocus}
+        onFocus={(e) => {
+          rowFocus.onFocus(e);
+          if (targetKey !== null && rowKeyOf(e.target) === targetKey) setTarget(null);
+        }}
+      >
+        <KeepFocus table={tableRef} keys={model.keys}>
+          <table className="box-table people-table" ref={tableRef} aria-rowcount={model.rows.length + 1}>
+            <thead ref={win.head}>
+              <tr aria-rowindex={1}>
+                {COLUMNS.map((c, i) => (
+                  <th key={i} className={c.className}>
+                    {c.label ? <span className="th-label">{c.label}</span> : <span className="sr-only">Actions</span>}
+                  </th>
+                ))}
               </tr>
-            </tbody>
-          )}
-        </table>
+            </thead>
+            {model.groups.map((g) => {
+              const head = model.rows[g.start];
+              const dept = head.kind === "group" ? head : null;
+              return (
+                <tbody
+                  key={g.id || "none"}
+                  className={dept ? "dept-group" : undefined}
+                  data-dept-id={dept?.id || undefined}
+                  style={dept ? ({ "--dept": dept.color } as CSSProperties) : undefined}
+                >
+                  {win
+                    .runs(g.start, g.end)
+                    .map((run, j) =>
+                      "gap" in run ? (
+                        <SpacerRow key={`gap-${j}`} height={run.gap} columns={PEOPLE_COLUMNS} />
+                      ) : (
+                        model.rows.slice(run.rows[0], run.rows[1]).map((r, k) => row(r, run.rows[0] + k))
+                      ),
+                    )}
+                </tbody>
+              );
+            })}
+          </table>
+        </KeepFocus>
         {q && shown === 0 && <p className="empty">No engineers match “{query}”.</p>}
       </div>
     </div>
-  );
-}
-
-/** A person's PTO, read-only: each entry opens its block on the timeline, where it's edited. */
-function PtoList({ person, hasDepartment, onShow }: { person: Person; hasDepartment: boolean; onShow?(ref: PtoRef): void }) {
-  const list = (person.pto ?? []).map((pto, index) => ({ pto, index })).sort((a, b) => a.pto.start - b.pto.start);
-  if (!list.length) return null;
-  return (
-    <ul className="pto-list">
-      {list.map(({ pto, index }) => (
-        <li key={index}>
-          {onShow && hasDepartment ? (
-            <button
-              className="link-button"
-              title={`${pto.note ? `${pto.note}\n` : ""}Edit on the timeline`}
-              onClick={() => onShow({ personId: person.id, index })}
-            >
-              {ptoRange(pto)}
-            </button>
-          ) : (
-            <span title={hasDepartment ? pto.note : `Give ${person.name} a department to see their PTO on the timeline`}>
-              {ptoRange(pto)}
-            </span>
-          )}
-          {pto.note && <span className="hint"> · {pto.note}</span>}
-        </li>
-      ))}
-    </ul>
   );
 }

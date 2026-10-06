@@ -21,6 +21,13 @@ import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState
 import { flushSync } from "react-dom";
 import { layout, type Range, type Run, rowAt, runs, usual, windowRows } from "./windowMath";
 
+/**
+ * A table with more rows than this (boxes, PTO, engineers, headings) draws
+ * only those near the screen, and what has focus: up to it, all of them, so
+ * the browser's Find and a screen reader's browse mode reach every row.
+ */
+export const DRAW_ALL_UP_TO = 300;
+
 /** How far past the screen's top and bottom rows are drawn (px). */
 const OVERSCAN = 400;
 /** The view is worked out in steps of this (px): the rows drawn change once a scroll has gone this far. */
