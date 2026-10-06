@@ -896,8 +896,11 @@ when a focused element is removed.
   light and the dark theme, and checks the page's structure, names and
   what's announced (an init script records every message the live regions
   are given); `e2e/styles.spec.ts` checks the stylesheet from computed
-  styles rather than screenshots (fields and lists styled as their own
-  class says, not as a broader rule would); `e2e/keyboard.spec.ts` checks where focus goes and what keys
+  styles and layout rather than screenshots (fields and lists styled as
+  their own class says, not as a broader rule would; Windows' contrast
+  themes, emulated in Chromium; less motion; a long title at 1280 px and
+  everything at 320 px; touch screens; target sizes), and the unit test
+  `src/styles/contrast.test.ts` every colour pair; `e2e/keyboard.spec.ts` checks where focus goes and what keys
   do, `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's
   keyboard grid and moves, and `e2e/drag.spec.ts` dragging. The timeline's
   specs (those three, `timeline`, `departments` and `pto`) run again in
