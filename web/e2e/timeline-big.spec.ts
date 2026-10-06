@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import type { FakeGitHub } from "./fake-github";
 import { expect, openTab, test, toolbar } from "./helpers";
@@ -301,4 +301,68 @@ test("a box open in its editor stays drawn, scrolled far away; deleted, focus go
   await expect(focused).toBeInViewport();
   expect(await focused.evaluate((el) => el.closest("[data-row]")?.getAttribute("data-row"))).toBe(`lane:${dept(1)}-8`);
   await expect(toolbar(page)).toContainText("Save · 1 change");
+});
+
+test("what the app focuses or shows is drawn wherever it is: from the warnings, from People, and after a delete in an editor", async ({ page, github: _ }) => {
+  const focused = page.locator('[role="grid"] :focus');
+  const away = () => page.locator(".dept-away").evaluateAll((els) => els.map((el) => el.getAttribute("data-reorder-id")));
+  const drawn = () => page.locator("[data-cell]").evaluateAll((els) => els.map((el) => el.getAttribute("data-cell")));
+  const deptOf = (el: Locator) => el.evaluate((e) => e.closest("[data-dept-id]")?.getAttribute("data-dept-id"));
+  const warning = async (section: string) => {
+    await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+    return page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: section }).getByRole("button");
+  };
+
+  // The last department over capacity, far down: its heading, drawn and shown, with focus.
+  let before = await away();
+  await (await warning("Over capacity")).last().click();
+  await expect(focused).toHaveAttribute("data-cell", /^dept:/);
+  await expect(focused).toBeInViewport();
+  const over = (await focused.getAttribute("data-cell"))!.slice(5);
+  expect(before).toContain(over);
+  // Once focus has gone on, and the timeline's scrolled away, it isn't drawn any more.
+  await page.keyboard.press("ControlOrMeta+ArrowUp");
+  await expect(cell(page, `dept:${dept(1)}`)).toBeFocused();
+  await expect(page.locator(`.dept-away[data-reorder-id="${over}"]`)).toHaveCount(1);
+
+  // A box with a broken rule, away from the screen: drawn, scrolled to, open.
+  before = await away();
+  await (await warning("Broken rules")).first().click();
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  const selected = page.locator(".box.selected");
+  await expect(editor).toBeVisible();
+  await expect(selected).toBeInViewport();
+  const home = await deptOf(selected);
+  expect(before).toContain(home);
+  // Scrolled far away, its editor going with it, and deleted from there by keyboard: focus goes to
+  // the box after it in its department, which wasn't drawn, drawn and shown.
+  await scrollTo(page, 1, 1);
+  await expect.poll(() => onScreen(page)).not.toContain(await selected.getAttribute("data-cell"));
+  let was = await drawn();
+  await editor.getByRole("button", { name: "Delete" }).press("Enter");
+  await expect(editor).toHaveCount(0);
+  await expect(focused).toHaveAttribute("data-cell", /^box:/);
+  await expect(focused).toBeInViewport();
+  expect(was).not.toContain(await focused.getAttribute("data-cell"));
+  expect(await deptOf(focused)).toBe(home);
+
+  // From People, a PTO block in the last department: drawn, scrolled to, open.
+  await page.getByRole("button", { name: "People", exact: true }).click();
+  await page.locator(`tbody[data-dept-id="${dept(12)}"] .pto-list button`).first().click();
+  const ptoEditor = page.getByRole("dialog", { name: /^Edit PTO for / });
+  const pto = page.locator(".pto-block.selected");
+  await expect(ptoEditor).toBeVisible();
+  await expect(pto).toBeInViewport();
+  expect(await deptOf(pto)).toBe(dept(12));
+  // The same: focus goes to the next block in the department's PTO row.
+  await scrollTo(page, 1, 0);
+  await expect.poll(() => onScreen(page)).not.toContain(await pto.getAttribute("data-cell"));
+  was = await drawn();
+  await ptoEditor.getByRole("button", { name: "Delete" }).press("Enter");
+  await expect(ptoEditor).toHaveCount(0);
+  await expect(focused).toHaveAttribute("data-cell", /^pto:/);
+  await expect(focused).toBeInViewport();
+  expect(was).not.toContain(await focused.getAttribute("data-cell"));
+  expect(await deptOf(focused)).toBe(dept(12));
+  await expect(toolbar(page)).toContainText("Save · 2 changes");
 });
