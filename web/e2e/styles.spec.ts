@@ -271,7 +271,7 @@ test.describe("on a touch screen", () => {
  * Controls on screen too small for WCAG 2.5.8 (24 by 24 px) and too close to another: a 24 px circle round
  * their middle reaches another control (where it shows: not one under a panel) or another small one's circle.
  * A box's resize handles and a collapsed department's compact boxes are small by design (docs/architecture.md),
- * and aren't looked at.
+ * and aren't looked at: the handles aren't controls the query finds, and the compact boxes are left out.
  */
 async function crowded(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -280,6 +280,7 @@ async function crowded(page: Page): Promise<string[]> {
       return !!top && (el.contains(top) || top.contains(el));
     };
     const controls = [...document.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea, [tabindex], [data-cell]")].filter((el) => {
+      if (el.matches(".box.compact")) return false;
       const r = el.getBoundingClientRect();
       return r.width > 1 && r.height > 1 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && on(el, r.x + r.width / 2, r.y + r.height / 2);
     });
