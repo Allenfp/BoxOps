@@ -366,3 +366,49 @@ test("what the app focuses or shows is drawn wherever it is: from the warnings, 
   expect(await deptOf(focused)).toBe(dept(12));
   await expect(toolbar(page)).toContainText("Save · 2 changes");
 });
+
+test("a closed editor gives focus back to its box or PTO block, drawn and shown wherever it is", async ({ page, github: _ }) => {
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  const warning = async (section: string) => {
+    await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+    return page.getByRole("dialog", { name: /warning/ }).locator("section", { hasText: section }).getByRole("button");
+  };
+  /** Closed with Esc: focus is on `key`, shown. */
+  const closed = async (key: string) => {
+    await page.keyboard.press("Escape");
+    await expect(editor).toHaveCount(0);
+    await expect(cell(page, key)).toBeFocused();
+    await expect(cell(page, key)).toBeInViewport();
+  };
+
+  // A box added with N after the long one, at weeks zoom: open at once, off screen, and closed.
+  await page.getByRole("button", { name: "Weeks", exact: true }).click();
+  await cell(page, `box:${LONG}`).focus();
+  await page.keyboard.press("n");
+  await expect(editor).toBeVisible();
+  const added = (await page.locator(".box.selected").getAttribute("data-cell"))!;
+  expect(added).not.toBe(`box:${LONG}`);
+  await expect.poll(() => onScreen(page)).not.toContain(added);
+  await closed(added);
+
+  // A box with a broken rule, from the warnings: scrolled to and open, then scrolled far away.
+  await (await warning("Broken rules")).first().click();
+  await expect(editor).toBeVisible();
+  const broken = (await page.locator(".box.selected").getAttribute("data-cell"))!;
+  await expect(cell(page, broken)).toBeInViewport();
+  await expect.poll(() => stopped(page)).not.toBeNull();
+  await scrollTo(page, 1, 1);
+  await expect.poll(() => onScreen(page)).not.toContain(broken);
+  await closed(broken);
+
+  // A PTO block in the last department, from People: the same.
+  await page.getByRole("button", { name: "People", exact: true }).click();
+  await page.locator(`tbody[data-dept-id="${dept(12)}"] .pto-list button`).first().click();
+  await expect(editor).toBeVisible();
+  const pto = (await page.locator(".pto-block.selected").getAttribute("data-cell"))!;
+  await expect(cell(page, pto)).toBeInViewport();
+  await expect.poll(() => stopped(page)).not.toBeNull();
+  await scrollTo(page, 1, 0);
+  await expect.poll(() => onScreen(page)).not.toContain(pto);
+  await closed(pto);
+});
