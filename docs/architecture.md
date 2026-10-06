@@ -474,8 +474,8 @@ against data the new code wrote.
   `api.github.com` and `raw.githubusercontent.com`; images from the site and
   `data:`; no base URL, forms or plugins. React's style props go through the
   CSSOM, which the policy doesn't govern. The dev server has no CSP.
-- **App files.** The first paint loads one JavaScript file (about 370 kB,
-  120 kB gzipped; `npm run perf` keeps it under 400 kB) and the few small
+- **App files.** The first paint loads one JavaScript file (about 367 kB,
+  118 kB gzipped; `npm run perf` keeps it under 400 kB) and the few small
   ones it shares with the rest (React's JSX runtime, dates): React, the
   timeline and the loader. The rest is fetched on first use
   (`components/lazyPart.tsx`, `React.lazy`): Table and People when the
