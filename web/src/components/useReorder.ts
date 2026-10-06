@@ -34,6 +34,14 @@ export function useReorder(
   const cleanup = useRef<(() => void) | null>(null);
   const onMoveRef = useRef(onMove);
   onMoveRef.current = onMove;
+  /** The line as last drawn: drawn again only when it moves, not at every pixel the pointer does. */
+  const drawn = useRef<Reorder["line"]>(null);
+  const showLine = (next: Reorder["line"]) => {
+    const was = drawn.current;
+    if (was === next || (was && next && was.top === next.top && was.left === next.left && was.width === next.width)) return;
+    drawn.current = next;
+    setLine(next);
+  };
 
   useEffect(() => () => cleanup.current?.(), []);
 
@@ -51,13 +59,13 @@ export function useReorder(
     const gap = rects.filter((r) => r.top + r.height / 2 < clientY).length;
     const index = gap > from ? gap - 1 : gap;
     p.target = index === from ? null : index;
-    if (p.target === null) return setLine(null);
+    if (p.target === null) return showLine(null);
     const top = gap < rects.length ? rects[gap]!.top : rects[rects.length - 1]!.bottom;
     // Only as wide as the part of the list that's on screen.
     const view = opts.scroller?.current?.getBoundingClientRect();
     const left = Math.max(box.left, view?.left ?? box.left);
     const right = Math.min(box.right, view?.right ?? box.right);
-    setLine({ top, left, width: Math.max(0, right - left) });
+    showLine({ top, left, width: Math.max(0, right - left) });
   };
 
   const start = useCallback(
@@ -104,7 +112,7 @@ export function useReorder(
           press.current = null;
           cleanup.current = null;
           setDraggingId(null);
-          setLine(null);
+          showLine(null);
           if (!p?.active) return;
           // The release would also click whatever is under it (e.g. collapse the department): swallow that.
           swallowNextClick();

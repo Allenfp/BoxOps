@@ -481,6 +481,7 @@ export function Timeline(props: Props) {
     const pointer = { x: x0, y: y0 };
     let scrolling: ReturnType<typeof scrollWithDrag> | null = null;
     let placement: BoxPlacement = { lane: box.lane, start: box.start, end: box.end };
+    let shown = false;
     // Which of its half-FTE slots it was held by: it's the box's top that lands in a lane.
     const need = slotsOf(box.fte);
     const held = Math.floor((y0 - e.currentTarget.getBoundingClientRect().top + BOX_PAD) / SLOT_H);
@@ -493,7 +494,11 @@ export function Timeline(props: Props) {
       const dates = movedDates(box, mode, dragDays(pointer.x - x0 + scrolled.x, s.pxPerDay, p.zoom));
       const under = mode === "move" ? slotAt(pointer.x, pointer.y) : undefined;
       const lane = under && dropLane(under.layout, { slot: under.slot, dy: pointer.y - y0 + scrolled.y }, grab, SLOT_H);
-      placement = { lane: mode === "move" ? (lane ?? placement.lane) : box.lane, ...dates };
+      const next = { lane: mode === "move" ? (lane ?? placement.lane) : box.lane, ...dates };
+      // Drawn again only when where it would go changes, not at every pixel the pointer moves.
+      if (shown && next.lane === placement.lane && next.start === placement.start && next.end === placement.end) return;
+      placement = next;
+      shown = true;
       setPreview({ id: box.id, ...placement });
     };
 
@@ -547,9 +552,13 @@ export function Timeline(props: Props) {
     const pointer = { x: x0, y: y0 };
     let scrolling: ReturnType<typeof scrollWithDrag> | null = null;
     let dates = { start: pto.start, end: pto.end };
+    let shown = false;
     const follow = () => {
       const { props: p, scale: s } = latest.current;
-      dates = movedDates(pto, mode, dragDays(pointer.x - x0 + scrolling!.scrolled().x, s.pxPerDay, p.zoom));
+      const next = movedDates(pto, mode, dragDays(pointer.x - x0 + scrolling!.scrolled().x, s.pxPerDay, p.zoom));
+      if (shown && next.start === dates.start && next.end === dates.end) return;
+      dates = next;
+      shown = true;
       setPtoPreview({ key: ptoKey(ref), ...dates });
     };
 
