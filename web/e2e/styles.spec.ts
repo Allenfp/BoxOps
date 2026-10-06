@@ -37,7 +37,7 @@ test("the box editor's selects (FTE, Lane, Type, Flag) are as tall as its text a
   for (const name of ["FTE", "Lane", "Type", "Flag"]) expect(await height(editor.getByLabel(name, { exact: true })), name).toBe(field);
 });
 
-test("the pre-save check lists others' saves in the text column, bullets too, as the token form lists what to check", async ({ page, github }) => {
+test("the pre-save check lists others' saves in the text column, bullets too, as the token form lists what to check; its link out underlines only its words", async ({ page, github }) => {
   const left = (l: Locator) => l.evaluate((e) => e.getBoundingClientRect().left);
   await dragDays(page, DAGSTER, 10);
   github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC v2") }, "Sam Lee", "CDC pipeline: renamed");
@@ -57,6 +57,14 @@ test("the pre-save check lists others' saves in the text column, bullets too, as
   const [text, tokenList, tokenItem] = [await left(help), await left(help.locator("ul")), await left(help.locator("ul li").first())];
   expect(tokenList).toBe(text);
   expect(item - list).toBe(tokenItem - tokenList);
+
+  // Its link out underlines its words, not the gap before its ↗, nor the ↗.
+  const link = help.getByRole("link", { name: "Create a fine-grained token for acme/roadmap" });
+  expect(await link.evaluate((a) => [...a.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim() === "" && n.textContent !== "").length)).toBe(0);
+  expect(await link.evaluate((a) => getComputedStyle(a).textDecorationLine)).toBe("none");
+  expect(await link.locator("span").evaluate((s) => getComputedStyle(s).textDecorationLine)).toBe("underline");
+  const [words, icon] = [(await link.locator("span").boundingBox())!, (await link.locator("svg").boundingBox())!];
+  expect(icon.x).toBeGreaterThan(words.x + words.width);
 });
 
 test("the Engineers list's names are list items, not the editor's field labels", async ({ page, github: _ }) => {

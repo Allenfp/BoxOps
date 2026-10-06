@@ -431,8 +431,9 @@ function Failure({
       </div>
       {sso && (
         <p className="lead">
-          <a href={sso} target="_blank" rel="noopener noreferrer">
-            Authorize this token for {owner} <Icon name="external" size={12} />
+          <a className="external-link" href={sso} target="_blank" rel="noopener noreferrer">
+            <span>Authorize this token for {owner}</span>
+            <Icon name="external" size={12} />
           </a>
         </p>
       )}

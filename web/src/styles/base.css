@@ -214,6 +214,16 @@ button[aria-disabled="true"] {
   display: inline-block;
   vertical-align: -0.2em;
 }
+/* A link out of BoxOps, its words underlined and its ↗ beside them, not the gap between. */
+a.external-link {
+  text-decoration: none;
+}
+a.external-link > span {
+  text-decoration: underline;
+}
+a.external-link > .icon {
+  margin-left: 0.25em;
+}
 .icon-button {
   display: inline-grid;
   place-items: center;

@@ -27,8 +27,10 @@ export function TokenHelp({ repo, access = "write" }: { repo: string; access?: T
   const owner = repo.split("/")[0];
   return (
     <div className="token-help">
-      <a href={tokenUrl(repo, access)} target="_blank" rel="noopener noreferrer">
-        Create a fine-grained token for {repo} <Icon name="external" size={12} />
+      {/* Only the words underlined: not the gap before the ↗, nor the ↗. */}
+      <a className="external-link" href={tokenUrl(repo, access)} target="_blank" rel="noopener noreferrer">
+        <span>Create a fine-grained token for {repo}</span>
+        <Icon name="external" size={12} />
       </a>
       , and check on GitHub’s page that:
       <ul>
