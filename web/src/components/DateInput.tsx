@@ -356,6 +356,8 @@ function Calendar({
                       aria-selected={d === selected || undefined}
                       aria-current={d === now ? "date" : undefined}
                       aria-disabled={weekend || undefined}
+                      // Focus put on a day another way (VoiceOver's cursor moves it) moves the Tab stop there, so keys go on from it.
+                      onFocus={weekend ? undefined : () => setActive(d)}
                       onClick={weekend ? undefined : () => onPick(d)}
                     >
                       {p.day}
