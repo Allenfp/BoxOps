@@ -932,4 +932,10 @@ body.reordering * {
     forced-color-adjust: none;
     background: repeating-linear-gradient(-45deg, GrayText 0 1px, transparent 1px 7px);
   }
+  /* A lane's name has no edge until it's pointed at, as on screen (the theme draws transparent edges too: a
+     short row's, Contractor's or PTO's, was cut off at the bottom). */
+  .lane-name,
+  .lane-name.static:hover {
+    border-color: Canvas;
+  }
 }

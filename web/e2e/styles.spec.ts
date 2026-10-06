@@ -108,6 +108,11 @@ test("in a high-contrast theme, what only colour showed stays: the chosen view, 
   const bg = async (el: Locator, pseudo?: string) => el.evaluate((e, p) => getComputedStyle(e, p).backgroundColor, pseudo);
   expect(await bg(views.getByRole("button", { name: "Timeline" }))).not.toEqual(await bg(views.getByRole("button", { name: "Table" })));
   expect(await bg(page.locator(".today-line"))).not.toEqual(await bg(page.locator(".timeline")));
+  // A lane's name shows no edge (a short row's would be cut off) until it's pointed at.
+  const lane = page.locator(".lane-name").first();
+  expect((await css(lane, "border-top-color"))["border-top-color"]).toEqual(await bg(page.locator(".timeline")));
+  await lane.hover();
+  expect((await css(lane, "border-top-color"))["border-top-color"]).not.toEqual(await bg(page.locator(".timeline")));
   // Dagster is under way: half its ring is filled.
   expect(await css(box(page, DAGSTER).locator(".status-mark"), "background-image")).toEqual({
     "background-image": expect.stringContaining("linear-gradient"),
