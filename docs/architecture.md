@@ -553,7 +553,8 @@ when a focused element is removed.
   row's Delete (and focus a change takes from a table row that moves goes
   back to it: see [The table and People](#the-table-and-people)), a
   removed rule or lane to the next one's ✕ (else the one before's, else
-  Add), a cleared lane date to its +; a save gives it back
+  Add), a cleared lane date to its +, the table's Clear dates to From; a
+  save gives it back
   where it was, or to the saved banner; Enter and Esc in a table cell and a
   lane renamed in place keep it there, and a date field's calendar gives it
   back to what opened it (its button, or the field).

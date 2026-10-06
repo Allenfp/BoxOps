@@ -626,6 +626,8 @@ export function TableView(props: Props) {
               aria-label="Clear dates"
               title="Clear dates"
               onClick={() => {
+                // It goes with the dates: focus goes to the first of them, not the page.
+                focusLater([() => document.querySelector('.table-toolbar input[aria-label="From date"]')]);
                 setFrom("");
                 setTo("");
               }}

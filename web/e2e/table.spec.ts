@@ -193,8 +193,12 @@ test("a date range and a Hide finished boxes switch filter the table", async ({ 
   const shown = await titles.evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
   expect(shown).toContain("CDC pipeline for orders DB"); // 2026-10-26 – 2027-02-26 overlaps
   for (const gone of ["Revenue mart v2", "Legacy ETL sunset", "Dagster 2.x upgrade"]) expect(shown).not.toContain(gone);
-  await page.getByRole("button", { name: "Clear dates" }).click();
+  // Pressed from the keyboard, it goes with the dates: focus goes to From, not the page.
+  await page.getByRole("button", { name: "Clear dates" }).focus();
+  await page.keyboard.press("Enter");
   await expect(count).toHaveText("15 boxes");
+  await expect(page.getByRole("button", { name: "Clear dates" })).toHaveCount(0);
+  await expect(page.getByLabel("From date")).toBeFocused();
 
   // Finished = ended before today (2026-10-03): Legacy ETL sunset ended 2026-07-31.
   const legacy = page.locator("tbody tr").filter({ has: page.locator("input[value='Legacy ETL sunset']") });
