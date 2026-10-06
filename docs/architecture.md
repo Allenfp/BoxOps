@@ -795,7 +795,9 @@ when a focused element is removed.
   rather than a table (a table keeps its size whatever it's given, and the
   pages would be shrunk to its width, with blank ones after the rows).
   Everywhere, the toolbar's controls, banners and the table's own toolbar
-  are left out and colours print; the timeline prints what's on screen.
+  are left out and colours print; the timeline prints what's on screen. A
+  view that loaded just as printing began (`usePrinting` reads the print
+  media query once it's listening) prints its rows too.
 - **Limits.** On a big roadmap the browser's Find and a screen reader's
   browse mode reach only the rows drawn; the table's search covers every row.
   In Safari, whose Tab skips buttons, Tab from the toolbar goes to the
