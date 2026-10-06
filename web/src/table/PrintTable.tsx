@@ -4,9 +4,9 @@
 // paper, and this one on screen (styles.css, @media print). Dates are
 // YYYY-MM-DD, as everywhere.
 
-import { formatDay, workdays } from "../model/dates";
+import { Fragment } from "react";
+import { type Day, formatDay, workdays } from "../model/dates";
 import { jiraKey } from "../model/jira";
-import { ptoRange } from "../model/pto";
 import { boxScale } from "../model/scale";
 import { flagName } from "../model/status";
 import type { Settings } from "../model/types";
@@ -29,6 +29,9 @@ const BOX_COLUMNS = [
   "Tags",
   "Description",
 ];
+
+/** A date, never broken across lines (a narrow column would break it at a hyphen). */
+const PrintDay = ({ day }: { day: Day }) => <span className="print-date">{formatDay(day)}</span>;
 
 /** The table's rows as they're shown, on paper. */
 export function PrintBoxes({
@@ -80,8 +83,12 @@ export function PrintBoxes({
                   <td>{`${lane?.deptCode}-${b.code}`}</td>
                   <td>{b.title}</td>
                   <td>{lane?.option ?? b.lane}</td>
-                  <td>{formatDay(b.start)}</td>
-                  <td>{formatDay(b.end)}</td>
+                  <td>
+                    <PrintDay day={b.start} />
+                  </td>
+                  <td>
+                    <PrintDay day={b.end} />
+                  </td>
                   <td>{workdays(b.start, b.end)}</td>
                   <td>{b.fte.toFixed(1)}</td>
                   <td>{boxScale(b)}</td>
@@ -101,8 +108,12 @@ export function PrintBoxes({
                   <td>PTO</td>
                   <td>{person.name}</td>
                   <td>{pto.note}</td>
-                  <td>{formatDay(pto.start)}</td>
-                  <td>{formatDay(pto.end)}</td>
+                  <td>
+                    <PrintDay day={pto.start} />
+                  </td>
+                  <td>
+                    <PrintDay day={pto.end} />
+                  </td>
                   <td>{workdays(pto.start, pto.end)}</td>
                   <td colSpan={BOX_COLUMNS.length - 6} />
                 </tr>
@@ -163,8 +174,19 @@ export function PrintPeople({ rows, collapsed }: { rows: readonly PeopleRow[]; c
                   <td className="print-text">
                     {(p.pto ?? [])
                       .toSorted((a, b) => a.start - b.start)
-                      .map((t) => `${ptoRange(t)}${t.note ? ` · ${t.note}` : ""}`)
-                      .join("\n")}
+                      .map((t, k) => (
+                        <Fragment key={k}>
+                          {k > 0 && "\n"}
+                          <PrintDay day={t.start} />
+                          {t.end !== t.start && (
+                            <>
+                              {" – "}
+                              <PrintDay day={t.end} />
+                            </>
+                          )}
+                          {t.note && ` · ${t.note}`}
+                        </Fragment>
+                      ))}
                   </td>
                   <td className="print-text">{p.notes}</td>
                 </tr>

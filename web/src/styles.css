@@ -3205,4 +3205,7 @@ body.reordering * {
   .print-text {
     white-space: pre-wrap;
   }
+  .print-date {
+    white-space: nowrap;
+  }
 }

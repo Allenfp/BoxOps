@@ -789,7 +789,8 @@ when a focused element is removed.
   focus.
 - **Printing** (`table/PrintTable.tsx`, `table/usePrinting.ts`). On paper the
   table and People are a plain table of every row as shown (search, dates,
-  sort, collapsed departments), drawn as printing starts; the interactive
+  sort, collapsed departments), drawn as printing starts, its dates never
+  broken across lines (at a hyphen, in a narrow column); the interactive
   one is clipped away to a pixel, so focus stays where it was, as a block
   rather than a table (a table keeps its size whatever it's given, and the
   pages would be shrunk to its width, with blank ones after the rows).

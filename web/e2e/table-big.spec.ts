@@ -452,6 +452,30 @@ test("printing gives every row as shown, and leaves focus where it was", async (
   if (browserName !== "firefox") await expect(page.locator(':focus[aria-label="Title"]')).toHaveCount(1);
 });
 
+test("on paper, a date is never broken across lines, however narrow the page", async ({ page, github: _ }) => {
+  /** How many lines each element's text takes. */
+  const lines = (els: Element[]) =>
+    els.map((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return new Set([...range.getClientRects()].map((c) => Math.round(c.top))).size;
+    });
+  // About A4's width, upright.
+  await page.setViewportSize({ width: 720, height: 900 });
+  await page.emulateMedia({ media: "print" });
+  // Boxes' and PTO's start and end: the 4th and 5th columns.
+  const table = await page.locator(".print-table tbody tr:not(.print-group) td:is(:nth-child(4), :nth-child(5))").evaluateAll(lines);
+  expect(table.length).toBeGreaterThan(100);
+  expect(table.filter((n) => n !== 1)).toEqual([]);
+  // People's PTO, listed in a column of its own.
+  await page.emulateMedia({ media: "screen" });
+  await page.getByRole("button", { name: "People", exact: true }).click();
+  await page.emulateMedia({ media: "print" });
+  const people = await page.locator(".print-table .print-date").evaluateAll(lines);
+  expect(people.length).toBeGreaterThan(100);
+  expect(people.filter((n) => n !== 1)).toEqual([]);
+});
+
 test.describe("People", () => {
   test.use({ virtualize: true });
   const person = (page: Page, name: string) => page.locator("tr.person-row").filter({ has: page.locator(`input[aria-label="Name"][value="${name}"]`) });
