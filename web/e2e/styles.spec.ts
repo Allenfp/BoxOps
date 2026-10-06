@@ -671,7 +671,7 @@ test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, ed
   expect(await crowded(page)).toEqual([]);
 });
 
-test("People's PTO keeps to its column: its dates whole, a long note cut short with …, whole in its tooltip", async ({ page, github }) => {
+test("People's PTO keeps to its column: its dates whole, a long note cut short with … (a word or so showing), whole in its tooltip", async ({ page, github }) => {
   const note = "Parental leave, then a conference in Lisbon";
   github.deploy(
     github.otherSave({
@@ -690,6 +690,8 @@ test("People's PTO keeps to its column: its dates whole, a long note cut short w
   const hint = cell.locator(".hint");
   await expect(hint).toHaveAttribute("title", note);
   expect(await hint.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true); // cut short
+  // But a word or so of it shows, beside the dates, not just "· …".
+  expect(await hint.evaluate((el) => el.clientWidth)).toBeGreaterThanOrEqual(60);
   await expect(cell.getByRole("button", { name: "2026-12-01 – 2026-12-04" })).toBeVisible();
   expect(await cell.locator("li").textContent()).toMatch(/^2026-12-01 – 2026-12-04\s·\s/);
 });

@@ -510,13 +510,13 @@
   min-width: 1480px;
 }
 .people-table .col-pto {
-  width: 180px;
+  width: 240px;
 }
 .people-table .col-name {
   width: 220px;
 }
 .people-table .col-dept {
-  width: 180px;
+  width: 150px;
 }
 .people-table .col-role {
   width: 200px;
@@ -525,7 +525,7 @@
   width: 230px;
 }
 .people-table .col-manager {
-  width: 190px;
+  width: 160px;
 }
 .th-label {
   display: inline-block;
