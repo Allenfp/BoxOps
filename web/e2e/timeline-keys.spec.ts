@@ -480,10 +480,14 @@ test.describe("a branch preview", () => {
     await box(page, DAGSTER).focus();
     await page.keyboard.press("ArrowRight");
     await expect(box(page, CDC)).toBeFocused();
-    for (const key of ["Enter", "Delete", "n", " "]) await page.keyboard.press(key);
+    // Each says why, itself (messages asked for together are said once).
+    for (const key of ["Enter", "Delete", "n", " "]) {
+      const before = (await said(page)).length;
+      await page.keyboard.press(key);
+      await expect.poll(async () => (await said(page)).slice(before), { message: key }).toEqual(["Read-only preview: changes can’t be made here."]);
+    }
     await expect(box(page, CDC)).toBeFocused();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect.poll(() => said(page)).toContainEqual(expect.stringContaining("Read-only preview: changes can’t be made here."));
     await page.keyboard.press("Home");
     await expect(cell(page, "lane:de-2")).toBeFocused(); // the lane's name is still a cell, as text
     await page.keyboard.press("ArrowRight");
