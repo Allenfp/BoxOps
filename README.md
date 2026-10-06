@@ -23,7 +23,8 @@ straight to `main`, and the site updates within a minute.
   where engineers' time off shows as grey blocks: double-click to add, drag to
   move, click to edit. A big roadmap (over 300 boxes and PTO blocks) draws
   only the part of the timeline near the screen, so the browser's Find
-  (⌘F or Ctrl+F) sees only that; the Table's search finds anything.
+  (⌘F or Ctrl+F) sees only that; the Table's search looks through every
+  box.
 - **Table.** Every box as an editable row (dates, FTE, engineers, flag,
   links, description) plus its **Scale** (FTE × working days, also shown on each
   timeline box), grouped by department, with search, sorting, a date range
@@ -34,14 +35,17 @@ straight to `main`, and the site updates within a minute.
   you leave it, even if the edit sorts it elsewhere or the search no longer
   matches it (it says so). A big roadmap (over 200 rows) draws only the
   rows near the screen, so the browser's Find (⌘F or Ctrl+F), and a screen
-  reader's browse mode, see only those; the table's search finds anything,
-  and Tab reaches every row. Printing (⌘P or Ctrl+P) prints every row as
+  reader's browse mode, see only those; the table's search looks through
+  every row (codes, titles, lanes, dates, engineers, types, flags, epic
+  links, tags and descriptions; PTO's engineers, notes and dates), and
+  Tab reaches every row. Printing (⌘P or Ctrl+P) prints every row as
   shown.
 - **People.** The engineer roster: name, department, role, email, manager and
   notes (two lines until you click or Tab into them), plus their PTO
   (read-only; edit it on the timeline or table; past two entries, "+N more"
   shows the rest). Boxes are assigned engineers from this list. It prints,
-  and draws a big roster, as the table does.
+  and draws a big roster, as the table does; its search looks through every
+  column, PTO's dates and notes too.
 - **Printing.** The table and People print every row; the timeline prints
   what's on screen, at its zoom and dates. The toolbar's controls are left
   out, and the colours print, in the light theme on white whichever theme

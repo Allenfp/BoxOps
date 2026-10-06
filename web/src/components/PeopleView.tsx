@@ -1,6 +1,6 @@
 import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CollapseAll } from "./CollapseAll";
-import type { PtoRef } from "../model/pto";
+import { type PtoRef, ptoRange } from "../model/pto";
 import type { Person, Roadmap } from "../model/types";
 import { Icon } from "./Icon";
 import { useToday } from "./useToday";
@@ -87,15 +87,20 @@ export function PeopleView(props: Props) {
     ],
     [departments],
   );
-  // What a search looks in, worked out once a person (and again only for one who's changed).
+  // What a search looks in, worked out once a person (and again only for one who's changed): every column's text,
+  // their PTO's dates and notes too (on a big roster, rows not drawn are found only by the search, not the browser's Find).
   const searchable = useMemo(() => {
     const made = new WeakMap<Person, string>();
     return (p: Person) => {
       let s = made.get(p);
-      if (s === undefined) made.set(p, (s = [p.name, p.role ?? "", p.email ?? "", p.manager ?? "", p.notes ?? ""].join(" ").toLowerCase()));
+      if (s === undefined) {
+        const pto = (p.pto ?? []).map((t) => `${ptoRange(t)} ${t.note ?? ""}`);
+        const fields = [p.name, deptNames.get(p.department ?? "") ?? "", p.role ?? "", p.email ?? "", p.manager ?? "", ...pto, p.notes ?? ""];
+        made.set(p, (s = fields.join(" ").toLowerCase()));
+      }
       return s;
     };
-  }, []);
+  }, [deptNames]);
   const deptOf = (p: Person) => (p.department && deptIds.has(p.department) ? p.department : NO_DEPT);
   const keyOf = useMemo(() => {
     const keys = kept.keys.keys(people.map((p) => p.id));

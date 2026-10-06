@@ -18,7 +18,7 @@ const files = generateRoadmap(600, "2026-10-03");
 test.use({ files, fakeClock: "fixed" });
 
 /** Its engineers, and someone with PTO that's over (before the tests' today, 2026-10-03) and PTO that isn't. */
-const { people } = parse(files["people.yaml"]) as { people: { id: string; name: string; department: string; pto: { end: string }[] }[] };
+const { people } = parse(files["people.yaml"]) as { people: { id: string; name: string; department: string; pto: { start: string; end: string }[] }[] };
 const someone = people.find((p) => p.pto.some((t) => t.end < "2026-10-03") && p.pto.some((t) => t.end >= "2026-10-03"))!;
 
 const scroller = (page: Page) => page.locator(".table-scroll");
@@ -376,6 +376,15 @@ test("a PTO entry given to someone else keeps focus and its place; deleting one 
   await expect.poll(starts).toEqual(before.slice(2));
 });
 
+test("the search finds PTO by its dates", async ({ page, github: _ }) => {
+  const { start, end } = someone.pto[0];
+  await page.locator(".table-search").fill(start);
+  const row = page.locator("tr.pto-table-row").filter({ has: page.locator(`select[aria-label="Engineer"] option[value="${someone.id}"]:checked`) });
+  await expect(row.getByLabel("PTO start").first()).toHaveValue(start);
+  await page.locator(".table-search").fill(end);
+  await expect(row.getByLabel("PTO end").first()).toHaveValue(end);
+});
+
 test("Hide finished boxes and PTO hides PTO that's over, and shows it again", async ({ page, github: _ }) => {
   await page.locator(".table-search").fill(someone.name);
   const rows = page.locator(`[data-dept-id="${someone.department}"] tr.pto-table-row`);
@@ -590,7 +599,7 @@ test.describe("People", () => {
     await expect(page.locator(".row-delete:focus")).toHaveAttribute("aria-label", `Remove ${next}`);
   });
 
-  test("a new search shows its matches from the top", async ({ page }) => {
+  test("a new search shows its matches from the top; PTO dates are searched too", async ({ page }) => {
     const top = () => scroller(page).evaluate((el) => el.scrollTop);
     await scrollTo(page, 0.6);
     await settled(page);
@@ -599,6 +608,9 @@ test.describe("People", () => {
     await page.getByLabel("Search engineers").fill(name);
     await expect.poll(top).toBe(0);
     await expect(page.locator("tr.person-row").first().getByLabel("Name")).toHaveValue(name);
+    // Their PTO's dates are searched too.
+    await page.getByLabel("Search engineers").fill(someone.pto[0].start);
+    await expect(person(page, someone.name)).toHaveCount(1);
   });
 
   test("printing gives every engineer as shown", async ({ page }) => {

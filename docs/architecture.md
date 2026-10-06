@@ -725,7 +725,10 @@ when a focused element is removed.
   an edit draws again only the rows it changed. The rows are worked out as
   data first (`table/tableModel.ts`): each department's heading, then its
   boxes (or that it has none), PTO and Add PTO; in People, its engineers. A
-  search looks in text worked out once a box or person. Hide finished boxes
+  search looks in text worked out once a box or person: in the table, the
+  text of every column but the numbers (a box's type and flag names, its
+  dates and epic link too; PTO's engineer, note and dates); in People, every
+  column's, with PTO's dates and notes. Hide finished boxes
   hides finished PTO in the table too, but not PTO added in this session,
   in any view (a week off added on a weekend has already ended): the app
   keeps track of it through edits, a new engineer, undo and saves, and
@@ -804,7 +807,8 @@ when a focused element is removed.
   screen. A view that loaded just as printing began (`usePrinting` reads
   the print media query once it's listening) prints its rows too.
 - **Limits.** On a big roadmap the browser's Find and a screen reader's
-  browse mode reach only the rows drawn; the table's search covers every row.
+  browse mode reach only the rows drawn; the table's search covers every row
+  and every column's text but the numbers.
   In Safari, whose Tab skips buttons, Tab from the toolbar goes to the
   first field drawn, which can be in a row drawn just above the view, so
   the table scrolls up a little to it.

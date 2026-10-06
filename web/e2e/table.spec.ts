@@ -97,6 +97,19 @@ test("adds, deletes (undoably), searches and sorts", async ({ page, github: _ })
   expect(starts).toEqual([...starts].sort());
 });
 
+test("the search looks in every column's text: type and flag names, dates and epic links too", async ({ page, github: _ }) => {
+  const search = async (text: string) => {
+    await page.locator(".table-search").fill(text);
+    return (await titles(page)).toSorted();
+  };
+  expect(await search("research")).toEqual(["Q2 platform planning", "Streaming ingestion spike"]);
+  expect(await search("at risk")).toEqual(["Dagster 2.x upgrade"]);
+  expect(await search("2026-10-23")).toEqual(["Dagster 2.x upgrade"]);
+  expect(await search("github.com/allenfp")).toEqual(["Warehouse migration to Iceberg"]);
+  // Not a flag's absence: "On track" is no flag at all.
+  expect(await search("on track")).toEqual([]);
+});
+
 test("an epic link's ↗ sits beside its field, on the same line", async ({ page, github: _ }) => {
   const cell = row(page, "Warehouse migration to Iceberg").locator(".epic-cell");
   const field = (await cell.getByLabel("Epic link").boundingBox())!;

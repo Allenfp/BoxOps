@@ -3,7 +3,7 @@ import { NO_FLAG } from "../model/status";
 import { boxScale } from "../model/scale";
 import { jiraKey } from "../model/jira";
 import { CollapseAll } from "./CollapseAll";
-import { nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
+import { formatDay, nextWorkday, parseDay, prettyDay, prevWorkday, workdays } from "../model/dates";
 import type { Box, Person, Roadmap, TimeOff } from "../model/types";
 import { type PtoRef, ptoEntries, ptoKey } from "../model/pto";
 import { capacityOn, hasDates, laneDates } from "../model/lanes";
@@ -187,6 +187,9 @@ export function TableView(props: Props) {
   const typeIndex = useMemo(() => new Map(settings.types.map((t, i) => [t.id, i])), [settings.types]);
   const statusIndex = useMemo(() => new Map(settings.statuses.map((s, i) => [s.id, i])), [settings.statuses]);
   const typeColor = useMemo(() => new Map(settings.types.map((t) => [t.id, t.color])), [settings.types]);
+  // Type and flag names, as the search looks for them.
+  const typeNames = useMemo(() => new Map(settings.types.map((t) => [t.id, t.name])), [settings.types]);
+  const flagNames = useMemo(() => new Map(settings.statuses.map((s) => [s.id, s.name])), [settings.statuses]);
   const names = useMemo(() => kept.names(new Map(people.map((p) => [p.id, p.name]))), [kept, people]);
   const roster = useMemo(() => kept.roster(people), [kept, people]);
   // Each department's engineers by name, as the options of a PTO row's Engineer.
@@ -227,7 +230,9 @@ export function TableView(props: Props) {
     return out;
   }, [boxes, lanes]);
 
-  // What a search looks in, worked out once a box (and again only for a box that's changed).
+  // What a search looks in, worked out once a box (and again only for a box that's changed): the text of every
+  // column but the numbers, and a flag's name only if it has one (on a big table, rows not drawn are found only by
+  // the search, not the browser's Find).
   const searchable = useMemo(() => {
     const made = new WeakMap<Box, Searchable>();
     return (b: Box): Searchable => {
@@ -236,12 +241,13 @@ export function TableView(props: Props) {
         const lane = lanes.get(b.lane);
         const engineers = (b.engineers ?? []).map((id) => names.get(id) ?? id).join(", ");
         const fields = [`${lane?.deptCode ?? ""}-${b.code}`, jiraKey(b.epic) ?? "", b.title, b.description ?? "", (b.tags ?? []).join(", ")];
-        const text = [...fields, lane?.label ?? "", lane?.dept ?? "", engineers].join(" ").toLowerCase();
+        const shown = [formatDay(b.start), formatDay(b.end), typeNames.get(b.type) ?? b.type, b.status ? (flagNames.get(b.status) ?? b.status) : "", b.epic ?? ""];
+        const text = [...fields, lane?.label ?? "", lane?.dept ?? "", engineers, ...shown].join(" ").toLowerCase();
         made.set(b, (s = { text, engineers }));
       }
       return s;
     };
-  }, [lanes, names]);
+  }, [lanes, names, typeNames, flagNames]);
   const boxKey = useMemo(() => boxKeys(boxes), [boxes]);
 
   // The row focus is in, drawn wherever it is; and the row that keeps its place and stays shown while it has focus,
@@ -255,7 +261,7 @@ export function TableView(props: Props) {
 
   const inDates = (start: number, end: number) => (fromDay === null || end >= fromDay) && (toDay === null || start <= toDay);
 
-  // PTO: every entry's key, then the rows by department (their owner's), earliest first; a search matches names and notes.
+  // PTO: every entry's key, then the rows by department (their owner's), earliest first; a search matches names, notes and dates.
   const entries = useMemo(() => ptoEntries(people), [people]);
   const entryKeys = useMemo(() => kept.ptoKeys.keys(entries), [kept, entries]);
   const ptoKeyAt = useMemo(() => new Map(entries.map((e, i) => [ptoKey({ personId: e.person.id, index: e.index }), entryKeys[i]])), [entries, entryKeys]);
@@ -323,7 +329,7 @@ export function TableView(props: Props) {
       const ok =
         inDates(pto.start, pto.end) &&
         !(hideFinished && pto.end < now && !props.addedPto?.has(pto)) &&
-        (!q || `pto ${person.name} ${pto.note ?? ""}`.toLowerCase().includes(q));
+        (!q || `pto ${person.name} ${pto.note ?? ""} ${formatDay(pto.start)} ${formatDay(pto.end)}`.toLowerCase().includes(q));
       if (!ok && key !== held && key !== targetKey) continue;
       const list = out.get(dept) ?? [];
       list.push({ entry, key, held: !ok && key !== targetKey });
