@@ -88,6 +88,56 @@ test("Space on a box before a keyboard move's code is here picks the box up once
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-22 – 2026-11-02");
 });
 
+test("a key pressed just as a keyboard move's code arrives, before the move is drawn, is the move's", async ({ page, github: _ }) => {
+  // The code is held back, then served with lines that press Enter on what has focus once the app's own
+  // callbacks for its arrival have run, but before any later task (as React's drawing of the move is).
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/assets\/keyMove-[\w-]+\.js$/, async (route) => {
+    await held;
+    const response = await route.fetch();
+    const enter = `;(() => {
+      let after = Promise.resolve();
+      for (let i = 0; i < 30; i++) after = after.then(() => {});
+      after.then(() => document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true, cancelable: true })));
+    })();`;
+    await route.fulfill({ response, body: (await response.text()) + enter });
+  });
+  await page.reload();
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowRight");
+  release();
+  // Moved a day, and dropped by that Enter.
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
+  await expect(box(page, DAGSTER)).toBeFocused();
+});
+
+test("a keyboard move's code that hasn't come 4 seconds after Space: the keys are the timeline's again", async ({ page, github: _ }) => {
+  const release = await holdBack(page, "keyMove");
+  await page.reload();
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowRight"); // held for the move
+  await expect(box(page, DAGSTER)).toBeFocused();
+  await page.clock.fastForward(4_000);
+  await expect.poll(() => heard(page)).toContain("Moving from the keyboard is taking a while to load. Press Space again to pick the box up.");
+  await page.keyboard.press("ArrowRight");
+  await expect(box(page, DAGSTER)).not.toBeFocused();
+  // Its arrival then picks nothing up; Space does, once it's here.
+  release();
+  await page.waitForTimeout(300);
+  await expect(page.locator(".dragging")).toHaveCount(0);
+  await page.keyboard.press("ArrowLeft");
+  await expect(box(page, DAGSTER)).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
+  await page.keyboard.press("Escape");
+  await expect(toolbar(page)).toContainText("No changes");
+});
+
 test("a press before a keyboard move's code is here leaves the box where it is", async ({ page, github: _ }) => {
   const release = await holdBack(page, "keyMove");
   await page.reload();
