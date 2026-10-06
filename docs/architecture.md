@@ -849,16 +849,19 @@ when a focused element is removed.
   scroll or zoom, focus and moves kept drawn, what the app focuses or shows
   (from the warnings, from People, after an editor's Delete) drawn, the
   grid's rows counted. The table's and People's specs (`table`, `people`,
-  `pto`, `keyboard`) run again in WebKit with only the rows near the screen
+  `pto`, `keyboard`, and `departments` for headings dragged and moved in
+  the table) run again in WebKit with only the rows near the screen
   drawn (`virtualize`, a test option), and `e2e/table-big.spec.ts` checks a
   big table (300 boxes) against itself drawn whole in another window (every
   row counted, nothing on screen missing however it's scrolled) and a
-  600-box one for the rest: rows being edited kept (and their place), focus
-  going with a row that moves (a PTO entry given to someone else too) or
-  is deleted, Tab across what's drawn, the view kept in place as rows above
-  it get shorter but not across a new sort, the header's buttons never
-  scrolling it, finished PTO hidden, new rows scrolled to and focused,
-  printing every row on pages no bigger than the rows. Its clock is fixed
+  600-box one for the rest: rows being edited kept (and their place, the
+  window losing focus too), focus going with a row that moves (a PTO entry
+  given to someone else too) or is deleted, Tab across what's drawn, the
+  view kept in place as rows above it get shorter but not across a new
+  sort, the header's buttons never scrolling it and letting go of the row
+  being edited, finished PTO hidden (but not PTO added, after another view
+  too), new rows scrolled to and focused, printing every row on pages no
+  bigger than the rows, dates unbroken. Its clock is fixed
   (`page.clock.setFixedTime`), as nothing it checks moves it on.
   WebKit's Tab skips buttons, as Safari's does by default, so those tests
   focus a control and check where focus lands.

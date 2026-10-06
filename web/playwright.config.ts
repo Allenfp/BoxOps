@@ -47,10 +47,11 @@ export default defineConfig<Options>({
       testMatch: /\/(timeline|timeline-keys|drag|move|departments|pto)\.spec\.ts$/,
       use: { ...webkit, timezoneId: "UTC", cull: true },
     },
-    // The table's and People's specs with only the rows near the screen drawn, as for a big roadmap.
+    // The table's and People's specs with only the rows near the screen drawn, as for a big roadmap
+    // (and the departments', whose headings are dragged and moved in the table too).
     {
       name: "webkit windowed",
-      testMatch: /\/(table|people|pto|keyboard)\.spec\.ts$/,
+      testMatch: /\/(table|people|pto|keyboard|departments)\.spec\.ts$/,
       use: { ...webkit, timezoneId: "UTC", virtualize: true },
     },
     { name: "chromium", use: { ...devices["Desktop Chrome"], viewport, timezoneId: "UTC" } },
