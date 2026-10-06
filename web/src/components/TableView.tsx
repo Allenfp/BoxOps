@@ -20,6 +20,8 @@ import { DRAW_ALL_UP_TO, useWindowedRows } from "../table/useWindowedRows";
 import { KeepFocus } from "../table/KeepFocus";
 import { rowKeyOf } from "../table/focusRow";
 import { useActiveRow } from "../table/useActiveRow";
+import { usePrinting } from "../table/usePrinting";
+import { PrintBoxes } from "../table/PrintTable";
 import { AddRow, BoxRow, COLUMN_COUNT, EmptyRow, GroupRow, type LaneInfo, PtoRow, type RowActions, SpacerRow } from "../table/TableRows";
 
 interface Props {
@@ -353,6 +355,7 @@ export function TableView(props: Props) {
     enabled: windowed,
   });
   const tableRef = useRef<HTMLTableElement>(null);
+  const printing = usePrinting();
   // Departments are dragged into a new order by their headings; not while filtering, when some are hidden.
   const canReorder = !readOnly && !searching && !!props.onMoveDepartment;
   const reorder = useReorder(tableRef, (id, index) => props.onMoveDepartment?.(id, index), {
@@ -710,6 +713,10 @@ export function TableView(props: Props) {
             })}
           </table>
         </KeepFocus>
+        {/* On paper, every row as shown (the table above only has those near the screen). */}
+        {printing && (
+          <PrintBoxes rows={model.rows} lanes={lanes} names={names} settings={settings} totals={totals} collapsed={(id) => collapsed.has(id) && !searching} />
+        )}
         {shown === 0 && <p className="empty">{empty}</p>}
       </div>
     </div>

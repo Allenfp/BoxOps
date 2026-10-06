@@ -12,6 +12,8 @@ import { DRAW_ALL_UP_TO, useWindowedRows } from "../table/useWindowedRows";
 import { KeepFocus } from "../table/KeepFocus";
 import { rowKeyOf } from "../table/focusRow";
 import { useActiveRow } from "../table/useActiveRow";
+import { usePrinting } from "../table/usePrinting";
+import { PrintPeople } from "../table/PrintTable";
 import { AddRow, EmptyRow, SpacerRow } from "../table/TableRows";
 import { PEOPLE_COLUMNS, PeopleGroupRow, type PersonActions, PersonRow } from "../table/PeopleRows";
 
@@ -143,6 +145,7 @@ export function PeopleView(props: Props) {
     enabled: windowed,
   });
   const tableRef = useRef<HTMLTableElement>(null);
+  const printing = usePrinting();
 
   // What was shown is what a row being edited keeps its place in; a new search, once shown, too.
   useLayoutEffect(() => {
@@ -323,6 +326,8 @@ export function PeopleView(props: Props) {
             })}
           </table>
         </KeepFocus>
+        {/* On paper, every row as shown (the table above only has those near the screen). */}
+        {printing && <PrintPeople rows={model.rows} collapsed={(id) => collapsed.has(id) && !q} />}
         {q && shown === 0 && <p className="empty">No engineers match “{query}”.</p>}
       </div>
     </div>

@@ -3115,3 +3115,75 @@ body.reordering * {
   user-select: none;
   -webkit-user-select: none;
 }
+
+/*
+ * Printing (⌘P, Ctrl+P): the roadmap without the controls around it, in its
+ * colours. The table and People print every row as shown, in a plain table of
+ * their own (table/PrintTable.tsx), as long as it takes; the timeline prints
+ * what's on screen, at its zoom and dates.
+ */
+@media screen {
+  .print-table {
+    display: none;
+  }
+}
+@media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .skip-link,
+  .toolbar .segmented,
+  .toolbar-zone.middle,
+  .toolbar-zone.end,
+  .banner,
+  .toast,
+  .table-toolbar,
+  .reorder-line {
+    display: none !important;
+  }
+  /* Clipped away rather than hidden, so what has focus there keeps it (a browser drops focus from what isn't drawn). */
+  .table-view .table-scroll > .box-table {
+    position: absolute;
+    width: 1px;
+    min-width: 0;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .app:has(.table-view),
+  .app:has(.table-view) > main,
+  .table-view,
+  .table-view .table-scroll {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    color: #000;
+  }
+  .print-table thead {
+    display: table-header-group;
+  }
+  .print-table tr {
+    break-inside: avoid;
+  }
+  .print-table th,
+  .print-table td {
+    border-bottom: 1px solid #ccc;
+    padding: 3px 4px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .print-table .print-group th {
+    padding-top: 10px;
+    font-size: 12px;
+    border-bottom: 1px solid #000;
+  }
+  .print-text {
+    white-space: pre-wrap;
+  }
+}
