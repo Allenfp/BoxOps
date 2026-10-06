@@ -1,14 +1,17 @@
 // The colour key: box types, progress marks, flags and warning marks, plus a
-// few tips. Shown in a dialog from the settings menu (Key…).
+// few tips. Shown in a dialog from the settings menu (Key…), fetched when it
+// first opens.
 
 import type { CSSProperties } from "react";
+import type { Target } from "../a11y/focus";
 import type { Settings } from "../model/types";
 import { type Progress, PROGRESS_NAME } from "../model/status";
 import { Icon } from "./Icon";
+import { Modal } from "./Modal";
 
 const PROGRESS: Progress[] = ["upcoming", "underway", "finished"];
 
-export function KeyContent({ settings }: { settings: Settings }) {
+function KeyContent({ settings }: { settings: Settings }) {
   return (
     <div className="key-body">
       <h3>Type</h3>
@@ -70,5 +73,14 @@ export function KeyContent({ settings }: { settings: Settings }) {
         <li>Drag a box to move it; drag its ends to change dates</li>
       </ul>
     </div>
+  );
+}
+
+/** The key, in its dialog. `returnTo`: where focus goes when it closes if what opened it has gone. */
+export function KeyDialog({ settings, onClose, returnTo }: { settings: Settings; onClose(): void; returnTo?: Target }) {
+  return (
+    <Modal title="Key" className="key-modal" onClose={onClose} returnTo={returnTo}>
+      <KeyContent settings={settings} />
+    </Modal>
   );
 }

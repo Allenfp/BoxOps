@@ -6,7 +6,7 @@ import { DAGSTER, box, boxDates, dragDays, expect, heard, save, test, toolbar } 
 // library) once someone starts editing, never just to show the roadmap; a
 // view when the pointer reaches its tab; editors once the roadmap is up; the
 // GitHub client once the roadmap shows; a keyboard move once the timeline
-// has focus.
+// has focus; the key and the shortcuts when they first open.
 
 /** The app's JavaScript files the page has asked for, by name without the hash: "index", "parse", "saving", "TableView"… */
 function scripts(page: Page): string[] {
@@ -97,6 +97,41 @@ test("a press before a keyboard move's code is here leaves the box where it is",
   release();
   await page.waitForTimeout(300);
   await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
+  await expect(toolbar(page)).toContainText("No changes");
+});
+
+test("the key and the keyboard shortcuts are fetched when they first open", async ({ page, github: _ }) => {
+  const asked = scripts(page);
+  await page.reload();
+  await expect(page.locator(".box").first()).toBeVisible();
+  await page.waitForTimeout(1500); // the editors are fetched a second after the roadmap shows; these aren't
+  expect(asked).not.toContain("KeyContent");
+  expect(asked).not.toContain("SettingsPanel");
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toContainText("Undo");
+  expect(asked).toContain("SettingsPanel");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Key…" }).click();
+  await expect(page.getByRole("dialog", { name: "Key" })).toContainText("Over capacity");
+  expect(asked).toContain("KeyContent");
+});
+
+test("keys pressed while the shortcuts are on their way: undo waits, and Esc takes the list back", async ({ page, github: _ }) => {
+  await dragDays(page, DAGSTER, 5);
+  const release = await holdBack(page, "SettingsPanel");
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("?");
+  await page.keyboard.press("ControlOrMeta+z");
+  await page.waitForTimeout(200);
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await page.keyboard.press("Escape");
+  release();
+  await page.waitForTimeout(300);
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveCount(0);
+  await expect(box(page, DAGSTER)).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+z");
   await expect(toolbar(page)).toContainText("No changes");
 });
 

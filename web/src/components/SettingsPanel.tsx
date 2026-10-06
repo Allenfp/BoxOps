@@ -15,6 +15,8 @@ import {
 } from "../prefs";
 import { ZOOM_LEVELS, type ZoomLevel } from "../model/types";
 import { Icon } from "./Icon";
+import { Modal } from "./Modal";
+import type { Target } from "../a11y/focus";
 import { APPLE, shifted, shortcut } from "../a11y/keys";
 
 const ZOOM_NAME: Record<ZoomLevel, string> = {
@@ -363,7 +365,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
   },
 ];
 
-export function ShortcutsContent() {
+function ShortcutsContent() {
   return (
     <div className="shortcuts">
       {shortcuts().map(({ title, rows }) => (
@@ -382,5 +384,14 @@ export function ShortcutsContent() {
         </table>
       ))}
     </div>
+  );
+}
+
+/** The keyboard shortcuts, in their dialog (from the gear menu, or ? on the timeline). `returnTo`: as Modal's. */
+export function ShortcutsDialog({ onClose, returnTo }: { onClose(): void; returnTo?: Target }) {
+  return (
+    <Modal title="Keyboard shortcuts" className="shortcuts-modal" onClose={onClose} returnTo={returnTo}>
+      <ShortcutsContent />
+    </Modal>
   );
 }

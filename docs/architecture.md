@@ -38,6 +38,7 @@ web/
     components/             Timeline, TableView, PeopleView, BoxEditor,
                             DepartmentEditor, EngineerPicker, SaveDialog,
                             TokenForm, TextCell, LoadScreen (load failures),
+                            PreviewToken (a private branch's token form),
                             ErrorBoundary; useGridFocus (the timeline's
                             keyboard focus), followPointer (drags)
     model/                  data: dates, format (data format version), parse
@@ -472,19 +473,24 @@ against data the new code wrote.
   `api.github.com` and `raw.githubusercontent.com`; images from the site and
   `data:`; no base URL, forms or plugins. React's style props go through the
   CSSOM, which the policy doesn't govern. The dev server has no CSP.
-- **App files.** The first paint loads one JavaScript file (about 350 kB,
-  115 kB gzipped): React, the timeline and the loader. The rest is fetched
-  on first use (`components/lazyPart.tsx`, `React.lazy`): Table and People
-  when the pointer or focus reaches their tab (the view on screen stays until
-  the new one is ready, its tab marked busy); the box, PTO and department
-  editors and team settings a second after the roadmap shows, unless it's
+- **App files.** The first paint loads one JavaScript file (about 370 kB,
+  120 kB gzipped; `npm run perf` keeps it under 400 kB) and the few small
+  ones it shares with the rest (React's JSX runtime, dates): React, the
+  timeline and the loader. The rest is fetched on first use
+  (`components/lazyPart.tsx`, `React.lazy`): Table and People when the
+  pointer or focus reaches their tab (the view on screen stays until the new
+  one is ready, its tab marked busy); the box, PTO and department editors
+  and team settings a second after the roadmap shows, unless it's
   read-only; the GitHub client and reader once the roadmap shows, for the
   check for newer saves (`remote.ts`; never for a private repository
   without a token); a keyboard move's code once the timeline has focus (a
   box picked up before it's here is picked up once it is, if focus is still
   on it and nothing was pressed, and the keys pressed meanwhile move it);
-  the settings menu's contents when the pointer reaches the gear; the save
-  dialog, saving's code and the YAML parser once someone starts editing.
+  the settings menu's contents when the pointer reaches the gear; the key,
+  the keyboard shortcuts and a private branch's token form when they first
+  show; the save dialog, the broken-rule popup, saving's code (with what the
+  toolbar says while a save runs) and the YAML parser once someone starts
+  editing.
   File names change only with the app's code (the build time is in
   `index.html`), so a tab left open across roadmap saves can still fetch
   them. A part that can't be fetched (the connection dropped, or an app
@@ -633,9 +639,10 @@ when a focused element is removed.
   and AltGr+S types Polish ś, not a save); Alt goes with arrow keys only:
   Option/Alt+↓ in a date field, Option/Alt+↑ ↓ on a department's name,
   Option/Alt+← → on a box or PTO block picked up. Undo, redo and ⌘S never
-  act behind the save dialog, the key or the shortcuts list, nor with a menu
-  open (with focus in it, on its button or nowhere); in the editors they do,
-  as the editing happens there. In a text field ⌘Z is the field's own (a
+  act behind the save dialog, the key or the shortcuts list (from when it's
+  asked for, while its code is fetched: Esc then takes it back), nor with a
+  menu open (with focus in it, on its button or nowhere); in the editors they
+  do, as the editing happens there. In a text field ⌘Z is the field's own (a
   select, checkbox or switch has none: there it's the app's), but in a table
   cell left with Enter or Esc, until something's typed, it's the app's
   (`data-settled`), as it was once focus had left. Delete and Backspace

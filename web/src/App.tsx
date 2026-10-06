@@ -1,4 +1,4 @@
-import { type RefObject, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
+import { type RefObject, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { DepartmentEditorTarget } from "./components/DepartmentEditor";
 import type { Resume, SaveProblem } from "./components/SaveDialog";
 import { lazyPart } from "./components/lazyPart";
@@ -7,17 +7,14 @@ import { type BoxPlacement, Timeline, type TimelineHandle } from "./components/T
 import { FolderProblems, type Snapshot, TooManyChanges, canRead, fromBundle, remember, sameBlobs } from "./github/snapshot";
 import type { SaveResult, SaveStep } from "./github/save";
 import { getToken, setToken } from "./github/token";
-import { KeyContent } from "./components/KeyContent";
-import { Modal } from "./components/Modal";
 import { SettingsMenu } from "./components/SettingsMenu";
 import { getPrefs, setPrefs, usePrefs, type ViewMode } from "./prefs";
 import { Logo } from "./components/Logo";
 import { Popover } from "./components/Popover";
 import { Banner } from "./components/Banner";
 import { announce } from "./a11y/announce";
-import { useAnnounce } from "./a11y/useAnnounce";
 import { letter, shortcut, undoHint } from "./a11y/keys";
-import { type Target, firstOnPage, focusLater, focusLost, main, onPage, useReturnFocus } from "./a11y/focus";
+import { type Target, firstOnPage, focusLater, focusLost, main, onPage } from "./a11y/focus";
 import { scrollBehavior } from "./a11y/motion";
 import { type WarningGroup, WarningsMenu } from "./components/WarningsMenu";
 import { overCapacity, overloadText } from "./model/report";
@@ -35,7 +32,7 @@ import type { Box, Issue, RoadmapFiles, TimeOff, ZoomLevel } from "./model/types
 import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
 import { noteDraft, runningFine } from "./components/ErrorBoundary";
-import { LoadProblem, PreviewToken, liveUrl } from "./components/LoadScreen";
+import { LoadProblem, liveUrl } from "./components/LoadScreen";
 import { SiteError, fetchBundle, guardReload, isNewerApp, movesForward, reloadApp } from "./site";
 import { AddedPto } from "./table/addedPto";
 
@@ -75,7 +72,11 @@ const PtoEditor = lazyPart(() => import("./components/PtoEditor").then((m) => m.
 const DepartmentEditor = lazyPart(() => import("./components/DepartmentEditor").then((m) => m.DepartmentEditor));
 const TeamSettings = lazyPart(() => import("./components/TeamSettings").then((m) => m.TeamSettings));
 const SaveDialog = lazyPart(() => import("./components/SaveDialog").then((m) => m.SaveDialog));
-const ShortcutsContent = lazyPart(() => import("./components/SettingsPanel").then((m) => m.ShortcutsContent));
+const ShortcutsDialog = lazyPart(() => import("./components/SettingsPanel").then((m) => m.ShortcutsDialog));
+const KeyDialog = lazyPart(() => import("./components/KeyContent").then((m) => m.KeyDialog));
+const RuleToast = lazyPart(() => import("./components/RuleToast").then((m) => m.RuleToast));
+/** A preview of a private repository's branch, and no token. */
+const PreviewToken = lazyPart(() => import("./components/PreviewToken").then((m) => m.PreviewToken));
 /** Views by tab, fetched when the pointer or focus reaches the tab. */
 const VIEW_PARTS: Partial<Record<ViewMode, { preload(): void }>> = { table: TableView, people: PeopleView };
 /** How long after the roadmap shows that the editors are fetched, unless it's read-only. */
@@ -448,13 +449,15 @@ export function App() {
   }
   if (state.status === "needs-token") {
     return (
-      <PreviewToken
-        {...state}
-        onSubmit={(token) => {
-          setToken(state.repo, token);
-          retry();
-        }}
-      />
+      <Suspense fallback={<div className="splash">Loading…</div>}>
+        <PreviewToken
+          {...state}
+          onSubmit={(token) => {
+            setToken(state.repo, token);
+            retry();
+          }}
+        />
+      </Suspense>
     );
   }
   return (
@@ -481,92 +484,6 @@ export function App() {
         setRemote(others);
       }}
     />
-  );
-}
-
-const STEP_TEXT: Record<SaveStep, string> = {
-  checking: "Checking for newer saves…",
-  writing: "Writing the commit…",
-  verifying: "Checking whether it went through…",
-  retrying: "Trying again…",
-};
-
-/**
- * What a save is doing, with the seconds so far once it's slow: a save can
- * wait on GitHub for a minute or two. Only the step is announced, not every
- * second.
- */
-function SaveProgress({ step }: { step: SaveStep }) {
-  useAnnounce(STEP_TEXT[step]);
-  const [start] = useState(() => Date.now());
-  const [now, setNow] = useState(start);
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const seconds = Math.floor((now - start) / 1000);
-  return (
-    <span className="hint save-progress">
-      <span>{STEP_TEXT[step]}</span>
-      {seconds >= 5 ? ` ${seconds} s` : ""}
-    </span>
-  );
-}
-
-/**
- * A heads-up that the user's edit broke rules (announced as it appears, by
- * whoever sets `broken`: a live region added already filled often isn't
- * read). It goes by itself after 10 s, but not while focus is in it (being
- * read, or on its way to Dismiss); focus in it when it goes moves to the
- * roadmap. While it shows, the views leave room to scroll their last rows
- * up clear of it, so focus is never under it: `--toast-room` on the app, as
- * far as it reaches up from the window's bottom (more rules, or a narrow
- * window, make it taller).
- */
-function RuleToast({ broken, onDismiss }: { broken: Violation[]; onDismiss(): void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [held, setHeld] = useState(false);
-  useEffect(() => {
-    if (held) return;
-    const t = setTimeout(onDismiss, 10_000);
-    return () => clearTimeout(t);
-  }, [broken, held, onDismiss]);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    const app = el?.closest<HTMLElement>(".app");
-    if (!el || !app) return;
-    // None while it isn't drawn (printing).
-    const measure = () => {
-      const r = el.getBoundingClientRect();
-      app.style.setProperty("--toast-room", `${r.height ? Math.ceil(window.innerHeight - r.top) : 0}px`);
-    };
-    measure();
-    const sized = new ResizeObserver(measure);
-    sized.observe(el);
-    return () => {
-      sized.disconnect();
-      app.style.removeProperty("--toast-room");
-    };
-  }, []);
-  useReturnFocus(ref, main, { ifLost: false });
-  return (
-    <div
-      ref={ref}
-      className="toast"
-      onFocus={() => setHeld(true)}
-      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setHeld(false)}
-    >
-      <strong><Icon name="alert" size={14} /> That breaks {broken.length === 1 ? "a rule" : `${broken.length} rules`}</strong>
-      <ul>
-        {broken.map((v, i) => (
-          <li key={i}>{v.message}</li>
-        ))}
-      </ul>
-      <span className="hint">Nothing is blocked; it's a heads-up.</span>
-      <button className="icon-button" onClick={onDismiss} aria-label="Dismiss">
-        <Icon name="x" size={16} />
-      </button>
-    </div>
   );
 }
 
@@ -928,7 +845,8 @@ function RoadmapView(props: ViewProps) {
   const updateReload = useRef<HTMLButtonElement>(null);
 
   // ⌘S (Ctrl+S), undo and redo. Text fields keep their own native
-  // undo. None of them acts on what's behind a dialog (saving, the key) or an
+  // undo. None of them acts on what's behind a dialog (saving, the key, the
+  // shortcuts: from when it's asked for, while its code is fetched) or an
   // open menu (a toolbar menu while focus is in it or on its button, or
   // nowhere: with focus somewhere else, in the timeline say, it's not in the
   // way); the editors (box, PTO, department, team settings) aren't that, being
@@ -936,10 +854,17 @@ function RoadmapView(props: ViewProps) {
   // keyboards that don't type Latin ones. None takes Alt: Windows reports
   // AltGr as Ctrl+Alt, and AltGr+S types a letter (Polish ś), not a save.
   const onKey = (e: KeyboardEvent) => {
+    // The key or the shortcuts asked for, their code still on its way: Esc takes them back.
+    if (e.key === "Escape" && (modal === "key" || modal === "shortcuts") && !document.querySelector("dialog[open]")) {
+      setModal(null);
+      return focusLater([settingsButton, main]);
+    }
     const mod = (e.metaKey || e.ctrlKey) && !e.altKey;
     const key = letter(e);
     const menu = document.querySelector(".popover-panel")?.closest(".popover");
     const behind =
+      modal === "key" ||
+      modal === "shortcuts" ||
       !!document.querySelector("dialog[open]:not(.dept-editor, .team-settings), .picker-menu, .calendar") ||
       (!!menu && (menu.contains(document.activeElement) || focusLost()));
     if (mod && key === "s") {
@@ -1092,6 +1017,7 @@ function RoadmapView(props: ViewProps) {
     if (!editing) return;
     loadSaving().catch(() => {}); // a save tries again, and says if it can't
     SaveDialog.preload();
+    RuleToast.preload();
   }, [editing]);
   /** A save waiting for saving's code: another doesn't start meanwhile. */
   const fetchingSaving = useRef(false);
@@ -1517,7 +1443,8 @@ function RoadmapView(props: ViewProps) {
               >
                 <Icon name="redo" size={16} />
               </button>
-              {busy && <SaveProgress step={step} />}
+              {/* A save runs only once saving's code is here. */}
+              {busy && saving && <saving.SaveProgress step={step} />}
               {count > 0 ? (
                 <div className="split-button">
                   <button
@@ -1877,7 +1804,11 @@ function RoadmapView(props: ViewProps) {
             />
           )}
         </Suspense>
-        {newlyBroken.length > 0 && <RuleToast broken={newlyBroken} onDismiss={dismissBroken} />}
+        {newlyBroken.length > 0 && (
+          <Suspense fallback={null}>
+            <RuleToast broken={newlyBroken} onDismiss={dismissBroken} />
+          </Suspense>
+        )}
       </main>
       {view === "timeline" && !preview && selectedPto && ptoOf(selectedPto) && (
         <Suspense fallback={null}>
@@ -2003,16 +1934,14 @@ function RoadmapView(props: ViewProps) {
         </Suspense>
       )}
       {modal === "key" && (
-        <Modal title="Key" className="key-modal" onClose={() => setModal(null)} returnTo={settingsButton}>
-          <KeyContent settings={draft.settings} />
-        </Modal>
+        <Suspense fallback={null}>
+          <KeyDialog settings={draft.settings} onClose={() => setModal(null)} returnTo={settingsButton} />
+        </Suspense>
       )}
       {modal === "shortcuts" && (
-        <Modal title="Keyboard shortcuts" className="shortcuts-modal" onClose={() => setModal(null)} returnTo={settingsButton}>
-          <Suspense fallback={null}>
-            <ShortcutsContent />
-          </Suspense>
-        </Modal>
+        <Suspense fallback={null}>
+          <ShortcutsDialog onClose={() => setModal(null)} returnTo={settingsButton} />
+        </Suspense>
       )}
       {modal === "team" && !preview && (
         <Suspense fallback={null}>
