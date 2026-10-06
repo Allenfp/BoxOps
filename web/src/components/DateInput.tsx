@@ -94,9 +94,9 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
     setDraft(null);
     setCalendar({ anchor, opener, byKey });
   };
-  /** Put the calendar away; `refocus`: focus was in it, and goes back to what opened it. */
-  const close = (refocus: boolean) => {
-    if (refocus) calendar?.opener.focus();
+  /** Put the calendar away, focus going back to what opened it. */
+  const close = () => {
+    calendar?.opener.focus();
     setCalendar(null);
   };
 
@@ -137,7 +137,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
   const pick = (picked: Day | null) => {
     onChange(picked === null ? "" : formatDay(picked));
     setDraft(null);
-    close(true);
+    close();
     onBlur?.();
   };
 
@@ -192,7 +192,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
           aria-expanded={!!calendar}
           aria-controls={calendar ? ids.dialog : undefined}
           // A click with no pointer (detail 0) is Enter or Space.
-          onClick={(e) => (calendar ? close(true) : open(e.currentTarget, e.detail === 0))}
+          onClick={(e) => (calendar ? close() : open(e.currentTarget, e.detail === 0))}
         >
           <Icon name="calendar" size={14} />
         </button>
@@ -224,7 +224,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
           value={value}
           optional={optional}
           onPick={pick}
-          onClose={() => close(true)}
+          onClose={close}
         />
       )}
     </span>
