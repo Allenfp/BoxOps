@@ -559,7 +559,7 @@ export function Timeline(props: Props) {
       scrolled: () => ({ x: el.scrollLeft - from.x, y: el.scrollTop - from.y }),
       moved: () => {
         const at = edges();
-        for (const side of y ? (["left", "right", "top", "bottom"] as const) : (["left", "right"] as const)) {
+        for (const side of (["left", "right", "top", "bottom"] as const).slice(0, y ? 4 : 2)) {
           armed[side] ||= at[side].into <= 0 || at[side].towards >= EDGE / 2;
         }
         if (!frame) frame = requestAnimationFrame(edge);

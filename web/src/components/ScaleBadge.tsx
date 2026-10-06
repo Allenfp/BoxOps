@@ -16,6 +16,8 @@ import type { Box, Department } from "../model/types";
 import { focusByPress } from "./useGridFocus";
 
 const WIDTH = 300;
+/** How far (px) the card is from the number. */
+const GAP = 6;
 /** How long (ms) the card waits after the pointer leaves the number, so it can reach the card. */
 const GRACE_MS = 150;
 
@@ -39,19 +41,16 @@ export function ScaleBadge({ box, departments, className }: Props) {
   const place = () => setAt(ref.current?.getBoundingClientRect() ?? null);
   const open = (hovered || focused) && !away;
 
-  /** Where the pointer was last seen; null once it's left the window. */
+  /** Where the pointer was last seen (an event's `x` and `y`); null once it's left the window. */
   const pointer = useRef<{ x: number; y: number } | null>(null);
-  /** The pointer is on the number, on the card, or straight between them. */
+  /** The pointer is on the number or the card, or in the gap between them. */
   const over = () => {
     const p = pointer.current;
-    const n = ref.current?.getBoundingClientRect();
-    if (!p || !n) return false;
-    const inside = (r: { left: number; right: number; top: number; bottom: number }) =>
-      p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
-    const c = card.current?.getBoundingClientRect();
-    return inside(n) || (!!c && (inside(c) || inside({ left: n.left, right: n.right, top: Math.min(n.bottom, c.bottom), bottom: Math.max(n.top, c.top) })));
+    return [ref.current, card.current].some((el) => {
+      const r = el?.getBoundingClientRect();
+      return !!p && !!r && p.x > r.left - GAP && p.x < r.right + GAP && p.y > r.top - GAP && p.y < r.bottom + GAP;
+    });
   };
-  const seen = (e: { clientX: number; clientY: number }) => (pointer.current = { x: e.clientX, y: e.clientY });
   const stay = () => {
     clearTimeout(leaving.current);
     leaving.current = undefined;
@@ -63,32 +62,35 @@ export function ScaleBadge({ box, departments, className }: Props) {
       if (!over()) setHovered(false);
     }, GRACE_MS);
   };
-  const enter = (e: { clientX: number; clientY: number }) => {
-    seen(e);
+  const enter = () => {
     stay();
     if (!open) place();
     setHovered(true);
     setAway(false);
   };
-  useEffect(() => () => clearTimeout(leaving.current), []);
 
   // Keyboard focus on the box (or cell) it's in: shown while it lasts. Not focus from pressing
   // the box (to drag it, say), which browsers may well draw a ring for (:focus-visible) all the same.
+  // Gone from the page, no grace period is left running either.
   useEffect(() => {
     const host = ref.current?.closest<HTMLElement>("[data-cell]");
     if (!host) return;
-    const onIn = (e: FocusEvent) => {
-      if (e.target !== host || focusByPress()) return;
-      place();
-      setFocused(true);
-      setAway(false);
-    };
-    const onOut = (e: FocusEvent) => e.target === host && setFocused(false);
-    host.addEventListener("focusin", onIn);
-    host.addEventListener("focusout", onOut);
+    const listening = new AbortController();
+    const options = { signal: listening.signal };
+    host.addEventListener(
+      "focus",
+      () => {
+        if (focusByPress()) return;
+        place();
+        setFocused(true);
+        setAway(false);
+      },
+      options,
+    );
+    host.addEventListener("blur", () => setFocused(false), options);
     return () => {
-      host.removeEventListener("focusin", onIn);
-      host.removeEventListener("focusout", onOut);
+      listening.abort();
+      clearTimeout(leaving.current);
     };
   }, []);
 
@@ -97,44 +99,29 @@ export function ScaleBadge({ box, departments, className }: Props) {
   // scrolls. Shown by the pointer, it stays while the pointer's over it, and goes once it's not.
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
+    const listening = new AbortController();
+    const on = <K extends keyof WindowEventMap>(type: K, listener: (e: WindowEventMap[K]) => void, passive = false) =>
+      window.addEventListener(type, listener, { capture: true, passive, signal: listening.signal });
+    on("keydown", (e) => {
       if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
       }
       setAway(true);
-    };
-    const putAway = () => {
-      stay();
-      setHovered(false);
-      setAway(true);
-    };
-    const onMove = (e: PointerEvent) => {
-      seen(e);
+    });
+    on("scroll", place);
+    on("pointerdown", () => setAway(true));
+    on("wheel", () => setAway(true), true);
+    const watch = (e: PointerEvent) => {
+      // Out to nothing: gone from the window, which no move says.
+      pointer.current = e.type === "pointerout" && !e.relatedTarget ? null : e;
       if (over()) stay();
       else leave();
     };
-    // Gone from the window: no move says so.
-    const onOut = (e: PointerEvent) => {
-      if (e.relatedTarget) return;
-      pointer.current = null;
-      leave();
-    };
-    window.addEventListener("keydown", onKey, true);
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("pointerdown", putAway, true);
-    window.addEventListener("wheel", putAway, { capture: true, passive: true });
-    window.addEventListener("pointermove", onMove, { capture: true, passive: true });
-    window.addEventListener("pointerout", onOut, true);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      window.removeEventListener("scroll", place, true);
-      window.removeEventListener("pointerdown", putAway, true);
-      window.removeEventListener("wheel", putAway, true);
-      window.removeEventListener("pointermove", onMove, true);
-      window.removeEventListener("pointerout", onOut, true);
-    };
+    on("pointermove", watch);
+    on("pointerout", watch);
+    return () => listening.abort();
   }, [open]);
 
   const scale = boxScale(box);
@@ -142,7 +129,7 @@ export function ScaleBadge({ box, departments, className }: Props) {
   let style: CSSProperties = {};
   if (stats && at) {
     const left = Math.min(Math.max(8, at.right - WIDTH), window.innerWidth - WIDTH - 8);
-    style = at.bottom + 100 < window.innerHeight ? { left, top: at.bottom + 6 } : { left, bottom: window.innerHeight - at.top + 6 };
+    style = at.bottom + 100 < window.innerHeight ? { left, top: at.bottom + GAP } : { left, bottom: window.innerHeight - at.top + GAP };
   }
 
   return (
@@ -153,10 +140,6 @@ export function ScaleBadge({ box, departments, className }: Props) {
         // An empty title keeps the box's own tooltip from covering the popup.
         title=""
         onMouseEnter={enter}
-        onMouseLeave={(e) => {
-          seen(e);
-          leave();
-        }}
       >
         {/* Said as "Scale 30" where the number is read (a table cell): a name on a plain <span> isn't. */}
         <span className="sr-only">Scale </span>
