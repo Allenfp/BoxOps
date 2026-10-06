@@ -423,6 +423,29 @@ test("Delete on a PTO block whose owner's next one comes after someone else's pu
   await expect(cell(page, "pto:priya-shah#0")).toBeFocused();
 });
 
+test("a focused box that goes from under focus, undone or deleted by someone else, gives focus to the cell beside it", async ({ page, github }) => {
+  // A box added with N after CDC, the last in its row, then undone (one step: nothing was typed): the box before it.
+  await box(page, CDC).focus();
+  await page.keyboard.press("n");
+  const editor = page.getByRole("dialog", { name: /^Edit / });
+  await expect(editor.getByRole("textbox", { name: "Title" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  const added = page.locator('[data-box-id$="-new-box"]');
+  await expect(added).toBeFocused();
+  await expect(added.locator("xpath=ancestor::*[@role='row'][1]")).toHaveAttribute("data-row", "lane:de-2");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(added).toHaveCount(0);
+  await expect(box(page, CDC)).toBeFocused();
+  await expect(toolbar(page)).toContainText("No changes");
+
+  // Someone else deletes Dagster while it has focus: the box after it in its row.
+  await box(page, DAGSTER).focus();
+  github.deploy(github.otherSave({ [boxFile(DAGSTER)]: () => undefined }, "Sam Lee", "Dagster dropped"));
+  await pollNow(page);
+  await expect(box(page, DAGSTER)).toHaveCount(0);
+  await expect(box(page, CDC)).toBeFocused();
+});
+
 test("an editor whose box or PTO block someone else deleted gives focus to what was beside it", async ({ page, github }) => {
   await box(page, DAGSTER).focus();
   await page.keyboard.press("Enter");
