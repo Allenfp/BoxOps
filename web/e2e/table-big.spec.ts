@@ -195,6 +195,42 @@ test("a row being edited stays drawn and keeps what's typed, scrolled away and b
   await expect(description).toHaveValue(/ Not saved yet\./);
 });
 
+test("an edit draws again only the row it's in: a box's title, a PTO entry's note", async ({ page, github: _ }) => {
+  /** The rows drawn again as this is done, by key. */
+  const drawnAgain = async (edit: () => Promise<void>) => {
+    await page.evaluate(() => (window.__boxopsTest = { ...window.__boxopsTest, renders: {} }));
+    await edit();
+    await settled(page);
+    return page.evaluate(() => Object.keys(window.__boxopsTest!.renders!));
+  };
+  const box = page.locator("tr.box-row").nth(2);
+  const boxKey = await box.getAttribute("data-row-key");
+  const title = box.getByLabel("Title");
+  await title.focus();
+  expect(
+    await drawnAgain(async () => {
+      await title.fill("Renamed");
+      await page.keyboard.press("Enter");
+      await expect(toolbar(page)).toContainText("Save · 1 change");
+    }),
+  ).toEqual([boxKey]);
+  // Every PTO entry is made again for a change to anyone's, but a row is drawn again only for its own.
+  await centre(page, "dept-01", 0.8);
+  await settled(page);
+  const pto = page.locator("tr.pto-table-row").nth(3);
+  const ptoKey = await pto.getAttribute("data-row-key");
+  const note = pto.getByLabel("PTO note");
+  await note.focus();
+  expect(await page.locator("tr.pto-table-row").count()).toBeGreaterThan(5);
+  expect(
+    await drawnAgain(async () => {
+      await note.fill("Dentist");
+      await page.keyboard.press("Enter");
+      await expect(toolbar(page)).toContainText("Save · 2 changes");
+    }),
+  ).toEqual([ptoKey]);
+});
+
 test("the window losing focus lets go of nothing: a row scrolled away keeps focus, and one edited out stays", async ({ page, github: _ }) => {
   const description = (await fourthWithDescription(page)).getByLabel("Description");
   await description.click();

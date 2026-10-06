@@ -2,16 +2,18 @@
 // everything a row is given stays the same from one edit to the next unless
 // it's about that row (the box, its lane, its warnings), and what rows do is
 // one object of functions that never changes, so an edit draws again only
-// the rows it changed. Each row is measured as it's drawn (`measure`) and
-// says which it is (`index`, its aria-rowindex).
+// the rows it changed (a PTO row is given its entry's parts, not the entry:
+// TableView makes every entry again for any change to the roster), as the
+// browser tests check (window.__boxopsTest.renders). Each row is measured
+// as it's drawn (`measure`) and says which it is (`index`, its
+// aria-rowindex).
 
-import { type CSSProperties, type KeyboardEvent, memo, type PointerEvent, type ReactNode, useEffect, useRef } from "react";
+import { type CSSProperties, type KeyboardEvent, memo, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import { formatDay, workdays } from "../model/dates";
 import { jiraKey } from "../model/jira";
 import { LINK } from "../model/load";
 import type { PtoRef } from "../model/pto";
 import { BOX_FTE_OPTIONS, type Box, type Department, type Person, type TimeOff } from "../model/types";
-import type { PtoEntry } from "../timeline/rows";
 import { DateInput } from "../components/DateInput";
 import { EngineerPicker } from "../components/EngineerPicker";
 import { Icon } from "../components/Icon";
@@ -74,6 +76,14 @@ function HeldNote() {
   return <span className="held-note">{HELD_NOTE}</span>;
 }
 
+/** Counted for the browser tests, which check that an edit draws again only the rows it changed. */
+function useCounted(rowKey: string) {
+  useLayoutEffect(() => {
+    const counts = window.__boxopsTest?.renders;
+    if (counts) counts[rowKey] = (counts[rowKey] ?? 0) + 1;
+  });
+}
+
 export const BoxRow = memo(function BoxRow({
   box: b,
   rowKey,
@@ -116,6 +126,7 @@ export const BoxRow = memo(function BoxRow({
   measure(el: HTMLElement | null): void;
   actions: RowActions;
 }) {
+  useCounted(rowKey);
   const jira = jiraKey(b.epic);
   const code = `${lane?.deptCode}-${b.code}`;
   return (
@@ -299,7 +310,10 @@ const FTE_OPTIONS = BOX_FTE_OPTIONS.map((f) => (
 ));
 
 export const PtoRow = memo(function PtoRow({
-  entry,
+  personId,
+  name,
+  ptoIndex,
+  pto,
   rowKey,
   index,
   members,
@@ -310,7 +324,11 @@ export const PtoRow = memo(function PtoRow({
   measure,
   actions,
 }: {
-  entry: PtoEntry;
+  /** Whose it is, and which of theirs. */
+  personId: string;
+  name: string;
+  ptoIndex: number;
+  pto: TimeOff;
   rowKey: string;
   index: number;
   /** The department's engineers, as options; how many. */
@@ -322,8 +340,8 @@ export const PtoRow = memo(function PtoRow({
   measure(el: HTMLElement | null): void;
   actions: RowActions;
 }) {
-  const { person, pto } = entry;
-  const ref: PtoRef = { personId: person.id, index: entry.index };
+  useCounted(rowKey);
+  const ref: PtoRef = { personId, index: ptoIndex };
   const engineer = useRef<HTMLSelectElement>(null);
   // A new entry: focus goes to whose it is (the table scrolls it clear of its header).
   useEffect(() => {
@@ -336,13 +354,13 @@ export const PtoRow = memo(function PtoRow({
           <span className="cell-code pto-chip">PTO</span>
           <LazySelect
             ref={engineer}
-            value={person.id}
+            value={personId}
             disabled={readOnly}
             aria-label="Engineer"
             onChange={(e) => actions.reassignPto(ref, e.target.value)}
             options={members}
             count={memberCount}
-            chosen={<option value={person.id}>{person.name}</option>}
+            chosen={<option value={personId}>{name}</option>}
           />
         </span>
         {held && <HeldNote />}
@@ -384,7 +402,7 @@ export const PtoRow = memo(function PtoRow({
           <button
             className="icon-button row-delete"
             title="Delete PTO"
-            aria-label={`Delete PTO for ${person.name}`}
+            aria-label={`Delete PTO for ${name}`}
             onClick={(e) => actions.removePto(ref, e.currentTarget)}
           >
             <Icon name="x" size={14} />
@@ -428,6 +446,7 @@ export const GroupRow = memo(function GroupRow({
   measure(el: HTMLElement | null): void;
   actions: RowActions;
 }) {
+  useCounted(rowKey);
   return (
     <tr ref={measure} data-row-key={rowKey} aria-rowindex={index} className="group-row">
       <td colSpan={COLUMN_COUNT}>

@@ -971,6 +971,8 @@ when a focused element is removed.
   against itself drawn whole in another window (every row counted, nothing
   on screen missing however it's scrolled) and a 600-box one for the rest:
   rows being edited kept (and their place, the window losing focus too),
+  an edit drawing again only its own row (a box's or a PTO entry's: the
+  table counts its rows' renders for tests, in `window.__boxopsTest`),
   focus going with a row that moves (a PTO entry given to someone else
   too) or is deleted, Tab across what's drawn, the view kept in place as
   rows above it get shorter or are hidden but not across a new sort, a new

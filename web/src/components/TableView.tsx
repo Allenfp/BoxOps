@@ -581,12 +581,16 @@ export function TableView(props: Props) {
         );
       }
       case "pto": {
-        const m = members.get(r.entry.person.department ?? "");
+        const { person, index, pto } = r.entry;
+        const m = members.get(person.department ?? "");
         return (
           <PtoRow
             key={r.key}
             {...common}
-            entry={r.entry}
+            personId={person.id}
+            name={person.name}
+            ptoIndex={index}
+            pto={pto}
             members={m?.options}
             memberCount={m?.count ?? 0}
             readOnly={readOnly}

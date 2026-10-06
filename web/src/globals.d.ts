@@ -10,7 +10,7 @@ interface Window {
    * only what's near the screen whatever the roadmap's size (false: all of
    * it, always). `virtualize`: the same for the table's and People's rows.
    * `renders`: each department's renders on the timeline are counted there,
-   * by its id.
+   * by its id, and the table's rows', by their keys.
    */
   __boxopsTest?: { cull?: boolean; virtualize?: boolean; renders?: Record<string, number> };
 }
