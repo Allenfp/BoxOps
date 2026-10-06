@@ -51,10 +51,15 @@
   font-weight: 600;
   border-bottom: 1px solid var(--border);
 }
+/* The fine dates sit at the top, the Today flag below them: it never covers a date, at any zoom. */
 .tl-band.band-1 {
-  height: 22px;
+  height: 36px;
   color: var(--text-muted);
   font-size: 12px;
+}
+.band-1 .band-cell {
+  align-items: flex-start;
+  padding-top: 3px;
 }
 .band-cell {
   position: absolute;
@@ -75,13 +80,13 @@
 }
 .today-flag {
   position: absolute;
-  bottom: 2px;
+  bottom: 3px;
   transform: translateX(-50%);
   background: var(--today);
   color: var(--on-today);
   font-size: 10.5px;
   font-weight: 600;
-  line-height: 15px;
+  line-height: 14px;
   padding: 0 5px;
   border-radius: 4px;
   pointer-events: none;
@@ -106,13 +111,14 @@
 .grid-line.major {
   background: var(--grid-major);
 }
+/* Under the boxes and PTO (each box draws its own stretch of it, under its text: .spans-today), over the rows. */
 .today-line {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 1px;
   background: var(--today);
-  z-index: var(--z-raised);
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -415,6 +421,21 @@ button.collapse-all:hover {
 .lane-name.static:hover {
   background: transparent;
   border-color: transparent;
+}
+
+/* Where the today line crosses a box: drawn in the box, under its text, which keeps the box's colour round it. */
+.box.spans-today::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--today-x);
+  width: 1px;
+  background: var(--today);
+  pointer-events: none;
+}
+.box.spans-today :is(.box-title, .box-people) {
+  background-color: inherit;
 }
 
 /* Someone else changed this box while we were editing it too. */
@@ -906,6 +927,10 @@ body.reordering * {
 /* High-contrast themes (see base.css). */
 @media (forced-colors: active) {
   .today-line {
+    background: Highlight;
+  }
+  .box.spans-today::before {
+    forced-color-adjust: none;
     background: Highlight;
   }
   .today-flag {

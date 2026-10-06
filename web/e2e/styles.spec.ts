@@ -196,13 +196,16 @@ test("a menu open as the window's made smaller is kept inside it", async ({ page
   await expect.poll(inside).toBe(true);
 });
 
-test("in a high-contrast theme, what only colour showed stays: the chosen view, Today, progress, switches, the picked day", async ({ page, browserName, github: _ }) => {
+test("in a high-contrast theme, what only colour showed stays: the chosen view, Today (across boxes too), progress, switches, the picked day", async ({ page, browserName, github: _ }) => {
   test.skip(browserName !== "chromium", "only Chromium emulates Windows' contrast themes (forced colours)");
   await page.emulateMedia({ forcedColors: "active" });
   const views = page.getByRole("group", { name: "View" });
   const bg = async (el: Locator, pseudo?: string) => el.evaluate((e, p) => getComputedStyle(e, p).backgroundColor, pseudo);
   expect(await bg(views.getByRole("button", { name: "Timeline" }))).not.toEqual(await bg(views.getByRole("button", { name: "Table" })));
   expect(await bg(page.locator(".today-line"))).not.toEqual(await bg(page.locator(".timeline")));
+  // So does its stretch across a box, under the box's text, which keeps the box's own colour round it.
+  expect(await bg(box(page, DAGSTER), "::before")).toEqual(await bg(page.locator(".today-line")));
+  expect(await bg(box(page, DAGSTER).locator(".box-title"))).toEqual(await bg(box(page, DAGSTER)));
   // A lane's name shows no edge (a short row's would be cut off) until it's pointed at.
   const lane = page.locator(".lane-name").first();
   expect((await css(lane, "border-top-color"))["border-top-color"]).toEqual(await bg(page.locator(".timeline")));

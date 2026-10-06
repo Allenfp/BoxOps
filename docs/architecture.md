@@ -729,8 +729,8 @@ when a focused element is removed.
   colours) the browser paints with the theme's few colours and drops
   shadows and background images, so each part of the stylesheet draws in
   system colours what only they showed: the chosen option of a segmented
-  control, a switch's state, a box's progress mark, the Today line and
-  flag, the picked day, the selected box, a team's colours (shown as they
+  control, a switch's state, a box's progress mark, the Today line (across
+  boxes too) and flag, the picked day, the selected box, a team's colours (shown as they
   are), the changed-by-someone-else dot and a lane's closed dates. Only
   Chromium can emulate this, so `e2e/styles.spec.ts` checks it there. With
   less motion asked for (`prefers-reduced-motion`), transitions take no
@@ -828,6 +828,13 @@ when a focused element is removed.
   box or PTO block, or to scroll to it; until the timeline next scrolls) are
   drawn wherever they are. At 2,000 boxes the timeline first shows about 70
   of them.
+- **Today** is a line down the timeline with a flag hanging from it, under
+  the dates along the top (they sit at the top of their row, the flag below
+  them), so the flag never covers a date at any zoom. The line runs under
+  the boxes and PTO blocks and over the rows; a box it crosses draws its own
+  stretch of it, under its title, scale and initials, which keep the box's
+  colour round them, so it never runs through a box's text. On a weekend it
+  sits on Monday's edge.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes, which says over capacity

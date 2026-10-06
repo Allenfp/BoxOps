@@ -1,3 +1,4 @@
+import type { Locator } from "@playwright/test";
 import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, heard, pollNow, save, test, toolbar } from "./helpers";
 
 test("shows departments, lanes, boxes and today", async ({ page, github: _, cull }) => {
@@ -86,6 +87,49 @@ test("the timeline says over capacity when the warnings do: by a lane's dates, n
   await expect(analytics.locator(".dept-over")).toHaveCount(0);
   await expect(analytics.locator(".box.overflowing")).toHaveCount(0);
   expect(await warnings()).not.toContain("Analytics");
+});
+
+test("the Today flag covers no date at any zoom, and the today line runs under the boxes' text", async ({ page, github: _ }) => {
+  const rect = (l: Locator) => l.evaluate((e) => e.getBoundingClientRect().toJSON() as DOMRect);
+  const apart = (a: DOMRect, b: DOMRect) => a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+  for (const zoom of ["Weeks", "Months", "Quarters"]) {
+    await page.getByRole("button", { name: zoom, exact: true }).click();
+    const flag = await rect(page.locator(".today-flag"));
+    const labels = await page.locator(".tl-band .band-cell span").evaluateAll((els) =>
+      els.map((e) => ({ text: e.textContent, ...(e.getBoundingClientRect().toJSON() as DOMRect) })),
+    );
+    expect(labels.length).toBeGreaterThan(10);
+    for (const label of labels) expect(apart(flag, label), `${zoom}: the flag covers "${label.text}"`).toBe(true);
+    // It hangs from the line, at the bottom of the dates.
+    const line = await rect(page.locator(".today-line"));
+    expect(Math.abs(flag.left + flag.width / 2 - line.left)).toBeLessThan(1);
+    expect(line.top - flag.bottom).toBeLessThan(6);
+  }
+
+  // Months: the line is under the boxes (and PTO), over the rows; a box it crosses draws its own stretch
+  // of it, under its title, which keeps the box's colour round it.
+  await page.getByRole("button", { name: "Months", exact: true }).click();
+  const line = page.locator(".today-line");
+  const z = (l: Locator) => l.evaluate((e) => Number(getComputedStyle(e).zIndex));
+  expect(await z(line)).toBeLessThan(await z(box(page, DAGSTER)));
+  const x = (await rect(line)).left;
+  await expect(box(page, DAGSTER)).toHaveClass(/spans-today/);
+  await expect(box(page, CDC)).not.toHaveClass(/spans-today/); // from Oct 26
+  const stretch = await box(page, DAGSTER).evaluate((el) => {
+    const before = getComputedStyle(el, "::before");
+    return { x: el.getBoundingClientRect().left + el.clientLeft + parseFloat(before.left), width: before.width, color: before.backgroundColor };
+  });
+  expect(stretch.x).toBeCloseTo(x, 0);
+  expect(stretch.width).toBe("1px");
+  expect(stretch.color).toBe(await line.evaluate((e) => getComputedStyle(e).backgroundColor));
+  const title = box(page, DAGSTER).locator(".box-title");
+  const t = await rect(title);
+  expect(t.left < x && x < t.right).toBe(true); // the line crosses the title here: the title is drawn over it
+  expect(await title.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(await box(page, DAGSTER).evaluate((e) => getComputedStyle(e).backgroundColor));
+  // In the dark theme too.
+  await page.emulateMedia({ colorScheme: "dark" });
+  expect(await box(page, DAGSTER).evaluate((e) => getComputedStyle(e, "::before").backgroundColor)).toBe(await line.evaluate((e) => getComputedStyle(e).backgroundColor));
+  expect(await title.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(await box(page, DAGSTER).evaluate((e) => getComputedStyle(e).backgroundColor));
 });
 
 test("today moves on at midnight in a tab left open", async ({ page, github: _ }) => {

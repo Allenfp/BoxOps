@@ -997,6 +997,7 @@ export function Timeline(props: Props) {
                   collapsed={isCollapsed}
                   scale={scale}
                   now={now}
+                  today={showToday ? todayX : -1}
                   display={display}
                   slotH={SLOT_H}
                   deptH={DEPT_H}
@@ -1111,6 +1112,8 @@ interface DeptProps {
   collapsed: boolean;
   scale: Scale;
   now: Day;
+  /** Where the today line is along the track (px); -1 with none on the timeline. */
+  today: number;
   display: Display;
   /** Heights (px): half an FTE, the heading, and a collapsed department's heading with its chart. */
   slotH: number;
@@ -1198,6 +1201,7 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
       variant={variant}
       slots={slots}
       overflowing={overflowing}
+      today={variant !== "compact" && p.today > at.left && p.today < at.left + at.width ? p.today - at.left : undefined}
       selected={b.id === p.selectedId}
       clash={!!p.conflictIds?.has(b.id)}
       updated={!!p.updatedIds?.has(b.id)}
@@ -1484,6 +1488,8 @@ interface BoxProps {
   slots: number;
   /** Drawn in the extra area of a department over capacity. */
   overflowing: boolean;
+  /** Where the today line crosses it (px from its left), if it does: drawn under its text. */
+  today?: number;
   selected: boolean;
   clash: boolean;
   updated: boolean;
@@ -1536,6 +1542,7 @@ const BoxView = memo(
       p.updated && "updated",
       warnings.length > 0 && "rule-broken",
       p.overflowing && "overflowing",
+      p.today !== undefined && "spans-today",
     ];
     const tooltip = [
       clash && "⚠ Someone else also changed this box. You’ll choose whose version to keep when you save.\n",
@@ -1582,6 +1589,7 @@ const BoxView = memo(
             height: p.height,
             ...((showPeople || showScale) && { paddingRight: peopleW }),
             "--c": p.color,
+            "--today-x": p.today === undefined ? undefined : `${p.today - 1}px`,
           } as CSSProperties
         }
         title={variant === "full" && !p.selected ? tooltip.filter(Boolean).join("\n") : undefined}

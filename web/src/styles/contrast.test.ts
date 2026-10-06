@@ -221,6 +221,8 @@ const BOX_CHECKS: Check[] = [
   { what: "a finished box's progress mark", fg: BOX.ring, bg: BOX.finished, min: UI },
   { what: "a box's resize grip", fg: rule("timeline", ".box:hover .handle::after", "background"), bg: BOX.fill, min: UI },
   { what: "a finished box's resize grip", fg: rule("timeline", ".box:hover .handle::after", "background"), bg: BOX.finished, min: UI },
+  { what: "the Today line across a box", fg: rule("timeline", ".box.spans-today::before", "background"), bg: BOX.fill, min: UI },
+  { what: "the Today line across a finished box", fg: rule("timeline", ".box.spans-today::before", "background"), bg: BOX.finished, min: UI },
   { what: "a collapsed department's box (a bar on its heading's row)", fg: rule("timeline", ".box.compact", "background"), bg: "var(--surface)", min: UI },
   { what: "a collapsed department's capacity line", fg: rule("timeline", ".use-marks", "color"), bg: "var(--surface)", min: UI },
   { what: "a collapsed department's capacity bars", fg: rule("timeline", ".use-marks", "color"), bg: "var(--surface)", opacity: BARS, min: UI },
