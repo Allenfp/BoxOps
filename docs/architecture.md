@@ -971,7 +971,8 @@ when a focused element is removed.
   table's and People's specs (`table`, `people`, `pto`, `keyboard`, and
   `departments` for headings dragged and moved in the table) run again in
   WebKit with only the rows near the screen drawn (`virtualize`, a test
-  option), and `e2e/table-big.spec.ts` checks a big table (300 boxes)
+  option; the fixture's rows all fit in what's drawn, so none is left
+  out), and `e2e/table-big.spec.ts` checks a big table (300 boxes)
   against itself drawn whole in another window (every row counted, nothing
   on screen missing however it's scrolled, each department as tall in both
   densities, with only boxes drawn) and a 600-box one for the rest:
