@@ -319,7 +319,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
     title: "In the table and People",
     rows: [
       ["Enter", `Keep what's typed in the cell, staying in it (${shortcut("Z")} then undoes it)`],
-      ["Esc", "Put the cell back as it was"],
+      ["Esc", "Put a text cell back as it was (a choice, or a whole date, is kept at once)"],
       [shifted("Enter"), "New line in a description or notes"],
       [`${ALT}↑ ${ALT}↓`, "On a department's name in the table: move it up or down"],
     ],
@@ -328,7 +328,7 @@ const shortcuts = (): { title: string; rows: [string, string][] }[] => [
     title: "In a date field",
     rows: [
       [`${ALT}↓`, "Open the calendar (or its button beside the date)"],
-      ["Esc", "Put back what was typed"],
+      ["Esc", "Drop half a date typed (a whole date is kept as soon as it's typed)"],
     ],
   },
   {

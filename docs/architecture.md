@@ -591,7 +591,10 @@ when a focused element is removed.
   opens), and close once that's scrolled out of sight. A resize closes
   them, but not the Engineers list while a new name is typed (a phone's
   keyboard opening shrinks the window): it moves with its button.
-- **Date fields** (`components/DateInput.tsx`) are YYYY-MM-DD text. Text
+- **Date fields** (`components/DateInput.tsx`) are YYYY-MM-DD text. A date
+  counts as soon as it's whole, in the table and the editors alike; Esc
+  drops half of one, the field going back to its date, and stops there,
+  but with none it goes on (an editor closes, the date typed kept). Text
   that more typing can't make a date says why just under the field (over
   what's below, so nothing moves when focus leaves and the field goes back
   to its date); deleting an `optional` date's text clears it. The calendar

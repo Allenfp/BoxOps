@@ -3,8 +3,8 @@ import { DAGSTER, box, expect, heard, test, toolbar } from "./helpers";
 
 // Date fields (DateInput.tsx): the calendar, an APG date-picker dialog (its
 // button, keys, names, and where focus goes), Escape closing it alone, and
-// typing in the field: clearing an optional date, and text that can't be a
-// date. Today is Saturday 2026-10-03; Dagster 2.x upgrade runs 2026-09-14 –
+// typing in the field: a whole date kept at once, Escape dropping half of
+// one, clearing an optional date, and text that can't be a date. Today is Saturday 2026-10-03; Dagster 2.x upgrade runs 2026-09-14 –
 // 2026-10-23.
 
 const calendar = (page: Page) => page.getByRole("dialog", { name: "Choose date" });
@@ -296,6 +296,37 @@ test("in a table row, Option/Alt+↓ in a date opens the calendar, and focus com
   await expect(calendar(page)).toHaveCount(0);
   await expect(start).toBeFocused();
   await expect(start).toHaveValue("2026-09-21");
+});
+
+test("Escape drops half a date typed, the field's date coming back; a whole date is kept as soon as it's typed", async ({ page, github: _ }) => {
+  // In the box editor, half a date goes and the editor stays. A whole one is the box's at once, so
+  // Escape goes on to close the editor, the date kept (undo takes it back).
+  const editor = await editDagster(page);
+  const start = editor.getByRole("textbox", { name: "Start", exact: true });
+  await start.fill("2026-09-2");
+  await page.keyboard.press("Escape");
+  await expect(start).toHaveValue("2026-09-14");
+  await expect(editor).toBeVisible();
+  await expect(toolbar(page)).toContainText("No changes");
+  await start.fill("2026-09-21");
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await expect(toolbar(page)).toContainText("1 change");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("No changes");
+
+  // In a table row, the same: Escape puts back only half a date, focus staying in the field.
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const cell = row(page, "Dagster 2.x upgrade").getByRole("textbox", { name: "Start", exact: true });
+  await cell.fill("2026-09-2");
+  await page.keyboard.press("Escape");
+  await expect(cell).toHaveValue("2026-09-14");
+  await expect(toolbar(page)).toContainText("No changes");
+  await cell.fill("2026-09-21");
+  await page.keyboard.press("Escape");
+  await expect(cell).toHaveValue("2026-09-21");
+  await expect(cell).toBeFocused();
+  await expect(toolbar(page)).toContainText("1 change");
 });
 
 test("typing: clearing an optional date's text clears it, the table's filter too, and text that can't be a date says why", async ({ page, github: _ }) => {
