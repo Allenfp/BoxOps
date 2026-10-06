@@ -1,4 +1,5 @@
 import type { Browser, Locator, Page } from "@playwright/test";
+import { parse } from "yaml";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import type { FakeGitHub } from "./fake-github";
 import { choose, expect, openTab, pastPrintTable, test, toolbar } from "./helpers";
@@ -13,7 +14,12 @@ import { choose, expect, openTab, pastPrintTable, test, toolbar } from "./helper
 // anyway (`virtualize`). The clock is fixed rather than started at today:
 // these tests never move it on, and nothing they check waits on it.
 
-test.use({ files: generateRoadmap(600, "2026-10-03"), fakeClock: "fixed" });
+const files = generateRoadmap(600, "2026-10-03");
+test.use({ files, fakeClock: "fixed" });
+
+/** Its engineers, and someone with PTO that's over (before the tests' today, 2026-10-03) and PTO that isn't. */
+const { people } = parse(files["people.yaml"]) as { people: { id: string; name: string; department: string; pto: { end: string }[] }[] };
+const someone = people.find((p) => p.pto.some((t) => t.end < "2026-10-03") && p.pto.some((t) => t.end >= "2026-10-03"))!;
 
 const scroller = (page: Page) => page.locator(".table-scroll");
 /** Rows with data in them: boxes, PTO, engineers. */
@@ -262,6 +268,42 @@ test("deleting a row from the keyboard puts focus on the next row's Delete", asy
   await rows.first().locator(".row-delete").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator(".row-delete:focus")).toHaveAttribute("aria-label", `Delete ${next}`);
+});
+
+test("a PTO entry given to someone else keeps focus and its place; deleting one puts focus on the next row's Delete", async ({ page, github: _ }) => {
+  await page.locator(".table-search").fill(someone.name);
+  const rows = page.locator(`[data-dept-id="${someone.department}"] tr.pto-table-row`);
+  const starts = () => rows.getByLabel("PTO start").evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  await expect(rows).toHaveCount(someone.pto.length);
+  const before = await starts();
+  await rows.first().getByRole("button", { name: `Delete PTO for ${someone.name}` }).focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(starts).toEqual(before.slice(1));
+  const deleteButton = page.locator(".row-delete:focus");
+  await expect(deleteButton).toHaveAttribute("aria-label", `Delete PTO for ${someone.name}`);
+  await expect(deleteButton.locator("xpath=ancestor::tr").getByLabel("PTO start")).toHaveValue(before[1]);
+
+  // Given to someone else in the department: no longer matching the search, it stays, saying so, with focus.
+  const other = people.find((p) => p.department === someone.department && p.name !== someone.name)!;
+  await choose(rows.first().getByLabel("Engineer"), other.id);
+  const engineer = page.locator(':focus[aria-label="Engineer"]');
+  await expect(engineer).toHaveValue(other.id);
+  await expect(engineer.locator("xpath=ancestor::tr").getByLabel("PTO start")).toHaveValue(before[1]);
+  await expect(engineer.locator("xpath=ancestor::tr").locator(".held-note")).toBeVisible();
+  await page.locator(".table-search").focus();
+  await expect.poll(starts).toEqual(before.slice(2));
+});
+
+test("Hide finished boxes and PTO hides PTO that's over, and shows it again", async ({ page, github: _ }) => {
+  await page.locator(".table-search").fill(someone.name);
+  const rows = page.locator(`[data-dept-id="${someone.department}"] tr.pto-table-row`);
+  await expect(rows).toHaveCount(someone.pto.length);
+  const ends = () => rows.getByLabel("PTO end").evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  const all = await ends();
+  await page.getByRole("switch", { name: "Hide finished boxes and PTO" }).check();
+  await expect.poll(ends).toEqual(all.filter((end) => end >= "2026-10-03"));
+  await page.getByRole("switch", { name: "Hide finished boxes and PTO" }).uncheck();
+  await expect.poll(ends).toEqual(all);
 });
 
 test("the header's sort buttons, focused, tabbed to or clicked, leave the table scrolled where it was", async ({ page, github: _, browserName }) => {
