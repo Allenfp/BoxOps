@@ -342,7 +342,11 @@ export function Timeline(props: Props) {
     rows: gridRows,
     draw,
   });
-  /** A cell the app asked for (TimelineHandle): drawn wherever it is, until it asks for another. */
+  /**
+   * A cell the app asked for (TimelineHandle): drawn wherever it is, until the timeline next
+   * scrolls. The app focuses it or scrolls to it at once: by then it's drawn as the cell with
+   * focus, or as one near the screen.
+   */
   const requested = useRef<string | null>(null);
   useImperativeHandle(
     props.handle,
@@ -467,6 +471,7 @@ export function Timeline(props: Props) {
   const onScroll = () => {
     const el = scrollRef.current;
     if (el) centerDay.current = scale.dayAt(el.scrollLeft + trackWidth() / 2);
+    requested.current = null;
     // Drawn before the frame is painted, so a long scroll never shows blank space for a frame.
     flushSync(measure);
   };
