@@ -529,7 +529,7 @@
 .cell-code {
   display: block;
   padding: 2px 7px 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);

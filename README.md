@@ -83,6 +83,14 @@ straight to `main`, and the site updates within a minute.
   elsewhere), "Forget token", discard and a link to the history. **Team
   settings** (title, fiscal year, default zoom, box types and flags) change
   `roadmap/settings.yaml` for everyone and are saved like any other edit.
+- **Browsers and screens.** Made for Safari; Chrome, Edge and Firefox work
+  too (Safari 16.4, Chrome and Edge 111, Firefox 114 or later: the tests
+  run in all three engines), each in its system's own fonts. The app
+  follows the system's light or dark theme (or your choice), Windows'
+  contrast themes, and the system's setting to reduce motion. In a narrow
+  window (down to 320 px wide, as at 400% zoom) the toolbar wraps and the
+  editors fit; on a touch screen, the buttons that otherwise show on hover
+  are always there.
 - **Keyboard and screen readers.** "Skip to roadmap" is the first stop for
   Tab. The timeline is one Tab stop: the arrow keys go between lanes, boxes
   and PTO (up and down to what runs at the same time), Home and End (or ⌘

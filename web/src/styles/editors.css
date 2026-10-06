@@ -233,7 +233,7 @@
 /* Box editor: code and rules */
 .code-chip {
   flex: none;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
   padding: 3px 6px;

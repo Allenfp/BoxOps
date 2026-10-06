@@ -487,7 +487,7 @@ function ColorChoice({ value, onChange }: { value: string; onChange(color: strin
           onClick={() => onChange(c)}
         />
       ))}
-      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Custom colour" />
+      <input type="color" className="color-input" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Custom colour" />
     </span>
   );
 }

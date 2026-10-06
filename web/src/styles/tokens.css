@@ -69,7 +69,10 @@
   --z-popover: 60;
   --z-calendar: 80;
   --z-skip-link: 100;
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  /* Codes and keys: each system's monospace (SF Mono, Menlo, Consolas, Liberation Mono). */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  /* Each system's own: San Francisco on Apple's, Segoe UI on Windows, the desktop's font on Linux, Roboto on Android. */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   color: var(--text);
   background: var(--bg);

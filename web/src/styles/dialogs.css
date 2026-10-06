@@ -210,7 +210,7 @@
 
 /* Department editor */
 .code-input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   max-width: 140px;
 }
@@ -277,14 +277,6 @@
 .swatch-button.chosen {
   border-color: var(--surface);
   box-shadow: 0 0 0 2px var(--text);
-}
-.color-choice input[type="color"] {
-  width: 30px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid var(--control-border);
-  border-radius: 6px;
-  background: transparent;
 }
 .lane-dates-row {
   display: flex;
@@ -461,6 +453,7 @@
   text-align: right;
   font-size: 12px;
 }
+/* A colour field (team settings, the department editor's own colour), filled by its swatch in every browser. */
 .color-input {
   flex: none;
   width: 28px;
@@ -475,6 +468,11 @@
   padding: 0;
 }
 .color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 4px;
+}
+/* Firefox's (a rule of its own: a selector a browser doesn't know drops the whole rule). */
+.color-input::-moz-color-swatch {
   border: 0;
   border-radius: 4px;
 }
