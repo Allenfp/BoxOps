@@ -1331,9 +1331,7 @@ function RoadmapView(props: ViewProps) {
     setView("timeline");
     if (dept) setCollapsed((prev) => (prev.has(dept.id) ? new Set([...prev].filter((x) => x !== dept.id)) : prev));
     select(id);
-    requestAnimationFrame(() =>
-      document.querySelector(`[data-box-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }),
-    );
+    requestAnimationFrame(() => timelineCell(`box:${id}`)?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }));
   };
   const goToDepartment = (id: string) => {
     setView("timeline");
@@ -1370,11 +1368,7 @@ function RoadmapView(props: ViewProps) {
     setView("timeline");
     if (dept) setCollapsed((prev) => (prev.has(dept) ? new Set([...prev].filter((x) => x !== dept)) : prev));
     selectPto(ref);
-    requestAnimationFrame(() =>
-      document
-        .querySelector(`[data-pto-key="${CSS.escape(ptoKey(ref))}"]`)
-        ?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }),
-    );
+    requestAnimationFrame(() => timelineCell(`pto:${ptoKey(ref)}`)?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }));
   };
 
   const warningGroups: WarningGroup[] = [
