@@ -563,10 +563,14 @@
 .pto-list {
   list-style: none;
   margin: 0;
-  padding: 4px 6px;
+  padding: 4px 6px 0;
   font-size: 12px;
   line-height: 18px;
   white-space: nowrap;
+}
+/* Entries (and "+N more") 24 px apart, middle to middle, so each has room round it (WCAG 2.5.8); two still fit a row. */
+.pto-list li + li {
+  margin-top: 6px;
 }
 .pto-list .link-button {
   font-size: 12px;

@@ -710,16 +710,19 @@ when a focused element is removed.
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to
   it, tied to the field with `aria-describedby`.
-- **Small targets, by design.** A box's resize handles (7 px) and the
-  compact boxes of a collapsed department are smaller than WCAG 2.5.8's
-  24 px: their size is the information (time and FTE), and the editor's
-  date fields, the keyboard move and expanding the department do the same
-  with full-size targets. The **+** buttons are 24 px; they show on hover
-  and focus, and always on a touch screen, which has no hover to find them
-  (so do the ✎ pencils, a table row's Delete, a table date's calendar
-  button and a department's grip). Every other control is 24 px or has
-  room round it, as 2.5.8 allows (`e2e/styles.spec.ts` checks each view,
-  editor, dialog and menu).
+- **Small targets, by design.** A box's resize handles (7 px), the
+  compact boxes of a collapsed department, and on the timeline half-FTE
+  boxes and PTO blocks (16 px tall, 12 px in the compact density, stacked
+  a slot apart) are smaller than WCAG 2.5.8's 24 px: their size is the
+  information (time and FTE), and the editor's date fields, the keyboard
+  move, expanding the department and the Table and People views do the
+  same with full-size targets. The **+** buttons are 24 px; they show on
+  hover and focus, and always on a touch screen, which has no hover to
+  find them (so do the ✎ pencils, a table row's Delete, a table date's
+  calendar button and a department's grip). Every other control is 24 px
+  or has room round it, as 2.5.8 allows: People's PTO entries are 24 px
+  apart, middle to middle (`e2e/styles.spec.ts` checks each view, editor,
+  dialog and menu, with PTO booked).
 - **Not yet checked by a person.** What a test can't hear needs a person
   with VoiceOver and Safari, NVDA with Firefox or Chrome, and JAWS with
   Edge: how the timeline grid's rows and cells are spoken (a box is

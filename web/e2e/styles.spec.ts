@@ -500,8 +500,9 @@ test.describe("on a touch screen", () => {
 /**
  * Controls on screen too small for WCAG 2.5.8 (24 by 24 px) and too close to another: a 24 px circle round
  * their middle reaches another control (where it shows: not one under a panel) or another small one's circle.
- * A box's resize handles and a collapsed department's compact boxes are small by design (docs/architecture.md),
- * and aren't looked at: the handles aren't controls the query finds, and the compact boxes are left out.
+ * A box's resize handles, a collapsed department's compact boxes, and the timeline's half-FTE boxes and PTO
+ * blocks are small by design (docs/architecture.md), and aren't looked at: the handles aren't controls the query
+ * finds, and the others are left out.
  */
 async function crowded(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -510,7 +511,7 @@ async function crowded(page: Page): Promise<string[]> {
       return !!top && (el.contains(top) || top.contains(el));
     };
     const controls = [...document.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea, [tabindex], [data-cell]")].filter((el) => {
-      if (el.matches(".box.compact")) return false;
+      if (el.matches(".box.compact, .box.half, .pto-block")) return false;
       const r = el.getBoundingClientRect();
       return r.width > 1 && r.height > 1 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && on(el, r.x + r.width / 2, r.y + r.height / 2);
     });
@@ -534,7 +535,23 @@ async function crowded(page: Page): Promise<string[]> {
   });
 }
 
-test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, editor, dialog and menu", async ({ page, github: _ }) => {
+/** Morgan books three weeks off (People lists one, then "+2 more") and Priya two, the first while Morgan is off (stacked on the timeline). */
+async function bookPto(page: Page, github: FakeGitHub) {
+  const pto = (...weeks: [string, string][]) => `    pto:\n${weeks.map(([start, end]) => `      - start: ${start}\n        end: ${end}\n`).join("")}`;
+  github.deploy(
+    github.otherSave({
+      "people.yaml": (t) =>
+        t
+          .replace("    name: Morgan Chen\n    department: analytics\n", (m) => m + pto(["2026-10-05", "2026-10-09"], ["2026-10-19", "2026-10-23"], ["2026-11-02", "2026-11-06"]))
+          .replace("    name: Priya Shah\n    department: analytics\n", (m) => m + pto(["2026-10-07", "2026-10-14"], ["2026-10-26", "2026-10-30"])),
+    }),
+  );
+  await page.reload();
+  await expect(page.locator(".pto-block")).toHaveCount(5);
+}
+
+test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, editor, dialog and menu", async ({ page, github }) => {
+  await bookPto(page, github);
   expect(await crowded(page)).toEqual([]);
   await box(page, DAGSTER).click();
   await expect(page.getByRole("dialog", { name: /^Edit / })).toBeVisible();
@@ -557,4 +574,24 @@ test("every control is 24 px or has room round it (WCAG 2.5.8), in each view, ed
     await expect(page.getByRole("main", { name: view }).locator("tbody tr").first()).toBeVisible();
     expect(await crowded(page)).toEqual([]);
   }
+  // Each of a person's PTO entries, Priya's two and Morgan's one with "+2 more", and then all of Morgan's.
+  await expect(page.locator(".pto-list button")).toHaveCount(4);
+  await page.getByRole("button", { name: "+2 more PTO for Morgan Chen" }).click();
+  await expect(page.locator(".pto-list button")).toHaveCount(6);
+  expect(await crowded(page)).toEqual([]);
+});
+
+test("People's rows stay as tall as each other with two PTO entries listed, in either density", async ({ page, github }) => {
+  await bookPto(page, github);
+  await page.getByRole("button", { name: "People", exact: true }).click();
+  const rows = page.locator("tr.person-row");
+  await expect(rows.first()).toBeVisible();
+  const heights = () => rows.evaluateAll((rs) => [...new Set(rs.map((r) => r.getBoundingClientRect().height))]);
+  const [comfortable] = await heights();
+  expect(await heights()).toEqual([comfortable]);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("dialog", { name: "Settings" }).getByRole("group", { name: "Density" }).getByRole("button", { name: "Compact" }).click();
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => (await heights())[0]).toBeLessThan(comfortable);
+  expect(await heights()).toHaveLength(1);
 });
