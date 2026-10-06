@@ -212,9 +212,15 @@ test("Escape cancels a drag, and doesn't also close an editor open beside it", a
   await expect(toolbar(page)).toContainText("No changes");
 });
 
-test("a box or PTO block pressed and dragged has focus, but not the keyboard's ring, nor the box its scale card", async ({ page, github }) => {
+test("a box or PTO block pressed and dragged has focus, but not the keyboard's ring (a thin edge), nor the box its scale card", async ({ page, github }) => {
   const card = page.getByRole("tooltip");
   const ring = (l: Locator) => l.evaluate((el) => el.matches(":focus-visible"));
+  /** The outline drawn round it: the keyboard's ring, the thin edge a press leaves, or none. */
+  const edge = (l: Locator) =>
+    l.evaluate((el) => {
+      const { outlineStyle, outlineWidth } = getComputedStyle(el);
+      return outlineStyle === "none" ? "none" : `${outlineStyle} ${outlineWidth}`;
+    });
   /** Released, and the pointer gone elsewhere. */
   const release = async () => {
     await page.mouse.up();
@@ -228,11 +234,14 @@ test("a box or PTO block pressed and dragged has focus, but not the keyboard's r
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-07 – 2026-10-16");
   await expect(box(page, DAGSTER)).toBeFocused();
   expect(await ring(box(page, DAGSTER))).toBe(false);
+  expect(await edge(box(page, DAGSTER))).toBe("solid 1px");
   await expect(card).toHaveCount(0);
   // The keyboard's next cell has both; and back, so has the box.
   await page.keyboard.press("ArrowRight");
   await expect(box(page, CDC)).toBeFocused();
   expect(await ring(box(page, CDC))).toBe(true);
+  expect(await edge(box(page, CDC))).toBe("solid 2px");
+  expect(await edge(box(page, DAGSTER))).toBe("none");
   await expect(card).toContainText("Scale");
   await page.keyboard.press("ArrowLeft");
   await expect(box(page, DAGSTER)).toBeFocused();
@@ -276,6 +285,7 @@ test("a box or PTO block pressed and dragged has focus, but not the keyboard's r
   await expect(block).toHaveAttribute("title", /2026-10-12 – 2026-10-16/);
   await expect(block).toBeFocused();
   expect(await ring(block)).toBe(false);
+  expect(await edge(block)).toBe("solid 1px");
 });
 
 const scrollLeft = (page: Page) => page.evaluate(() => document.querySelector(".timeline")!.scrollLeft);
