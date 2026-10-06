@@ -1386,6 +1386,12 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .table-scroll {
   flex: 1;
   overflow: auto;
+  /* Below the sticky header: what focus or a script scrolls to (and focusRow.ts's keepInView, by hand). */
+  scroll-padding-top: 34px;
+}
+/* Drawing only the rows near the screen, the table keeps the view in place itself (useWindowedRows.ts). */
+.table-scroll.windowed {
+  overflow-anchor: none;
 }
 .box-table {
   border-collapse: separate;
@@ -1435,8 +1441,33 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .box-table tbody tr td:first-child {
   border-left: 4px solid var(--dept, transparent);
 }
-.box-table tbody tr:hover td {
+.box-table tbody tr:not(.spacer):hover td {
   background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+/* Rows a big table doesn't draw: as tall as they'd be, ruled like box rows, in their department's colour. */
+.box-table tr.spacer td {
+  padding: 0;
+  border-bottom: 0;
+  background: repeating-linear-gradient(transparent 0 calc(var(--box-row) - 1px), var(--grid) calc(var(--box-row) - 1px) var(--box-row));
+}
+/* Every box (and engineer) row is as tall as the others, unless one's being edited or says why a cell won't do. */
+.box-table {
+  --box-row: 53px;
+}
+.density-compact .box-table {
+  --box-row: 49px;
+}
+.box-table tr.box-row,
+.people-table tr.person-row {
+  height: var(--box-row);
+}
+/* A row being edited that no longer matches the search or filters: it goes once focus leaves it. */
+.held-note {
+  display: block;
+  padding: 0 7px 3px;
+  font-size: 12px;
+  color: var(--warn);
+  white-space: normal;
 }
 .box-table tr.updated td {
   background: color-mix(in srgb, var(--updated) 9%, var(--surface));

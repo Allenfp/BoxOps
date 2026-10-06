@@ -1798,7 +1798,7 @@ function RoadmapView(props: ViewProps) {
               onRemovePto={removePto}
               onAddPto={(departmentId) => {
                 const start = startOfWeek(now);
-                addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
+                return addPto({ start, end: addWorkdays(start, 4) }, { departmentId });
               }}
             />
           ) : (

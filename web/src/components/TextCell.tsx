@@ -55,11 +55,11 @@ export function TextCell({
     if (!editing.current) setText(value);
   }, [value]);
 
+  // Without scrolling: the table scrolls a focused cell clear of its sticky header and column.
   useEffect(() => {
     if (autoFocus && ref.current) {
-      ref.current.focus();
+      ref.current.focus({ preventScroll: true });
       ref.current.select();
-      ref.current.scrollIntoView({ block: "nearest" });
     }
   }, [autoFocus]);
 

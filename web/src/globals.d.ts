@@ -8,8 +8,9 @@ interface Window {
   /**
    * Set by browser tests before the app starts. `cull`: the timeline draws
    * only what's near the screen whatever the roadmap's size (false: all of
-   * it, always). `renders`: each department's renders on the timeline are
-   * counted there, by its id.
+   * it, always). `virtualize`: the same for the table's and People's rows.
+   * `renders`: each department's renders on the timeline are counted there,
+   * by its id.
    */
-  __boxopsTest?: { cull?: boolean; renders?: Record<string, number> };
+  __boxopsTest?: { cull?: boolean; virtualize?: boolean; renders?: Record<string, number> };
 }
