@@ -172,7 +172,7 @@ const CHECKS: Check[] = [
   ...pair("a hovered Delete button", "base", "button.danger:hover", TEXT, "button.danger"),
   ...pair("an error callout", "dialogs", ".callout.error"),
   ...PANELS.flatMap((s) => [
-    { what: `a quiet icon (table group ✎ and +, calendar button) on ${s}`, fg: "var(--text-muted)", bg: `var(${s})`, opacity: "--quiet", min: UI },
+    { what: `a quiet icon (table group ✎ and +, calendar button), the full-capacity line, on ${s}`, fg: "var(--text-muted)", bg: `var(${s})`, opacity: "--quiet", min: UI },
   ]),
   { what: "banner text", fg: "var(--text)", bg: rule("toolbar", ".banner", "background"), min: TEXT },
   { what: "banner links", fg: rule("toolbar", ".banner a", "color"), bg: rule("toolbar", ".banner", "background"), min: TEXT },

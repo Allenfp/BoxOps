@@ -805,11 +805,12 @@ button.collapse-all:hover {
   display: block;
   overflow: visible;
 }
+/* The department's full capacity, dashed: what the line or bars are measured against (3:1, as --quiet is). */
 .use-full {
   stroke: var(--text-muted);
   stroke-width: 1;
   stroke-dasharray: 3 3;
-  opacity: 0.55;
+  opacity: var(--quiet);
 }
 .use-marks {
   color: var(--dept);

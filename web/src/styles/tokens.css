@@ -35,7 +35,8 @@
   --updated: #0d9488;
   --seg-track: #eceef2;
   --seg-on: #ffffff;
-  /* Icons shown quietly until pointed at, still 3:1; and what's switched off (exempt from contrast). */
+  /* Icons shown quietly until pointed at, and a collapsed department's full-capacity line, still 3:1; and what's
+     switched off (exempt from contrast). */
   --quiet: 0.75;
   --disabled: 0.4;
   /* Elevation: a raised control, a field's popup, what's being dragged, panels and popups, dialogs. */
