@@ -44,6 +44,17 @@ const onScreen = (page: Page) =>
       .sort();
   });
 
+/** Where the timeline is scrolled to, if it's stopped there (the same two frames running); null while it's moving. */
+const stopped = (page: Page) =>
+  page.locator(".timeline").evaluate(
+    (el) =>
+      new Promise<string | null>((done) => {
+        const at = () => `${el.scrollLeft},${el.scrollTop}`;
+        const was = at();
+        requestAnimationFrame(() => requestAnimationFrame(() => done(at() === was ? was : null)));
+      }),
+  );
+
 /** Each department's room, top to bottom, drawn or not. */
 const heights = (page: Page) => page.locator("[data-reorder-id]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
 
@@ -103,15 +114,22 @@ test("nothing on screen is missing, wherever it's scrolled, at every zoom, and a
   await expect.poll(() => onScreen(whole)).toContain(`box:${LONG}`);
   await expect.poll(() => onScreen(page)).toContain(`box:${LONG}`);
 
-  // Today, from the far end: the timeline scrolls back, drawing what it comes to.
+  // Today, from the far end: the timeline scrolls back, smoothly, drawing what it comes to.
+  // Compared once both tabs have got there and stopped, in the same place: mid-scroll, or
+  // before they've started, the two can be in the same place and still be on their way.
   for (const p of [page, whole]) {
     await scrollTo(p, 1, 1);
+    await expect(p.locator(".today-line")).not.toBeInViewport();
     await p.getByRole("button", { name: "Today" }).click();
   }
-  const settled = (p: Page) => p.locator(".timeline").evaluate((el) => `${el.scrollLeft},${el.scrollTop}`);
-  await expect.poll(async () => (await settled(page)) === (await settled(whole)) && (await settled(page))).not.toBe(false);
+  for (const p of [page, whole]) await expect(p.locator(".today-line")).toBeInViewport();
+  await expect
+    .poll(async () => {
+      const at = await stopped(page);
+      return at !== null && at === (await stopped(whole));
+    })
+    .toBe(true);
   await expect.poll(() => onScreen(page)).toEqual(await onScreen(whole));
-  await expect(page.locator(".today-line")).toBeInViewport();
 
   // A bigger window: what's drawn follows its size.
   for (const p of [page, whole]) {
