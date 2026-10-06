@@ -47,10 +47,12 @@ straight to `main`, and the site updates within a minute.
   are assigned engineers from this list. It prints, and draws a big roster,
   as the table does; its search looks through every column, PTO's dates and
   notes too.
-- **Printing.** The table and People print every row; the timeline prints
-  what's on screen, at its zoom and dates. The toolbar's controls are left
-  out, and the colours print, in the light theme on white whichever theme
-  is on screen.
+- **Printing.** The table and People print every row as shown, drawn on
+  screen or not (the search, dates, Hide finished, sort and collapsed departments
+  apply: a collapsed department prints only its heading); the timeline
+  prints what's on screen, at its zoom and dates. The toolbar's controls are
+  left out, and the colours print, in the light theme on white whichever
+  theme is on screen.
 - **Saving.** Edits stay in your browser until you press **Save** (⌘S, or
   Ctrl+S on Windows and Linux), each tab's on its own; edits left in a tab
   you closed are offered back in the roadmap's other tabs, or the next time

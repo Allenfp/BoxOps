@@ -904,16 +904,17 @@ when a focused element is removed.
   focus.
 - **Printing** (`table/PrintTable.tsx`, `table/usePrinting.ts`). On paper the
   table and People are a plain table of every row as shown (search, dates,
-  sort, collapsed departments), drawn as printing starts, its dates never
-  broken across lines (at a hyphen, in a narrow column); the interactive
-  one is clipped away to a pixel, so focus stays where it was, as a block
-  rather than a table (a table keeps its size whatever it's given, and the
-  pages would be shrunk to its width, with blank ones after the rows).
-  Everywhere, the toolbar's controls, banners and the table's own toolbar
-  are left out and colours print, in the light theme on white (the dark
-  theme's colours apply on screen only); the timeline prints what's on
-  screen. A view that loaded just as printing began (`usePrinting` reads
-  the print media query once it's listening) prints its rows too.
+  Hide finished, sort, collapsed departments: one collapsed prints only its
+  heading), drawn as printing starts, its dates never broken across lines
+  (at a hyphen, in a narrow column); the interactive one is clipped away to
+  a pixel, so focus stays where it was, as a block rather than a table (a
+  table keeps its size whatever it's given, and the pages would be shrunk to
+  its width, with blank ones after the rows). Everywhere, the toolbar's
+  controls, banners and the table's own toolbar are left out and colours
+  print, in the light theme on white (the dark theme's colours apply on
+  screen only); the timeline prints what's on screen. A view that loaded
+  just as printing began (`usePrinting` reads the print media query once
+  it's listening) prints its rows too.
 - **Limits.** On a big roadmap the browser's Find and a screen reader's
   browse mode reach only the rows drawn; the table's search covers every row
   and every column's text but the numbers.

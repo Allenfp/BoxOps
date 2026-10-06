@@ -383,10 +383,20 @@ for (const under of ["header", "title"] as const) {
   });
 }
 
-test("printing gives every box, on pages no wider or longer than that", async ({ page, github: _ }) => {
+test("printing gives every box as shown, on pages no wider or longer than that", async ({ page, github: _ }) => {
+  const printed = page.locator(".print-table tbody tr");
   await page.emulateMedia({ media: "print" });
-  await expect(page.locator(".print-table tbody tr").filter({ hasText: "Dagster 2.x upgrade" })).toHaveCount(1);
+  await expect(printed.filter({ hasText: "Dagster 2.x upgrade" })).toHaveCount(1);
   expect(await pastPrintTable(page)).toEqual({ across: 0, down: 0 });
+  // A collapsed department (ML Platform, in the fixture) prints its heading alone.
+  await expect(page.locator(".print-table .print-group", { hasText: "ML Platform" })).toHaveText(/\(collapsed\)$/);
+  await expect(printed.filter({ hasText: "Feature store pilot" })).toHaveCount(0);
+  // A search prints only what it matches.
+  await page.emulateMedia({ media: "screen" });
+  await page.locator(".table-search").fill("dagster");
+  await page.emulateMedia({ media: "print" });
+  await expect(printed.filter({ hasText: "Dagster 2.x upgrade" })).toHaveCount(1);
+  await expect(printed.filter({ hasText: "CDC pipeline for orders DB" })).toHaveCount(0);
 });
 
 test("in the dark theme, the table, People and the timeline print in the light one, on white", async ({ page, github: _ }) => {

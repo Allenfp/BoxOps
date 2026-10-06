@@ -1,7 +1,7 @@
 // What the table and People print (⌘P, Ctrl+P): every row as shown on
-// screen (the search, dates, sort and collapsed departments), drawn or not,
-// as plain text in a table of its own. The interactive table is hidden on
-// paper, and this one on screen (styles/print.css). Dates are
+// screen (the search, dates, Hide finished, sort and collapsed departments),
+// drawn or not, as plain text in a table of its own. The interactive table
+// is hidden on paper, and this one on screen (styles/print.css). Dates are
 // YYYY-MM-DD, as everywhere.
 
 import { Fragment } from "react";
