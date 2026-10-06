@@ -134,6 +134,31 @@ test.describe("with less motion asked for", () => {
   });
 });
 
+// Only the views' own scrollers scroll (the timeline, the table, People), never the page: a page that scrolls
+// too pans the toolbar away, sideways or up, leaving a blank strip. Small and narrow windows, and a roadmap
+// taller than the window, in each view.
+for (const [width, height] of [
+  [320, 640],
+  [810, 1080],
+  [1440, 500],
+]) {
+  test.describe(`at ${width} by ${height} px`, () => {
+    test.use({ viewport: { width, height } });
+
+    test("the page itself never scrolls, in any view", async ({ page, github: _ }) => {
+      for (const view of ["Timeline", "Table", "People"]) {
+        await page.getByRole("button", { name: view, exact: true }).click();
+        await expect(page.getByRole("main", { name: view }).locator(".timeline, tbody tr").first()).toBeVisible();
+        const past = await page.evaluate(() => {
+          const { scrollWidth, scrollHeight } = document.documentElement;
+          return { across: scrollWidth - innerWidth, down: scrollHeight - innerHeight };
+        });
+        expect(past, view).toEqual({ across: 0, down: 0 });
+      }
+    });
+  });
+}
+
 test.describe("at 1280 px wide", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 

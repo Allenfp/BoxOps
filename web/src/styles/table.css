@@ -34,10 +34,14 @@
  * No scroll-padding for the sticky header: it would have the header's own
  * buttons, always in it, scroll the table whenever they're focused. What's
  * focused in a row is scrolled clear of it by hand (table/focusRow.ts).
+ * Positioned, so what's in its cells for screen readers only (.sr-only, set
+ * absolutely) is placed in it: placed in the page instead, it had the whole
+ * page scroll, up and sideways, to reach it.
  */
 .table-scroll {
   flex: 1;
   overflow: auto;
+  position: relative;
 }
 /* Room to scroll the last rows up clear of the broken-rule popup, so focus is never under it. */
 .app:has(.toast) .table-scroll {

@@ -86,11 +86,13 @@ button:hover {
   outline: none;
 }
 
-/* Read by screen readers, not shown. */
+/* Read by screen readers, not shown. Its pixel is drawn back (the margin): after the window-high app (the live
+   regions), it would otherwise make the page scroll by one. */
 .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
+  margin: -1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
