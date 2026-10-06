@@ -106,7 +106,12 @@ const laneLabel = (dept: Department, lane: Lane) => lane.name ?? `FTE ${dept.lan
 /**
  * A roadmap with more boxes and PTO blocks than this has only the part of its
  * timeline near the screen drawn: up to this many, all of it, so the browser's
- * Find and a screen reader's browse mode reach everything.
+ * Find and a screen reader's browse mode reach everything. Drawing it all
+ * costs little up to here: measured in WebKit on an M1 (the production build
+ * at 1440 × 900, generated roadmaps), at 300 it shows about 30 ms later than
+ * drawing what's near the screen (156 ms against 127) and changes zoom 25 ms
+ * slower (78 against 52); at 600, 90 ms later and 40 ms slower; at 960, 155
+ * and 75.
  */
 const DRAW_ALL_UP_TO = 300;
 
