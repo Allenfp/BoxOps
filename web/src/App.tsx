@@ -1,4 +1,4 @@
-import { type RefObject, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { type RefObject, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { DepartmentEditorTarget } from "./components/DepartmentEditor";
 import type { Resume, SaveProblem } from "./components/SaveDialog";
 import { lazyPart } from "./components/lazyPart";
@@ -544,7 +544,10 @@ function SaveProgress({ step }: { step: SaveStep }) {
  * whoever sets `broken`: a live region added already filled often isn't
  * read). It goes by itself after 10 s, but not while focus is in it (being
  * read, or on its way to Dismiss); focus in it when it goes moves to the
- * roadmap.
+ * roadmap. While it shows, the views leave room to scroll their last rows
+ * up clear of it, so focus is never under it: `--toast-room` on the app, as
+ * far as it reaches up from the window's bottom (more rules, or a narrow
+ * window, make it taller).
  */
 function RuleToast({ broken, onDismiss }: { broken: Violation[]; onDismiss(): void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -554,6 +557,23 @@ function RuleToast({ broken, onDismiss }: { broken: Violation[]; onDismiss(): vo
     const t = setTimeout(onDismiss, 10_000);
     return () => clearTimeout(t);
   }, [broken, held, onDismiss]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const app = el?.closest<HTMLElement>(".app");
+    if (!el || !app) return;
+    // None while it isn't drawn (printing).
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      app.style.setProperty("--toast-room", `${r.height ? Math.ceil(window.innerHeight - r.top) : 0}px`);
+    };
+    measure();
+    const sized = new ResizeObserver(measure);
+    sized.observe(el);
+    return () => {
+      sized.disconnect();
+      app.style.removeProperty("--toast-room");
+    };
+  }, []);
   useReturnFocus(ref, main, { ifLost: false });
   return (
     <div

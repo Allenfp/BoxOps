@@ -193,6 +193,34 @@ test.describe("at 320 px wide (a phone, or a window zoomed to 400%)", () => {
     expect(await editor.locator(".editor-body").evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
   });
 
+  test("the broken-rule popup leaves room as tall as it is to scroll clear of it, while it shows", async ({ page, github: _ }) => {
+    await box(page, DAGSTER).focus();
+    await page.keyboard.press("Enter");
+    const editor = page.getByRole("dialog", { name: /^Edit / });
+    await editor.getByRole("button", { name: "Rule", exact: true }).click();
+    await editor.getByLabel("New rule").selectOption("after");
+    await editor.getByLabel("Add a rule with").selectOption("C4P");
+    await page.keyboard.press("Escape");
+    const toast = page.locator(".toast");
+    await expect(toast).toBeVisible();
+    /** How far the popup reaches up from the window's bottom, and the room `scroller` leaves below its rows. */
+    const room = (scroller: string) =>
+      page.evaluate((sel) => {
+        const top = document.querySelector(".toast")?.getBoundingClientRect().top;
+        return { popup: top === undefined ? 0 : Math.ceil(innerHeight - top), room: parseFloat(getComputedStyle(document.querySelector(sel)!).paddingBottom) };
+      }, scroller);
+    const timeline = await room(".tl-canvas");
+    expect(timeline.popup).toBeGreaterThan(100);
+    expect(timeline.room).toBe(timeline.popup);
+    await page.getByRole("button", { name: "Table", exact: true }).click();
+    await expect(page.locator(".box-table tbody tr").first()).toBeVisible();
+    const table = await room(".table-scroll");
+    expect(table.room).toBe(table.popup);
+    await toast.getByRole("button", { name: "Dismiss" }).click();
+    await expect(toast).toHaveCount(0);
+    expect(await room(".table-scroll")).toEqual({ popup: 0, room: 0 });
+  });
+
   /** What in `el` (the element itself included) reaches past the window's or `el`'s sides, or scrolls sideways. */
   const sticksOut = (el: Locator) =>
     el.evaluate((e) => {

@@ -36,16 +36,15 @@
  * focused in a row is scrolled clear of it by hand (table/focusRow.ts).
  * Positioned, so what's in its cells for screen readers only (.sr-only, set
  * absolutely) is placed in it: placed in the page instead, it had the whole
- * page scroll, up and sideways, to reach it.
+ * page scroll, up and sideways, to reach it. With room to scroll the last
+ * rows up clear of the broken-rule popup while it shows (App.tsx's
+ * RuleToast), so focus is never under it.
  */
 .table-scroll {
   flex: 1;
   overflow: auto;
   position: relative;
-}
-/* Room to scroll the last rows up clear of the broken-rule popup, so focus is never under it. */
-.app:has(.toast) .table-scroll {
-  padding-bottom: 240px;
+  padding-bottom: var(--toast-room, 0px);
 }
 /* Drawing only the rows near the screen, the table keeps the view in place itself (useWindowedRows.ts). */
 .table-scroll.windowed {
