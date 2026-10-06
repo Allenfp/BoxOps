@@ -4,10 +4,14 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type Ref,
   memo,
+  useCallback,
   useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -36,7 +40,7 @@ import type { Box, Department, Lane, Roadmap, Settings, TimeOff, ZoomLevel } fro
 import { type DepartmentLayout, layoutDepartment, slotsOf } from "../timeline/layout";
 import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
 import { type DragMode, dragDays, dropLane, movedDates } from "../timeline/drag";
-import { OVERFLOW, type PtoEntry, boxRows, ptoOrder } from "../timeline/rows";
+import { type GridRow, OVERFLOW, type PtoEntry, boxRows, deptGridRows, drawRange, overlaps, ptoOrder } from "../timeline/rows";
 import { Icon } from "./Icon";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
 import { UseChart } from "./UseChart";
@@ -99,6 +103,19 @@ const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isCon
 /** "FTE 2", or the lane's name. */
 const laneLabel = (dept: Department, lane: Lane) => lane.name ?? `FTE ${dept.lanes.indexOf(lane) + 1}`;
 
+/**
+ * A roadmap with more boxes and PTO blocks than this has only the part of its
+ * timeline near the screen drawn: up to this many, all of it, so the browser's
+ * Find and a screen reader's browse mode reach everything.
+ */
+const DRAW_ALL_UP_TO = 300;
+
+/** What the app's own code can ask of the timeline (App.tsx). */
+export interface TimelineHandle {
+  /** The cell `key` (`data-cell`, as `box:<id>`) on the page, drawn first if it's off screen and wasn't: to focus it, or scroll to it. Null if there's none. */
+  cell(key: string): HTMLElement | null;
+}
+
 interface Props {
   /** Personal display preferences: density and what a box shows. */
   display?: Pick<Prefs, "density" | "showCodes" | "showScale" | "showInitials" | "showFlags" | "showPto" | "collapsedView">;
@@ -148,6 +165,7 @@ interface Props {
   onShowShortcuts?(): void;
   /** A keyboard move started (true) or ended: others' saves wait meanwhile. */
   onMoveSession?(moving: boolean): void;
+  handle?: Ref<TimelineHandle>;
 }
 
 /** Working days a box added from the keyboard (or its lane's +) runs, by zoom: a week, two, or about a month. */
@@ -232,6 +250,26 @@ export function Timeline(props: Props) {
   const centerDay = useRef<Day | null>(null);
   const trackWidth = () => (scrollRef.current?.clientWidth ?? 0) - LABEL_W;
 
+  // On a big roadmap, only the part of the timeline near the screen is drawn: `area`, in pixels
+  // down the rows and across the dates (rows.ts's drawRange), measured as the timeline scrolls
+  // or changes size. Null until it's been measured.
+  const [area, setArea] = useState<{ top: number; bottom: number; left: number; right: number } | null>(null);
+  const measure = useCallback(() => {
+    const el = scrollRef.current;
+    const body = bodyRef.current;
+    if (!el || !body) return;
+    const [top, bottom] = drawRange(el.scrollTop, el.clientHeight - body.offsetTop);
+    const [left, right] = drawRange(el.scrollLeft, el.clientWidth - LABEL_W);
+    setArea((a) => (a?.top === top && a.bottom === bottom && a.left === left && a.right === right ? a : { top, bottom, left, right }));
+  }, []);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const resized = new ResizeObserver(measure);
+    resized.observe(el);
+    return () => resized.disconnect();
+  }, [measure]);
+
   /** The working days on screen. */
   const visible = () => {
     const el = scrollRef.current;
@@ -280,8 +318,45 @@ export function Timeline(props: Props) {
   const editable = !!props.onEditDepartment;
   const addPto = !!props.onCreatePto;
   /** A department's PTO, if it has a PTO row: shown, and it has engineers. */
-  const ptoRow = (id: string) => (display.showPto && staffed.has(id) ? ptoBy.get(id)! : null);
-  const grid = useGridFocus(gridRef, { scroller: scrollRef, labelWidth: LABEL_W, visible, describe: describeCell, describedBy: DESCRIBED_BY });
+  const ptoRow = useCallback((id: string) => (display.showPto && staffed.has(id) ? ptoBy.get(id)! : null), [display.showPto, staffed, ptoBy]);
+  const chartRow = display.collapsedView !== "boxes";
+  // Every row of the grid and its cells, drawn or not: where the keys go. Worked out when a key needs them.
+  const gridRows = useMemo(() => {
+    let rows: GridRow[] | undefined;
+    return () =>
+      (rows ??= departments.flatMap((d) => {
+        const layout = layouts.get(d.id)!;
+        const boxes = shownBy.get(d.id)!;
+        const o = { layout, boxes, rows: rowsOf(layout, boxes), collapsed: collapsed.has(d.id), chart: chartRow, editable, pto: ptoRow(d.id), addPto };
+        return deptGridRows(d, o);
+      }));
+  }, [departments, layouts, shownBy, collapsed, chartRow, editable, addPto, ptoRow]);
+  /** Bumped to draw again: a cell off screen is about to have focus, and must be drawn. */
+  const [, draw] = useReducer((n: number) => n + 1, 0);
+  const grid = useGridFocus(gridRef, {
+    scroller: scrollRef,
+    labelWidth: LABEL_W,
+    visible,
+    describe: describeCell,
+    describedBy: DESCRIBED_BY,
+    rows: gridRows,
+    draw,
+  });
+  /** A cell the app asked for (TimelineHandle): drawn wherever it is, until it asks for another. */
+  const requested = useRef<string | null>(null);
+  useImperativeHandle(
+    props.handle,
+    () => ({
+      cell: (key) => {
+        const find = () => gridRef.current?.querySelector<HTMLElement>(`[data-cell="${CSS.escape(key)}"]`) ?? null;
+        if (find()) return find();
+        requested.current = key;
+        flushSync(draw);
+        return find();
+      },
+    }),
+    [],
+  );
 
   const readOnlyWhy = props.readOnlyReason ?? "Read-only: changes can’t be made here.";
   const say = (text: string) => void announce(text);
@@ -379,6 +454,8 @@ export function Timeline(props: Props) {
   useLayoutEffect(() => {
     if (centerDay.current === null) scrollToDay(now, 1 / 3);
     else scrollToDay(centerDay.current, 1 / 2);
+    // What's drawn follows at once, before it's painted (the scroll event comes later).
+    measure();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-centre on zoom only, not when today changes
   }, [scale]);
 
@@ -390,6 +467,8 @@ export function Timeline(props: Props) {
   const onScroll = () => {
     const el = scrollRef.current;
     if (el) centerDay.current = scale.dayAt(el.scrollLeft + trackWidth() / 2);
+    // Drawn before the frame is painted, so a long scroll never shows blank space for a frame.
+    flushSync(measure);
   };
 
   /** The department under a point, and how many slots down its lanes the point is. */
@@ -812,7 +891,12 @@ export function Timeline(props: Props) {
   // ---- Rendering ------------------------------------------------------------
   // Each department is a memoized DeptSection, given only what's its own: a
   // drag step, or a keystroke in an editor, draws again just the departments
-  // it's in.
+  // it's in. On a big roadmap (more than DRAW_ALL_UP_TO boxes and PTO blocks)
+  // only the part of the timeline near the screen is drawn: a department away
+  // from it is blank space as tall as it would be, and boxes and PTO blocks
+  // outside the days near the screen are left out. What has focus (the grid's
+  // active cell), what's open in an editor, what's being moved and a cell the
+  // app asked for (TimelineHandle) are drawn wherever they are.
 
   const showToday = now >= scale.start && now < scale.end;
   // On a weekend the line sits on Monday's edge; on a weekday, mid-day.
@@ -869,6 +953,10 @@ export function Timeline(props: Props) {
     [],
   );
 
+  const culling = boxes.length + (display.showPto ? entries.length : 0) > DRAW_ALL_UP_TO;
+  // The days drawn; none until the timeline's been measured.
+  const [from, to] = !culling ? [-Infinity, Infinity] : area ? [scale.dayAt(area.left), scale.dayAt(area.right)] : [Infinity, -Infinity];
+
   /** The department a cell is in, by its key. */
   const deptOfKey = (key: string): string | undefined => {
     const [kind, id] = splitKey(key);
@@ -876,11 +964,29 @@ export function Timeline(props: Props) {
     if (kind === "pto") return people.find((p) => p.id === ptoRefOf(id).personId)?.department;
     return kind === "lane" || kind === "lane-add" ? laneDept.get(id) : id;
   };
+  // Drawn wherever they are: by department, these cells.
+  const pinned = new Map<string, string[]>();
+  for (const key of [grid.activeKey(), requested.current, selectedId && `box:${selectedId}`, props.selectedPto && `pto:${props.selectedPto}`]) {
+    const dept = key ? deptOfKey(key) : undefined;
+    if (key && dept !== undefined) pinned.set(dept, [...(pinned.get(dept) ?? []), key]);
+  }
   const dragged = preview ? boxes.find((b) => b.id === preview.id) : undefined;
   const dragDepts = preview && dragged ? [laneDept.get(dragged.lane), laneDept.get(preview.lane)] : [];
   const ptoDragDept = ptoPreview ? deptOfKey(`pto:${ptoPreview.key}`) : undefined;
   const selectedDept = selectedId ? deptOfKey(`box:${selectedId}`) : undefined;
   const selectedPtoDept = props.selectedPto ? deptOfKey(`pto:${props.selectedPto}`) : undefined;
+
+  // Each department's height (drawn or not, it takes its room) and number of rows.
+  const sections = departments.map((dept) => {
+    const isCollapsed = collapsed.has(dept.id);
+    const layout = layouts.get(dept.id)!;
+    const pto = isCollapsed ? null : ptoRow(dept.id);
+    const lanes = isCollapsed ? 0 : layout.height * SLOT_H + (pto ? Math.max(1, packed(pto).count) * SLOT_H : 0);
+    const rows = isCollapsed ? 1 : 1 + dept.lanes.length + (layout.height > layout.capacity ? 1 : 0) + (pto ? 1 : 0);
+    return { dept, isCollapsed, layout, pto, height: (isCollapsed && chartRow ? CHART_H : DEPT_H) + lanes, rows };
+  });
+  let top = 0;
+  let rowIndex = 1;
 
   return (
     <div
@@ -918,21 +1024,31 @@ export function Timeline(props: Props) {
             aria-label={departments.length ? "Timeline" : undefined}
             aria-describedby={departments.length ? "tl-help" : undefined}
             aria-readonly={(departments.length && readOnly) || undefined}
+            // Every row, drawn or not; each drawn row says which it is (aria-rowindex).
+            aria-rowcount={departments.length ? sections.reduce((n, s) => n + s.rows, 0) : undefined}
             onKeyDown={onGridKey}
           >
-            {departments.map((dept) => {
-              const isCollapsed = collapsed.has(dept.id);
+            {sections.map(({ dept, isCollapsed, layout, pto, height, rows }) => {
+              const [at, index] = [top, rowIndex];
+              top += height;
+              rowIndex += rows;
               const dragHere = dragDepts.includes(dept.id);
               const ptoDragHere = ptoDragDept === dept.id;
+              const near = !culling || (area !== null && at < area.bottom && at + height > area.top);
+              if (!near && !dragHere && !ptoDragHere && !pinned.has(dept.id) && reorder.draggingId !== dept.id) {
+                // Off screen: as tall as it would be, so everything else is where it would be.
+                return <div key={dept.id} className="dept-away" data-reorder-id={dept.id} aria-hidden style={{ height }} />;
+              }
               return (
                 <DeptSection
                   key={dept.id}
                   dept={dept}
-                  layout={layouts.get(dept.id)!}
+                  rowIndex={index}
+                  layout={layout}
                   boxes={shownBy.get(dept.id)!}
                   allBoxes={allBy.get(dept.id)!}
                   stretches={overloads.get(dept.id)!}
-                  pto={isCollapsed ? null : ptoRow(dept.id)}
+                  pto={pto}
                   collapsed={isCollapsed}
                   scale={scale}
                   now={now}
@@ -951,6 +1067,9 @@ export function Timeline(props: Props) {
                   dragTo={dragHere ? preview : null}
                   ptoDrag={ptoDragHere ? ptoPreview : null}
                   keyMoving={keyMoving && (dragHere || ptoDragHere)}
+                  from={from}
+                  to={to}
+                  pinned={pinned.get(dept.id)?.join("\n") ?? ""}
                   conflictIds={props.conflictIds}
                   updatedIds={props.updatedIds}
                   ruleWarnings={props.ruleWarnings}
@@ -1029,6 +1148,8 @@ type Display = NonNullable<Props["display"]>;
 
 interface DeptProps {
   dept: Department;
+  /** Its heading's row in the grid, counting from 1 (aria-rowindex); its other rows follow. */
+  rowIndex: number;
   layout: DepartmentLayout;
   /** Its boxes on show, and all of them (finished ones too) for its chart. */
   boxes: Box[];
@@ -1061,6 +1182,10 @@ interface DeptProps {
   ptoDrag: { key: string; start: Day; end: Day } | null;
   /** That move is the keyboard's. */
   keyMoving: boolean;
+  /** The days drawn: boxes and PTO blocks outside them aren't, but for those `pinned` (keys, one a line). */
+  from: Day;
+  to: Day;
+  pinned: string;
   conflictIds?: Set<string>;
   updatedIds?: Set<string>;
   ruleWarnings?: Map<string, string[]>;
@@ -1104,6 +1229,9 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
   const moving = p.drag && p.dragTo ? { ...p.drag, ...p.dragTo } : null;
   // Each box goes in the row of the lane it's drawn in, in time order (rows.ts); one dragged to another lane, in that lane's.
   const byRow = p.drag && p.dragTo ? boxRows(layout, p.boxes, { box: p.drag, lane: p.dragTo.lane }) : rowsOf(layout, p.boxes);
+  const pinned = p.pinned ? p.pinned.split("\n") : NONE;
+  /** Drawn: near the screen in time, or always drawn. */
+  const near = (key: string, start: Day, end: Day) => overlaps(start, end, p.from, p.to) || pinned.includes(key);
   const span = (start: Day, end: Day) => ({ left: scale.x(start), width: Math.max(scale.pxPerDay, scale.span(start, end)) });
   const boxTop = (slot: number) => slot * slotH + BOX_PAD;
   const boxHeight = (slots: number) => slots * slotH - BOX_PAD * 2;
@@ -1141,6 +1269,7 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
       <div
         className="row dept-row"
         role="row"
+        aria-rowindex={p.rowIndex}
         // Each row has a short name of its own: one made from its cells would be every box's name in it.
         aria-label={dept.name}
         style={{ height: p.collapsed && display.collapsedView !== "boxes" ? p.chartH : p.deptH }}
@@ -1158,7 +1287,10 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
         <div className="track" style={{ width: scale.width }}>
           {p.collapsed &&
             (display.collapsedView === "boxes" ? (
-              p.boxes.toSorted((a, b) => a.start - b.start).map((b) => view(b, span(b.start, b.end), "compact"))
+              p.boxes
+                .toSorted((a, b) => a.start - b.start)
+                .filter((b) => near(`box:${b.id}`, b.start, b.end))
+                .map((b) => view(b, span(b.start, b.end), "compact"))
             ) : (
               // The chart as a cell: its name says the peak, its description the weeks over capacity.
               <div role="gridcell" tabIndex={-1} data-cell={`chart:${dept.id}`} className="use-cell">
@@ -1171,14 +1303,15 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
         // One row per lane, then the extra area: each exactly as tall as its slots, so
         // a slot is SLOT_H pixels down from the top here wherever it is (laneAt).
         <div className="dept-lanes" data-dept-track={dept.id} style={{ height: layout.height * slotH }}>
-          {[...dept.lanes.map((lane) => lane.id), ...(extra ? [OVERFLOW] : [])].map((rowId) => {
+          {[...dept.lanes.map((lane) => lane.id), ...(extra ? [OVERFLOW] : [])].map((rowId, i) => {
             const lane = dept.lanes.find((l) => l.id === rowId);
             const l = lane ? layout.lanes.get(lane.id)! : { slot: layout.capacity, slots: layout.height - layout.capacity };
-            const rowBoxes = byRow.get(rowId) ?? [];
+            const rowBoxes = (byRow.get(rowId) ?? []).filter(({ box: b }) => b.id === moving?.id || near(`box:${b.id}`, b.start, b.end));
             return (
               <div
                 key={rowId}
                 role="row"
+                aria-rowindex={p.rowIndex + 1 + i}
                 aria-label={`${dept.name} / ${lane ? laneLabel(dept, lane) : extraName}`}
                 data-row={lane ? `lane:${lane.id}` : undefined}
                 className={`lane-row${lane ? "" : " overflow-row"}${moving?.lane === rowId ? " drop-target" : ""}`}
@@ -1293,6 +1426,7 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
           <div
             className="row pto-row"
             role="row"
+            aria-rowindex={p.rowIndex + 1 + dept.lanes.length + (extra ? 1 : 0)}
             aria-label={`${dept.name} / PTO`}
             data-row={`pto:${dept.id}`}
             style={{ height }}
@@ -1327,6 +1461,7 @@ const DeptSection = memo(function DeptSection(p: DeptProps) {
                 const ref = { personId: entry.person.id, index: entry.index };
                 const key = ptoKey(ref);
                 const live = drag?.key === key ? { ...entry.pto, ...drag } : entry.pto;
+                if (drag?.key !== key && !near(`pto:${key}`, live.start, live.end)) return null;
                 const style = { ...span(live.start, live.end), top: rows.get(entry)! * slotH + BOX_PAD, height: slotH - BOX_PAD * 2 };
                 const days = workdays(live.start, live.end);
                 return (

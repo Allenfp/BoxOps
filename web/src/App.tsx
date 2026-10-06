@@ -3,7 +3,7 @@ import type { DepartmentEditorTarget } from "./components/DepartmentEditor";
 import type { Resume, SaveProblem } from "./components/SaveDialog";
 import { lazyPart } from "./components/lazyPart";
 import { type PtoRef, ptoClashes, ptoEntries, ptoKey, ptoRange } from "./model/pto";
-import { type BoxPlacement, Timeline } from "./components/Timeline";
+import { type BoxPlacement, Timeline, type TimelineHandle } from "./components/Timeline";
 import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
 import { TOKEN_KINDS, failureMessage } from "./github/messages";
 import { FolderProblems, type Snapshot, TooManyChanges, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
@@ -817,8 +817,11 @@ function RoadmapView(props: ViewProps) {
     if (box) announce(`Deleted “${box.title || "Untitled"}”. ${undoHint()}`);
   };
 
+  const timeline = useRef<TimelineHandle>(null);
+  /** A cell of the timeline (`box:<id>`), drawn if it's one a big roadmap leaves out while it's off screen. */
+  const timelineCell = (key: string) => timeline.current?.cell(key) ?? null;
   /** A department's heading on the timeline (its toggle). */
-  const deptHeading = (id: string | undefined) => (id ? document.querySelector<HTMLElement>(`[data-dept-id="${CSS.escape(id)}"] .dept-toggle`) : null);
+  const deptHeading = (id: string | undefined) => (id ? timelineCell(`dept:${id}`) : null);
   const deptOfLane = (laneId: string) => draft.departments.find((d) => d.lanes.some((l) => l.id === laneId))?.id;
   /** Once box `id` is deleted from the timeline, focus goes to the next box in its department (by start), else the one before, else its heading. */
   const focusAfterBox = (id: string) => {
@@ -828,7 +831,7 @@ function RoadmapView(props: ViewProps) {
     const same = draft.boxes.filter((b) => deptOfLane(b.lane) === dept).sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
     const i = same.findIndex((b) => b.id === id);
     const near = [same[i + 1], same[i - 1]].filter((b) => b !== undefined);
-    focusLater([...near.map((b) => () => document.querySelector(`[data-box-id="${CSS.escape(b.id)}"]`)), () => deptHeading(dept), main]);
+    focusLater([...near.map((b) => () => timelineCell(`box:${b.id}`)), () => deptHeading(dept), main]);
   };
   /** Once PTO `ref` is deleted, focus goes to the next block in its department's row (by start), else the one before, else Add PTO there. */
   const focusAfterPto = (ref: PtoRef) => {
@@ -842,8 +845,8 @@ function RoadmapView(props: ViewProps) {
       ptoKey({ personId: e.person.id, index: e.person.id === ref.personId && e.index > ref.index ? e.index - 1 : e.index });
     const near = [row[i + 1], row[i - 1]].filter((e) => e !== undefined);
     focusLater([
-      ...near.map((e) => () => document.querySelector(`[data-pto-key="${CSS.escape(keyAfter(e))}"]`)),
-      () => (dept ? document.querySelector(`[data-dept-id="${CSS.escape(dept)}"] .pto-add`) : null),
+      ...near.map((e) => () => timelineCell(`pto:${keyAfter(e)}`)),
+      () => (dept ? timelineCell(`pto-add:${dept}`) : null),
       () => deptHeading(dept),
       main,
     ]);
@@ -1334,9 +1337,11 @@ function RoadmapView(props: ViewProps) {
     setView("timeline");
     setCollapsed((prev) => new Set([...prev].filter((x) => x !== id)));
     requestAnimationFrame(() => {
+      // Its heading, drawn first if it's off screen on a big roadmap.
+      const heading = deptHeading(id);
       document.querySelector(`[data-dept-id="${id}"]`)?.scrollIntoView({ block: "nearest" });
       // Focus on its heading, where the warning pointed (the menu item that was focused has gone).
-      deptHeading(id)?.focus({ preventScroll: true });
+      heading?.focus({ preventScroll: true });
     });
   };
 
@@ -1802,6 +1807,7 @@ function RoadmapView(props: ViewProps) {
             />
           ) : (
             <Timeline
+              handle={timeline}
               roadmap={shown}
               allBoxes={roadmap.boxes}
               display={prefs}

@@ -5,6 +5,11 @@
 // that stays the same across re-renders: `box:<id>`), boxes and PTO blocks
 // with their dates in `data-start` and `data-end`.
 //
+// A big roadmap's timeline draws only what's near the screen, so the keys
+// go by the grid's rows and cells as data (`rows`, timeline/rows.ts), drawn
+// or not: a cell off screen is drawn (`draw`) when focus goes to it. The
+// active cell is always drawn (Timeline.tsx keeps `activeKey()` drawn).
+//
 // React renders every cell with tabIndex -1 and never changes it; the active
 // one's is set to 0 here, on the DOM, so moving focus renders nothing.
 // A cell that moves rows re-mounts (a box dropped in another lane, a
@@ -17,9 +22,11 @@
 // is the pointer's: it scrolls nothing and shows no ring (focusByPress).
 
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import { focusLost } from "../a11y/focus";
 import type { Day } from "../model/dates";
-import { type NavKey, navigate } from "../timeline/keyboard";
+import { type At, type NavKey, navigate } from "../timeline/keyboard";
+import type { GridRow } from "../timeline/rows";
 
 /** The cell that last had focus, kept across view switches: coming back to the timeline, Tab goes to it again. */
 let remembered: string | null = null;
@@ -37,6 +44,18 @@ export const focusByPress = (): boolean => pressed;
 const MARGIN = 8;
 
 export const cellOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>("[data-cell]") : null);
+
+/** Where each cell is in a set of rows, by its key: worked out once per set. */
+const places = new WeakMap<GridRow[], Map<string, At>>();
+function place(rows: GridRow[], key: string): At | undefined {
+  let found = places.get(rows);
+  if (!found) {
+    const m = (found = new Map<string, At>());
+    rows.forEach((r, row) => r.cells.forEach((c, col) => m.set(c.key, { row, col })));
+    places.set(rows, m);
+  }
+  return found.get(key);
+}
 
 /** The navigation a key press asks for, if any (⌘ or Ctrl with an arrow: to the end of the row or grid, as Mac keyboards lack Home and End). */
 export function navKey(e: Pick<KeyboardEvent, "key" | "altKey" | "shiftKey" | "metaKey" | "ctrlKey">): NavKey | null {
@@ -66,6 +85,8 @@ export function navKey(e: Pick<KeyboardEvent, "key" | "altKey" | "shiftKey" | "m
 export interface GridFocus {
   /** Focus a cell (its description written first, so it's read with it), and show it. */
   focus(cell: HTMLElement): void;
+  /** The active cell's key: the one to keep drawn, wherever the timeline is scrolled. */
+  activeKey(): string | null;
   /** The cell focus goes back to should what has it go (a deleted box's neighbour). */
   setActive(key: string): void;
   /** After the next render, focus goes back to this cell if it was lost, even with what had it still on the page (moved, which loses focus too). */
@@ -92,6 +113,10 @@ export function useGridFocus(
     describe(cell: HTMLElement): string;
     /** The id of the hidden element that holds it. */
     describedBy: string;
+    /** Every row of the grid in order, drawn or not, and each one's cells in order. */
+    rows(): GridRow[];
+    /** Render again: the active cell is one that wasn't drawn (it's off screen), and must be. */
+    draw(): void;
   },
 ): GridFocus {
   const o = useRef(opts);
@@ -114,6 +139,8 @@ export function useGridFocus(
   const vertical = useRef(false);
   /** A cell to put focus back on after the next render (keep). */
   const kept = useRef<string | null>(null);
+  /** The cell asked to be drawn after a render took focus from the grid: asked once. */
+  const drawing = useRef<string | null>(null);
 
   const find = (key: string | null) => (key ? (grid.current?.querySelector<HTMLElement>(`[data-cell="${CSS.escape(key)}"]`) ?? null) : null);
 
@@ -130,16 +157,6 @@ export function useGridFocus(
     if (text) el.setAttribute("aria-describedby", o.current.describedBy);
   };
 
-  const rowCells = (row: Element | null) => [...(row?.querySelectorAll<HTMLElement>("[data-cell]") ?? [])];
-  /** A row as navigation sees it: its cells, and those with dates. */
-  const navRow = (row: Element) => {
-    const els = rowCells(row);
-    return {
-      els,
-      heading: row.classList.contains("dept-row"),
-      cells: els.map((c) => (c.dataset.start === undefined ? {} : { start: Number(c.dataset.start), end: Number(c.dataset.end) })),
-    };
-  };
   /** The day a cell is looked at by: a box's start, or the first day on screen while it runs; the middle of the screen for a label. */
   const dayOf = (el: HTMLElement) => {
     const { from, to } = o.current.visible();
@@ -151,18 +168,22 @@ export function useGridFocus(
    * the row above, which is in the same department: never the grid's first cell.
    */
   const keysBeside = (el: HTMLElement) => {
-    const row = el.closest('[role="row"]');
-    const cells = rowCells(row);
-    const i = cells.indexOf(el);
-    const beside = [cells[i + 1], cells[i - 1], cells[0]].filter((c) => c && c !== el).map((c) => c!.dataset.cell!);
-    const rows = beside.length || !row ? [] : [...(grid.current?.querySelectorAll('[role="row"]') ?? [])];
-    for (let r = rows.indexOf(row!) - 1; r >= 0; r--) {
-      const above = navRow(rows[r]);
-      if (!above.els.length) continue;
-      const at = navigate([above, navRow(row!)], { row: 1, col: i }, "up", dayOf(el));
-      return at ? [above.els[at.col].dataset.cell!] : [];
-    }
-    return beside;
+    const rows = o.current.rows();
+    const at = place(rows, el.dataset.cell!);
+    if (!at) return [];
+    const cells = rows[at.row].cells;
+    const beside = [cells[at.col + 1], cells[at.col - 1], cells[0]].filter((c) => c && c.key !== el.dataset.cell).map((c) => c!.key);
+    if (beside.length) return beside;
+    const up = navigate(rows, at, "up", dayOf(el));
+    return up ? [rows[up.row].cells[up.col].key] : [];
+  };
+  /** The cell `key` on the page: drawn now if it wasn't (it's off screen), as focus is going to it. */
+  const drawn = (key: string) => {
+    const el = find(key);
+    if (el) return el;
+    active.current = remembered = key;
+    flushSync(() => o.current.draw());
+    return find(key);
   };
 
   const reveal = (el: HTMLElement, edge: "start" | "end" = "start") => {
@@ -252,8 +273,22 @@ export function useGridFocus(
       // from a field (a lane's name being typed), whose own code puts it back after its key's
       // events: now, Enter's keypress would press the button it's put on.
       if (last.current && !last.current.isConnected && !(last.current instanceof HTMLInputElement)) {
-        const el = [active.current, ...fallbacks.current].map(find).find(Boolean) ?? g.querySelector<HTMLElement>("[data-cell]");
-        if (el) return focus(el);
+        const keys = [active.current, ...fallbacks.current].filter((k) => k !== null);
+        const el = keys.map(find).find(Boolean);
+        if (el) {
+          drawing.current = null;
+          return focus(el);
+        }
+        // The cell beside it is off screen, not drawn: draw it, and focus it after that render.
+        const rows = o.current.rows();
+        const next = keys.find((k) => place(rows, k));
+        if (next && drawing.current !== next) {
+          active.current = remembered = drawing.current = next;
+          return o.current.draw();
+        }
+        drawing.current = null;
+        const first = g.querySelector<HTMLElement>("[data-cell]");
+        if (first) return focus(first);
       }
       owns.current = false; // a click on nothing that takes focus
     }
@@ -262,6 +297,7 @@ export function useGridFocus(
 
   return {
     focus,
+    activeKey: () => active.current,
     setActive: (key) => {
       active.current = remembered = key;
     },
@@ -273,24 +309,23 @@ export function useGridFocus(
     reveal,
     onKey: (e) => {
       const key = navKey(e);
-      const g = grid.current;
       const el = cellOf(e.target);
-      if (!key || !g || !el) return false;
+      if (!key || !el) return false;
       e.preventDefault();
-      const rowEls = [...g.querySelectorAll('[role="row"]')];
-      const rows = rowEls.map(navRow);
-      const row = rowEls.indexOf(el.closest('[role="row"]')!);
-      if (row < 0) return true;
-      const { from, to } = o.current.visible();
-      const centre = Math.round((from + to) / 2);
+      const rows = o.current.rows();
+      const from = place(rows, el.dataset.cell!);
+      if (!from) return true;
+      const shown = o.current.visible();
+      const centre = Math.round((shown.from + shown.to) / 2);
       // Into the boxes from the labels: those on screen. Otherwise the day kept to.
       const day = (key === "right" && el.dataset.start === undefined) || anchor.current === null ? centre : anchor.current;
-      const at = navigate(rows, { row, col: rows[row].els.indexOf(el) }, key, day);
+      const at = navigate(rows, from, key, day);
       if (!at) return true;
       vertical.current = key === "up" || key === "down";
       if (vertical.current && anchor.current === null) anchor.current = day;
       try {
-        focus(rows[at.row].els[at.col]);
+        const target = drawn(rows[at.row].cells[at.col].key);
+        if (target) focus(target);
       } finally {
         vertical.current = false;
       }
