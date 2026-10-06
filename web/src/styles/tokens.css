@@ -51,7 +51,9 @@
   /*
    * What's drawn over what. Inside a scrolling view (the timeline, the table): items, a selected or
    * focused one (and the Today line, the table's header), the pinned label or title column, what has
-   * focus in it, a box or PTO block being dragged (and its dates), the timeline's header and its corner.
+   * focus in it, a box or PTO block being dragged (and its dates), the timeline's header and its corner;
+   * and over those, what's wrong with a date being typed, just under its field (in the table, and in its
+   * date filter, just above the table's header).
    * A plain 0 or 1 elsewhere is local: over the rest of its own box or heading (the grips), or under
    * every item (a lane's closed dates, a table field's two lines).
    */
@@ -62,6 +64,7 @@
   --z-dragged: 5;
   --z-head: 6;
   --z-corner: 7;
+  --z-field-note: 8;
   /*
    * Over the page: the broken-rule popup, the box and PTO editors, panels and popups, the calendar, the skip
    * link. The popup is under whatever takes focus, so it never hides what has focus (WCAG 2.4.11); the views
