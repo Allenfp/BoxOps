@@ -292,10 +292,14 @@ test("each step says what it would do: a rule broken or kept again; the popup wa
   await expect(page.locator(".toast")).toHaveCount(0);
   await page.keyboard.press("ArrowLeft");
   await saysLast(page, "2026-09-14 to 2026-10-23. Data Engineering is over capacity then: 4 FTE against 3.5, 2026-10-01 to 2026-11-27. Keeps the rule again: DE-D9U Dagster 2.x upgrade should finish before DE-C4P CDC pipeline for orders DB starts.");
-  // A key held down: only where it ends up is said, with what changed since what was read.
+  // A key held down: only where it ends up is said, with what changed since what was read. (Messages
+  // are written 150 ms after they're asked for: the clock is held while the key is, however slow.)
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.keyboard.down("ArrowRight");
   await page.keyboard.down("ArrowRight");
   await page.keyboard.up("ArrowRight");
+  await page.clock.runFor(1000);
+  await page.clock.resume();
   await expect.poll(() => lastSaid(page)).toMatch(/^2026-09-16 to 2026-10-27\. Data Engineering is over capacity then: 5 FTE against 3\.5, 2026-10-26 to 2026-10-27\. Breaks a rule: /);
   expect((await said(page)).filter((m) => m.includes("2026-09-15 to"))).toHaveLength(1); // the first step only
   await page.keyboard.press("Enter");
