@@ -593,7 +593,12 @@ when a focused element is removed.
   Warnings) away from under focus.
 - **Dialogs** are named by their titles (the save dialog is also described
   by what went wrong) and start on what's safe to press next, their first
-  field, or themselves, never the Close button. The native ones
+  field, or themselves, never the Close button. One taller than the window
+  keeps its title bar and Close in place while the rest scrolls (by the
+  keys too, focus being on it), and the key, the shortcuts and team
+  settings say "More below" at their foot until they're scrolled to the
+  end, as WebKit shows no scrollbar (hidden from screen readers, which read
+  on regardless). The native ones
   (`showModal()`) make the rest of the page inert. The box and PTO editors
   are `aria-modal` and keep Tab, Shift+Tab and Alt+Tab going round their own
   controls, buttons included; a click outside still closes them. Menus

@@ -97,6 +97,39 @@ test("the key and the keyboard shortcuts open from the menu", async ({ page, git
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toContainText("Undo");
 });
 
+test("the keyboard shortcuts, taller than the window: the title and Close stay put while the list scrolls, \"More below\" until its end", async ({
+  page,
+  github: _,
+}) => {
+  await openMenu(page);
+  await menu(page).getByRole("button", { name: "Keyboard shortcuts…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  const more = dialog.locator(".more-below");
+  await expect(dialog).toBeFocused();
+  await expect(more).toBeVisible();
+  await expect(more).toHaveText("More below");
+  await expect(more).toHaveAttribute("aria-hidden", "true");
+  const top = (await dialog.boundingBox())!.y;
+  // The keys scroll it (focus is on it): down a page, and to the end.
+  await page.keyboard.press("PageDown");
+  await expect.poll(() => dialog.evaluate((d) => d.scrollTop)).toBeGreaterThan(300);
+  await expect(more).toBeVisible();
+  await page.keyboard.press("End");
+  await expect.poll(() => dialog.evaluate((d) => d.scrollTop + d.clientHeight >= d.scrollHeight - 2)).toBe(true);
+  await expect(more).toBeHidden();
+  // The title and Close are where they were, over the list, and Close is what a click there reaches.
+  expect((await dialog.getByRole("heading", { name: "Keyboard shortcuts" }).boundingBox())!.y).toBeLessThan(top + 40);
+  const close = dialog.getByRole("button", { name: "Close" });
+  const c = (await close.boundingBox())!;
+  expect(c.y).toBeLessThan(top + 40);
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("button")?.getAttribute("aria-label"), [c.x + c.width / 2, c.y + c.height / 2])).toBe("Close");
+  // Back up, more follows again.
+  await page.keyboard.press("Home");
+  await expect(more).toBeVisible();
+  await close.click();
+  await expect(dialog).toHaveCount(0);
+});
+
 test("the menu's dialogs write apostrophes curly, as the rest of BoxOps does", async ({ page, github: _ }) => {
   for (const item of ["Keyboard shortcuts…", "Key…", "Team settings…"]) {
     await openMenu(page);

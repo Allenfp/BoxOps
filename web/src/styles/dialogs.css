@@ -38,6 +38,33 @@
   padding: 14px 12px 10px 20px;
   border-bottom: 1px solid var(--border);
 }
+/* A dialog's title bar stays put while one taller than the window scrolls (over its field notes too). */
+dialog > .dialog-head {
+  position: sticky;
+  top: 0;
+  z-index: calc(var(--z-field-note) + 1);
+  background: var(--surface);
+}
+/* While there's more to scroll to: at the foot of what shows, the last of it fading out under it. */
+.save-dialog > .more-below {
+  position: sticky;
+  bottom: 0;
+  z-index: calc(var(--z-field-note) + 1);
+  height: 48px;
+  margin: -48px 0 0;
+  padding-bottom: 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--surface) 0%, transparent), var(--surface) 55%);
+  pointer-events: none;
+}
+.save-dialog > .more-below.done {
+  visibility: hidden;
+}
 .dialog-head h2 {
   font-size: 16px;
   margin: 0;
@@ -538,5 +565,13 @@
   }
   .key-overflow {
     border-left: 3px solid CanvasText;
+  }
+  /* No fade (no background image): a line over it instead. */
+  .save-dialog > .more-below {
+    height: 30px;
+    margin-top: -30px;
+    padding-bottom: 6px;
+    background: Canvas;
+    border-top: 1px solid CanvasText;
   }
 }
