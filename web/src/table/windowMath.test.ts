@@ -60,9 +60,14 @@ describe("runs", () => {
   it("covers a group with its drawn rows and spacers as tall as the rest", () => {
     const t = even(20);
     // A group of rows 5-14, with rows 0-6 and 10-11 drawn.
-    expect(runs(t, 5, 15, [[0, 7], [10, 12]])).toEqual([{ rows: [5, 7] }, { gap: 150 }, { rows: [10, 12] }, { gap: 150 }]);
+    expect(runs(t, 5, 15, [[0, 7], [10, 12]])).toEqual([
+      { rows: [5, 7] },
+      { gap: 150, stands: [7, 10] },
+      { rows: [10, 12] },
+      { gap: 150, stands: [12, 15] },
+    ]);
     // Nothing drawn: one spacer. Everything: one run.
-    expect(runs(t, 5, 15, [[16, 18]])).toEqual([{ gap: 500 }]);
+    expect(runs(t, 5, 15, [[16, 18]])).toEqual([{ gap: 500, stands: [5, 15] }]);
     expect(runs(t, 5, 15, [[0, 20]])).toEqual([{ rows: [5, 15] }]);
   });
 

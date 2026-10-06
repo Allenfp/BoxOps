@@ -312,14 +312,15 @@ export function PeopleView(props: Props) {
                   data-dept-id={dept?.id || undefined}
                   style={dept ? ({ "--dept": dept.color } as CSSProperties) : undefined}
                 >
+                  {/* One list of rows and spacers, each with its own key (a list in a list would be keyed by place). */}
                   {win
                     .runs(g.start, g.end)
-                    .map((run, j) =>
-                      "gap" in run ? (
-                        <SpacerRow key={`gap-${j}`} height={run.gap} columns={PEOPLE_COLUMNS} />
-                      ) : (
-                        model.rows.slice(run.rows[0], run.rows[1]).map((r, k) => row(r, run.rows[0] + k))
-                      ),
+                    .flatMap((run) =>
+                      // A spacer's key is the first row it stands for, so one never takes a key an earlier spacer had
+                      // elsewhere: React would move the rows between them (and with them focus, which browsers drop).
+                      "gap" in run
+                        ? [<SpacerRow key={`gap:${model.keys[run.stands[0]]}`} height={run.gap} columns={PEOPLE_COLUMNS} />]
+                        : model.rows.slice(run.rows[0], run.rows[1]).map((r, k) => row(r, run.rows[0] + k)),
                     )}
                 </tbody>
               );

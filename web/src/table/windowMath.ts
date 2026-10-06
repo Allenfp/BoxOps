@@ -8,7 +8,7 @@
 export type Range = readonly [from: number, to: number];
 
 /** Inside one group of rows (a department's <tbody>): rows to draw, or a spacer as tall as the rows it stands for. */
-export type Run = { rows: Range } | { gap: number };
+export type Run = { rows: Range } | { gap: number; stands: Range };
 
 /** Each row's top, counted from the first row's (`tops[0]` is 0), then the height of them all (`tops[n]`). */
 export function layout(n: number, height: (i: number) => number): Float64Array {
@@ -68,11 +68,11 @@ export function runs(tops: Float64Array, start: number, end: number, ranges: rea
     const a = Math.max(from, start);
     const b = Math.min(to, end);
     if (a >= b) continue;
-    if (a > at) out.push({ gap: tops[a] - tops[at] });
+    if (a > at) out.push({ gap: tops[a] - tops[at], stands: [at, a] });
     out.push({ rows: [a, b] });
     at = b;
   }
-  if (at < end) out.push({ gap: tops[end] - tops[at] });
+  if (at < end) out.push({ gap: tops[end] - tops[at], stands: [at, end] });
   return out;
 }
 
