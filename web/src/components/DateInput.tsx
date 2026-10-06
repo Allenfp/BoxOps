@@ -38,6 +38,7 @@ import {
 } from "../model/dates";
 import { describedBy, FieldError } from "./FieldError";
 import { Icon } from "./Icon";
+import { scrolledAway } from "./useAnchor";
 
 /** A date's shape, d for a digit. */
 const SHAPE = "dddd-dd-dd";
@@ -102,7 +103,9 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
   };
 
   // A press elsewhere closes it, leaving focus where the press put it (put nowhere, a press on
-  // text say, it goes back to what opened it); so do a scroll or a resize, which would leave it adrift.
+  // text say, it goes back to what opened it); so does a resize. A scroll moves it with the field (a
+  // table scrolls a clicked button clear of its header or title column as it opens), until what
+  // opened it is scrolled out of sight: then it closes too.
   useEffect(() => {
     if (!calendar) return;
     const inCalendar = (t: EventTarget | null) => t instanceof Node && !!dialog.current?.contains(t);
@@ -113,6 +116,10 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
     };
     const adrift = (e: Event) => {
       if (inCalendar(e.target)) return;
+      if (e.type === "scroll" && field.current && dialog.current && !scrolledAway(e, calendar.opener, dialog.current)) {
+        setCalendar({ ...calendar, anchor: field.current.getBoundingClientRect() });
+        return;
+      }
       if (inCalendar(document.activeElement)) calendar.opener.focus({ preventScroll: true });
       setCalendar(null);
     };

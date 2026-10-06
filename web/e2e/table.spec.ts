@@ -240,6 +240,70 @@ test("the Engineers list closes, name or not, once the table is scrolled till it
   await expect(list).toHaveCount(0);
 });
 
+test("the calendar closes once the table is scrolled till its field is under the header, focus back in the field", async ({ page, github: _ }) => {
+  await page.setViewportSize({ width: 1440, height: 500 });
+  const start = row(page, "CDC pipeline for orders DB").getByRole("textbox", { name: "Start" });
+  await start.focus();
+  await page.keyboard.press("Alt+ArrowDown");
+  const calendar = page.getByRole("dialog", { name: "Choose date" });
+  await expect(calendar).toBeVisible();
+  // Scrolled a little, it stays.
+  await page.locator(".table-scroll").evaluate((el) => (el.scrollTop += 10));
+  await page.waitForTimeout(100);
+  await expect(calendar).toBeVisible();
+  const [head, at] = [(await page.locator(".box-table thead th").first().boundingBox())!, (await start.boundingBox())!];
+  await page.locator(".table-scroll").evaluate((el, by) => (el.scrollTop += by), at.y + at.height / 2 - (head.y + head.height) + 4);
+  await expect(calendar).toHaveCount(0);
+  await expect(start).toBeFocused();
+});
+
+/**
+ * Scroll the table till `button` is partly under its sticky header (its top `by` px) or title column (its left
+ * `by` px), and say where a click still reaches it (the next frames, and the scroll's event, have passed).
+ */
+async function halfHidden(page: Page, button: Locator, under: "header" | "title", by: number) {
+  const at = (await button.boundingBox())!;
+  const edge = (await page.locator(".box-table thead th.col-title").boundingBox())!;
+  const [down, across] = under === "header" ? [at.y - (edge.y + edge.height) + by, 0] : [0, at.x - (edge.x + edge.width) + by];
+  await page.locator(".table-scroll").evaluate((el, [down, across]) => el.scrollBy(across, down), [down, across]);
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  const b = (await button.boundingBox())!;
+  return under === "header" ? { x: b.x + b.width / 2, y: b.y + b.height - 4 } : { x: b.x + b.width - 4, y: b.y + b.height / 2 };
+}
+
+// Chromium and Firefox focus a clicked button, and the table scrolls what has focus clear of its header and
+// title column: that scroll's event, in the next frame, comes once what the click opened is open.
+for (const under of ["header", "title"] as const) {
+  test(`an Engineers button half under the ${under === "header" ? "header" : "title column"}, clicked, opens its list by it`, async ({ page, github: _ }) => {
+    await page.setViewportSize({ width: 1440, height: 500 });
+    const button = row(page, "CDC pipeline for orders DB").getByRole("button", { name: /^Engineers/ });
+    const at = await halfHidden(page, button, under, under === "header" ? 12 : 60);
+    await page.mouse.click(at.x, at.y);
+    const list = page.getByRole("dialog", { name: "Engineers" });
+    await expect(list).toBeVisible();
+    await page.waitForTimeout(200);
+    await expect(list).toBeVisible();
+    // Just below its button, or just above it.
+    const [b, l] = [(await button.boundingBox())!, (await list.boundingBox())!];
+    expect(Math.min(Math.abs(l.y - (b.y + b.height)), Math.abs(b.y - (l.y + l.height)))).toBeLessThan(5);
+  });
+
+  test(`a date's calendar button half under the ${under === "header" ? "header" : "title column"}, clicked, opens the calendar by its field`, async ({ page, github: _ }) => {
+    await page.setViewportSize({ width: 1440, height: 500 });
+    const start = row(page, "CDC pipeline for orders DB").locator("td.col-date .date-input").first();
+    const button = start.getByRole("button", { name: "Choose date" });
+    const at = await halfHidden(page, button, under, 10);
+    await page.mouse.move(at.x, at.y); // it shows on hover
+    await page.mouse.click(at.x, at.y);
+    const calendar = page.getByRole("dialog", { name: "Choose date" });
+    await expect(calendar).toBeVisible();
+    await page.waitForTimeout(200);
+    await expect(calendar).toBeVisible();
+    const [f, c] = [(await start.boundingBox())!, (await calendar.boundingBox())!];
+    expect(Math.min(Math.abs(c.y - (f.y + f.height)), Math.abs(f.y - (c.y + c.height)))).toBeLessThan(5);
+  });
+}
+
 test("printing gives every box, on pages no wider or longer than that", async ({ page, github: _ }) => {
   await page.emulateMedia({ media: "print" });
   await expect(page.locator(".print-table tbody tr").filter({ hasText: "Dagster 2.x upgrade" })).toHaveCount(1);

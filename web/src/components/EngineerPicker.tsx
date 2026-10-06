@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Person } from "../model/types";
+import { scrolledAway } from "./useAnchor";
 
 /** Between the button and the list, and the least between the list and the window's edge (px). */
 const GAP = 4;
@@ -35,17 +36,6 @@ function place(el: HTMLElement, button: HTMLElement) {
 }
 
 /**
- * Whether `e` scrolled what `button` is in (the box editor's fields, the table) till the button's middle is out
- * of sight: past that one's edge, or under its sticky header or title column. The list `menu` doesn't count.
- */
-function scrolledAway(e: Event, button: HTMLElement, menu: HTMLElement): boolean {
-  if (e.type !== "scroll" || !(e.target instanceof Element) || !e.target.contains(button)) return false;
-  const at = button.getBoundingClientRect();
-  const top = document.elementsFromPoint(at.left + at.width / 2, at.top + at.height / 2).find((el) => !menu.contains(el));
-  return !top || !button.contains(top);
-}
-
-/**
  * A button saying who's assigned, opening a small dialog: a checkbox per
  * engineer on the roster, plus a field to add someone new. The button's name
  * says who's assigned ("Engineers: Sam Lee, Robin Park"). Opening it focuses
@@ -54,10 +44,11 @@ function scrolledAway(e: Event, button: HTMLElement, menu: HTMLElement): boolean
  * engineers to the new-engineer field (Safari's own Tab, which the box editor
  * doesn't use, skips the checkboxes: hence ↑ and ↓). The list is fixed on the
  * screen, below the button or above it without room there, so the box
- * editor's scrolling fields or the table don't cut it off; a scroll or a
- * resize, which would leave it adrift, closes it, except while a new name
- * is typed: then it moves with the button, unless the editor's fields or the
- * table are scrolled till the button is out of sight.
+ * editor's scrolling fields or the table don't cut it off. A scroll moves it
+ * with the button (the table scrolls a clicked button clear of its header or
+ * title column as it opens), until the editor's fields or the table are
+ * scrolled till the button is out of sight: then it closes. A resize closes
+ * it too, except while a new name is typed: then it moves with the button.
  */
 export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, emptyLabel, names: given }: Props) {
   const label = "Engineers";
@@ -88,8 +79,9 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
     };
     const adrift = (e: Event) => {
       if (e.target instanceof Node && menu.current?.contains(e.target)) return;
-      // Typing a new name: on a phone, the keyboard opening for the field scrolls or shrinks the window.
-      if (document.activeElement === nameField.current && menu.current && button.current && !scrolledAway(e, button.current, menu.current)) {
+      // A resize only while a new name is typed: on a phone, the keyboard opening for the field shrinks the window.
+      const follow = e.type === "scroll" || document.activeElement === nameField.current;
+      if (follow && menu.current && button.current && !scrolledAway(e, button.current, menu.current)) {
         place(menu.current, button.current);
         return;
       }

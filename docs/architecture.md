@@ -566,10 +566,12 @@ when a focused element is removed.
   (↑ and ↓ move between them) whose button is named by who's assigned;
   like the calendar, it's fixed on the screen below its button (above it
   without room there), so the box editor's scrolling fields and the table
-  don't cut it off, and a scroll or a resize closes it; while a new name
-  is typed it moves with its button instead (a phone's keyboard opening
-  scrolls or shrinks the window), unless the editor's fields or the table
-  are scrolled till the button is out of sight.
+  don't cut it off. Both move with what opened them as the editor's fields
+  or the table scroll (Chrome, Edge and Firefox focus a clicked button,
+  and the table scrolls it clear of its header and title column as it
+  opens), and close once that's scrolled out of sight. A resize closes
+  them, but not the Engineers list while a new name is typed (a phone's
+  keyboard opening shrinks the window): it moves with its button.
 - **Date fields** (`components/DateInput.tsx`) are YYYY-MM-DD text. Text
   that more typing can't make a date says why just under the field (over
   what's below, so nothing moves when focus leaves and the field goes back

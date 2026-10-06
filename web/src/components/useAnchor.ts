@@ -58,3 +58,16 @@ export function useAnchor(ref: RefObject<HTMLElement | null>, selector: string, 
 
 /** A popover's CSS width: `width`, or the window's less a gap each side when that's narrower (WCAG 1.4.10). */
 export const popoverWidth = (width: number) => `min(${width}px, calc(100vw - ${2 * GAP}px))`;
+
+/**
+ * Whether `e` scrolled what `el` is in (the box editor's fields, a table) till `el`'s middle is out of sight:
+ * past that one's edge, or under its sticky header or title column. `popup`, what `el` opened (fixed on the
+ * screen, over the rest), doesn't count. A resize, or a scroll of the window (a phone's keyboard opening) or
+ * of something else: false.
+ */
+export function scrolledAway(e: Event, el: HTMLElement, popup: HTMLElement): boolean {
+  if (e.type !== "scroll" || !(e.target instanceof Element) || !e.target.contains(el)) return false;
+  const at = el.getBoundingClientRect();
+  const top = document.elementsFromPoint(at.left + at.width / 2, at.top + at.height / 2).find((p) => !popup.contains(p));
+  return !top || !el.contains(top);
+}
