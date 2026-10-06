@@ -539,16 +539,21 @@ when a focused element is removed.
   that more typing can't make a date says why just under the field (over
   what's below, so nothing moves when focus leaves and the field goes back
   to its date); deleting an `optional` date's text clears it. The calendar
-  is the APG date-picker dialog, opened by **Choose date** (its description
-  is the date; not a Tab stop in table rows) or Option/Alt+↓ in the field:
+  is the APG date-picker dialog, opened by **Choose date** (described by
+  the field's label and its date; a Tab stop as buttons are, so in Safari
+  as its Tab setting says outside the editors, and never in table rows) or
+  Option/Alt+↓ in the field (opening it drops half a date typed, quietly):
   named "Choose date", `aria-modal`, its grid a `<table role="grid">`
   labelled by the month heading (a live region) with one Tab stop, the day
-  the keys move (`calendarMove` in `model/dates.ts`). Weekends are shown
-  but `aria-disabled` and skipped, as they can't be picked; a day's name
-  is its date and weekday, with "today" and "selected" where they apply.
+  the keys move (`calendarMove` in `model/dates.ts`), which follows focus
+  put on a day another way (VoiceOver's cursor). Weekends are shown but
+  `aria-disabled` and skipped, as they can't be picked; a day's name is
+  its date and weekday, with "today" and "selected" where they apply.
   Tab goes round its controls, Today and Clear too; Esc closes it and
   nothing else (it's `preventDefault`ed, so a native dialog around it
-  isn't cancelled); focus has the ring when a key put it there.
+  isn't cancelled); focus has the ring when a key put it there. A press
+  outside closes it, and focus the press put nowhere goes back to what
+  opened it; a field made read-only closes it.
 - **Keys.** ⌘ and Ctrl both work everywhere; labels say ⌘ on Apple's
   platforms and Ctrl elsewhere (`a11y/keys.ts`). A letter is matched by
   `key`, or by its place (`code`) when the layout doesn't type Latin
@@ -617,8 +622,9 @@ when a focused element is removed.
   "expanded" while its editor is open), a move's announcements (↑ ↓ say
   "Busy then" from the layout as it is; once dropped, the box may be drawn
   in other free space than that suggests), the calendar's days (whether
-  "today" and "selected" are said twice, by name and state) and its month
-  heading as it changes, Alt+← and Alt+→ on Windows, and
+  "today" and "selected" are said twice, by name and state, and that keys
+  go on from a day VoiceOver's cursor moved to) and its month heading as
+  it changes, Alt+← and Alt+→ on Windows, and
   ⌘← and ⌘→ (Home and End on the grid) never going Back or Forward in a Mac
   browser with history. And a finger dragging a box on a real touch screen
   (iPad Safari, Android Chrome): the tests send touches to Chromium alone.
