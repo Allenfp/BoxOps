@@ -543,6 +543,22 @@ test("in a table cell, ⌘Z after Enter undoes the edit; once something's typed,
   await expect(cell).not.toHaveValue("Dagster 2.x upgrade");
 });
 
+test("⌘Z on a select, which has no undo of its own, is the app's", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  const row = page.locator("tbody tr").filter({ has: page.locator('input[aria-label="Title"][value="Dagster 2.x upgrade"]') });
+  const type = row.getByLabel("Type");
+  await type.focus();
+  await type.selectOption("project");
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect(type).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(toolbar(page)).toContainText("No changes");
+  await expect(type).toHaveValue("maintenance");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(type).toHaveValue("project");
+  await expect(type).toBeFocused();
+});
+
 test("⌘Z and ⌘S work from a keyboard that doesn't type Latin letters (by the key's place)", async ({ page, github: _ }) => {
   await dragDays(page, DAGSTER, 5);
   await focusApp(page);

@@ -611,8 +611,9 @@ when a focused element is removed.
   AltGr+S types Polish ś, not a save. Undo, redo and ⌘S never act behind
   the save dialog, the key or the shortcuts list, nor with a menu open
   (with focus in it, on its button or nowhere); in the editors they do, as
-  the editing happens there. In a text field ⌘Z is the field's own, but in
-  a table cell left with Enter or Esc, until
+  the editing happens there. In a text field ⌘Z is the field's own (a
+  select, checkbox or switch has none: there it's the app's), but in a
+  table cell left with Enter or Esc, until
   something's typed, it's the app's (`data-settled`), as it was once focus
   had left. Delete and Backspace delete only the box or PTO block that has
   focus on the timeline, once however long they're held, and nothing from

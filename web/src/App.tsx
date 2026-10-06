@@ -140,7 +140,7 @@ function readUrlState(): { view?: ViewMode; zoom?: ZoomLevel; collapsed?: Set<st
 
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
-/** Where Backspace deletes text: not a checkbox, colour or select, which are fields too. */
+/** Where Backspace deletes text and ⌘Z undoes typing: not a checkbox, colour or select, which are fields too. */
 const isTextField = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
   (t.isContentEditable || t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !/^(checkbox|radio|color|range|file|button|submit|reset|image)$/.test(t.type)));
@@ -985,8 +985,9 @@ function RoadmapView(props: ViewProps) {
     }
     // Outside a text field, Backspace is never the browser's Back (WebKit's own, in some browsers).
     if (e.key === "Backspace" && !mod && !e.altKey && !isTextField(e.target)) e.preventDefault();
-    // A table cell left with Enter or Esc has nothing typed of its own to undo: ⌘Z there is ours.
-    const typing = isTyping(e.target) && !(e.target as HTMLElement).hasAttribute("data-settled");
+    // A text field has its own undo, but a select, checkbox or switch has none: ⌘Z there is ours. So
+    // it is in a table cell left with Enter or Esc, with nothing typed of its own to undo.
+    const typing = isTextField(e.target) && !(e.target as HTMLElement).hasAttribute("data-settled");
     if (preview || typing || busy || behind) return;
     if (mod && key === "z") {
       e.preventDefault();
