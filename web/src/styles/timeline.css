@@ -280,9 +280,10 @@
   border-color: color-mix(in srgb, var(--c) 25%, transparent);
   color: var(--box-muted);
 }
+/* A collapsed department's boxes (shown as boxes): bars along the middle of its heading's row. */
 .box.compact {
   height: 4px;
-  top: 15px;
+  top: calc((var(--dept-h) - 4px) / 2);
   padding: 0;
   border-radius: 2px;
   background: var(--c);
@@ -492,20 +493,23 @@ button.collapse-all:hover {
   background: color-mix(in srgb, var(--grid-major) 60%, var(--grid));
 }
 
-/* Boxes vary in height with FTE; the title is centred on the first full lane. */
+/*
+ * Boxes vary in height with FTE; the title is centred on the first full lane: two slots less the box's padding
+ * and border (a half-FTE box's one slot). --slot-h, --box-pad and --dept-h are Timeline.tsx's, set on .timeline.
+ */
 .box:not(.compact) {
-  line-height: 36px;
+  line-height: calc(2 * var(--slot-h) - 2 * var(--box-pad) - 2px);
   cursor: grab;
   touch-action: none;
 }
 .box.half {
-  line-height: 14px;
+  line-height: calc(var(--slot-h) - 2 * var(--box-pad) - 2px);
   padding: 0 6px;
 }
+/* Initials (18 px each) centred on the first full lane too. */
 .box-people {
   position: absolute;
-  top: 4px;
-  margin-top: 6px;
+  top: calc(var(--slot-h) - var(--box-pad) - 9px);
   line-height: 1;
   right: 8px;
   display: flex;
@@ -513,7 +517,6 @@ button.collapse-all:hover {
 }
 .box.half .box-people {
   top: 1px;
-  margin-top: 0;
 }
 .avatar {
   display: inline-grid;
@@ -778,22 +781,12 @@ button.collapse-all:hover {
   color: var(--text);
 }
 
-/* Compact density: shorter rows and slightly smaller text (row heights are set in Timeline.tsx). */
+/* Compact density: shorter rows (Timeline.tsx's slots, which place the text) and slightly smaller text. */
 .density-compact .box {
   font-size: 11.5px;
 }
-.density-compact .box:not(.compact) {
-  line-height: 28px;
-}
 .density-compact .box.half {
-  line-height: 10px;
   font-size: 10px;
-}
-.density-compact .box-people {
-  margin-top: 2px;
-}
-.density-compact .box.compact {
-  top: 13px;
 }
 
 /* ---- Collapsed department: capacity used ---- */

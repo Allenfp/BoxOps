@@ -1005,7 +1005,8 @@ export function Timeline(props: Props) {
       className="timeline"
       ref={scrollRef}
       onScroll={onScroll}
-      style={{ "--label-w": `${LABEL_W}px` } as CSSProperties}
+      // The stylesheet's box text and marks are placed by these, rather than by numbers worked out from them.
+      style={{ "--label-w": `${LABEL_W}px`, "--slot-h": `${SLOT_H}px`, "--box-pad": `${BOX_PAD}px`, "--dept-h": `${DEPT_H}px` } as CSSProperties}
     >
       <div className="tl-canvas" style={{ width: LABEL_W + scale.width }}>
         <div className="tl-head">
