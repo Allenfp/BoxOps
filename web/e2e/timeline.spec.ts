@@ -231,6 +231,27 @@ test("engineers are picked from the roster, and new ones can be added", async ({
   expect(github.file("people.yaml")).toContain("  - id: robin-park\n    name: Robin Park\n    department: data-eng\n");
 });
 
+test("the Engineers list follows its button while a name is typed (a phone's keyboard shrinks the window), else closes", async ({ page, github: _ }) => {
+  await box(page, DAGSTER).click();
+  const button = page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ });
+  await button.click();
+  const list = page.getByRole("dialog", { name: "Engineers" });
+  await page.getByLabel("New engineer name").fill("Robin");
+  await page.setViewportSize({ width: 1440, height: 560 });
+  await expect(page.getByLabel("New engineer name")).toBeFocused();
+  // Just below its button, or just above it.
+  const gap = async () => {
+    const [b, l] = [(await button.boundingBox())!, (await list.boundingBox())!];
+    return Math.min(Math.abs(l.y - (b.y + b.height)), Math.abs(b.y - (l.y + l.height)));
+  };
+  await expect.poll(gap).toBeLessThan(5);
+
+  await list.getByRole("checkbox").first().focus();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(list).toHaveCount(0);
+  await expect(button).toBeFocused();
+});
+
 test("lanes can be renamed in place", async ({ page, github: _ }) => {
   const names = page.locator(".lane-label .lane-name");
   await names.nth(1).click();

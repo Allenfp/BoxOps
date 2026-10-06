@@ -566,7 +566,9 @@ when a focused element is removed.
   (↑ and ↓ move between them) whose button is named by who's assigned;
   like the calendar, it's fixed on the screen below its button (above it
   without room there), so the box editor's scrolling fields and the table
-  don't cut it off, and a scroll or a resize closes it.
+  don't cut it off, and a scroll or a resize closes it; while a new name
+  is typed it moves with its button instead (a phone's keyboard opening
+  scrolls or shrinks the window).
 - **Date fields** (`components/DateInput.tsx`) are YYYY-MM-DD text. Text
   that more typing can't make a date says why just under the field (over
   what's below, so nothing moves when focus leaves and the field goes back
@@ -703,7 +705,9 @@ when a focused element is removed.
   Chromium), descriptions and notes among them (the field shows its own
   two lines there, without the …). And a finger dragging a box on a real
   touch screen (iPad Safari, Android Chrome): the tests send touches to
-  Chromium alone.
+  Chromium alone; and there, the Engineers list staying open, by its
+  button, as the keyboard comes up for a new name (the tests shrink the
+  window instead).
 
 ## Timeline layout
 

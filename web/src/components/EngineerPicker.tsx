@@ -21,6 +21,19 @@ interface Props {
   names?: Map<string, string>;
 }
 
+/** The list `el` below `button` if it fits there, else above it if it fits there, else on the roomier side, as tall as there's room for. */
+function place(el: HTMLElement, button: HTMLElement) {
+  const at = button.getBoundingClientRect();
+  el.style.maxHeight = "";
+  const below = window.innerHeight - at.bottom - GAP - EDGE;
+  const above = at.top - GAP - EDGE;
+  const down = el.offsetHeight <= below || (el.offsetHeight > above && below >= above);
+  const room = Math.max(0, down ? below : above);
+  if (el.offsetHeight > room) el.style.maxHeight = `${room}px`;
+  el.style.left = `${Math.max(EDGE, Math.min(at.left, window.innerWidth - el.offsetWidth - EDGE))}px`;
+  el.style.top = `${down ? at.bottom + GAP : at.top - GAP - el.offsetHeight}px`;
+}
+
 /**
  * A button saying who's assigned, opening a small dialog: a checkbox per
  * engineer on the roster, plus a field to add someone new. The button's name
@@ -31,7 +44,8 @@ interface Props {
  * doesn't use, skips the checkboxes: hence ↑ and ↓). The list is fixed on the
  * screen, below the button or above it without room there, so the box
  * editor's scrolling fields or the table don't cut it off; a scroll or a
- * resize, which would leave it adrift, closes it.
+ * resize, which would leave it adrift, closes it, except while a new name
+ * is typed: then it moves with the button.
  */
 export function EngineerPicker({ value, people, department, onChange, onAddPerson, readOnly, emptyLabel, names: given }: Props) {
   const label = "Engineers";
@@ -40,6 +54,7 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
   const ref = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const nameField = useRef<HTMLInputElement>(null);
   const menuId = useId();
   const own = useMemo(() => (given ? null : new Map(people.map((p) => [p.id, p.name]))), [given, people]);
   const names = given ?? own!;
@@ -61,6 +76,11 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
     };
     const adrift = (e: Event) => {
       if (e.target instanceof Node && menu.current?.contains(e.target)) return;
+      // Typing a new name: on a phone, the keyboard opening for the field scrolls or shrinks the window.
+      if (document.activeElement === nameField.current && menu.current && button.current) {
+        place(menu.current, button.current);
+        return;
+      }
       if (menu.current?.contains(document.activeElement)) button.current?.focus({ preventScroll: true });
       setOpen(false);
     };
@@ -83,20 +103,9 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
     };
   }, [open]);
 
-  // Placed before it's painted, and again as it grows (someone added): below the button if it fits
-  // there, else above it if it fits there, else on the roomier side, as tall as there's room for.
+  // Placed before it's painted, and again as it grows (someone added).
   useLayoutEffect(() => {
-    const el = menu.current;
-    const at = button.current?.getBoundingClientRect();
-    if (!open || !el || !at) return;
-    el.style.maxHeight = "";
-    const below = window.innerHeight - at.bottom - GAP - EDGE;
-    const above = at.top - GAP - EDGE;
-    const down = el.offsetHeight <= below || (el.offsetHeight > above && below >= above);
-    const room = Math.max(0, down ? below : above);
-    if (el.offsetHeight > room) el.style.maxHeight = `${room}px`;
-    el.style.left = `${Math.max(EDGE, Math.min(at.left, window.innerWidth - el.offsetWidth - EDGE))}px`;
-    el.style.top = `${down ? at.bottom + GAP : at.top - GAP - el.offsetHeight}px`;
+    if (open && menu.current && button.current) place(menu.current, button.current);
   });
 
   // The department's engineers first, then everyone else, by name: sorted only while it's open (a table
@@ -171,6 +180,7 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
             }}
           >
             <input
+              ref={nameField}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Add engineer…"
