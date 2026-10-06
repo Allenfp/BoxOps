@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anchorRow, drawn, layout, rowAt, runs, usual, windowRows } from "./windowMath";
+import { anchorRow, drawn, heightLearner, layout, rowAt, runs, usual, windowRows } from "./windowMath";
 
 /** Rows of these heights. */
 const tops = (...heights: number[]) => layout(heights.length, (i) => heights[i]);
@@ -99,6 +99,46 @@ describe("usual", () => {
     expect(usual([52, 52, 70, 52, 34])).toBe(52);
     expect(usual([70, 52])).toBe(52);
     expect(usual([])).toBeUndefined();
+  });
+});
+
+describe("heightLearner", () => {
+  // A department as the table has it: its heading, three boxes, two PTO entries and Add PTO.
+  const keys = ["g", "b1", "b2", "b3", "p1", "p2", "add"];
+  const kinds = ["group", "box", "box", "box", "pto", "pto", "add-pto"];
+  const index = new Map(keys.map((k, i) => [k, i]));
+  // Comfortable-density heights; the rows measure less (compact).
+  const defaults = { group: 36, box: 53, pto: 33, "add-pto": 32 };
+  const heights = (tops: Float64Array) => [...tops.subarray(1)].map((t, i) => t - tops[i]);
+  /** A table's layouts in turn, with these rows drawn (key, height) each time. */
+  const table = () => {
+    const learner = heightLearner();
+    return (measured: [string, number][], density = "compact") => heights(learner({ keys, kinds, index, measured: new Map(measured), defaults, density }));
+  };
+
+  it("a row drawn is as tall as it measured; one that isn't, as rows of its kind drawn usually are; a kind never drawn, its default", () => {
+    expect(table()([["b1", 49], ["b2", 49], ["b3", 70], ["p1", 29]])).toEqual([36, 49, 49, 70, 29, 29, 32]);
+  });
+
+  it("a kind none of whose rows is drawn now keeps the height it was learned to have, not its default", () => {
+    const layout = table();
+    layout([["g", 32], ["b1", 49], ["p1", 29], ["add", 28]]);
+    // Scrolled on: only boxes drawn (one of them being edited, taller).
+    expect(layout([["b2", 49], ["b3", 70]])).toEqual([32, 49, 49, 70, 29, 29, 28]);
+    expect(layout([])).toEqual([32, 49, 49, 49, 29, 29, 28]);
+    // Rows of a kind drawn again, at another height: that's learned instead.
+    expect(layout([["p2", 30]])).toEqual([32, 49, 49, 49, 30, 30, 28]);
+  });
+
+  it("forgets what it learned in another density", () => {
+    const layout = table();
+    layout([["g", 32], ["b1", 49], ["p1", 29], ["add", 28]]);
+    expect(layout([["b1", 53]], "comfortable")).toEqual([36, 53, 53, 53, 33, 33, 32]);
+  });
+
+  it("leaves out rows no longer in the table; no rows, no height", () => {
+    expect(table()([["gone", 99], ["b1", 49]])).toEqual([36, 49, 49, 49, 33, 33, 32]);
+    expect([...heightLearner()({ keys: [], kinds: [], index: new Map(), measured: new Map(), defaults })]).toEqual([0]);
   });
 });
 

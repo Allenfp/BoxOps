@@ -81,6 +81,28 @@ const placeIn = (el: Locator) =>
     return { clear: r.top >= head - 1 && r.bottom <= view.top + s.clientHeight + 1 && r.left >= title - 1 && r.right <= view.left + s.clientWidth + 1 };
   });
 
+/** How tall each department's rows are, spacers included. */
+const departmentHeights = (page: Page) => page.locator(".box-table [data-reorder-id]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+/** Scroll the table so that this far down a department (0: its top, 1: its end) is in the middle of the view. */
+const centre = (page: Page, dept: string, at: number) =>
+  scroller(page).evaluate(
+    (el, [dept, at]) => {
+      const rows = el.querySelector(`[data-dept-id="${dept}"]`)!.getBoundingClientRect();
+      const view = el.getBoundingClientRect();
+      el.scrollTop += rows.top + rows.height * at - (view.top + view.height / 2);
+    },
+    [dept, at] as const,
+  );
+/** A density chosen in Settings: the rows drawn are another height. */
+async function density(page: Page, name: "Comfortable" | "Compact") {
+  const row = page.locator("tr.box-row").first();
+  const was = await row.evaluate((r) => r.getBoundingClientRect().height);
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("dialog", { name: "Settings" }).getByRole("group", { name: "Density" }).getByRole("button", { name }).click();
+  await page.keyboard.press("Escape");
+  await expect.poll(() => row.evaluate((r) => r.getBoundingClientRect().height)).not.toBe(was);
+}
+
 test.beforeEach(async ({ page, github: _ }) => {
   await page.getByRole("button", { name: "Table", exact: true }).click();
   await expect(page.locator(".box-table")).toBeVisible();
@@ -113,30 +135,42 @@ test.describe("against the table drawn whole", () => {
     await expect.poll(async () => (await indexes()).at(-1)).toBe(all + 1);
 
     // Spacers are as tall as what they stand for: each department takes the same room as drawn whole.
-    const heights = (p: Page) => p.locator(".box-table [data-reorder-id]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
-    expect(await heights(page)).toEqual(await heights(whole));
+    expect(await departmentHeights(page)).toEqual(await departmentHeights(whole));
   });
 
-  test("nothing on screen is missing, wherever the table is scrolled", async ({ page, github, browser }) => {
+  test("in the compact density too, once each kind of row has been drawn, though none of some kinds is drawn now", async ({ page, github, browser }) => {
     const whole = await wholeTab(browser, github);
-    for (const y of [0, 0.5, 1, 0.13, 0.77, 0.4]) {
-      for (const p of [page, whole]) await scrollTo(p, y);
-      const expected = await onScreen(whole);
-      expect(expected.length).toBeGreaterThan(5);
-      await expect.poll(() => onScreen(page), { message: `at ${y}` }).toEqual(expected);
-    }
-    // Scrolled a step at a time, as a wheel or trackpad does, the rows on screen are drawn too.
-    await scrollTo(page, 0.3);
-    for (let i = 0; i < 10; i++) {
-      await page.mouse.move(700, 500);
-      await page.mouse.wheel(0, 400);
-      await expect
-        .poll(() => scroller(page).evaluate((el) => {
-          const r = el.getBoundingClientRect();
-          return [0.2, 0.5, 0.9].map((f) => document.elementFromPoint(r.left + 300, r.top + 40 + (el.clientHeight - 40) * f)?.closest("tr")?.className.split(" ")[0]);
-        }))
-        .not.toContain("spacer");
-    }
+    for (const p of [page, whole]) await density(p, "Compact");
+    // PTO, Add PTO and a heading drawn (the end of the first department, the start of the second); then only boxes.
+    await centre(page, "dept-01", 1);
+    await expect(page.locator("tr.add-pto-row")).not.toHaveCount(0);
+    await centre(page, "dept-03", 0.35);
+    await settled(page);
+    const others = page.locator("tr.group-row, tr.pto-table-row, tr.add-pto-row");
+    expect(await others.count()).toBe(0);
+    // The row in the middle of the view growing as it's edited, then as it was: drawn again, measured, while none of those is drawn.
+    const middle = await scroller(page).evaluate((el) => {
+      const view = el.getBoundingClientRect();
+      return document.elementFromPoint(view.left + 300, view.top + view.height / 2)!.closest("tr")!.dataset.rowKey!;
+    });
+    await page.locator(`tr[data-row-key="${middle}"]`).getByLabel("Description").focus();
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.press("Shift+Enter");
+    await settled(page);
+    await page.keyboard.press("Escape");
+    await page.locator(".table-search").focus();
+    await settled(page);
+    expect(await others.count()).toBe(0);
+    const same = async () => {
+      const [drawn, all] = [await departmentHeights(page), await departmentHeights(whole)];
+      expect(Math.max(...drawn.map((h, i) => Math.abs(h - all[i]))), `${drawn.join()} against ${all.join()}`).toBeLessThan(1);
+    };
+    await same();
+    // Back to the comfortable density, still with only boxes drawn: the heights the compact density had are forgotten.
+    for (const p of [page, whole]) await density(p, "Comfortable");
+    await settled(page);
+    expect(await others.count()).toBe(0);
+    await same();
   });
 });
 

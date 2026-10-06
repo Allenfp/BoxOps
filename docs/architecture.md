@@ -832,7 +832,8 @@ when a focused element is removed.
   stand for, one `<tbody>` per department as before, so the sticky header
   and title column and dragging departments work as ever. A row is measured
   as it's drawn (a ResizeObserver); one not drawn is as tall as the rows of
-  its kind drawn now. Rows of a kind are one height: descriptions and notes
+  its kind drawn now, or else those last drawn (in this density: another
+  forgets them). Rows of a kind are one height: descriptions and notes
   show two lines until focused (sized by CSS, a copy of the text in the same
   grid cell: no script measures them; left by a press, as when another
   row's button is clicked, a cell stays as it was until the press is over,

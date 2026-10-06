@@ -118,3 +118,39 @@ export function usual(heights: Iterable<number>): number | undefined {
   }
   return best;
 }
+
+/**
+ * Lays rows out (each row's top, as layout() gives them) at the heights
+ * they're taken to be, learning as it goes what each kind of row usually
+ * measures: one per table, given each layout's rows in turn. A row that's
+ * drawn is as tall as it measured (`measured`, by key). One that isn't is as
+ * tall as rows of its kind usually are, by those drawn now, or else by those
+ * drawn last (a kind none of whose rows is drawn keeps its height rather
+ * than going back to its default), or else as `defaults` says (40 px if it
+ * doesn't). What's learned is forgotten when `density` changes: every kind
+ * of row is another height in each. `index` is where each key is in `keys`.
+ */
+export function heightLearner(): (o: {
+  keys: readonly string[];
+  kinds: readonly string[];
+  index: ReadonlyMap<string, number>;
+  measured: ReadonlyMap<string, number>;
+  defaults: Readonly<Record<string, number>>;
+  density?: string;
+}) => Float64Array {
+  let learned = new Map<string, number>();
+  let learnedIn: string | undefined;
+  return ({ keys, kinds, index, measured, defaults, density }) => {
+    if (density !== learnedIn) [learned, learnedIn] = [new Map(), density];
+    const byKind = new Map<string, number[]>();
+    for (const [key, h] of measured) {
+      const i = index.get(key);
+      if (i === undefined) continue;
+      const list = byKind.get(kinds[i]) ?? [];
+      list.push(h);
+      byKind.set(kinds[i], list);
+    }
+    for (const [kind, hs] of byKind) learned.set(kind, usual(hs)!);
+    return layout(keys.length, (i) => measured.get(keys[i]) ?? learned.get(kinds[i]) ?? defaults[kinds[i]] ?? 40);
+  };
+}

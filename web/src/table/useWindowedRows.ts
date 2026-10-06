@@ -6,10 +6,11 @@
 // Rows are measured as they're drawn (a ResizeObserver: its first report
 // comes with the next frame, so drawing a row never makes the browser lay
 // the page out early). A row not drawn is as tall as rows of its kind
-// usually are, by those drawn now. Rows of a kind are all as tall as one
-// another unless one's being edited or says why a cell won't do: the table
-// and People keep descriptions and notes to two lines, and long PTO lists
-// to two entries.
+// usually are, by those drawn now, or by those drawn last if none are (until
+// the density changes: then by its kind's default till one's drawn). Rows
+// of a kind are all as tall as one another unless one's being edited or
+// says why a cell won't do: the table and People keep descriptions and
+// notes to two lines, and long PTO lists to two entries.
 //
 // Safari doesn't keep the view in place when what's above it changes height
 // (CSS scroll anchoring), so that's done here, the same in every browser
@@ -26,7 +27,8 @@
 
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { anchorRow, layout, type Range, type Run, runs, usual, windowRows } from "./windowMath";
+import { usePrefs } from "../prefs";
+import { anchorRow, heightLearner, layout, type Range, type Run, runs, windowRows } from "./windowMath";
 
 /**
  * A table with more rows than this (boxes, PTO, engineers, headings) draws
@@ -91,20 +93,14 @@ export function useWindowedRows(o: {
   const [measured, setMeasured] = useState<ReadonlyMap<string, number>>(() => new Map());
 
   const index = useMemo(() => new Map(keys.map((k, i) => [k, i])), [keys]);
-  const tops = useMemo(() => {
-    if (!enabled) return layout(0, () => 0);
-    // A kind's usual height, by the rows of it drawn now.
-    const byKind = new Map<string, number[]>();
-    for (const [key, h] of measured) {
-      const i = index.get(key);
-      if (i === undefined) continue;
-      const list = byKind.get(kinds[i]) ?? [];
-      list.push(h);
-      byKind.set(kinds[i], list);
-    }
-    const base = new Map([...byKind].map(([kind, hs]) => [kind, usual(hs)!]));
-    return layout(keys.length, (i) => measured.get(keys[i]) ?? base.get(kinds[i]) ?? defaults[kinds[i]] ?? 40);
-  }, [enabled, keys, kinds, index, measured, defaults]);
+  // A kind's usual height, by the rows of it drawn now or, if none are, those drawn last (only the rows drawn now
+  // are measured), in this density.
+  const { density } = usePrefs();
+  const [learner] = useState(heightLearner);
+  const tops = useMemo(
+    () => (enabled ? learner({ keys, kinds, index, measured, defaults, density }) : layout(0, () => 0)),
+    [enabled, learner, keys, kinds, index, measured, defaults, density],
+  );
 
   const ranges = useMemo<Range[]>(() => {
     if (!enabled) return keys.length ? [[0, keys.length]] : [];
