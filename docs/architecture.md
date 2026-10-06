@@ -1001,8 +1001,10 @@ when a focused element is removed.
   Enter and Tab from one table row into the next, which sorts and filters
   the rows again for the row being edited (50 ms each, failing above 100),
   the median of 5 after 2, and checks
-  exactly that each draws at most 70 rows with data and 1,500 options, and
-  that no textarea's height is read. CI runs it after the browser tests.
+  exactly that each draws at most 70 rows with data and 15 options for each
+  of them, that no select has a long list filled before it's used (more
+  than 30 options), and that no textarea's height is read. CI runs it after
+  the browser tests.
 - **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
   the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
   doesn't support TypeScript 7 yet.) A deliberate exception is a

@@ -8,6 +8,7 @@ import { assembleBundle, hashFolder } from "../cli/site";
 import { type AppInfo, type BundleSource, readBundle } from "../src/model/bundle";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import { PX_PER_DAY } from "../src/timeline/scale";
+import { LAZY_OPTIONS_ABOVE } from "../src/components/LazySelect";
 
 // A big roadmap (`npm run perf`, not part of the browser tests): the
 // production build with a generated 2,000-box roadmap (and a 500-box one) as
@@ -32,17 +33,25 @@ import { PX_PER_DAY } from "../src/timeline/scale";
 // next (the row being edited changes: the rows are sorted and filtered
 // again), the median of 5 after 2 to warm up, each failing above twice its
 // target (TABLE_MS, EDIT_MS for the keys); and exactly, at most
-// MAX_ROWS rows with data drawn and MAX_OPTIONS <option>s on the page, and
-// no textarea measured (its scrollHeight read: that lays the page out).
+// MAX_ROWS rows with data drawn and MAX_OPTIONS_PER_ROW <option>s on the
+// page for each, no select with more than LAZY_OPTIONS_ABOVE options until
+// it's used (a long list is filled then), and no textarea measured (its
+// scrollHeight read: that lays the page out).
 
 const MAIN_LIMIT = 400_000;
 /** Opening the table or People at 2,000 boxes, target (ms); failing above twice this. */
 const TABLE_MS = 300;
 /** An edit committed there, or Tab into the next row, target (ms); failing above twice this. */
 const EDIT_MS = 50;
-/** Rows with data (boxes, PTO, engineers) drawn at once, and <option>s on the page, at most. */
+/** Rows with data (boxes, PTO, engineers) drawn at once, at most. */
 const MAX_ROWS = 70;
-const MAX_OPTIONS = 1500;
+/**
+ * <option>s on the page for each of them, at most: a box's row has 13 (FTE,
+ * type, flag, and its lane alone), a PTO row its department's engineers
+ * (10), an engineer's 1 (their department alone). One Lane select filled,
+ * with all 320 lanes, takes the table over it.
+ */
+const MAX_OPTIONS_PER_ROW = 15;
 /** The day the table's roadmap is generated around, and the page's clock fixed at. */
 const FIXED_DAY = "2026-10-05";
 const CEILING_MS = 2500;
@@ -357,6 +366,8 @@ const drawnRows = (page: Page, table: string) =>
     (table) => ({
       rows: document.querySelectorAll(`${table} tr.box-row, ${table} tr.pto-table-row, ${table} tr.person-row`).length,
       options: document.querySelectorAll(`${table} option`).length,
+      /** The most options any one select has. */
+      longest: Math.max(0, ...[...document.querySelectorAll<HTMLSelectElement>(`${table} select`)].map((s) => s.options.length)),
     }),
     table,
   );
@@ -386,7 +397,8 @@ test("2000 boxes: the table and People open and commit an edit within budget, dr
   const table = await drawnRows(page, ".box-table");
   expect(table.rows).toBeGreaterThan(10);
   expect(table.rows).toBeLessThanOrEqual(MAX_ROWS);
-  expect(table.options).toBeLessThanOrEqual(MAX_OPTIONS);
+  expect(table.options).toBeLessThanOrEqual(table.rows * MAX_OPTIONS_PER_ROW);
+  expect(table.longest).toBeLessThanOrEqual(LAZY_OPTIONS_ABOVE);
 
   // A title changed and committed with Enter, five times after two.
   await timeKeys(page);
@@ -416,7 +428,8 @@ test("2000 boxes: the table and People open and commit an edit within budget, dr
   const people = await drawnRows(page, ".people-table");
   expect(people.rows).toBeGreaterThan(10);
   expect(people.rows).toBeLessThanOrEqual(MAX_ROWS);
-  expect(people.options).toBeLessThanOrEqual(MAX_OPTIONS);
+  expect(people.options).toBeLessThanOrEqual(people.rows * MAX_OPTIONS_PER_ROW);
+  expect(people.longest).toBeLessThanOrEqual(LAZY_OPTIONS_ABOVE);
   await timeKeys(page);
   const role = page.locator("tr.person-row").nth(4).getByLabel("Role");
   for (let i = 0; i < 7; i++) {
