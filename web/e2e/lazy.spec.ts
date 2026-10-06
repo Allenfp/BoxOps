@@ -1,9 +1,11 @@
 import type { Page, Route } from "@playwright/test";
+import { REPO, TOKEN } from "./fake-github";
 import { DAGSTER, dragDays, expect, heard, save, test, toolbar } from "./helpers";
 
 // Code fetched when it's first needed: what saving needs (with the yaml
 // library) once someone starts editing, never just to show the roadmap; a
-// view when the pointer reaches its tab; editors once the roadmap is up.
+// view when the pointer reaches its tab; editors once the roadmap is up; the
+// GitHub client once the roadmap shows.
 
 /** The app's JavaScript files the page has asked for, by name without the hash: "index", "parse", "saving", "TableView"… */
 function scripts(page: Page): string[] {
@@ -27,6 +29,36 @@ test("the deployed copy shows without the YAML parser; an edit fetches what savi
   await expect.poll(() => asked).toEqual(expect.arrayContaining(["parse", "saving", "SaveDialog"]));
   await save(page);
   await expect(page.locator(".banner.success")).toContainText("Saved to main");
+});
+
+/** Hold the app's file `name` back until the returned function is called. */
+async function holdBack(page: Page, name: string): Promise<() => void> {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(new RegExp(`/assets/${name}-[\\w-]+\\.js$`), async (route) => {
+    await held;
+    await route.fallback();
+  });
+  return release;
+}
+
+test.describe("a private repository, a token pasted later", () => {
+  test.use({ signedIn: false, visibility: "private" });
+
+  test("the timeline shows without the GitHub client, which then checks for newer saves", async ({ page, github }) => {
+    // No token: no call to GitHub, and so no GitHub client fetched.
+    const asked = scripts(page);
+    expect(github.calls("ref")).toBe(0);
+    const release = await holdBack(page, "remote");
+    await page.evaluate(([key, token]) => sessionStorage.setItem(key, token), [`boxops-github-token:${REPO}`, TOKEN]);
+    await page.reload();
+    await expect(page.locator(".box").first()).toBeVisible();
+    await expect.poll(() => asked).toContain("remote");
+    await page.waitForTimeout(200);
+    expect(github.calls("ref")).toBe(0);
+    release();
+    await expect.poll(() => github.calls("ref")).toBe(1);
+  });
 });
 
 test("a save made before saving's code arrives waits for it, and saves once", async ({ page, github }) => {

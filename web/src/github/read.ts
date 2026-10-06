@@ -23,60 +23,18 @@
 // else, and so does the reader (FolderProblems). An executable roadmap file
 // is read like any other, with a warning in the console, as the build warns.
 
-import type { Bundle, BundleSource } from "../model/bundle";
 import { EXECUTABLE, READ_LIMITS, isHiddenPath, isRoadmapPath } from "../model/paths";
 import type { RoadmapFiles } from "../model/types";
 import { type GitHubClient, GitHubFailure, type TreeItem, isBranchName } from "./api";
-import { gitBlobSha, textBlobSha, utf8Text } from "./git-objects";
+import { gitBlobSha, utf8Text } from "./git-objects";
+import { FolderProblems, MAX_BLOB_FETCHES, type Snapshot, type Source, TooManyChanges, canRead, knownBlob, remember } from "./snapshot";
 
-/** Where a snapshot came from: the bundle's fields, plus what the reader learns. */
-export interface Source extends BundleSource {
-  /** The first parent of `commit`, when it was read from GitHub. */
-  parent?: string;
-}
+// Showing a deploy needs these alone (snapshot.ts, in the app's main file); readers have them from here too.
+export { FolderProblems, MAX_BLOB_FETCHES, type Snapshot, type Source, TooManyChanges, canRead, forgetBlobs, fromBundle, remember, sameBlobs } from "./snapshot";
 
-/** The roadmap folder at one commit. */
-export interface Snapshot {
-  source: Source;
-  /** Roadmap files (path in the folder → text). */
-  files: RoadmapFiles;
-  /** Path → git blob SHA of each file in `files`. */
-  blobs: Record<string, string>;
-  /** The folder's other files, not read; the loader reports them as unexpected. */
-  ignored: string[];
-}
-
-/** Blob fetches one read may make. More means a stale site or a mass edit: better to say so than to spend the rate limit. */
-export const MAX_BLOB_FETCHES = 300;
 const POOL = 4;
 /** How long one read may wait out rate limits and retries. */
 const RETRY_FOR_MS = 60_000;
-
-/** More files changed than one read fetches. */
-export class TooManyChanges extends Error {
-  constructor(
-    readonly count: number,
-    readonly limit = MAX_BLOB_FETCHES,
-  ) {
-    super(
-      `${count} roadmap files changed since this copy was loaded, more than BoxOps reads at once (${limit}). Reload once the site has redeployed.`,
-    );
-  }
-}
-
-/** The roadmap folder on GitHub breaks the rules the build holds it to; nothing is read until it's fixed. */
-export class FolderProblems extends Error {
-  /** Each problem in words, after its path: "roadmap/boxes/a.yaml: is a symlink; …". */
-  readonly lines: string[];
-  constructor(
-    readonly dir: string,
-    readonly problems: { path: string; message: string }[],
-  ) {
-    const lines = problems.map((p) => `${p.path ? `${dir}/${p.path}` : dir}: ${p.message}`);
-    super(lines.join("\n"));
-    this.lines = lines;
-  }
-}
 
 /**
  * GitHub named a branch head older than what this tab already has (its
@@ -95,39 +53,6 @@ export class NeedsToken extends Error {
   constructor(readonly repo: string) {
     super(`${repo} is private: reading it from GitHub needs a token.`);
   }
-}
-
-/** Whether this client may read the repository: with a token, or without one only when the build said it's public. */
-export const canRead = (source: Source, gh: GitHubClient) => gh.authenticated || source.private === false;
-
-/** Blob SHA → text, for every file this tab has held; blobs never change, so entries never go stale. */
-const blobCache = new Map<string, string>();
-
-/** Keep a snapshot's files in the session's blob cache, so later reads needn't fetch them. Returns the snapshot. */
-export function remember(s: Snapshot): Snapshot {
-  for (const [path, sha] of Object.entries(s.blobs)) {
-    const text = s.files[path];
-    if (text !== undefined) blobCache.set(sha, text);
-  }
-  return s;
-}
-
-/** For tests: start with an empty blob cache. */
-export function forgetBlobs(): void {
-  blobCache.clear();
-}
-
-/** A bundle as a snapshot. A bundle from before schema 1 has no blob SHAs; they're computed from the text. */
-export async function fromBundle(b: Bundle): Promise<Snapshot> {
-  const blobs: Record<string, string> = {};
-  for (const [path, text] of Object.entries(b.files)) blobs[path] = b.blobs[path] ?? (await textBlobSha(text));
-  return { source: b.source, files: b.files, blobs, ignored: b.ignored };
-}
-
-/** Whether two snapshots hold the same roadmap files (other files in the folder don't count). */
-export function sameBlobs(a: Record<string, string>, b: Record<string, string>): boolean {
-  const keys = Object.keys(a);
-  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
 }
 
 export interface ReadOptions {
@@ -204,7 +129,7 @@ export async function readSnapshot(gh: GitHubClient, base: Snapshot, o: ReadOpti
   const got: RoadmapFiles = {};
   const todo: string[] = [];
   for (const [path, sha] of Object.entries(blobs)) {
-    const known = base.blobs[path] === sha ? base.files[path] : blobCache.get(sha);
+    const known = base.blobs[path] === sha ? base.files[path] : knownBlob(sha);
     if (known !== undefined) got[path] = known;
     else todo.push(path);
   }

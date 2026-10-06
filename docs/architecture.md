@@ -28,6 +28,9 @@ web/
                             scrolling unless less motion is asked for)
     site.ts                 the site's roadmap.json, app updates, reloading
     saving.ts               what saving needs, fetched once editing starts
+    remote.ts               what the app reads from GitHub itself (the check
+                            for newer saves, a branch preview), fetched once
+                            it first does
     styles.css              imports styles/ in cascade order: tokens (colours,
                             shadows, stacking, fonts, both themes), base,
                             toolbar, timeline, table, editors, dialogs, print
@@ -55,7 +58,9 @@ web/
                             TableRows and PeopleRows (the memoized rows),
                             PrintTable (every row, on paper)
     github/                 api (REST and GraphQL client, timeouts, errors),
-                            read (newer commits by SHA diff), save (commit,
+                            snapshot (the folder at one commit: what showing
+                            a deploy needs), read (newer commits by SHA
+                            diff), save (commit,
                             conflicts, retries), messages (errors in words),
                             git-objects (git blob and tree SHAs, base64)
   cli/                      Node-only: git.ts (reads a roadmap folder from git
@@ -470,9 +475,11 @@ against data the new code wrote.
   when the pointer or focus reaches their tab (the view on screen stays until
   the new one is ready, its tab marked busy); the box, PTO and department
   editors and team settings a second after the roadmap shows, unless it's
-  read-only; the settings menu's contents when the pointer reaches the gear;
-  the save dialog, saving's code and the YAML parser once someone starts
-  editing.
+  read-only; the GitHub client and reader once the roadmap shows, for the
+  check for newer saves (`remote.ts`; never for a private repository
+  without a token); the settings menu's contents when the pointer reaches
+  the gear; the save dialog, saving's code and the YAML parser once someone
+  starts editing.
   File names change only with the app's code (the build time is in
   `index.html`), so a tab left open across roadmap saves can still fetch
   them. A part that can't be fetched (the connection dropped, or an app

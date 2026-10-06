@@ -4,9 +4,7 @@ import type { Resume, SaveProblem } from "./components/SaveDialog";
 import { lazyPart } from "./components/lazyPart";
 import { type PtoRef, ptoClashes, ptoEntries, ptoKey, ptoRange } from "./model/pto";
 import { type BoxPlacement, Timeline, type TimelineHandle } from "./components/Timeline";
-import { GitHubClient, GitHubFailure, isBranchName } from "./github/api";
-import { TOKEN_KINDS, failureMessage } from "./github/messages";
-import { FolderProblems, type Snapshot, TooManyChanges, canRead, fromBundle, readSnapshot, remember, sameBlobs } from "./github/read";
+import { FolderProblems, type Snapshot, TooManyChanges, canRead, fromBundle, remember, sameBlobs } from "./github/snapshot";
 import type { SaveResult, SaveStep } from "./github/save";
 import { getToken, setToken } from "./github/token";
 import { KeyContent } from "./components/KeyContent";
@@ -186,45 +184,21 @@ function openProblem(e: unknown): Extract<LoadState, { status: "error" }> {
   };
 }
 
-/** A `?ref=` branch, read-only, read from GitHub (only files that differ from the deployed copy are fetched). */
+type Remote = typeof import("./remote");
+
+/** A `?ref=` branch, read-only, read from GitHub (remote.ts, fetched for it). */
 async function loadPreview(base: Snapshot, branch: string): Promise<Exclude<LoadState, { status: "loading" }>> {
-  const { repo } = base.source;
-  const title = `Couldn’t show branch “${branch}”`;
-  if (!isBranchName(branch)) return { status: "error", title, message: `“${branch}” isn’t a branch name.` };
-  if (base.source.local) {
+  let remote: Remote;
+  try {
+    remote = await import("./remote");
+  } catch {
     return {
       status: "error",
-      title,
-      message: "A copy built from the files on disk never reads from GitHub, so it can’t preview a branch. Check the branch out, or preview it on the deployed site.",
+      title: `Couldn’t show branch “${branch}”`,
+      message: "Part of BoxOps couldn’t load. Check your connection and try again; if it keeps happening, reload the page.",
     };
   }
-  const gh = new GitHubClient({ token: getToken(repo) });
-  // A private repository: ask for a token rather than make a call that can only fail.
-  if (!canRead(base.source, gh)) return { status: "needs-token", repo, branch, rejected: false };
-  try {
-    return { status: "ready", ...(await fromSnapshot(await readSnapshot(gh, base, { branch }), true)) };
-  } catch (e) {
-    if (e instanceof GitHubFailure && e.kind === "unauthorized") {
-      setToken(repo, null);
-      return base.source.private ? { status: "needs-token", repo, branch, rejected: true } : loadPreview(base, branch);
-    }
-    // A branch is never deployed, so waiting for a deploy (as for main) won't help.
-    if (e instanceof TooManyChanges) {
-      return {
-        status: "error",
-        title,
-        message: `“${branch}” differs from the deployed roadmap in ${e.count} files, more than BoxOps reads at once (${e.limit}). Check the branch out to see it.`,
-      };
-    }
-    if (!(e instanceof GitHubFailure)) return { status: "error", title, message: (e as Error).message };
-    if (e.kind === "offline") {
-      return { status: "error", title, message: "Couldn’t reach GitHub: you may be offline, or a network filter may be blocking api.github.com." };
-    }
-    if (e.kind === "timeout") return { status: "error", title, message: "GitHub didn’t answer in time. Try again in a moment." };
-    // The token kept for this repository can't read it: Try again alone would only reuse it.
-    const newToken = base.source.private && gh.authenticated && TOKEN_KINDS.includes(e.kind) ? { repo, branch } : undefined;
-    return { status: "error", title, message: failureMessage(e, { repo, branch }), detail: `GitHub said: “${e.message}”`, newToken };
-  }
+  return remote.loadPreview(base, branch, (s) => fromSnapshot(s, true));
 }
 
 /**
@@ -362,12 +336,12 @@ export function App() {
         if (live) setState(openProblem(e));
         return;
       }
-      if (base.source.local) return;
-      const gh = new GitHubClient({ token: getToken(base.source.repo), signal: deadline.signal });
-      if (!canRead(base.source, gh)) return;
+      if (base.source.local || !canRead(base.source, { authenticated: !!getToken(base.source.repo) })) return;
       const timer = setTimeout(() => deadline.abort(), FRESHNESS_MS);
       try {
-        const fresh = await readSnapshot(gh, base, { seen });
+        // The GitHub client and reader are fetched for it (remote.ts): the roadmap is on screen meanwhile.
+        const { readNewer } = await import("./remote");
+        const fresh = await readNewer(base, seen, deadline.signal);
         // Not once the tab has moved on (a poll, a save) or while it's saving.
         const moved = () => !live || saving.current || onScreen.current?.source.commit !== base.source.commit;
         if (fresh === base || moved()) return;
@@ -376,8 +350,7 @@ export function App() {
         show(loaded);
         if (changesScreen(fresh, base)) setRemote({ author: fresh.source.author, subject: fresh.source.subject });
       } catch (e) {
-        // The deployed copy stays. A token GitHub rejects is forgotten; the next save asks for one.
-        if (e instanceof GitHubFailure && e.kind === "unauthorized") setToken(base.source.repo, null);
+        // The deployed copy stays (readNewer forgets a token GitHub rejects; the next save asks for one).
         // Newer saves it won't read past: say so (a save would stop the same way).
         const problem = newerProblem(e);
         if (problem && live && onScreen.current?.source.commit === base.source.commit) setBehind(problem);
@@ -1214,7 +1187,7 @@ function RoadmapView(props: ViewProps) {
     const token = opts.token ?? getToken(source.repo);
     // The choice just made comes back with the token, so it isn't asked again.
     if (!token) return setProblem({ kind: "token", resume });
-    const gh = new GitHubClient({ token });
+    const gh = new s.GitHubClient({ token });
 
     select(null);
     draft.flush();
@@ -1275,10 +1248,10 @@ function RoadmapView(props: ViewProps) {
         // then ask (see the effect below) once the clashes are known.
         askAfterRebase.current = true;
         onReload(e.head);
-      } else if (e instanceof GitHubFailure && e.kind === "unauthorized") {
+      } else if (e instanceof s.GitHubFailure && e.kind === "unauthorized") {
         setToken(source.repo, null);
         setProblem({ kind: "token", rejected: true, resume });
-      } else if (e instanceof GitHubFailure) {
+      } else if (e instanceof s.GitHubFailure) {
         setProblem({ kind: "github", failure: e, resume });
       } else if (e instanceof FolderProblems) {
         // Not this tab's to fix: trying again fails the same way until someone fixes the folder.
