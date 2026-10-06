@@ -1,6 +1,6 @@
-import type { Page } from "@playwright/test";
+import type { ElementHandle, Page } from "@playwright/test";
 import type { Bundle } from "../src/model/bundle";
-import { CDC, DAGSTER, box, boxDates, boxFile, expect, heard, pollNow, said, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, MONTH_PX, box, boxDates, boxFile, expect, heard, pollNow, said, test, toolbar } from "./helpers";
 
 // Moving a box or PTO block from the keyboard: Space picks it up, the arrow
 // keys move it (only what's drawn), Enter or Space drops it as one change,
@@ -148,6 +148,55 @@ test("↑ ↓ change the lane, into the next department, saying when it's busy t
   await page.keyboard.press("ControlOrMeta+s");
   await expect(toolbar(page)).toContainText("No changes");
   expect(github.file(boxFile(DAGSTER))).toContain("lane: an-3\n");
+});
+
+test("dropped past another box or block in its row, it keeps focus, from the keyboard or a drag", async ({ page, github }) => {
+  // Dagster and CDC a week each, a week apart, in the same lane; two engineers' PTO likewise.
+  github.deploy(
+    github.otherSave({
+      [boxFile(DAGSTER)]: (t) => t.replace("start: 2026-09-14\nend: 2026-10-23", "start: 2026-10-05\nend: 2026-10-09"),
+      [boxFile(CDC)]: (t) => t.replace("start: 2026-10-26\nend: 2027-02-26", "start: 2026-10-19\nend: 2026-10-23"),
+      "people.yaml": (t) =>
+        t
+          .replace("    name: Alex Kim\n    department: data-eng\n", "    name: Alex Kim\n    department: data-eng\n    pto:\n      - start: 2026-10-05\n        end: 2026-10-09\n")
+          .replace("    name: Jordan Diaz\n    department: data-eng\n", "    name: Jordan Diaz\n    department: data-eng\n    pto:\n      - start: 2026-10-19\n        end: 2026-10-23\n"),
+    }),
+  );
+  await pollNow(page);
+  await expect.poll(() => boxDates(page, CDC)).toBe("2026-10-19 – 2026-10-23");
+  /** `a` is the same element still, now after `b` on the page: moved there, which takes focus from it for a moment. */
+  const movedPast = (a: ElementHandle | null, b: ElementHandle | null) =>
+    a!.evaluate((el, other) => el.isConnected && !!(other!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING), b);
+  const dagster = await box(page, DAGSTER).elementHandle();
+  await box(page, DAGSTER).focus();
+  await press(page, "Space", "Shift+ArrowRight", "Shift+ArrowRight", "Shift+ArrowRight", "Enter");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-10-26 – 2026-10-30");
+  expect(await movedPast(dagster, await box(page, CDC).elementHandle())).toBe(true);
+  await expect(box(page, DAGSTER)).toBeFocused();
+  // Its undo moves it back before CDC; redo past it again.
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-10-05 – 2026-10-09");
+  await expect(box(page, DAGSTER)).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-10-26 – 2026-10-30");
+  await expect(box(page, DAGSTER)).toBeFocused();
+
+  const alex = page.locator('[data-pto-key="alex-kim#0"]');
+  const jordan = page.locator('[data-pto-key="jordan-diaz#0"]');
+  const alexBlock = await alex.elementHandle();
+  await alex.focus();
+  await press(page, "Space", "Shift+ArrowRight", "Shift+ArrowRight", "Shift+ArrowRight", "Enter");
+  await expect(alex).toHaveAccessibleName("PTO, Alex Kim, 2026-10-26 to 2026-10-30, 5 working days");
+  expect(await movedPast(alexBlock, await jordan.elementHandle())).toBe(true);
+  await expect(alex).toBeFocused();
+  // Dragged past Alex's: Jordan's block keeps focus too.
+  const b = (await jordan.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + MONTH_PX * 10, b.y + b.height / 2, { steps: 6 }); // 10 working days
+  await page.mouse.up();
+  await expect(jordan).toHaveAccessibleName("PTO, Jordan Diaz, 2026-11-02 to 2026-11-06, 5 working days");
+  await expect(jordan).toBeFocused();
 });
 
 test("⌘S during a move saves it dropped where it is", async ({ page, github }) => {

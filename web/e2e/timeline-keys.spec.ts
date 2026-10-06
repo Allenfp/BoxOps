@@ -320,6 +320,31 @@ test("Delete deletes the focused box or PTO block, once however long it's held, 
   await expect.poll(() => heard(page)).toMatch(/Deleted PTO for Morgan Chen, 2026-10-05 – 2026-10-09\. Undo with/);
 });
 
+test("Delete on a PTO block whose owner's next one comes after someone else's puts focus on the block beside it", async ({ page, github }) => {
+  // Morgan's first and second weeks off, with Priya's between them.
+  github.deploy(
+    github.otherSave({
+      "people.yaml": (t) =>
+        t
+          .replace(
+            "    name: Morgan Chen\n    department: analytics\n",
+            "    name: Morgan Chen\n    department: analytics\n    pto:\n      - start: 2026-10-05\n        end: 2026-10-09\n      - start: 2026-10-26\n        end: 2026-10-30\n",
+          )
+          .replace("    name: Priya Shah\n    department: analytics\n", "    name: Priya Shah\n    department: analytics\n    pto:\n      - start: 2026-10-19\n        end: 2026-10-23\n"),
+    }),
+  );
+  await pollNow(page);
+  await cell(page, "pto:morgan-chen#0").focus();
+  // Morgan's second block takes the first's key, and so its element, drawn after Priya's now.
+  await page.keyboard.press("Delete");
+  await expect(cell(page, "pto:priya-shah#0")).toBeFocused();
+  await expect(cell(page, "pto:morgan-chen#0")).toHaveAccessibleName("PTO, Morgan Chen, 2026-10-26 to 2026-10-30, 5 working days");
+  // Undone, it's back before Priya's; focus stays where it is.
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(cell(page, "pto:morgan-chen#1")).toHaveCount(1);
+  await expect(cell(page, "pto:priya-shah#0")).toBeFocused();
+});
+
 test("Delete on the only box in a department's extra area keeps focus in that department, wherever it is", async ({ page, github: _ }) => {
   // Data Engineering second: its extra area's one box has no cell beside it in its row.
   await cell(page, "dept:data-eng").focus();

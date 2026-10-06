@@ -15,7 +15,9 @@
 // A cell that moves rows re-mounts (a box dropped in another lane, a
 // department moved, undo), which drops focus on the page (WebKit says
 // nothing; Chromium fires a blur), so after each render focus that was in
-// the grid goes back to the same cell, or else its neighbour. And focus is
+// the grid goes back to the same cell, or else its neighbour. (One moved
+// along its row, as a box dropped past another is, React focuses again
+// itself.) And focus is
 // never left under the sticky header or label column (WCAG 2.4.11), nor
 // under the broken-rule popup: the timeline scrolls to show it. Focus that
 // follows a press (on a box about to be dragged, or put back after a drop)
@@ -89,7 +91,11 @@ export interface GridFocus {
   activeKey(): string | null;
   /** The cell focus goes back to should what has it go (a deleted box's neighbour). */
   setActive(key: string): void;
-  /** After the next render, focus goes back to this cell if it was lost, even with what had it still on the page (moved, which loses focus too). */
+  /**
+   * After the next render, focus goes to this cell if it was lost, or is still on what had it now:
+   * that may be another cell by then (a PTO block, whose key passes to its owner's next one when
+   * it's deleted; React focuses the element again, moved after someone else's block).
+   */
   keep(key: string): void;
   /** A navigation key pressed on a cell: moves focus, and returns true, if it's one. */
   onKey(e: KeyboardEvent): boolean;
@@ -137,8 +143,8 @@ export function useGridFocus(
   const anchor = useRef<Day | null>(null);
   /** The focus move under way is up or down: the anchor stays. */
   const vertical = useRef(false);
-  /** A cell to put focus back on after the next render (keep). */
-  const kept = useRef<string | null>(null);
+  /** A cell to put focus on after the next render, and what had focus when it was asked for (keep). */
+  const kept = useRef<{ key: string; from: Element | null } | null>(null);
   /** The cell asked to be drawn after a render took focus from the grid: asked once. */
   const drawing = useRef<string | null>(null);
 
@@ -265,9 +271,10 @@ export function useGridFocus(
   useLayoutEffect(() => {
     const g = grid.current;
     if (!g) return;
-    const keep = find(kept.current);
+    const keep = kept.current;
     kept.current = null;
-    if (keep && focusLost()) return focus(keep);
+    const to = keep && find(keep.key);
+    if (to && to !== document.activeElement && (focusLost() || document.activeElement === keep.from)) return focus(to);
     if (owns.current && focusLost()) {
       // Focus went with what had it: back to the same cell, else beside it, else the first. Not
       // from a field (a lane's name being typed), whose own code puts it back after its key's
@@ -302,7 +309,7 @@ export function useGridFocus(
       active.current = remembered = key;
     },
     keep: (key) => {
-      kept.current = key;
+      kept.current = { key, from: document.activeElement };
     },
     neighbour: (el) => keysBeside(el)[0] ?? null,
     describe,

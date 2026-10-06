@@ -452,7 +452,12 @@ export function Timeline(props: Props) {
       const n = ptoRefOf(nextId);
       if (n.personId === ref.personId && n.index > ref.index) next = `pto:${ptoKey({ ...n, index: n.index - 1 })}`;
     }
-    if (next) grid.setActive(next);
+    // Focus goes on to it, though the element with focus may stay: it's the owner's next block's
+    // now, which React focuses again even when it moves it (past someone else's block).
+    if (next) {
+      grid.setActive(next);
+      grid.keep(next);
+    }
     props.onDeletePto?.(ref);
   };
 
