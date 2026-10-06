@@ -21,6 +21,11 @@ button {
 button:hover {
   background: var(--surface-2);
 }
+/* What a field says while empty: readable (Firefox fades it by default). */
+::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
 
 .splash {
   padding: 48px;
@@ -129,10 +134,11 @@ button:hover {
   background: transparent;
   color: var(--text);
 }
+/* Its edge is what marks the chosen one (3:1 against the track), not only the white. */
 .segmented button[aria-pressed="true"] {
   background: var(--seg-on);
   color: var(--text);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--control-border);
 }
 /* A view's tab while its code is on the way. */
 .segmented button[aria-busy="true"] {
@@ -155,7 +161,7 @@ button.icon-only {
 }
 button.icon-only:disabled,
 button.icon-only[aria-disabled="true"] {
-  opacity: 0.45;
+  opacity: var(--disabled);
   cursor: default;
 }
 .warn-text {
@@ -172,7 +178,7 @@ button.icon-only[aria-disabled="true"] {
 
 button:disabled,
 button[aria-disabled="true"] {
-  opacity: 0.4;
+  opacity: var(--disabled);
   cursor: default;
 }
 .menu-item {
@@ -188,7 +194,7 @@ button[aria-disabled="true"] {
   background: var(--surface-2);
 }
 .danger-text {
-  color: var(--today);
+  color: var(--danger);
 }
 .menu-note {
   margin: 4px 10px 6px;
@@ -220,11 +226,11 @@ button[aria-disabled="true"] {
   color: var(--text);
 }
 button.danger {
-  color: var(--today);
+  color: var(--danger);
 }
 button.danger:hover {
-  background: color-mix(in srgb, var(--today) 10%, var(--surface));
-  border-color: var(--today);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  border-color: var(--danger);
 }
 
 button.primary {
@@ -281,7 +287,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   height: 18px;
   margin: 0;
   border-radius: 9px;
-  background: var(--grid-major);
+  background: var(--control-border);
   cursor: pointer;
   transition: background 0.12s;
 }

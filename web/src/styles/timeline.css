@@ -278,7 +278,7 @@
 .box.progress-finished {
   background: color-mix(in srgb, var(--c) 7%, var(--surface));
   border-color: color-mix(in srgb, var(--c) 25%, transparent);
-  color: var(--text-muted);
+  color: var(--box-muted);
 }
 .box.compact {
   height: 4px;
@@ -302,14 +302,16 @@
   height: 9px;
   margin-right: 6px;
   border-radius: 50%;
-  border: 1.5px solid var(--c);
+  /* The type colour half-way to the text's: 3:1 on the box, whatever the colour. */
+  color: color-mix(in srgb, var(--c) 50%, var(--text));
+  border: 1.5px solid currentColor;
   vertical-align: -0.5px;
 }
 .progress-underway .status-mark {
-  background: linear-gradient(90deg, var(--c) 50%, transparent 50%);
+  background: linear-gradient(90deg, currentColor 50%, transparent 50%);
 }
 .progress-finished .status-mark {
-  background: var(--c);
+  background: currentColor;
 }
 /* A flag someone set (At risk, Late, Blocked): the one word on a box in the warning colour. */
 .box-flag {
@@ -618,8 +620,12 @@ button.collapse-all:hover {
 .box-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.92em;
-  color: var(--text-muted);
+  color: var(--box-muted);
   margin-right: 6px;
+}
+/* A Jira key standing in for the BoxOps code */
+.box-code.jira {
+  color: var(--box-accent);
 }
 .box-warn {
   margin-right: 5px;
@@ -744,7 +750,7 @@ button.collapse-all:hover {
   font-weight: 600;
   line-height: 18px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
+  color: var(--box-muted);
 }
 .box.half .box-scale {
   line-height: 14px;
@@ -854,7 +860,7 @@ button.collapse-all:hover {
   z-index: 1;
 }
 .grabbable:hover > .dept-grip {
-  opacity: 0.7;
+  opacity: var(--quiet);
 }
 .reorder-line {
   position: fixed;

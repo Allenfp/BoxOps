@@ -632,6 +632,14 @@ when a focused element is removed.
   the card, and so does putting focus back on it after a drop: browsers
   draw a ring whenever a script moves focus, so it's told by whether a key
   or a press came last (`focusByPress`).
+- **Contrast.** Text meets 4.5:1 and what shows a control or its state (a
+  field's edge, a switch, the chosen segment, a box's progress mark) 3:1,
+  in both themes. A box's text sits on a light tint of its type's colour
+  (a dark one in the dark theme), so one text colour per theme reads on
+  any colour a team picks. `src/styles/contrast.test.ts` reads the
+  colours from the stylesheet itself (`tokens.css` and the rules that mix
+  them) and checks each pair, and what's on a box against an even sweep of
+  every colour; axe checks the pages too (`e2e/a11y.spec.ts`).
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to

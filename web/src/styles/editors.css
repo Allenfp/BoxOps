@@ -82,7 +82,7 @@
   font-weight: 400;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   padding: 5px 8px;
   width: 100%;
@@ -130,7 +130,7 @@
   margin: 0;
   font-size: 12px;
   font-weight: 400;
-  color: var(--today);
+  color: var(--danger);
 }
 .editor-foot {
   flex: none;
@@ -147,8 +147,10 @@
   position: relative;
   min-width: 0;
 }
+/* In an editor, a field like the others (the table's reads as text until pointed at). */
 .picker-button {
   width: 100%;
+  border-color: var(--control-border);
   text-align: left;
   font-size: 13px;
   font-weight: 400;
@@ -209,7 +211,7 @@
   font-size: 13px;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 5px;
   padding: 4px 6px;
 }
@@ -310,7 +312,7 @@
 }
 /* Red while it's wrong, hovered or focused too. */
 .date-input.invalid > input[type="text"][aria-invalid] {
-  border-color: var(--today);
+  border-color: var(--danger);
 }
 /* What's wrong with what's typed, just under the field: over what's below, not pushing it
    down, so nothing moves as it goes (when focus leaves, under the press that took it). */
@@ -320,7 +322,7 @@
   left: 0;
   z-index: var(--z-head);
   padding: 2px 6px;
-  border: 1px solid var(--today);
+  border: 1px solid var(--danger);
   border-radius: 6px;
   background: var(--surface);
   box-shadow: var(--shadow-pop);
@@ -337,7 +339,7 @@
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  opacity: 0.6;
+  opacity: var(--quiet);
 }
 .date-pick:hover {
   opacity: 1;
@@ -350,7 +352,7 @@
 }
 .box-table tr:hover .date-pick,
 .box-table .date-input:focus-within .date-pick {
-  opacity: 0.6;
+  opacity: var(--quiet);
 }
 
 /* Our own month calendar for date fields (DateInput.tsx): a dialog with a grid of days. */

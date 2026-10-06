@@ -21,7 +21,7 @@
   font-size: 13px;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   padding: 5px 10px;
   width: min(320px, 50vw);
@@ -165,7 +165,7 @@
   opacity: 1;
 }
 .cell-input.invalid {
-  border-color: var(--today);
+  border-color: var(--danger);
 }
 /* Number columns: right-aligned, tabular figures, headers aligned with them. */
 .col-fte {
@@ -317,7 +317,7 @@
   opacity: 1;
 }
 .row-delete:hover {
-  color: var(--today);
+  color: var(--danger);
 }
 .empty {
   padding: 24px 16px;
@@ -366,7 +366,7 @@
   font-weight: 400;
 }
 .group-add {
-  opacity: 0.55;
+  opacity: var(--quiet);
 }
 .group-row:hover .group-add,
 .group-add:focus-visible {
@@ -491,7 +491,7 @@
   padding: 6px;
 }
 .group-edit {
-  opacity: 0.55;
+  opacity: var(--quiet);
 }
 .group-row:hover .group-edit,
 .group-edit:focus-visible {
@@ -517,7 +517,6 @@
   color: var(--text-muted);
 }
 /* A Jira key standing in for the BoxOps code */
-.box-code.jira,
 .cell-code.jira {
   color: var(--accent);
 }
@@ -584,7 +583,7 @@
   font-size: 13px;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   padding: 5px 8px;
 }

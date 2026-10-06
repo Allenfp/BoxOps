@@ -267,7 +267,7 @@
   font: inherit;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   padding: 3px 6px;
   max-width: 170px;
@@ -286,7 +286,7 @@
   text-decoration: none;
 }
 .settings-menu .menu-item.danger-text {
-  color: var(--today);
+  color: var(--danger);
 }
 .settings-menu .menu-item:disabled {
   color: var(--text-muted);
