@@ -14,6 +14,7 @@ import {
   type ViewMode,
 } from "../prefs";
 import { ZOOM_LEVELS, type ZoomLevel } from "../model/types";
+import { counted } from "../model/count";
 import { Icon } from "./Icon";
 import { Modal } from "./Modal";
 import type { Target } from "../a11y/focus";
@@ -218,7 +219,7 @@ export function SettingsPanel({ close, ...props }: SettingsProps & { close(): vo
             <>
               {item(
                 props.changes
-                  ? `Discard ${props.changes} unsaved change${props.changes === 1 ? "" : "s"}…`
+                  ? `Discard ${counted(props.changes, "unsaved change")}…`
                   : "No unsaved changes",
                 props.onDiscard,
                 { disabled: !props.changes, danger: true },
