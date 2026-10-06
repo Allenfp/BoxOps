@@ -17,7 +17,7 @@
 
 import { type KeyboardEvent, type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { announce } from "../a11y/announce";
-import { focusLost, loopTab } from "../a11y/focus";
+import { focusLater, focusLost, loopTab } from "../a11y/focus";
 import { APPLE } from "../a11y/keys";
 import {
   calendarMove,
@@ -94,12 +94,16 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
     setCalendar(null);
   };
 
-  // A press elsewhere closes it, leaving focus where the press put it; so do a scroll or a
-  // resize, which would leave it adrift.
+  // A press elsewhere closes it, leaving focus where the press put it (put nowhere, a press on
+  // text say, it goes back to what opened it); so do a scroll or a resize, which would leave it adrift.
   useEffect(() => {
     if (!calendar) return;
     const inCalendar = (t: EventTarget | null) => t instanceof Node && !!dialog.current?.contains(t);
-    const away = (e: PointerEvent) => !inCalendar(e.target) && !button.current?.contains(e.target as Node) && setCalendar(null);
+    const away = (e: PointerEvent) => {
+      if (inCalendar(e.target) || button.current?.contains(e.target as Node)) return;
+      if (inCalendar(document.activeElement)) focusLater([() => calendar.opener]);
+      setCalendar(null);
+    };
     const adrift = (e: Event) => {
       if (inCalendar(e.target)) return;
       if (inCalendar(document.activeElement)) calendar.opener.focus({ preventScroll: true });
