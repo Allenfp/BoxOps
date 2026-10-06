@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Person } from "../model/types";
+import { announce } from "../a11y/announce";
 import { scrolledAway } from "./useAnchor";
 
 /** Between the button and the list, and the least between the list and the window's edge (px). */
@@ -122,12 +123,17 @@ export function EngineerPicker({ value, people, department, onChange, onAddPerso
     [open, people, department],
   );
   const toggle = (id: string) => onChange(selected.has(id) ? value.filter((v) => v !== id) : [...value, id]);
+  /** Add the name typed (someone on the roster already, or someone new), ticked; said, as focus stays in the field. */
   const add = () => {
     const name = newName.trim();
     if (!name) return;
     const existing = people.find((p) => p.name.toLowerCase() === name.toLowerCase());
     const id = existing?.id ?? onAddPerson(name);
-    if (!selected.has(id)) onChange([...value, id]);
+    if (selected.has(id)) announce(`${existing?.name ?? name} is already assigned.`);
+    else {
+      onChange([...value, id]);
+      announce(`${existing ? "Assigned" : "Added and assigned"} ${existing?.name ?? name}.`);
+    }
     setNewName("");
   };
 

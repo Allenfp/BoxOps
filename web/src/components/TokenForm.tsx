@@ -1,6 +1,7 @@
 import { type ReactNode, useId, useState } from "react";
 import { isBroadToken, isTokenText, pastedToken } from "../github/token";
 import { Icon } from "./Icon";
+import { FieldError, describedBy } from "./FieldError";
 
 /** What a token is for: saving needs Contents: Read and write; previewing a branch, Read-only. */
 export type TokenAccess = "read" | "write";
@@ -111,19 +112,16 @@ export function TokenForm({
           autoFocus
           disabled={busy}
           aria-invalid={notToken || undefined}
-          aria-describedby={[notToken && notTokenId, broad && broadId].filter(Boolean).join(" ") || undefined}
+          aria-describedby={describedBy(notToken && notTokenId, broad && broadId)}
         />
-        {notToken && (
-          <span className="hint warn-text not-token" id={notTokenId}>
-            That isn’t a GitHub token: copy it again from GitHub.
-          </span>
-        )}
-        {broad && (
-          <span className="hint warn-text broad-token" id={broadId}>
-            That’s a classic token (or one from the GitHub CLI), which can write to every repository you can. It works,
-            but a fine-grained token for {repo} alone is safer.
-          </span>
-        )}
+        {/* Said as they appear (focus stays in the field, just pasted in), as the app's other field problems are. */}
+        <FieldError id={notTokenId} className="hint warn-text not-token">
+          {notToken && "That isn’t a GitHub token: copy it again from GitHub."}
+        </FieldError>
+        <FieldError id={broadId} className="hint warn-text broad-token">
+          {broad &&
+            `That’s a classic token (or one from the GitHub CLI), which can write to every repository you can. It works, but a fine-grained token for ${repo} alone is safer.`}
+        </FieldError>
       </div>
       <TokenHelp repo={repo} access={access} />
       {children}

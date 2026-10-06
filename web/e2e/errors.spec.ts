@@ -91,6 +91,9 @@ test.describe("signed out", () => {
     const submit = dialog(page).getByRole("button", { name: "Save" });
     await input.fill(`Your token: ${TOKEN}`);
     await expect(dialog(page).locator(".not-token")).toHaveText("That isn’t a GitHub token: copy it again from GitHub.");
+    await expect(input).toHaveAccessibleDescription("That isn’t a GitHub token: copy it again from GitHub.");
+    // Said as it appears, focus staying in the field: from the dialog's own live region.
+    await expect(dialog(page).locator('[data-live="polite"]')).toHaveText("That isn’t a GitHub token: copy it again from GitHub.");
     await expect(submit).toBeDisabled();
     await input.fill(` “${TOKEN}”\u200B `);
     await expect(dialog(page).locator(".not-token")).toHaveCount(0);

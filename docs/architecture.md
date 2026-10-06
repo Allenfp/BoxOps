@@ -529,10 +529,12 @@ when a focused element is removed.
   is up, search results in the table (boxes, and PTO when only PTO
   matches) and People once typing pauses, a rule
   an edit breaks and a rising warning count, deletions (with how to undo
-  them), undo and redo, a department or lane moved in the department
-  editor (its new place), and field problems and date corrections as they
-  appear (each correction, the same one twice too; not a problem already
-  there when its field shows, nor one put right before it's read). Nothing
+  them), undo and redo, an engineer added from the Engineers list, a
+  department or lane moved in the department editor (its new place), and
+  field problems (a pasted token that isn't one, too) and date corrections
+  as they appear (each correction, the same one twice too; not a problem
+  already there when its field shows, nor one put right before it's
+  read). Nothing
   uses `role="status"` or `role="alert"` on an element added already
   filled, but the crash and load-problem screens, which take focus.
 - **Focus** is never left on `<body>`, nor on something hidden (Firefox

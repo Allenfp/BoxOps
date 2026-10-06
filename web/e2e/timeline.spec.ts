@@ -1,4 +1,4 @@
-import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, pollNow, save, test, toolbar } from "./helpers";
+import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, heard, pollNow, save, test, toolbar } from "./helpers";
 
 test("shows departments, lanes, boxes and today", async ({ page, github: _, cull }) => {
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
@@ -203,6 +203,17 @@ test("engineers are picked from the roster, and new ones can be added", async ({
   await page.getByRole("checkbox", { name: "Sam Lee" }).click();
   await page.getByLabel("New engineer name").fill("Robin Park");
   await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Engineers" })).toHaveText("Sam Lee, Robin Park");
+  // Said, as focus stays in the name field: someone new, someone on the roster, someone already there.
+  await expect.poll(() => heard(page)).toContain("Added and assigned Robin Park.");
+  await page.getByLabel("New engineer name").fill("alex kim");
+  await page.getByLabel("New engineer name").press("Enter");
+  await expect.poll(() => heard(page)).toContain("Assigned Alex Kim.");
+  await page.getByLabel("New engineer name").fill("Sam Lee");
+  await page.getByLabel("New engineer name").press("Enter");
+  await expect.poll(() => heard(page)).toContain("Sam Lee is already assigned.");
+  await expect(page.getByLabel("New engineer name")).toBeFocused();
+  await page.getByRole("checkbox", { name: "Alex Kim" }).click();
   await expect(page.getByRole("button", { name: "Engineers" })).toHaveText("Sam Lee, Robin Park");
   await page.keyboard.press("Escape"); // closes the picker…
   await expect(page.getByRole("dialog", { name: /Edit/ })).toBeVisible(); // …not the editor
