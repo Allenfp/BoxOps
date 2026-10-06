@@ -93,10 +93,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
 
   const open = (opener: HTMLElement, byKey: boolean) => {
     const anchor = field.current?.getBoundingClientRect();
-    if (!anchor) return;
-    // Half a date typed goes quietly: the calendar is the other way to give it, and opens on the field's date.
-    setDraft(null);
-    setCalendar({ anchor, opener, byKey });
+    if (anchor) setCalendar({ anchor, opener, byKey });
   };
   /** Put the calendar away, focus going back to what opened it. */
   const close = () => {
@@ -179,6 +176,9 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
           if (e.key === "Enter") settle();
           if (e.key === "ArrowDown" && e.altKey && !disabled) {
             e.preventDefault();
+            // Half a date typed goes quietly as focus leaves for the calendar, the other way to give
+            // the date, which opens on the field's. (A press on the button has left the field already.)
+            setDraft(null);
             open(e.currentTarget, true);
           }
         }}
