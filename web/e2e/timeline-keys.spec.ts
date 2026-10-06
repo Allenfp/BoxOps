@@ -535,6 +535,15 @@ test("a box's scale card can be hovered, shows while the box has keyboard focus,
   await page.keyboard.press("Escape");
   await expect(pop).toHaveCount(0);
   await page.mouse.move(5, 5);
+  // The card covers the lane below: a press there reaches what's under it (the card lets it through), and the card goes.
+  await number.hover();
+  await page.mouse.move(card.x + 20, card.y + card.height / 2, { steps: 5 });
+  await expect(pop).toBeVisible();
+  expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest(".scale-pop"), [card.x + 20, card.y + card.height / 2])).toBe(false);
+  await page.mouse.down();
+  await expect(pop).toHaveCount(0);
+  await page.mouse.up();
+  await page.mouse.move(5, 5);
 
   // Keyboard focus on a box shows its card; Escape puts it away, focus staying on the box.
   await cell(page, "lane:de-2").focus();

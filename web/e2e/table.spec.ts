@@ -185,6 +185,48 @@ test("a click on a row below a description being left reaches what was clicked; 
   await expect(rows.nth(1).locator(".cell-problem")).toHaveText("A title is required.");
 });
 
+test("a row's scale card, the pointer on it, lets a press or the wheel through to the rows under it, and goes", async ({ page, github: _ }) => {
+  await page.setViewportSize({ width: 1440, height: 500 }); // the table scrolls
+  const rows = page.locator("tr.box-row");
+  const card = page.getByRole("tooltip");
+  /** The first row's card shown, and the pointer moved onto it, to `x`, `y`: it stays. */
+  const onCard = async (to: (card: { x: number; y: number; width: number; height: number }) => { x: number; y: number }) => {
+    // To its middle (Chromium's hover() aims at the hidden "Scale " in it, and finds the cell there).
+    const n = (await rows.first().locator(".scale-number").boundingBox())!;
+    await page.mouse.move(n.x + n.width / 2, n.y + n.height / 2);
+    await expect(card).toContainText("Scale");
+    const { x, y } = to((await card.boundingBox())!);
+    await page.mouse.move(x, y, { steps: 5 });
+    await page.waitForTimeout(300);
+    await expect(card).toBeVisible();
+  };
+  const scroller = page.locator(".table-scroll");
+  const top = () => scroller.evaluate((el) => el.scrollTop);
+  await onCard((c) => ({ x: c.x + c.width / 2, y: c.y + c.height / 2 }));
+  expect(await top()).toBe(0);
+  await page.mouse.wheel(0, 120);
+  await expect.poll(top).toBeGreaterThan(0);
+  await expect(card).toHaveCount(0);
+  // Back to the top, once the wheel's scroll (smooth in Chromium) is over.
+  let last = -1;
+  await expect.poll(async () => last === (last = await top())).toBe(true);
+  await scroller.evaluate((el) => (el.scrollTop = 0));
+  await expect.poll(top).toBe(0);
+
+  // The second row's End field, under the card's left end.
+  const end = rows.nth(1).getByLabel("End");
+  const field = (await end.boundingBox())!;
+  await onCard((c) => {
+    expect(field.x + field.width).toBeGreaterThan(c.x + 20);
+    expect(field.y).toBeGreaterThan(c.y);
+    return { x: c.x + 10, y: field.y + field.height / 2 };
+  });
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(end).toBeFocused();
+  await expect(card).toHaveCount(0);
+});
+
 test("departments collapse, shared with the timeline", async ({ page, github: _ }) => {
   const group = (name: string) => page.locator(".group-toggle", { hasText: name });
   await expect(group("ML Platform")).toHaveAttribute("aria-expanded", "false");

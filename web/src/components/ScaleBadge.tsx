@@ -3,7 +3,11 @@
 // share of the department the box takes while it runs. Keyboard focus on
 // the box it's in shows the card too. As WCAG 1.4.13 asks, the pointer can
 // move onto the card without it going, Escape puts it away (and nothing
-// else), and it stays until then or until the pointer or focus leaves.
+// else), and it stays until then or until the pointer or focus leaves. The
+// card itself lets the pointer through (it covers the rows below: their
+// cells, or the next lane's boxes), so where the pointer is is watched
+// instead; a press or the wheel there reaches what's under it, and puts
+// the card away.
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -23,6 +27,7 @@ interface Props {
 
 export function ScaleBadge({ box, departments, className }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
+  const card = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   /** The box it's in has keyboard focus. */
   const [focused, setFocused] = useState(false);
@@ -34,15 +39,36 @@ export function ScaleBadge({ box, departments, className }: Props) {
   const place = () => setAt(ref.current?.getBoundingClientRect() ?? null);
   const open = (hovered || focused) && !away;
 
-  const enter = () => {
+  /** Where the pointer was last seen; null once it's left the window. */
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  /** The pointer is on the number, on the card, or straight between them. */
+  const over = () => {
+    const p = pointer.current;
+    const n = ref.current?.getBoundingClientRect();
+    if (!p || !n) return false;
+    const inside = (r: { left: number; right: number; top: number; bottom: number }) =>
+      p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
+    const c = card.current?.getBoundingClientRect();
+    return inside(n) || (!!c && (inside(c) || inside({ left: n.left, right: n.right, top: Math.min(n.bottom, c.bottom), bottom: Math.max(n.top, c.top) })));
+  };
+  const seen = (e: { clientX: number; clientY: number }) => (pointer.current = { x: e.clientX, y: e.clientY });
+  const stay = () => {
     clearTimeout(leaving.current);
+    leaving.current = undefined;
+  };
+  /** In GRACE_MS, it goes, unless the pointer's back over it by then. */
+  const leave = () => {
+    leaving.current ??= setTimeout(() => {
+      leaving.current = undefined;
+      if (!over()) setHovered(false);
+    }, GRACE_MS);
+  };
+  const enter = (e: { clientX: number; clientY: number }) => {
+    seen(e);
+    stay();
     if (!open) place();
     setHovered(true);
     setAway(false);
-  };
-  const leave = () => {
-    clearTimeout(leaving.current);
-    leaving.current = setTimeout(() => setHovered(false), GRACE_MS);
   };
   useEffect(() => () => clearTimeout(leaving.current), []);
 
@@ -67,7 +93,8 @@ export function ScaleBadge({ box, departments, className }: Props) {
   }, []);
 
   // While it shows: Escape puts it away, and does nothing else; any other key (picking the box up
-  // to move it, say) puts it away too. It follows the number as the page scrolls.
+  // to move it, say), a press or the wheel puts it away too. It follows the number as the page
+  // scrolls. Shown by the pointer, it stays while the pointer's over it, and goes once it's not.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -78,11 +105,35 @@ export function ScaleBadge({ box, departments, className }: Props) {
       }
       setAway(true);
     };
+    const putAway = () => {
+      stay();
+      setHovered(false);
+      setAway(true);
+    };
+    const onMove = (e: PointerEvent) => {
+      seen(e);
+      if (over()) stay();
+      else leave();
+    };
+    // Gone from the window: no move says so.
+    const onOut = (e: PointerEvent) => {
+      if (e.relatedTarget) return;
+      pointer.current = null;
+      leave();
+    };
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("scroll", place, true);
+    window.addEventListener("pointerdown", putAway, true);
+    window.addEventListener("wheel", putAway, { capture: true, passive: true });
+    window.addEventListener("pointermove", onMove, { capture: true, passive: true });
+    window.addEventListener("pointerout", onOut, true);
     return () => {
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("scroll", place, true);
+      window.removeEventListener("pointerdown", putAway, true);
+      window.removeEventListener("wheel", putAway, true);
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerout", onOut, true);
     };
   }, [open]);
 
@@ -102,7 +153,10 @@ export function ScaleBadge({ box, departments, className }: Props) {
         // An empty title keeps the box's own tooltip from covering the popup.
         title=""
         onMouseEnter={enter}
-        onMouseLeave={leave}
+        onMouseLeave={(e) => {
+          seen(e);
+          leave();
+        }}
       >
         {/* Said as "Scale 30" where the number is read (a table cell): a name on a plain <span> isn't. */}
         <span className="sr-only">Scale </span>
@@ -110,7 +164,7 @@ export function ScaleBadge({ box, departments, className }: Props) {
       </span>
       {stats &&
         createPortal(
-          <div className="scale-pop" role="tooltip" style={{ ...style, width: WIDTH }} onMouseEnter={enter} onMouseLeave={leave}>
+          <div ref={card} className="scale-pop" role="tooltip" style={{ ...style, width: WIDTH }}>
             <strong>Scale {stats.scale}</strong>
             <span className="hint">
               {" "}

@@ -669,7 +669,9 @@ when a focused element is removed.
   drawn under the editors, menus and dialogs, so it never hides what has
   focus in them either. A box's scale card shows on hover and while the
   box has keyboard focus; the pointer can move onto it and Escape puts it
-  away (WCAG 1.4.13). Pressing a box or PTO block (to drag it, say)
+  away (WCAG 1.4.13). It covers the lane (or table rows) below, so it lets
+  the pointer through, and where the pointer is is watched instead: a
+  press or the wheel over it reaches what's under it, and puts it away. Pressing a box or PTO block (to drag it, say)
   focuses it without the keyboard's ring or the card, and so does putting
   focus back on it after a drop: browsers draw a ring whenever a script
   moves focus, so it's told by whether a key or a press came last
