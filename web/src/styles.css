@@ -1965,6 +1965,16 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .grow-wrap:focus-within .grow-text {
   visibility: hidden;
 }
+/* High-contrast modes force the field's text to show: the field shows its own two lines, the copy only sizes it. */
+@media (forced-colors: active) {
+  .grow-wrap .grow-text {
+    visibility: hidden;
+  }
+  .grow-wrap:not(:focus-within) textarea.cell-input {
+    color: FieldText;
+    -webkit-text-fill-color: FieldText;
+  }
+}
 .box-table textarea.cell-input {
   font: inherit;
   font-size: 13px;

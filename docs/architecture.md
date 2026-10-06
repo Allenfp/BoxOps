@@ -652,9 +652,11 @@ when a focused element is removed.
   browse mode makes of the departments it doesn't draw; the same for a big
   table and People (over 200 rows), the note in a row being edited that no
   longer matches the search, and People's "+N more" PTO. Printing from a
-  real print dialog (the tests emulate print media). And a finger
-  dragging a box on a real touch screen (iPad Safari, Android Chrome): the
-  tests send touches to Chromium alone.
+  real print dialog (the tests emulate print media). Descriptions and notes
+  in Windows' high-contrast mode (forced colours: the field shows its own
+  two lines there, without the …). And a finger dragging a box on a real
+  touch screen (iPad Safari, Android Chrome): the tests send touches to
+  Chromium alone.
 
 ## Timeline layout
 
