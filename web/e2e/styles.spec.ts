@@ -37,6 +37,28 @@ test("the box editor's selects (FTE, Lane, Type, Flag) are as tall as its text a
   for (const name of ["FTE", "Lane", "Type", "Flag"]) expect(await height(editor.getByLabel(name, { exact: true })), name).toBe(field);
 });
 
+test("the pre-save check lists others' saves in the text column, bullets too, as the token form lists what to check", async ({ page, github }) => {
+  const left = (l: Locator) => l.evaluate((e) => e.getBoundingClientRect().left);
+  await dragDays(page, DAGSTER, 10);
+  github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC v2") }, "Sam Lee", "CDC pipeline: renamed");
+  await save(page);
+  const check = page.locator(".save-dialog[open]");
+  const saves = check.locator(".save-list");
+  await expect(saves).toBeVisible();
+  const lead = await left(check.locator(".lead").first());
+  const [list, item] = [await left(saves), await left(saves.locator("li").first())];
+  expect(list).toBe(lead); // the bullets are in the column, not left of it
+  await check.getByRole("button", { name: "Review changes" }).click();
+  // Signed out, the token form's list.
+  await page.evaluate(() => sessionStorage.clear());
+  await save(page);
+  const help = page.locator(".save-dialog[open] .token-help");
+  await expect(help).toBeVisible();
+  const [text, tokenList, tokenItem] = [await left(help), await left(help.locator("ul")), await left(help.locator("ul li").first())];
+  expect(tokenList).toBe(text);
+  expect(item - list).toBe(tokenItem - tokenList);
+});
+
 test("the Engineers list's names are list items, not the editor's field labels", async ({ page, github: _ }) => {
   await box(page, DAGSTER).click();
   await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ }).click();
