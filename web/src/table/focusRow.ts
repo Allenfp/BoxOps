@@ -7,15 +7,17 @@ export const rowKeyOf = (el: EventTarget | null): string | null =>
   (el instanceof Element && el.closest<HTMLElement>("tr[data-row-key]")?.dataset.rowKey) || null;
 
 /**
- * Scroll `scroller` so `el` isn't under its sticky header, or its sticky
- * title column (`td.col-title`, which stays put while the rest scrolls
- * sideways), or past its edges. WebKit ignores `scroll-padding` when Tab
- * moves focus, and `focus()` centres what it scrolls to, so this is done for
- * every focus in it, by hand. Not for what's in a calendar or the Engineers
- * list (fixed on the screen, over the table).
+ * Scroll `scroller` so `el`, in one of its rows, isn't under its sticky
+ * header, or its sticky title column (`td.col-title`, which stays put while
+ * the rest scrolls sideways), or past its edges. WebKit doesn't scroll what
+ * Tab focuses clear of them, and `focus()` centres what it scrolls to, so
+ * this is done for every focus in a row, by hand. Not for the header's own
+ * buttons (always on screen: scrolling for them would move the table on
+ * each Tab or click), nor what's in a calendar or the Engineers list (fixed
+ * on the screen, over the table).
  */
 export function keepInView(scroller: HTMLElement | null, el: EventTarget | null): void {
-  if (!scroller || !(el instanceof HTMLElement) || el.closest(".calendar, .picker-menu")) return;
+  if (!scroller || !(el instanceof HTMLElement) || !el.closest("tbody tr") || el.closest(".calendar, .picker-menu")) return;
   const view = scroller.getBoundingClientRect();
   const r = el.getBoundingClientRect();
   const headH = scroller.querySelector("thead")?.getBoundingClientRect().height ?? 0;

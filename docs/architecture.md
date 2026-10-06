@@ -767,11 +767,14 @@ when a focused element is removed.
   blur in WebKit and Firefox, so `table/KeepFocus.tsx` sees where focus was
   just before each change and, if it's lost, puts it back on the same
   control in the same row, else the same column in the next row of the
-  department (or the one before, or its heading). What has focus is
-  scrolled clear of the sticky header and title column by hand (WebKit
-  ignores `scroll-padding` when Tab moves focus). Add box, Add PTO and Add
-  engineer clear the search (and dates), open the department, and scroll to
-  the new row, which takes focus.
+  department (or the one before, or its heading). What has focus in a row
+  is scrolled clear of the sticky header and title column by hand
+  (`table/focusRow.ts`: WebKit doesn't when Tab moves focus); the header's
+  own sort buttons are always on screen, and the scroller has no
+  `scroll-padding`, which would have them scroll the table whenever one is
+  focused or clicked. Add box, Add PTO and Add engineer clear the search
+  (and dates), open the department, and scroll to the new row, which takes
+  focus.
 - **Printing** (`table/PrintTable.tsx`, `table/usePrinting.ts`). On paper the
   table and People are a plain table of every row as shown (search, dates,
   sort, collapsed departments), drawn as printing starts; the interactive

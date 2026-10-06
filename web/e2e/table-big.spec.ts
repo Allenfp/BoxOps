@@ -22,6 +22,8 @@ const titleOf = (row: Locator) => row.getByLabel("Title").inputValue();
 
 /** Scroll the table this fraction of the way down. */
 const scrollTo = (page: Page, y: number) => scroller(page).evaluate((el, y) => (el.scrollTop = (el.scrollHeight - el.clientHeight) * y), y);
+/** A few frames on: the rows scrolled to are drawn and measured. */
+const settled = (page: Page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
 
 /** The rows on screen, below the sticky header: their aria-rowindex and first cell's text or field. */
 const onScreen = (page: Page) =>
@@ -260,6 +262,26 @@ test("deleting a row from the keyboard puts focus on the next row's Delete", asy
   await rows.first().locator(".row-delete").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator(".row-delete:focus")).toHaveAttribute("aria-label", `Delete ${next}`);
+});
+
+test("the header's sort buttons, focused or tabbed to, leave the table scrolled where it was", async ({ page, github: _, browserName }) => {
+  await scrollTo(page, 0.4);
+  await settled(page);
+  const top = () => scroller(page).evaluate((el) => el.scrollTop);
+  const at = await top();
+  for (const name of ["Title", "Department / lane", "Start", "End", "FTE"]) {
+    await page.getByRole("button", { name: new RegExp(`^${name}`) }).focus();
+    expect(await top(), name).toBe(at);
+  }
+  // (WebKit's Tab skips buttons, as Safari's does by default.)
+  if (browserName !== "webkit") {
+    await page.getByRole("button", { name: /^Title/ }).focus();
+    for (const name of ["Department / lane", "Start", "End"]) {
+      await page.keyboard.press("Tab");
+      await expect(page.locator(":focus")).toHaveText(new RegExp(`^${name}`));
+      expect(await top(), name).toBe(at);
+    }
+  }
 });
 
 test("printing gives every row as shown, and leaves focus where it was", async ({ page, github: _, browserName }) => {

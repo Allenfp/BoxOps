@@ -1383,11 +1383,14 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .table-toolbar .primary {
   margin-left: auto;
 }
+/*
+ * No scroll-padding for the sticky header: it would have the header's own
+ * buttons, always in it, scroll the table whenever they're focused. What's
+ * focused in a row is scrolled clear of it by hand (table/focusRow.ts).
+ */
 .table-scroll {
   flex: 1;
   overflow: auto;
-  /* Below the sticky header: what focus or a script scrolls to (and focusRow.ts's keepInView, by hand). */
-  scroll-padding-top: 34px;
 }
 /* Drawing only the rows near the screen, the table keeps the view in place itself (useWindowedRows.ts). */
 .table-scroll.windowed {
