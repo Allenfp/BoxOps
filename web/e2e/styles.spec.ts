@@ -53,6 +53,28 @@ test("the Engineers list isn't cut off by the box editor's scrolling fields: the
   }
 });
 
+test("a date's calendar open in a table cell looks as it does in the box editor, not like the table's cells", async ({ page, github: _ }) => {
+  const calendar = page.getByRole("dialog", { name: "Choose date" });
+  /** How the calendar's weekday headings and a Monday (the first cell of a row) look. */
+  const looks = async () => {
+    await expect(calendar).toBeVisible();
+    const props = ["position", "height", "background-color", "border-left-width", "border-bottom-width", "vertical-align"];
+    const monday = calendar.locator("tbody tr").nth(1).locator("td").first();
+    return { heading: await css(calendar.locator("th").first(), ...props), monday: await css(monday, ...props) };
+  };
+  await box(page, DAGSTER).click();
+  await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: "Choose date" }).first().click();
+  const editor = await looks();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  // The same box's start, so the same month and the same day picked.
+  const dagster = page.locator("tbody tr").filter({ has: page.locator('input[aria-label="Title"][value="Dagster 2.x upgrade"]') });
+  await dagster.getByRole("textbox", { name: "Start" }).focus();
+  await page.keyboard.press("Alt+ArrowDown");
+  expect(await looks()).toEqual(editor);
+});
+
 test("team settings: colour swatches fill their 28px button, and names read as fields, not labels", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Team settings…" }).click();

@@ -61,7 +61,11 @@
   min-width: 2298px;
   font-size: 13px;
 }
-.box-table th {
+/*
+ * The table's own cells, here and below: not those of a date's calendar open in one (a table too, and in a
+ * cell), which the calendar styles itself (editors.css). :where() keeps the specificity as it was.
+ */
+.box-table th:where(:not(.calendar *)) {
   position: sticky;
   top: 0;
   z-index: var(--z-raised);
@@ -94,15 +98,15 @@
   width: 9px;
   color: var(--accent);
 }
-.box-table :where(td) {
+.box-table :where(td:not(.calendar *)) {
   border-bottom: 1px solid var(--grid);
   padding: 3px 4px;
   vertical-align: middle;
 }
-.box-table tbody tr td:first-child {
+.box-table tbody tr td:first-child:where(:not(.calendar *)) {
   border-left: 4px solid var(--dept, transparent);
 }
-.box-table tbody tr:not(.spacer, .add-dept-row):hover td {
+.box-table tbody tr:not(.spacer, .add-dept-row):hover td:where(:not(.calendar *)) {
   background: color-mix(in srgb, var(--surface-2) 60%, transparent);
 }
 /* Rows a big table doesn't draw: as tall as they'd be, ruled like box rows, in their department's colour. */
@@ -126,16 +130,16 @@
   color: var(--warn);
   white-space: normal;
 }
-.box-table tr.updated td {
+.box-table tr.updated td:where(:not(.calendar *)) {
   background: color-mix(in srgb, var(--updated) 9%, var(--surface));
 }
-.box-table tr.updated td:first-child {
+.box-table tr.updated td:first-child:where(:not(.calendar *)) {
   border-left-color: var(--updated);
 }
-.box-table tr.conflict td {
+.box-table tr.conflict td:where(:not(.calendar *)) {
   background: color-mix(in srgb, var(--warn) 9%, var(--surface));
 }
-.box-table tr.conflict td:first-child {
+.box-table tr.conflict td:first-child:where(:not(.calendar *)) {
   border-left-color: var(--warn);
 }
 
@@ -473,7 +477,7 @@
   border-color: var(--accent);
   background: var(--surface);
 }
-.box-table tbody tr:not(.group-row) td {
+.box-table tbody tr:not(.group-row) td:where(:not(.calendar *)) {
   vertical-align: top;
 }
 .box-table tbody tr:not(.group-row) td.col-days,
@@ -583,7 +587,7 @@
 .add-pto-row td {
   padding: 2px 8px 6px;
 }
-.density-compact .box-table td {
+.density-compact .box-table td:where(:not(.calendar *)) {
   padding-top: 1px;
   padding-bottom: 1px;
 }
