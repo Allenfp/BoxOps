@@ -9,7 +9,12 @@ import { defineConfig, devices } from "@playwright/test";
 const viewport = { width: 1440, height: 900 };
 const webkit = { ...devices["Desktop Safari"], viewport };
 
-export default defineConfig({
+/** e2e/helpers.ts's options. */
+interface Options {
+  cull: boolean | undefined;
+}
+
+export default defineConfig<Options>({
   testDir: "e2e",
   // Timing a big roadmap is `npm run perf` (playwright.perf.config.ts).
   testIgnore: "perf.spec.ts",
@@ -34,6 +39,14 @@ export default defineConfig({
       grepInvert: /private repository/,
       use: { ...webkit, timezoneId },
     })),
+    // The timeline's specs again with it drawing only what's near the screen, as it does for a
+    // big roadmap (the fixture's is small); but for tests that count every box it has.
+    {
+      name: "webkit culled",
+      testMatch: /\/(timeline|timeline-keys|drag|move|departments|pto)\.spec\.ts$/,
+      grepInvert: /@counts-boxes/,
+      use: { ...webkit, timezoneId: "UTC", cull: true },
+    },
     { name: "chromium", use: { ...devices["Desktop Chrome"], viewport, timezoneId: "UTC" } },
     { name: "firefox", use: { ...devices["Desktop Firefox"], viewport, timezoneId: "UTC" } },
   ],

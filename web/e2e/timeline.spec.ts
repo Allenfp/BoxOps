@@ -1,6 +1,6 @@
 import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, pollNow, save, test, toolbar } from "./helpers";
 
-test("shows departments, lanes, boxes and today", async ({ page, github: _ }) => {
+test("shows departments, lanes, boxes and today", { tag: "@counts-boxes" }, async ({ page, github: _ }) => {
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
   await expect(page.locator(".dept-label")).toHaveText([/Data Engineering/, /Analytics/, /ML Platform/]);
   // Today is 2026-10-03 wherever the browser is (each project has its own time zone).

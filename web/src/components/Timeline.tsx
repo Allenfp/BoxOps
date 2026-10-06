@@ -953,7 +953,7 @@ export function Timeline(props: Props) {
     [],
   );
 
-  const culling = boxes.length + (display.showPto ? entries.length : 0) > DRAW_ALL_UP_TO;
+  const culling = window.__boxopsTest?.cull ?? boxes.length + (display.showPto ? entries.length : 0) > DRAW_ALL_UP_TO;
   // The days drawn; none until the timeline's been measured.
   const [from, to] = !culling ? [-Infinity, Infinity] : area ? [scale.dayAt(area.left), scale.dayAt(area.right)] : [Infinity, -Infinity];
 

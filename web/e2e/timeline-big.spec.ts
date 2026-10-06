@@ -1,0 +1,286 @@
+import AxeBuilder from "@axe-core/playwright";
+import type { Page } from "@playwright/test";
+import { generateRoadmap } from "../scripts/gen-roadmap";
+import type { FakeGitHub } from "./fake-github";
+import { expect, openTab, test, toolbar } from "./helpers";
+
+// A big roadmap's timeline draws only what's near the screen (Timeline.tsx,
+// timeline/rows.ts), and nothing on screen is ever missing from it: each
+// check is made against the same roadmap drawn whole, in a second tab. 600
+// boxes and 360 PTO blocks in 12 departments, one box running nearly two
+// years, and two boxes ten months apart in the first department's last
+// lane.
+
+const LONG = "bx-0001-long-haul";
+const [JAN, NOV] = ["bx-0002-january", "bx-0003-november"];
+const boxYaml = (id: string, code: string, lane: string, start: string, end: string, fte = 1) =>
+  `id: ${id}\ncode: ${code}\ntitle: ${id.slice(8)}\nlane: ${lane}\nstart: ${start}\nend: ${end}\ntype: project\nfte: ${fte}\n`;
+const FILES = {
+  ...generateRoadmap(600, "2026-10-03"),
+  [`boxes/${LONG}.yaml`]: boxYaml(LONG, "QQQ", "dept-01-1", "2026-01-05", "2027-11-26", 0.5),
+  [`boxes/${JAN}.yaml`]: boxYaml(JAN, "QQJ", "dept-01-8", "2026-01-05", "2026-01-16"),
+  [`boxes/${NOV}.yaml`]: boxYaml(NOV, "QQN", "dept-01-8", "2026-11-02", "2026-11-13"),
+};
+test.use({ files: FILES });
+
+const cell = (page: Page, key: string) => page.locator(`[data-cell="${key}"]`);
+const dept = (n: number) => `dept-${String(n).padStart(2, "0")}`;
+
+/** Scroll the timeline to these fractions of the way across and down. */
+const scrollTo = (page: Page, x: number, y: number) =>
+  page.locator(".timeline").evaluate((el, [x, y]) => el.scrollTo((el.scrollWidth - el.clientWidth) * x, (el.scrollHeight - el.clientHeight) * y), [x, y]);
+
+/** The cells (`data-cell`) on screen: in the timeline's view, below its header. */
+const onScreen = (page: Page) =>
+  page.locator(".timeline").evaluate((el) => {
+    const view = el.getBoundingClientRect();
+    const top = el.querySelector(".tl-head")!.getBoundingClientRect().bottom;
+    return [...el.querySelectorAll<HTMLElement>("[data-cell]")]
+      .filter((c) => {
+        const r = c.getBoundingClientRect();
+        return r.width > 0 && r.right > view.left && r.left < view.left + el.clientWidth && r.bottom > top && r.top < view.top + el.clientHeight;
+      })
+      .map((c) => c.dataset.cell!)
+      .sort();
+  });
+
+/** Each department's room, top to bottom, drawn or not. */
+const heights = (page: Page) => page.locator("[data-reorder-id]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+
+/** The same roadmap in another tab, drawn whole, however big. */
+function wholeTab(page: Page, github: FakeGitHub): Promise<Page> {
+  // Before it opens the app (requests to the page are made in order).
+  page.context().once("page", (tab) => void tab.addInitScript(() => (window.__boxopsTest = { cull: false })));
+  return openTab(page.context(), github);
+}
+
+test("only what's near the screen is drawn; the grid counts every row, and what isn't drawn takes its room", async ({ page, github }) => {
+  const whole = await wholeTab(page, github);
+  const all = await whole.locator(".box").count();
+  expect(all).toBe(603);
+  const drawn = await page.locator(".box").count();
+  expect(drawn).toBeGreaterThan(10);
+  expect(drawn).toBeLessThan(all / 4);
+  await expect(page.locator(".dept-away").first()).toHaveAttribute("aria-hidden", "true");
+  expect(await heights(page)).toEqual(await heights(whole));
+
+  // Every row, drawn or not, counts; each one drawn says which it is.
+  const grid = page.getByRole("grid", { name: "Timeline" });
+  const rows = await whole.getByRole("grid", { name: "Timeline" }).getByRole("row").count();
+  await expect(grid).toHaveAttribute("aria-rowcount", String(rows));
+  const indexes = () => grid.getByRole("row").evaluateAll((els) => els.map((r) => Number(r.getAttribute("aria-rowindex"))));
+  expect((await indexes())[0]).toBe(1);
+  await scrollTo(page, 0, 1);
+  await expect.poll(async () => (await indexes()).at(-1)).toBe(rows);
+  expect(await indexes()).toEqual((await indexes()).toSorted((a, b) => a - b));
+  // Rows the whole timeline draws are drawn here with the same numbers, and the same names.
+  const named = (p: Page) =>
+    p.getByRole("grid", { name: "Timeline" }).getByRole("row").evaluateAll((els) => els.map((r, i) => `${r.getAttribute("aria-rowindex") ?? i + 1} ${r.getAttribute("aria-label")}`));
+  const everyRow = await named(whole);
+  for (const row of await named(page)) expect(everyRow).toContain(row);
+  expect(await heights(page)).toEqual(await heights(whole));
+
+  const axe = await new AxeBuilder({ page }).include(".timeline").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"]).analyze();
+  expect(axe.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+});
+
+test("nothing on screen is missing, wherever it's scrolled, at every zoom, and after Today", async ({ page, github }) => {
+  const whole = await wholeTab(page, github);
+  for (const zoom of ["Months", "Weeks", "Quarters"]) {
+    for (const p of [page, whole]) await p.getByRole("button", { name: zoom, exact: true }).click();
+    for (const [x, y] of [[0, 0], [0.5, 0.5], [1, 1], [0.25, 0.8], [0.9, 0.1]]) {
+      for (const p of [page, whole]) await scrollTo(p, x, y);
+      const expected = await onScreen(whole);
+      expect(expected.length).toBeGreaterThan(0);
+      await expect.poll(() => onScreen(page), { message: `${zoom} at ${x}, ${y}` }).toEqual(expected);
+    }
+  }
+  // The long box, though it starts and ends far off screen, at weeks zoom.
+  for (const p of [page, whole]) {
+    await p.getByRole("button", { name: "Weeks", exact: true }).click();
+    await scrollTo(p, 0.5, 0);
+  }
+  await expect.poll(() => onScreen(whole)).toContain(`box:${LONG}`);
+  await expect.poll(() => onScreen(page)).toContain(`box:${LONG}`);
+
+  // Today, from the far end: the timeline scrolls back, drawing what it comes to.
+  for (const p of [page, whole]) {
+    await scrollTo(p, 1, 1);
+    await p.getByRole("button", { name: "Today" }).click();
+  }
+  const settled = (p: Page) => p.locator(".timeline").evaluate((el) => `${el.scrollLeft},${el.scrollTop}`);
+  await expect.poll(async () => (await settled(page)) === (await settled(whole)) && (await settled(page))).not.toBe(false);
+  await expect.poll(() => onScreen(page)).toEqual(await onScreen(whole));
+  await expect(page.locator(".today-line")).toBeInViewport();
+
+  // A bigger window: what's drawn follows its size.
+  for (const p of [page, whole]) {
+    await p.setViewportSize({ width: 2400, height: 1500 });
+    await scrollTo(p, 0.4, 0.6);
+  }
+  await expect.poll(() => onScreen(page)).toEqual(await onScreen(whole));
+});
+
+test("focus scrolled far away stays, drawn; the keys go on to cells that weren't drawn, and show them", async ({ page, github: _ }) => {
+  const focused = page.locator('[role="grid"] :focus');
+  // The last box in a lane's row, far in the future: drawn, and shown.
+  await cell(page, `lane:${dept(1)}-1`).focus();
+  await page.keyboard.press("End");
+  await expect(focused).toHaveAttribute("data-cell", /^box:/);
+  await expect(focused).toBeInViewport();
+  const last = (await focused.getAttribute("data-cell"))!;
+  // Scrolled far away, it stays, with focus.
+  await scrollTo(page, 0, 1);
+  await expect.poll(() => onScreen(page)).not.toContain(last);
+  await expect(cell(page, last)).toBeFocused();
+  // On along its row: the box before it, drawn and shown; then the row's first cell, its lane's name.
+  await page.keyboard.press("ArrowLeft");
+  await expect(focused).toHaveAttribute("data-cell", /^box:/);
+  await expect(focused).not.toHaveAttribute("data-cell", last);
+  await expect(focused).toBeInViewport();
+  await page.keyboard.press("Home");
+  await expect(cell(page, `lane:${dept(1)}-1`)).toBeFocused();
+  await expect(cell(page, `lane:${dept(1)}-1`)).toBeInViewport();
+
+  // Page Down through every department, each heading drawn and shown as focus comes to it.
+  await page.keyboard.press("ControlOrMeta+ArrowUp");
+  await expect(cell(page, `dept:${dept(1)}`)).toBeFocused();
+  for (let n = 2; n <= 12; n++) {
+    await page.keyboard.press("PageDown");
+    await expect(cell(page, `dept:${dept(n)}`)).toBeFocused();
+    await expect(cell(page, `dept:${dept(n)}`)).toBeInViewport();
+  }
+  // The very last cell: the last department's latest PTO block. And back to the first.
+  await page.keyboard.press("ControlOrMeta+ArrowDown");
+  await expect(focused).toHaveAttribute("data-cell", /^pto:/);
+  await expect(focused).toBeInViewport();
+  await page.keyboard.press("ControlOrMeta+ArrowUp");
+  await expect(cell(page, `dept:${dept(1)}`)).toBeFocused();
+  await expect(cell(page, `dept:${dept(1)}`)).toBeInViewport();
+
+  // Down from a box in the first lane, a row at a time: through the lanes, the PTO row and the
+  // next heading (and the extra area, if there is one) into the next department's lanes.
+  await cell(page, `lane:${dept(1)}-1`).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(focused).toHaveAttribute("data-cell", /^box:/);
+  for (let i = 0; i < 11; i++) await page.keyboard.press("ArrowDown");
+  await expect(focused).toBeInViewport();
+  expect(await focused.evaluate((el) => el.closest("[data-dept-id]")?.getAttribute("data-dept-id"))).toBe(dept(2));
+});
+
+test("a box moved by keyboard stays drawn and on screen, wherever it goes", async ({ page, github: _ }) => {
+  await cell(page, `lane:${dept(1)}-1`).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  const key = (await page.locator('[role="grid"] :focus').getAttribute("data-cell"))!;
+  expect(key).toMatch(/^box:/);
+  const moved = cell(page, key);
+  const deptOf = () => moved.evaluate((el) => el.closest("[data-dept-id]")?.getAttribute("data-dept-id"));
+  await page.keyboard.press("Space");
+  // Half a year on, a week at a time.
+  for (let i = 0; i < 26; i++) await page.keyboard.press("Shift+ArrowRight");
+  await expect(moved).toBeFocused();
+  await expect(moved).toBeInViewport();
+  // Down through the lanes into the next department (its own lane is one of the first seven).
+  for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowDown");
+  await expect(moved).toBeInViewport();
+  expect(await deptOf()).toBe(dept(2));
+  await page.keyboard.press("Escape");
+  await expect(moved).toBeFocused();
+  await expect(moved).toBeInViewport();
+  expect(await deptOf()).toBe(dept(1));
+});
+
+test("collapsed departments are a row each; as boxes, those on screen are drawn", async ({ page, github }) => {
+  const whole = await wholeTab(page, github);
+  const grid = page.getByRole("grid", { name: "Timeline" });
+  for (const p of [page, whole]) await p.getByRole("button", { name: "Collapse all" }).click();
+  await expect(grid).toHaveAttribute("aria-rowcount", "12");
+  await expect(grid.getByRole("row")).toHaveCount(12);
+  await expect(page.locator(".dept-away")).toHaveCount(0);
+  await expect(page.locator(".use-chart")).toHaveCount(12);
+
+  // Collapsed departments showing their boxes: only those near the screen are drawn.
+  await page.evaluate(() => localStorage.setItem("boxops-prefs", JSON.stringify({ ...JSON.parse(localStorage.getItem("boxops-prefs")!), collapsedView: "boxes" })));
+  for (const p of [page, whole]) {
+    await p.reload();
+    await expect(p.locator(".box.compact").first()).toBeVisible();
+  }
+  expect(await page.locator(".box.compact").count()).toBeLessThan((await whole.locator(".box.compact").count()) / 2);
+  for (const [x, y] of [[0, 0], [0.6, 0], [1, 1]]) {
+    for (const p of [page, whole]) await scrollTo(p, x, y);
+    await expect.poll(() => onScreen(page)).toEqual(await onScreen(whole));
+  }
+
+  // One expanded again, far down: drawn whole once it's on screen.
+  for (const p of [page, whole]) {
+    await cell(p, `dept:${dept(12)}`).click();
+    await scrollTo(p, 0, 1);
+  }
+  await expect.poll(() => onScreen(page)).toEqual(await onScreen(whole));
+});
+
+test("the box being dragged is drawn all the way as the timeline scrolls far under it, and lands where it's let go", async ({ page, github: _ }) => {
+  const timeline = page.locator(".timeline");
+  const view = (await timeline.boundingBox())!;
+  // A box of the first department on screen, pressed clear of the labels.
+  const key = await timeline.evaluate((el, id) => {
+    const left = el.getBoundingClientRect().left + 300;
+    return [...el.querySelectorAll<HTMLElement>(`[data-dept-id="${id}"] .lane-track .box`)].find((b) => b.getBoundingClientRect().right > left + 40)?.dataset.cell;
+  }, dept(1));
+  const moved = cell(page, key!);
+  const was = Number(await moved.getAttribute("data-start"));
+  const b = (await moved.boundingBox())!;
+  await page.mouse.move(Math.max(b.x, view.x + 300) + 20, b.y + b.height / 2);
+  await page.mouse.down();
+  // Into the bottom right corner, and held there: the timeline scrolls down and on in time,
+  // through departments and days that weren't drawn, carrying the box.
+  await page.mouse.move(view.x + view.width - 15, view.y + view.height - 15, { steps: 10 });
+  for (const depth of [1, 2, 3]) {
+    await expect.poll(() => timeline.evaluate((el) => el.scrollTop), { timeout: 15_000 }).toBeGreaterThan(depth * view.height);
+    await expect(moved).toHaveCount(1);
+    await expect(moved).toBeInViewport();
+  }
+  await page.mouse.move(view.x + view.width / 2, view.y + view.height / 2, { steps: 2 });
+  await page.mouse.up();
+  // Dropped in a department far below, later: one change, and it keeps focus.
+  const now = await moved.evaluate((el) => el.closest("[data-dept-id]")?.getAttribute("data-dept-id"));
+  expect(Number(now?.slice(5))).toBeGreaterThan(3);
+  expect(Number(await moved.getAttribute("data-start"))).toBeGreaterThan(was);
+  await expect(moved).toBeFocused();
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+});
+
+test("a box open in its editor stays drawn, scrolled far away; deleted, focus goes to the box beside it, drawn wherever it is", async ({ page, github: _ }) => {
+  const focused = page.locator('[role="grid"] :focus');
+  await cell(page, `box:${NOV}`).click();
+  const editor = page.getByRole("dialog", { name: "Edit november" });
+  await expect(editor).toBeVisible();
+  await scrollTo(page, 1, 1);
+  await expect.poll(() => onScreen(page)).not.toContain(`box:${NOV}`);
+  await expect(cell(page, `box:${NOV}`)).toHaveCount(1);
+  // Closed, focus is back on it, shown.
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await expect(cell(page, `box:${NOV}`)).toBeFocused();
+  await expect(cell(page, `box:${NOV}`)).toBeInViewport();
+
+  // At weeks zoom, the January box, months before the next in its row, which isn't drawn: from
+  // its lane's name at the very start, the box nearest the days on screen.
+  await page.getByRole("button", { name: "Weeks", exact: true }).click();
+  await scrollTo(page, 0, 0);
+  await cell(page, `lane:${dept(1)}-8`).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(cell(page, `box:${JAN}`)).toBeFocused();
+  await expect(cell(page, `box:${JAN}`)).toBeInViewport();
+  const drawn = await page.locator("[data-cell]").evaluateAll((els) => els.map((el) => el.getAttribute("data-cell")));
+  await page.keyboard.press("Delete");
+  await expect(cell(page, `box:${JAN}`)).toHaveCount(0);
+  await expect(focused).toHaveAttribute("data-cell", /^box:/);
+  expect(drawn).not.toContain(await focused.getAttribute("data-cell"));
+  await expect(focused).toBeInViewport();
+  expect(await focused.evaluate((el) => el.closest("[data-row]")?.getAttribute("data-row"))).toBe(`lane:${dept(1)}-8`);
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+});

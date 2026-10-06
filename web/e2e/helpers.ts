@@ -32,9 +32,12 @@ export const boxFile = (id: string) => `boxes/${id}.yaml`;
  * open. `visibility` makes the repository public (the default) or private;
  * `files` are the roadmap's, in place of the fixture's. `fakeClock: false`
  * leaves the browser's own clock, and with it the navigation timing that
- * Playwright's fake one hides (it says no page is a reload). Every page of
- * every test, tabs it opens later included, is watched: an uncaught error or
- * a Content-Security-Policy violation (`csp` lists them) fails the test.
+ * Playwright's fake one hides (it says no page is a reload). `cull: true`
+ * has the timeline draw only what's near the screen, as it does for a big
+ * roadmap, whatever the roadmap's size (false: all of it, always). Every
+ * page of every test, tabs it opens later included, is watched: an uncaught
+ * error or a Content-Security-Policy violation (`csp` lists them) fails the
+ * test.
  */
 export const test = base.extend<{
   github: FakeGitHub;
@@ -42,6 +45,7 @@ export const test = base.extend<{
   visibility: "public" | "private";
   files: Record<string, string> | undefined;
   fakeClock: boolean;
+  cull: boolean | undefined;
   watched: { errors: string[]; csp: string[] };
   csp: string[];
 }>({
@@ -49,6 +53,7 @@ export const test = base.extend<{
   visibility: ["public", { option: true }],
   files: [undefined, { option: true }],
   fakeClock: [true, { option: true }],
+  cull: [undefined, { option: true }],
   watched: [
     async ({ context }, use) => {
       const watched = { errors: [] as string[], csp: [] as string[] };
@@ -68,9 +73,10 @@ export const test = base.extend<{
     { auto: true },
   ],
   csp: async ({ watched }, use) => use(watched.csp),
-  github: async ({ page, signedIn, visibility, files, fakeClock, timezoneId }, use) => {
+  github: async ({ page, signedIn, visibility, files, fakeClock, cull, timezoneId }, use) => {
     const github = await FakeGitHub.create(files, { visibility });
     if (fakeClock) await page.clock.install({ time: morningIn(timezoneId) });
+    if (cull !== undefined) await page.context().addInitScript((c) => (window.__boxopsTest = { ...window.__boxopsTest, cull: c }), cull);
     await page.context().addInitScript(countSiteFetches);
     await page.context().addInitScript(recordAnnouncements);
     await github.install(page);

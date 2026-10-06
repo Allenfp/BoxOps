@@ -279,7 +279,7 @@ test("N or a lane's + adds a box there, after the focused box or near today; foc
   await expect.poll(() => heard(page)).toContain("Added PTO in Analytics, 2026-10-05 to 2026-10-09.");
 });
 
-test("Delete deletes the focused box or PTO block, once however long it's held, and says how to undo it", async ({ page, github }) => {
+test("Delete deletes the focused box or PTO block, once however long it's held, and says how to undo it", { tag: "@counts-boxes" }, async ({ page, github }) => {
   // Data Engineering / FTE 2 holds Dagster then CDC: deleting Dagster puts focus on CDC.
   await box(page, DAGSTER).focus();
   await page.keyboard.press("Delete");
@@ -334,7 +334,7 @@ test("Delete on the only box in a department's extra area keeps focus in that de
 });
 
 test.describe("a branch preview", () => {
-  test("can be looked around, and what would change something says it can't", async ({ page, github }) => {
+  test("can be looked around, and what would change something says it can't", { tag: "@counts-boxes" }, async ({ page, github }) => {
     const main = github.head;
     github.branches.feature = github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline v2") });
     github.head = main;
