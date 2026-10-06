@@ -245,7 +245,9 @@ describe("buildBundle locally", () => {
     expect((await buildBundle({ repoDir: r.dir, app: APP, env: {}, warn: () => {} })).source.repo).toBe("planning/roadmap");
   });
 
-  it("caps the history at 50 commits", async () => {
+  // 52 git processes, one after another: about 2 seconds on a quiet machine, but more than vitest's
+  // 5 seconds with the browser tests running alongside.
+  it("caps the history at 50 commits", { timeout: 30_000 }, async () => {
     const { repo: r, second } = repo();
     // 52 more commits of the same tree, quickly.
     let head = second;
