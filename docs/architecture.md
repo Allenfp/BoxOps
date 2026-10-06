@@ -488,7 +488,9 @@ against data the new code wrote.
   toolbar has a row and wraps. The box and PTO editors are as wide as the
   window when it's narrower than they are, and menus are moved and cut
   short to stay inside it (WCAG 1.4.10; the timeline and the tables are
-  two-dimensional, and scroll both ways).
+  two-dimensional, and scroll both ways). Only they scroll, never the page
+  around them (the tables' scroller is positioned, so what's hidden in its
+  cells for screen readers is placed inside it).
 - **Title.** `document.title` follows the team title in `settings.yaml`
   (plus the branch for a preview); `index.html` says "BoxOps" until then.
 - **Errors.** An error boundary around the app shows a recovery screen with
@@ -912,8 +914,9 @@ when a focused element is removed.
   are given); `e2e/styles.spec.ts` checks the stylesheet from computed
   styles and layout rather than screenshots (fields and lists styled as
   their own class says, not as a broader rule would; Windows' contrast
-  themes, emulated in Chromium; less motion; a long title at 1280 px and
-  everything at 320 px; touch screens; target sizes), and the unit test
+  themes, emulated in Chromium; less motion; a long title at 1280 px,
+  everything at 320 px, and the page itself never scrolling, in any view;
+  touch screens; target sizes), and the unit test
   `src/styles/contrast.test.ts` every colour pair; `e2e/keyboard.spec.ts`
   checks where focus goes and what keys do, `e2e/timeline-keys.spec.ts`
   and `e2e/move.spec.ts` the timeline's keyboard grid and moves, and
