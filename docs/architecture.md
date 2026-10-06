@@ -690,8 +690,9 @@ when a focused element is removed.
   half a screen of the days on screen, measured as the timeline scrolls or
   changes size, in steps of half a screen, and drawn before the frame is
   painted. What has focus, what's open in an editor, what's being dragged or
-  moved and a cell the app asks for (to focus it) are drawn wherever they
-  are. At 2,000 boxes the timeline first shows about 70 of them.
+  moved and a cell the app asks for (to focus it; until the timeline next
+  scrolls) are drawn wherever they are. At 2,000 boxes the timeline first
+  shows about 70 of them.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes, which says over capacity
@@ -744,7 +745,9 @@ when a focused element is removed.
   roadmap's size (`cull`, a test option), skipping only the checks that
   count every box; `e2e/timeline-big.spec.ts` checks a 600-box
   roadmap against itself drawn whole: nothing on screen missing at any
-  scroll or zoom, focus and moves kept drawn, the grid's rows counted.
+  scroll or zoom, focus and moves kept drawn, what the app focuses or shows
+  (from the warnings, from People, after an editor's Delete) drawn, the
+  grid's rows counted.
   WebKit's Tab skips buttons, as Safari's does by default, so those tests
   focus a control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright

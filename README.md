@@ -23,7 +23,7 @@ straight to `main`, and the site updates within a minute.
   where engineers' time off shows as grey blocks: double-click to add, drag to
   move, click to edit. A big roadmap (over 300 boxes and PTO blocks) draws
   only the part of the timeline near the screen, so the browser's Find
-  (⌘F) sees only that; the Table's search finds anything.
+  (⌘F or Ctrl+F) sees only that; the Table's search finds anything.
 - **Table.** Every box as an editable row (dates, FTE, engineers, flag,
   links, description) plus its **Scale** (FTE × working days, also shown on each
   timeline box), grouped by department, with search, sorting, a date range
