@@ -138,6 +138,23 @@ test("a keyboard move's code that hasn't come 4 seconds after Space: the keys ar
   await expect(toolbar(page)).toContainText("No changes");
 });
 
+test("Tab before a keyboard move's code is here goes on, as it does mid-move: the box is moved once it's here, and dropped", async ({
+  page,
+  github: _,
+}) => {
+  const release = await holdBack(page, "keyMove");
+  await page.reload();
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Tab");
+  await expect(box(page, DAGSTER)).not.toBeFocused();
+  release();
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
+  await expect(page.locator(".dragging")).toHaveCount(0);
+});
+
 test("a press before a keyboard move's code is here leaves the box where it is", async ({ page, github: _ }) => {
   const release = await holdBack(page, "keyMove");
   await page.reload();

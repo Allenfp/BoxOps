@@ -756,15 +756,22 @@ export function Timeline(props: Props) {
   /**
    * Space on a box or PTO block (`cell`): pick it up. Before the move's code is here, it's picked
    * up once it is (if focus is still on it, nothing was pressed meanwhile, and it came within
-   * MOVE_CODE_WAIT_MS), and the keys pressed in between move it then.
+   * MOVE_CODE_WAIT_MS), and the keys pressed in between move it then. Tab meanwhile goes on, as it
+   * does mid-move: the keys before it move it once its code is here, and it's dropped there.
    */
   const pickUp = (cell: HTMLElement, kind: string, id: string) => {
     if (readOnly) return say(readOnlyWhy);
     if (endDrag.current || move.current || waiting.current) return;
     if (moveCode) return moveCode.pickUp(host, kind, id);
     const keys: KeyboardEvent[] = (waiting.current = []);
+    let tabbed = false;
     const hold = (e: KeyboardEvent) => {
       if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
+      if (e.key === "Tab") {
+        tabbed = true;
+        window.removeEventListener("keydown", hold, true);
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       keys.push(e);
@@ -786,11 +793,12 @@ export function Timeline(props: Props) {
       (code) => {
         const still = waiting.current === keys;
         stop();
-        if (!still || document.activeElement !== cell || endDrag.current || latest.current.props.readOnly) return;
+        if (!still || (!tabbed && document.activeElement !== cell) || endDrag.current || latest.current.props.readOnly) return;
         // Drawn now, and so listening for the move's keys (the keyMoving effect) before any more come:
         // a key pressed before React's next render would otherwise reach neither that nor onGridKey.
         flushSync(() => code.pickUp(host, kind, id));
         for (const e of keys) if (move.current) code.onMoveKey(host, e, () => flushSync(() => code.drop(host)));
+        if (tabbed) code.drop(host);
       },
       () => {
         stop();

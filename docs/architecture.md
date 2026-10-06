@@ -487,8 +487,9 @@ against data the new code wrote.
   without a token); a keyboard move's code once the timeline has focus (a
   box picked up before it's here is picked up once it is, if focus is still
   on it, nothing was pressed and it came within 4 seconds, and the keys
-  pressed meanwhile move it; past that, the keys are the timeline's again
-  and it says to press Space again);
+  pressed meanwhile move it; Tab meanwhile goes on, as it does mid-move,
+  and the box is moved and dropped once the code is here; past 4 seconds,
+  the keys are the timeline's again and it says to press Space again);
   the settings menu's contents when the pointer reaches the gear; the key,
   the keyboard shortcuts and a private branch's token form when they first
   show; the save dialog, the broken-rule popup, saving's code (with what the
