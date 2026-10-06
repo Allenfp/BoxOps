@@ -535,15 +535,6 @@ test("a box's scale card can be hovered, shows while the box has keyboard focus,
   await page.keyboard.press("Escape");
   await expect(pop).toHaveCount(0);
   await page.mouse.move(5, 5);
-  // The card covers the lane below: a press there reaches what's under it (the card lets it through), and the card goes.
-  await number.hover();
-  await page.mouse.move(card.x + 20, card.y + card.height / 2, { steps: 5 });
-  await expect(pop).toBeVisible();
-  expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest(".scale-pop"), [card.x + 20, card.y + card.height / 2])).toBe(false);
-  await page.mouse.down();
-  await expect(pop).toHaveCount(0);
-  await page.mouse.up();
-  await page.mouse.move(5, 5);
 
   // Keyboard focus on a box shows its card; Escape puts it away, focus staying on the box.
   await cell(page, "lane:de-2").focus();
@@ -559,6 +550,30 @@ test("a box's scale card can be hovered, shows while the box has keyboard focus,
   // Picking it up puts the card away.
   await page.keyboard.press("Space");
   await expect(pop).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // The card covers the lane below: a click on a box there, the pointer on the card, reaches the box (the card
+  // lets it through), and the card goes.
+  await number.hover();
+  await expect(pop).toContainText("Scale 30");
+  const under = await page.evaluate(({ x, y, width, height }) => {
+    for (let dy = 10; dy < height; dy += 10) {
+      for (let dx = 10; dx < width; dx += 10) {
+        const el = document.elementsFromPoint(x + dx, y + dy).find((e) => !e.closest(".scale-pop"));
+        const hit = el?.closest<HTMLElement>("[data-box-id]");
+        if (hit && el === document.elementFromPoint(x + dx, y + dy)) return { x: x + dx, y: y + dy, title: hit.querySelector(".box-name")!.textContent! };
+      }
+    }
+    return null;
+  }, (await pop.boundingBox())!);
+  expect(under).not.toBeNull();
+  await page.mouse.move(under!.x, under!.y, { steps: 5 });
+  await page.waitForTimeout(300);
+  await expect(pop).toBeVisible();
+  await page.mouse.down();
+  await expect(pop).toHaveCount(0);
+  await page.mouse.up();
+  await expect(page.getByRole("dialog", { name: `Edit ${under!.title}` })).toBeVisible();
   await page.keyboard.press("Escape");
 });
 
