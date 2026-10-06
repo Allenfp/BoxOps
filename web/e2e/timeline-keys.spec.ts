@@ -340,19 +340,23 @@ test("N or a lane's + adds a box there, after the focused box or near today; foc
 });
 
 test("Delete deletes the focused box or PTO block, once however long it's held, and says how to undo it", async ({ page, github, cull }) => {
-  // Data Engineering / FTE 2 holds Dagster then CDC: deleting Dagster puts focus on CDC.
+  // Data Engineering / FTE 2 holds Dagster then CDC: deleting Dagster puts focus on CDC. Held down
+  // (the Mac's delete key is Backspace), the second press repeats on CDC, and deletes nothing more.
   await box(page, DAGSTER).focus();
-  await page.keyboard.press("Delete");
-  await expect(box(page, DAGSTER)).toHaveCount(0);
-  await expect(box(page, CDC)).toBeFocused();
-  await expect.poll(() => said(page)).toContainEqual(expect.stringMatching(/^Deleted “Dagster 2\.x upgrade”\. Undo with (⌘|Ctrl\+)Z\./));
-  // Held down (the Mac's delete key is Backspace): the second press repeats, and deletes nothing
-  // more, though focus has gone on to the cell beside it.
   await page.keyboard.down("Backspace");
   await page.keyboard.down("Backspace");
   await page.keyboard.up("Backspace");
+  await expect(box(page, DAGSTER)).toHaveCount(0);
+  await expect(box(page, CDC)).toHaveCount(1);
+  await expect(box(page, CDC)).toBeFocused();
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+  await expect.poll(() => said(page)).toContainEqual(expect.stringMatching(/^Deleted “Dagster 2\.x upgrade”\. Undo with (⌘|Ctrl\+)Z\./));
+  // On-call Q4 has taken Dagster's place, and CDC is alone in the extra area: deleted, focus goes to
+  // the nearest cell in the row above, the Contractor lane's name.
+  await expect(box(page, "bx-e5a2-on-call-q4").locator("xpath=ancestor::*[@role='row'][1]")).toHaveAttribute("data-row", "lane:de-2");
+  await page.keyboard.press("Delete");
   await expect(box(page, CDC)).toHaveCount(0);
-  await expect(page.locator('[role="grid"] [data-cell]:focus')).toHaveCount(1);
+  await expect(cell(page, "lane:de-4")).toBeFocused();
   await expect(toolbar(page)).toContainText("Save · 2 changes");
   // Every box is counted, so not when the timeline draws only what's near the screen (`cull`).
   if (!cull) await expect(page.locator(".box")).toHaveCount(10);
@@ -363,6 +367,7 @@ test("Delete deletes the focused box or PTO block, once however long it's held, 
   await expect(toolbar(page)).toContainText("Save · 1 change");
 
   // PTO: Morgan's two blocks; deleting the first puts focus on the second, whose place in the list moved up.
+  // Held down, the second press repeats on it, and leaves it.
   github.deploy(
     github.otherSave({
       "people.yaml": (t) =>
@@ -374,9 +379,12 @@ test("Delete deletes the focused box or PTO block, once however long it's held, 
   );
   await pollNow(page);
   await cell(page, "pto:morgan-chen#0").focus();
-  await page.keyboard.press("Backspace");
+  await page.keyboard.down("Backspace");
+  await page.keyboard.down("Backspace");
+  await page.keyboard.up("Backspace");
   await expect(cell(page, "pto:morgan-chen#0")).toBeFocused();
   await expect(cell(page, "pto:morgan-chen#0")).toHaveAccessibleName("PTO, Morgan Chen, 2026-10-19 to 2026-10-23, 5 working days");
+  await expect(toolbar(page)).toContainText("Save · 2 changes");
   await expect.poll(() => heard(page)).toMatch(/Deleted PTO for Morgan Chen, 2026-10-05 – 2026-10-09\. Undo with/);
 });
 
