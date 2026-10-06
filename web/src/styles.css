@@ -26,26 +26,31 @@
   background: var(--bg);
 }
 
-/* Dark theme: data-theme on <html>, from the theme preference (prefs.ts; light, dark or the system's), set by index.html before the first paint. */
-:root[data-theme="dark"] {
-  --bg: #0f1218;
-  --surface: #161a22;
-  --surface-2: #1d222c;
-  --text: #e6e9ef;
-  --text-muted: #949cab;
-  --border: #262c38;
-  --grid: #1d222b;
-  --grid-major: #2e3542;
-  --today: #ff6369;
-  --on-today: #0f1218;
-  --warn: #fb923c;
-  --warn-bg: #3a2414;
-  --accent: #4f7cff;
-  --accent-fill: #3560e6;
-  --updated: #2dd4bf;
-  --seg-track: #0f1218;
-  --seg-on: #262c38;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+/*
+ * Dark theme: data-theme on <html>, from the theme preference (prefs.ts; light, dark or the system's), set by
+ * index.html before the first paint. On screen only: paper is white, so printing is always in the light theme.
+ */
+@media screen {
+  :root[data-theme="dark"] {
+    --bg: #0f1218;
+    --surface: #161a22;
+    --surface-2: #1d222c;
+    --text: #e6e9ef;
+    --text-muted: #949cab;
+    --border: #262c38;
+    --grid: #1d222b;
+    --grid-major: #2e3542;
+    --today: #ff6369;
+    --on-today: #0f1218;
+    --warn: #fb923c;
+    --warn-bg: #3a2414;
+    --accent: #4f7cff;
+    --accent-fill: #3560e6;
+    --updated: #2dd4bf;
+    --seg-track: #0f1218;
+    --seg-on: #262c38;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
 }
 
 * {
@@ -3145,6 +3150,11 @@ body.reordering * {
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* On white, in the light theme (the dark one is for screens only), native controls too: prefs.ts sets color-scheme inline. */
+  :root {
+    --bg: #ffffff;
+    color-scheme: light !important;
   }
   .skip-link,
   .toolbar .segmented,

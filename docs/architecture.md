@@ -449,7 +449,8 @@ against data the new code wrote.
 
 - **Theme.** A second inline script in `index.html` applies the stored theme
   (or the system's) before the first paint, so dark-mode visitors never see
-  a light flash; `<meta name="color-scheme">` says `light dark`.
+  a light flash; `<meta name="color-scheme">` says `light dark`. The dark
+  theme is for screens: printing is always in the light one, on white.
 - **Content-Security-Policy.** The build adds a CSP meta tag (Pages can't send
   headers), straight after `<meta charset>` and before anything it governs:
   `default-src 'none'`; scripts and styles only from the site,
@@ -795,9 +796,10 @@ when a focused element is removed.
   rather than a table (a table keeps its size whatever it's given, and the
   pages would be shrunk to its width, with blank ones after the rows).
   Everywhere, the toolbar's controls, banners and the table's own toolbar
-  are left out and colours print; the timeline prints what's on screen. A
-  view that loaded just as printing began (`usePrinting` reads the print
-  media query once it's listening) prints its rows too.
+  are left out and colours print, in the light theme on white (the dark
+  theme's colours apply on screen only); the timeline prints what's on
+  screen. A view that loaded just as printing began (`usePrinting` reads
+  the print media query once it's listening) prints its rows too.
 - **Limits.** On a big roadmap the browser's Find and a screen reader's
   browse mode reach only the rows drawn; the table's search covers every row.
   In Safari, whose Tab skips buttons, Tab from the toolbar goes to the

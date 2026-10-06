@@ -44,7 +44,8 @@ straight to `main`, and the site updates within a minute.
   and draws a big roster, as the table does.
 - **Printing.** The table and People print every row; the timeline prints
   what's on screen, at its zoom and dates. The toolbar's controls are left
-  out, and the colours print.
+  out, and the colours print, in the light theme on white whichever theme
+  is on screen.
 - **Saving.** Edits stay in your browser until you press **Save** (⌘S, or
   Ctrl+S on Windows and Linux), each tab's on its own; edits left in a tab
   you closed are offered back in the roadmap's other tabs, or the next time

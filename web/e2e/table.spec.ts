@@ -222,6 +222,41 @@ test("printing gives every box, on pages no wider or longer than that", async ({
   expect(await pastPrintTable(page)).toEqual({ across: 0, down: 0 });
 });
 
+test("in the dark theme, the table, People and the timeline print in the light one, on white", async ({ page, github: _ }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  /** The page's and the view's backgrounds, and the colour of text in the view and the printed table. */
+  const paper = (view: string) =>
+    page.evaluate((view) => {
+      const style = (sel: string) => getComputedStyle(document.querySelector(sel)!);
+      return {
+        backgrounds: [style("html").backgroundColor, style("body").backgroundColor, style(view).backgroundColor],
+        text: style(view).color,
+        printed: document.querySelector(".print-table td") && style(".print-table td").color,
+      };
+    }, view);
+  const WHITE = "rgb(255, 255, 255)";
+  const light = { backgrounds: [WHITE, WHITE, WHITE], text: "rgb(28, 35, 48)" };
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator(".print-table tbody tr").first()).toBeVisible();
+  expect(await paper(".table-view")).toEqual({ ...light, printed: "rgb(0, 0, 0)" });
+  await page.emulateMedia({ media: "screen" });
+  expect((await paper(".table-view")).backgrounds[0]).toBe("rgb(15, 18, 24)"); // dark again on screen
+
+  // (Shown before printing: WebKit can leave a view drawn as print media comes on in the theme it had.)
+  await page.getByRole("button", { name: "People" }).click();
+  await expect(page.locator(".people-table")).toBeVisible();
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator(".print-table tbody tr").first()).toBeVisible();
+  expect(await paper(".people-view")).toEqual({ ...light, printed: "rgb(0, 0, 0)" });
+
+  await page.emulateMedia({ media: "screen" });
+  await page.getByRole("button", { name: "Timeline" }).click();
+  await expect(page.locator(".timeline")).toBeVisible();
+  await page.emulateMedia({ media: "print" });
+  expect(await paper(".timeline")).toEqual({ ...light, printed: null });
+});
+
 test("⌘S while typing in a cell saves what's being typed", async ({ page, github }) => {
   await row(page, "Dagster 2.x upgrade").getByLabel("Title").fill("Dagster 2.x upgrade (phase 1)");
   await page.keyboard.press("ControlOrMeta+s"); // still in the cell
