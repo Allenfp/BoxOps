@@ -948,7 +948,8 @@ when a focused element is removed.
   of its own. An uncaught error or a Content-Security-Policy violation in
   any tab a test opens fails it. `e2e/a11y.spec.ts` runs axe-core
   (`@axe-core/playwright`, a test-only dependency) over each view, the
-  editors, the menus and the save dialog against WCAG 2.2 A and AA, in the
+  editors, menus and dialogs, the broken-rule popup, a box's scale card
+  and a box being moved against WCAG 2.2 A and AA, in the
   light and the dark theme, and checks the page's structure, names and
   what's announced (an init script records every message the live regions
   are given); `e2e/styles.spec.ts` checks the stylesheet from computed
