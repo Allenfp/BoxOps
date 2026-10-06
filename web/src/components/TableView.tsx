@@ -588,7 +588,7 @@ export function TableView(props: Props) {
       case "empty":
         return <EmptyRow key={r.key} {...common} text={`No boxes in ${r.dept.name} yet.`} columns={COLUMN_COUNT} />;
       case "add-pto":
-        return <AddRow key={r.key} {...common} className="add-pto-row" label="Add PTO" columns={COLUMN_COUNT} onClick={() => actions.addPto(r.dept.id)} />;
+        return <AddRow key={r.key} {...common} className="add-pto-row" label="Add PTO" columns={COLUMN_COUNT} id={r.dept.id} onClick={actions.addPto} />;
       case "add-dept":
         return <AddRow key={r.key} {...common} className="add-dept-row" label="Add department" columns={COLUMN_COUNT} onClick={actions.addDepartment} />;
     }

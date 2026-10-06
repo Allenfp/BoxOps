@@ -496,20 +496,21 @@ export const EmptyRow = memo(function EmptyRow({
   );
 });
 
-/** A row with one button across the table: Add PTO in a department, or Add department at the end. */
-export const AddRow = memo(function AddRow({ rowKey, index, className, label, columns, onClick, measure }: {
+/** A row with one button across the table: Add PTO in a department (`onClick(id)`, its id), or Add department at the end. */
+export const AddRow = memo(function AddRow({ rowKey, index, className, label, columns, id = "", onClick, measure }: {
   rowKey: string;
   index: number;
   className: string;
   label: string;
   columns: number;
-  onClick(): void;
+  id?: string;
+  onClick(id: string): void;
   measure(el: HTMLElement | null): void;
 }) {
   return (
     <tr ref={measure} data-row-key={rowKey} aria-rowindex={index} className={className}>
       <td colSpan={columns}>
-        <button className="add-button" onClick={onClick}>
+        <button className="add-button" onClick={() => onClick(id)}>
           <Icon name="plus" size={14} />
           {label}
         </button>
