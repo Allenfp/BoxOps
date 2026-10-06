@@ -118,7 +118,10 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
     const adrift = (e: Event) => {
       if (inCalendar(e.target)) return;
       if (e.type === "scroll" && field.current && dialog.current && !scrolledAway(e, calendar.opener, dialog.current)) {
-        setCalendar({ ...calendar, anchor: field.current.getBoundingClientRect() });
+        // Unless it's closed meanwhile: the field given focus back as it closes may scroll the table again, its
+        // scroll coming before this listener has gone.
+        const anchor = field.current.getBoundingClientRect();
+        setCalendar((c) => c && { ...c, anchor });
         return;
       }
       if (inCalendar(document.activeElement)) calendar.opener.focus({ preventScroll: true });
@@ -127,7 +130,7 @@ export function DateInput({ value, onChange, onBlur, disabled, autoFocus, option
     // The table it's in changing height: a row above it may have, moving the field.
     const rows = new ResizeObserver(() => {
       const at = field.current?.getBoundingClientRect();
-      if (at && (at.top !== calendar.anchor.top || at.left !== calendar.anchor.left)) setCalendar({ ...calendar, anchor: at });
+      if (at && (at.top !== calendar.anchor.top || at.left !== calendar.anchor.left)) setCalendar((c) => c && { ...c, anchor: at });
     });
     const table = field.current?.closest("table");
     if (table) rows.observe(table);
