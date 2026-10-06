@@ -529,7 +529,8 @@ when a focused element is removed.
   is up, search results in the table (boxes, and PTO when only PTO
   matches) and People once typing pauses, a rule
   an edit breaks and a rising warning count, deletions (with how to undo
-  them), undo and redo, and field problems and date corrections as they
+  them), undo and redo, a department or lane moved in the department
+  editor (its new place), and field problems and date corrections as they
   appear (each correction, the same one twice too; not a problem already
   there when its field shows, nor one put right before it's read). Nothing
   uses `role="status"` or `role="alert"` on an element added already
@@ -553,8 +554,11 @@ when a focused element is removed.
   row's Delete (and focus a change takes from a table row that moves goes
   back to it: see [The table and People](#the-table-and-people)), a
   removed rule or lane to the next one's ✕ (else the one before's, else
-  Add), a cleared lane date to its +, the table's Clear dates to From; a
-  save gives it back
+  Add), a cleared lane date to its +, the table's Clear dates to From; the
+  department editor's Move buttons and lane arrows keep it (never
+  disabled: at the end they say so), and Delete department… or a lane's
+  ✕ with boxes puts it in its question (the question its description),
+  whose Cancel gives it back; a save gives it back
   where it was, or to the saved banner; Enter and Esc in a table cell and a
   lane renamed in place keep it there, and a date field's calendar gives it
   back to what opened it (its button, or the field).

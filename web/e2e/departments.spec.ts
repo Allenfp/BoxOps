@@ -1,5 +1,5 @@
-import type { Page } from "@playwright/test";
-import { DAGSTER, boxFile, expect, focusApp, pollNow, save, test, toolbar } from "./helpers";
+import type { Locator, Page } from "@playwright/test";
+import { DAGSTER, boxFile, expect, focusApp, heard, pollNow, save, test, toolbar } from "./helpers";
 
 const editor = (page: Page) => page.locator("dialog.dept-editor[open]");
 const deptNames = (page: Page) => page.locator(".dept-label .dept-name").allInnerTexts();
@@ -86,6 +86,60 @@ test("edits a department from the table: rename, recolour, reorder, add a lane",
   expect(message).toContain("Changed the colour of Analytics & BI");
   expect(message).toContain("Added lane FTE 4 (1 FTE) to Analytics & BI");
   expect(message).toContain("Reordered departments");
+});
+
+test("the editor's Move buttons and lane arrows keep focus and say where it went; a removal's question takes focus, its Cancel gives it back", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Edit Analytics" }).click();
+  const press = async (button: Locator) => {
+    await button.focus();
+    await page.keyboard.press("Space");
+  };
+  // Up to the top, and once more: the button stays (aria-disabled), with focus, and says why nothing moved.
+  const up = editor(page).getByRole("button", { name: "Move up" });
+  await press(up);
+  await expect.poll(() => heard(page)).toContain("Analytics moved up, 1 of 3.");
+  await expect(editor(page).locator(".field", { hasText: "Position" }).locator(".hint")).toHaveText("1 of 3");
+  await expect(up).toHaveAttribute("aria-disabled", "true");
+  await expect(up).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect.poll(() => heard(page)).toContain("Analytics is already first.");
+  await expect(up).toBeFocused();
+
+  // Lane 1 down twice: its row moves on the page, and focus stays on its arrow, now lane 2's, then lane 3's.
+  await press(editor(page).getByRole("button", { name: "Move lane 1 down" }));
+  await expect.poll(() => heard(page)).toContain("Lane 1 moved down, now lane 2 of 3.");
+  await expect(editor(page).getByRole("button", { name: "Move lane 2 down" })).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect.poll(() => heard(page)).toContain("Lane 2 moved down, now lane 3 of 3.");
+  const last = editor(page).getByRole("button", { name: "Move lane 3 down" });
+  await expect(last).toBeFocused();
+  await expect(last).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Space");
+  await expect.poll(() => heard(page)).toContain("Lane 3 is already last.");
+  await expect(last).toBeFocused();
+  await expect(editor(page).getByLabel("Lane 1 name")).toHaveAttribute("placeholder", "FTE 1");
+  await expect(editor(page).getByLabel("Lane 2 name")).toHaveValue("Open req (Q1)");
+
+  // Removing that lane (with boxes): focus goes to where its boxes go, the question its description.
+  const remove = editor(page).getByRole("button", { name: "Remove lane 3" });
+  await press(remove);
+  const moveTo = editor(page).getByLabel("Move boxes to");
+  await expect(moveTo).toBeFocused();
+  await expect(moveTo).toHaveAccessibleDescription("2 boxes are in this lane. Move them to:");
+  await press(editor(page).locator(".remove-callout").getByRole("button", { name: "Cancel" }));
+  await expect(editor(page).locator(".remove-callout")).toHaveCount(0);
+  await expect(remove).toBeFocused();
+
+  // Deleting the department: the same.
+  const deleteDept = editor(page).getByRole("button", { name: "Delete department…" });
+  await press(deleteDept);
+  await expect(moveTo).toBeFocused();
+  await expect(moveTo).toHaveAccessibleDescription(
+    "Delete Analytics? Its 4 boxes will move to: 2 engineers in it will stay on the roster with no department.",
+  );
+  await press(editor(page).locator(".remove-callout").getByRole("button", { name: "Cancel" }));
+  await expect(editor(page).locator(".remove-callout")).toHaveCount(0);
+  await expect(deleteDept).toBeFocused();
 });
 
 test("a new department doesn't take the name of a department file the app couldn't read", async ({ page, github }) => {

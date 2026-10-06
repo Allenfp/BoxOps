@@ -112,8 +112,9 @@ straight to `main`, and the site updates within a minute.
   Shift, a year), Enter picks, and Esc closes the calendar alone. Saves,
   other people's saves, search results, broken rules, deletions (with how
   to undo them), moves and what they'd do (a department over capacity, a
-  rule broken, someone on PTO) and problems with a field are announced to
-  screen readers.
+  rule broken, someone on PTO), departments and lanes moved in the
+  department editor and problems with a field are announced to screen
+  readers.
 
 ## Editing without the app
 

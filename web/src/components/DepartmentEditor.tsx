@@ -41,15 +41,18 @@ function LanePicker({
   value,
   onChange,
   label,
+  describedBy,
 }: {
   departments: Department[];
   exclude: (laneId: string) => boolean;
   value: string;
   onChange(laneId: string): void;
   label: string;
+  /** The question it answers (its callout's text). */
+  describedBy?: string;
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+    <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} aria-describedby={describedBy}>
       <option value="">Choose a lane…</option>
       {departments.map((d) => {
         const lanes = d.lanes.map((l, i) => ({ l, i })).filter(({ l }) => !exclude(l.id));
@@ -96,6 +99,11 @@ export function DepartmentEditor(props: Props) {
   const titleId = useId();
   const nameError = useId();
   const codeError = useId();
+  /** The removal callout's question, and its note about engineers: what its first control is described by. */
+  const question = useId();
+  const peopleNote = useId();
+  /** Delete department…: where its callout's Cancel puts focus back. */
+  const deleteButton = useRef<HTMLButtonElement>(null);
 
   const id = target.kind === "edit" ? target.id : created;
   // Closed: focus goes to the department's ✎ (one just added: its heading), in whichever view is
@@ -212,6 +220,40 @@ export function DepartmentEditor(props: Props) {
     focusAfterRemoving(button, "li", ".row-remove", (list) => list.nextElementSibling?.querySelector("button"));
     props.onRemoveLane(laneId, moveTo);
   };
+  // The Move buttons and a lane's arrows are never disabled (a disabled button loses focus, to
+  // the page): at the end already, they say so. Each move says the new place.
+  const moveDept = (dir: -1 | 1) => {
+    const to = index + dir;
+    if (to < 0 || to >= sorted.length) {
+      announce(`${dept.name} is already ${dir < 0 ? "first" : "last"}.`);
+      return;
+    }
+    props.onMove(dept.id, dir);
+    announce(`${dept.name} moved ${dir < 0 ? "up" : "down"}, ${to + 1} of ${sorted.length}.`);
+  };
+  /** The lane in row `i` up or down a place. Its row is moved on the page, which loses focus: it goes back to the same arrow. */
+  const moveLane = (lane: Lane, i: number, dir: -1 | 1) => {
+    const to = i + dir;
+    const which = `Lane ${i + 1}${lane.name ? ` (${lane.name})` : ""}`;
+    if (to < 0 || to >= dept.lanes.length) {
+      announce(`${which} is already ${dir < 0 ? "first" : "last"}.`);
+      return;
+    }
+    const arrow = `.lane-list li[data-lane-id="${CSS.escape(lane.id)}"] [aria-label^="Move lane"][aria-label$="${dir < 0 ? "up" : "down"}"]`;
+    focusLater([() => dialog.current?.querySelector(arrow)]);
+    props.onMoveLane(lane.id, dir);
+    announce(`${which} moved ${dir < 0 ? "up" : "down"}, now lane ${to + 1} of ${dept.lanes.length}.`);
+  };
+  /** Ask about removing the lane (or the department, its id): focus goes into the question, on its first control. */
+  const askRemove = (what: string, from: HTMLElement) => {
+    setRemoving((cur) => (cur?.what === what ? cur : { what, moveTo: "" }));
+    focusLater([() => dialog.current?.querySelector(".remove-callout :is(select, .danger:not(:disabled))")], from);
+  };
+  /** The question's Cancel: focus goes back to what asked it. */
+  const cancelRemove = (back: () => Element | null | undefined) => {
+    focusLater([back]);
+    setRemoving(null);
+  };
 
   return shell(
     created ? `Added ${dept.name}` : `Edit ${dept.name}`,
@@ -251,10 +293,10 @@ export function DepartmentEditor(props: Props) {
       <div className="field">
         <span className="field-label">Position</span>
         <span className="button-row">
-          <button onClick={() => props.onMove(dept.id, -1)} disabled={index <= 0}>
+          <button onClick={() => moveDept(-1)} aria-disabled={index <= 0 || undefined}>
             <Icon name="arrow-up" size={14} /> Move up
           </button>
-          <button onClick={() => props.onMove(dept.id, 1)} disabled={index >= sorted.length - 1}>
+          <button onClick={() => moveDept(1)} aria-disabled={index >= sorted.length - 1 || undefined}>
             <Icon name="arrow-down" size={14} /> Move down
           </button>
           <span className="hint">
@@ -273,7 +315,7 @@ export function DepartmentEditor(props: Props) {
             const count = boxesInLane(lane.id);
             const isRemoving = removing?.what === lane.id;
             return (
-              <li key={lane.id}>
+              <li key={lane.id} data-lane-id={lane.id}>
                 <div className="lane-edit-row">
                   <input
                     value={lane.name ?? ""}
@@ -293,13 +335,18 @@ export function DepartmentEditor(props: Props) {
                     <option value={1}>1 FTE</option>
                     <option value={0.5}>0.5 FTE</option>
                   </select>
-                  <button className="icon-button" onClick={() => props.onMoveLane(lane.id, -1)} disabled={i === 0} aria-label={`Move lane ${i + 1} up`}>
+                  <button
+                    className="icon-button"
+                    onClick={() => moveLane(lane, i, -1)}
+                    aria-disabled={i === 0 || undefined}
+                    aria-label={`Move lane ${i + 1} up`}
+                  >
                     <Icon name="arrow-up" size={14} />
                   </button>
                   <button
                     className="icon-button"
-                    onClick={() => props.onMoveLane(lane.id, 1)}
-                    disabled={i === dept.lanes.length - 1}
+                    onClick={() => moveLane(lane, i, 1)}
+                    aria-disabled={i === dept.lanes.length - 1 || undefined}
                     aria-label={`Move lane ${i + 1} down`}
                   >
                     <Icon name="arrow-down" size={14} />
@@ -308,7 +355,7 @@ export function DepartmentEditor(props: Props) {
                     className="icon-button row-remove"
                     aria-label={`Remove lane ${i + 1}`}
                     title={count ? `Remove (its ${count} box${count === 1 ? "" : "es"} will need a new lane)` : "Remove"}
-                    onClick={(e) => (count ? setRemoving({ what: lane.id, moveTo: "" }) : removeLane(e.currentTarget, lane.id))}
+                    onClick={(e) => (count ? askRemove(lane.id, e.currentTarget) : removeLane(e.currentTarget, lane.id))}
                   >
                     <Icon name="x" size={14} />
                   </button>
@@ -381,7 +428,9 @@ export function DepartmentEditor(props: Props) {
                 </div>
                 {isRemoving && (
                   <div className="callout warn remove-callout">
-                    {count} box{count === 1 ? " is" : "es are"} in this lane. Move {count === 1 ? "it" : "them"} to:
+                    <span id={question}>
+                      {count} box{count === 1 ? " is" : "es are"} in this lane. Move {count === 1 ? "it" : "them"} to:
+                    </span>
                     <span className="button-row">
                       <LanePicker
                         departments={sorted}
@@ -389,6 +438,7 @@ export function DepartmentEditor(props: Props) {
                         value={removing.moveTo}
                         onChange={(moveTo) => setRemoving({ ...removing, moveTo })}
                         label="Move boxes to"
+                        describedBy={question}
                       />
                       <button
                         className="danger"
@@ -400,7 +450,14 @@ export function DepartmentEditor(props: Props) {
                       >
                         Move and remove lane
                       </button>
-                      <button onClick={() => setRemoving(null)}>Cancel</button>
+                      <button
+                        onClick={(e) => {
+                          const row = e.currentTarget.closest("li");
+                          cancelRemove(() => row?.querySelector(".row-remove"));
+                        }}
+                      >
+                        Cancel
+                      </button>
                     </span>
                   </div>
                 )}
@@ -409,7 +466,13 @@ export function DepartmentEditor(props: Props) {
           })}
         </ul>
         <span>
-          <button className="add-button" onClick={() => props.onAddLane(dept.id)}>
+          <button
+            className="add-button"
+            onClick={() => {
+              props.onAddLane(dept.id);
+              announce(`Lane ${dept.lanes.length + 1} added.`);
+            }}
+          >
             <Icon name="plus" size={14} />
             Add lane
           </button>
@@ -420,22 +483,25 @@ export function DepartmentEditor(props: Props) {
         <div className="callout warn remove-callout">
           {deptBoxes > 0 ? (
             <>
-              Delete <strong>{dept.name}</strong>? Its {deptBoxes} box{deptBoxes === 1 ? "" : "es"} will move to:
+              <span id={question}>
+                Delete <strong>{dept.name}</strong>? Its {deptBoxes} box{deptBoxes === 1 ? "" : "es"} will move to:
+              </span>
               <LanePicker
                 departments={sorted}
                 exclude={(l) => laneIds.includes(l)}
                 value={removing.moveTo}
                 onChange={(moveTo) => setRemoving({ ...removing, moveTo })}
                 label="Move boxes to"
+                describedBy={describedBy(question, deptPeople > 0 && peopleNote)}
               />
             </>
           ) : (
-            <>
+            <span id={question}>
               Delete <strong>{dept.name}</strong>? It has no boxes.
-            </>
+            </span>
           )}
           {deptPeople > 0 && (
-            <p className="hint">
+            <p className="hint" id={peopleNote}>
               {deptPeople} engineer{deptPeople === 1 ? "" : "s"} in it will stay on the roster with no department.
             </p>
           )}
@@ -443,6 +509,7 @@ export function DepartmentEditor(props: Props) {
             <button
               className="danger"
               disabled={deptBoxes > 0 && !removing.moveTo}
+              aria-describedby={deptBoxes > 0 ? undefined : describedBy(question, deptPeople > 0 && peopleNote)}
               onClick={() => {
                 props.onRemove(dept.id, removing.moveTo || undefined);
                 setRemoving(null);
@@ -451,18 +518,13 @@ export function DepartmentEditor(props: Props) {
             >
               Delete department
             </button>
-            <button onClick={() => setRemoving(null)}>Cancel</button>
+            <button onClick={() => cancelRemove(() => deleteButton.current)}>Cancel</button>
           </span>
         </div>
       ) : null}
 
       <footer className="dialog-foot">
-        <button
-          className="danger"
-          onClick={() => setRemoving({ what: dept.id, moveTo: "" })}
-          disabled={removing?.what === dept.id}
-          style={{ marginRight: "auto" }}
-        >
+        <button ref={deleteButton} className="danger" onClick={(e) => askRemove(dept.id, e.currentTarget)} style={{ marginRight: "auto" }}>
           Delete department…
         </button>
         <button className="primary" onClick={onClose}>
