@@ -266,30 +266,11 @@ button.icon-only[aria-disabled="true"] {
   opacity: 0.45;
   cursor: default;
 }
-.theme-toggle {
-  color: var(--text-muted);
-}
 .warnings-button {
   color: var(--warn);
   border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
   background: var(--warn-bg);
   font-weight: 600;
-}
-.key-menu > button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-}
-.key-dots {
-  display: inline-grid;
-  grid-template-columns: repeat(2, 5px);
-  gap: 2px;
-}
-.key-dots span {
-  width: 5px;
-  height: 5px;
-  border-radius: 1.5px;
 }
 
 /* Toolbar popovers */
@@ -316,9 +297,6 @@ button.icon-only[aria-disabled="true"] {
   padding: 4px 0 18px;
   columns: 2;
   column-gap: 28px;
-}
-.key-body h3 {
-  break-after: avoid;
 }
 .key-body ul {
   margin: 0;
@@ -665,11 +643,9 @@ button.icon-only[aria-disabled="true"] {
 
 .box {
   position: absolute;
-  height: 26px;
   border-radius: 5px;
   padding: 0 8px;
   font-size: 12px;
-  line-height: 24px;
   white-space: nowrap;
   /* clip, not hidden: hidden would make the box a scroll container and break the sticky title. */
   overflow: clip;
@@ -1076,6 +1052,9 @@ button.danger:hover {
 /* Save flow */
 
 button.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: var(--accent-fill);
   border-color: var(--accent-fill);
   color: #fff;
@@ -1313,9 +1292,6 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   font-size: 13px;
   font-weight: 600;
 }
-.save-dialog .form {
-  margin-bottom: 0;
-}
 
 /* Someone else changed this box while we were editing it too. */
 .box.conflict {
@@ -1401,11 +1377,15 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .table-scroll.windowed {
   overflow-anchor: none;
 }
+/* Every box (and engineer) row is as tall as the others, unless one's being edited or says why a cell won't do. */
 .box-table {
+  --box-row: 53px;
   border-collapse: separate;
   border-spacing: 0;
+  table-layout: fixed;
   width: 100%;
-  min-width: 1180px;
+  /* The other columns' widths add up to 1908px; the rest (366px, at this width) is Description. */
+  min-width: 2274px;
   font-size: 13px;
 }
 .box-table th {
@@ -1457,10 +1437,6 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   padding: 0;
   border-bottom: 0;
   background: repeating-linear-gradient(transparent 0 calc(var(--box-row) - 1px), var(--grid) calc(var(--box-row) - 1px) var(--box-row));
-}
-/* Every box (and engineer) row is as tall as the others, unless one's being edited or says why a cell won't do. */
-.box-table {
-  --box-row: 53px;
 }
 .density-compact .box-table {
   --box-row: 49px;
@@ -1526,11 +1502,6 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .cell-input.invalid {
   border-color: var(--today);
 }
-.box-table {
-  table-layout: fixed;
-  /* The other columns' widths add up to 1890px; the rest (about 380px) is Description. */
-  min-width: 2274px;
-}
 /* Number columns: right-aligned, tabular figures, headers aligned with them. */
 .col-fte {
   width: 64px;
@@ -1581,6 +1552,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   z-index: 1;
   background: var(--surface);
   box-shadow: 1px 0 0 var(--border);
+  white-space: nowrap;
 }
 .box-table th.col-title {
   z-index: 3;
@@ -1749,6 +1721,7 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
   display: flex;
 }
 .lane-row > .lane-label {
+  padding-right: 6px;
   border-bottom: 1px solid var(--grid);
   overflow: hidden;
 }
@@ -1762,9 +1735,6 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 }
 .lane-row > .lane-label:focus-within {
   overflow: visible;
-}
-.lane-row > .lane-label {
-  padding-right: 6px;
 }
 /* The lane's name and pills: the row's header. */
 .lane-head {
@@ -2162,16 +2132,11 @@ button.primary:hover:not(:disabled, [aria-disabled="true"]) {
 .add-pto-row .add-button {
   margin-left: -8px;
 }
-button.primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.add-pto-row .add-button {
+  font-size: 12px;
 }
 
 /* Department editor */
-.dept-editor .form {
-  margin-bottom: 0;
-}
 .button-row {
   display: flex;
   align-items: center;
@@ -2345,9 +2310,6 @@ button.primary {
   top: 6px;
   right: 6px;
 }
-.box-table .col-title {
-  white-space: nowrap;
-}
 .cell-code {
   display: block;
   padding: 2px 7px 0;
@@ -2503,9 +2465,6 @@ button.primary {
 }
 .add-pto-row td {
   padding: 2px 8px 6px;
-}
-.add-pto-row .add-button {
-  font-size: 12px;
 }
 .key-pto {
   display: inline-block;
@@ -2671,6 +2630,7 @@ button.primary {
 /* Settings (gear) menu */
 .settings-menu .popover-panel {
   width: 320px;
+  max-height: calc(100vh - 64px);
   padding: 8px 12px 10px;
 }
 .settings-menu section + section {
@@ -2774,6 +2734,7 @@ button.primary {
 }
 .key-body h3 {
   margin: 14px 0 4px;
+  break-after: avoid;
 }
 .shortcuts-modal {
   width: min(460px, calc(100vw - 32px));
@@ -2908,9 +2869,6 @@ kbd {
 .density-compact .box-table select {
   padding-top: 2px;
   padding-bottom: 2px;
-}
-.settings-menu .popover-panel {
-  max-height: calc(100vh - 64px);
 }
 .team-settings select {
   font: inherit;
