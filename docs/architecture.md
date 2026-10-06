@@ -747,10 +747,11 @@ when a focused element is removed.
   keeps the row at the top of the view in place itself when rows above it
   change (measured, added, removed), in every browser (`overflow-anchor:
   none`), unless the change itself scrolled the table, or a calendar or the
-  Engineers list is open (scrolling closes them). A new sort, search or
-  filter isn't kept in place that way: the table stays scrolled as far as
-  it was, showing what's there now, in every browser. The table counts
-  every row (`aria-rowcount`) and each row drawn says which it is
+  Engineers list is open (scrolling closes them). A new sort isn't kept in
+  place that way: the table stays scrolled as far as it was, showing what's
+  sorted there now, in every browser; a search or filter keeps the row at
+  the top in place (or the first after it that's still shown). The table
+  counts every row (`aria-rowcount`) and each row drawn says which it is
   (`aria-rowindex`).
   Drawn whole, a table costs about 1 ms a row to open in WebKit on an M1
   (250 ms at 250 rows); drawing only what's near the screen, about 50 ms at
