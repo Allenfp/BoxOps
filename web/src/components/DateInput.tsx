@@ -62,8 +62,8 @@ interface Props {
   optional?: boolean;
   /**
    * The calendar button is a Tab stop as buttons are (in Safari, as its Tab setting says, but in the
-   * editors, whose Tab goes round every control). Not in a table's rows, where two more a row would
-   * be too many: Option/Alt+↓ opens it there, and everywhere.
+   * box and PTO editors, whose Tab goes round every control). Not in a table's rows, where two more a
+   * row would be too many: Option/Alt+↓ opens it there, and everywhere.
    */
   pickerTabStop?: boolean;
   "aria-label"?: string;
