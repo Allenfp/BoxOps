@@ -190,7 +190,7 @@ export function SettingsPanel({ close, ...props }: SettingsProps & { close(): vo
           onChange={(collapsedView) => setPrefs({ collapsedView })}
         />
         <Toggle label="Show PTO rows" pref="showPto" />
-        <Toggle label="Hide finished boxes" pref="hideFinished" />
+        <Toggle label="Hide finished boxes (and PTO, in the table)" pref="hideFinished" />
       </section>
 
       {(!props.readOnly || token) && (

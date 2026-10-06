@@ -67,9 +67,10 @@ straight to `main`, and the site updates within a minute.
 - **Settings (gear menu).** Your own preferences: theme (light, dark or
   match the system), density, what boxes show (codes, flags, initials,
   scale), the zoom and view to open with, PTO rows on or off, and hiding
-  finished boxes. These are kept in your browser only (only the ones you
-  changed, so a new default reaches you, and a change in one tab reaches the
-  others) and never change anyone else's view; Reset puts them all back.
+  finished boxes (and, in the table, PTO). These are kept in your browser
+  only (only the ones you changed, so a new default reaches you, and a
+  change in one tab reaches the others) and never change anyone else's
+  view; Reset puts them all back.
   The menu also has the key, keyboard shortcuts (⌘ on a Mac, Ctrl
   elsewhere), "Forget token", discard and a link to the history. **Team
   settings** (title, fiscal year, default zoom, box types and flags) change
