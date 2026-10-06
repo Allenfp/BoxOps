@@ -558,6 +558,13 @@ test.describe("People", () => {
     await more.click();
     await expect(more).toHaveAttribute("aria-expanded", "true");
     await expect(someone.locator(".pto-list li")).toHaveCount(4);
+    // Scrolled away, so it isn't drawn (focus in another row), and back: still all shown.
+    await page.locator("tr.person-row").nth(6).getByLabel("Name").focus();
+    await scrollTo(page, 1);
+    await expect(someone).toHaveCount(0);
+    await scrollTo(page, 0);
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+    await expect(someone.locator(".pto-list li")).toHaveCount(4);
   });
 
   test("two new engineers in a row, the second sorted after the first, each keep their own row (#79)", async ({ page }) => {

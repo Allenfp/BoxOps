@@ -3,7 +3,7 @@
 // functions that never changes, is measured as it's drawn, and says which
 // row it is.
 
-import { memo, type ReactNode, useState } from "react";
+import { memo, type ReactNode } from "react";
 import type { Day } from "../model/dates";
 import { EMAIL } from "../model/load";
 import { type PtoRef, ptoRange } from "../model/pto";
@@ -25,6 +25,8 @@ export interface PersonActions {
   edit(id: string): void;
   add(id: string): void;
   addDepartment(): void;
+  /** Show all of the PTO in the row with this key, or two entries again. */
+  morePto(rowKey: string): void;
 }
 
 /** Shown in a row that's being edited though it no longer matches the search: it goes once focus leaves it. */
@@ -44,6 +46,7 @@ export const PersonRow = memo(function PersonRow({
   autoFocus,
   held,
   now,
+  ptoOpen,
   measure,
   actions,
 }: {
@@ -59,6 +62,8 @@ export const PersonRow = memo(function PersonRow({
   autoFocus: boolean;
   held: boolean;
   now: Day;
+  /** "+N more" pressed: all of their PTO shown (kept by PeopleView, as the row isn't drawn while scrolled away). */
+  ptoOpen: boolean;
   measure(el: HTMLElement | null): void;
   actions: PersonActions;
 }) {
@@ -121,7 +126,7 @@ export const PersonRow = memo(function PersonRow({
         />
       </td>
       <td className="col-pto">
-        <PtoList person={p} hasDepartment={department !== ""} now={now} onShow={actions.showPto} />
+        <PtoList person={p} hasDepartment={department !== ""} now={now} all={ptoOpen} onMore={() => actions.morePto(rowKey)} onShow={actions.showPto} />
       </td>
       <td className="col-notes">
         <TextCell
@@ -150,8 +155,8 @@ export const PersonRow = memo(function PersonRow({
  * tall as the next): with more, the first that hasn't finished (else the
  * last), then the button.
  */
-function PtoList({ person, hasDepartment, now, onShow }: { person: Person; hasDepartment: boolean; now: Day; onShow?(ref: PtoRef): void }) {
-  const [all, setAll] = useState(false);
+function PtoList(props: { person: Person; hasDepartment: boolean; now: Day; all: boolean; onMore(): void; onShow?(ref: PtoRef): void }) {
+  const { person, hasDepartment, now, all, onMore, onShow } = props;
   const list = (person.pto ?? []).map((pto, index) => ({ pto, index })).sort((a, b) => a.pto.start - b.pto.start);
   if (!list.length) return null;
   const next = list.findIndex((e) => e.pto.end >= now);
@@ -176,7 +181,7 @@ function PtoList({ person, hasDepartment, now, onShow }: { person: Person; hasDe
       ))}
       {list.length > 2 && (
         <li>
-          <button className="link-button pto-more" aria-expanded={all} onClick={() => setAll(!all)}>
+          <button className="link-button pto-more" aria-expanded={all} onClick={onMore}>
             {all ? "Fewer" : `+${list.length - 1} more`}
             <span className="sr-only"> PTO for {person.name}</span>
           </button>

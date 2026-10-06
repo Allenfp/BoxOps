@@ -114,6 +114,8 @@ export function PeopleView(props: Props) {
   const held = kept.searched === q ? holding : null;
   // An engineer just added: drawn, scrolled to and their name focused, until it's had focus.
   const [target, setTarget] = useState<string | null>(null);
+  // Rows whose "+N more" PTO was pressed, by key: still open when drawn again, scrolled away and back.
+  const [ptoOpen, setPtoOpen] = useState<ReadonlySet<string>>(() => new Set());
   const targetKey = target === null ? null : (keyOf.get(people.find((p) => p.id === target)!) ?? null);
 
   const groups = useMemo(() => {
@@ -199,6 +201,12 @@ export function PeopleView(props: Props) {
     edit: (id) => props.onEditDepartment?.(id),
     add: (id) => add(id),
     addDepartment: () => props.onAddDepartment?.(),
+    morePto: (key) =>
+      setPtoOpen((open) => {
+        const next = new Set(open);
+        if (!next.delete(key)) next.add(key);
+        return next;
+      }),
   };
   const act = useRef(handlers);
   useLayoutEffect(() => {
@@ -215,6 +223,7 @@ export function PeopleView(props: Props) {
       edit: (id) => act.current.edit(id),
       add: (id) => act.current.add(id),
       addDepartment: () => act.current.addDepartment(),
+      morePto: (key) => act.current.morePto(key),
     }),
     [canShowPto],
   );
@@ -253,6 +262,7 @@ export function PeopleView(props: Props) {
             autoFocus={r.key === targetKey}
             held={r.held}
             now={now}
+            ptoOpen={ptoOpen.has(r.key)}
             actions={actions}
           />
         );

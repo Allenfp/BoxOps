@@ -749,10 +749,11 @@ when a focused element is removed.
   its kind drawn now. Rows of a kind are one height: descriptions and notes
   show two lines until focused (sized by CSS, a copy of the text in the same
   grid cell: no script measures them), and People shows at most two PTO
-  entries before "+N more". Safari has no CSS scroll anchoring, so the table
-  keeps the row at the top of the view in place itself when rows above it
-  change (measured, added, removed), in every browser (`overflow-anchor:
-  none`), unless the change itself scrolled the table, or a calendar or the
+  entries before "+N more" (pressed, it stays open for that row, scrolled
+  away and back: People keeps it by the row's key). Safari has no CSS
+  scroll anchoring, so the table keeps the row at the top of the view in
+  place itself when rows above it change (measured, added, removed), in
+  every browser (`overflow-anchor: none`), unless the change itself scrolled the table, or a calendar or the
   Engineers list is open (scrolling closes them). A new sort isn't kept in
   place that way: the table stays scrolled as far as it was, showing what's
   sorted there now, in every browser. A new search or new dates show their
