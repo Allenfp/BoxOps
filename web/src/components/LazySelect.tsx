@@ -11,9 +11,12 @@ export const LAZY_OPTIONS_ABOVE = 30;
  * rows of them cost more than everything else in a big table. It fills on
  * a press (before the list opens: React updates the page before the
  * browser's own action), on focus (before a key can choose) and on a key,
- * and stays filled. With `count` options or fewer, they're all there from
- * the start. Browser tests choose with e2e/helpers.ts's choose(), which
- * focuses it first: Playwright's selectOption doesn't.
+ * and stays filled: one select's options cost little once laid out (it's
+ * a whole table's at once that's slow), and a row scrolled away or
+ * filtered out leaves the page with them. With `count` options or fewer,
+ * they're all there from the start. Browser tests choose with
+ * e2e/helpers.ts's choose(), which focuses it first: Playwright's
+ * selectOption doesn't.
  */
 export function LazySelect({
   options,
