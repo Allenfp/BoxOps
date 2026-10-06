@@ -741,8 +741,8 @@ when a focused element is removed.
   keyboard grid and moves, and `e2e/drag.spec.ts` dragging. The timeline's
   specs (those three, `timeline`, `departments` and `pto`) run again in
   WebKit with the timeline drawing only what's near the screen whatever the
-  roadmap's size (`cull`, a test option), but for the few that count every
-  box (tagged `@counts-boxes`); `e2e/timeline-big.spec.ts` checks a 600-box
+  roadmap's size (`cull`, a test option), skipping only the checks that
+  count every box; `e2e/timeline-big.spec.ts` checks a 600-box
   roadmap against itself drawn whole: nothing on screen missing at any
   scroll or zoom, focus and moves kept drawn, the grid's rows counted.
   WebKit's Tab skips buttons, as Safari's does by default, so those tests

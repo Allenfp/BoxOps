@@ -1,6 +1,6 @@
 import { CDC, DAGSTER, box, boxTitle, boxDates, boxFile, drag, dragDays, expect, focusApp, pollNow, save, test, toolbar } from "./helpers";
 
-test("shows departments, lanes, boxes and today", { tag: "@counts-boxes" }, async ({ page, github: _ }) => {
+test("shows departments, lanes, boxes and today", async ({ page, github: _, cull }) => {
   await expect(page.locator(".box:not(.compact)")).toHaveCount(12); // ML Platform starts collapsed
   await expect(page.locator(".dept-label")).toHaveText([/Data Engineering/, /Analytics/, /ML Platform/]);
   // Today is 2026-10-03 wherever the browser is (each project has its own time zone).
@@ -29,7 +29,8 @@ test("shows departments, lanes, boxes and today", { tag: "@counts-boxes" }, asyn
   await expect(page.locator(".band-0")).toContainText("Oct 2026");
 
   await page.locator(".dept-label", { hasText: "ML Platform" }).click();
-  await expect(page.locator(".box:not(.compact)")).toHaveCount(15);
+  // Every box, at weeks zoom: not when the timeline draws only what's near the screen (`cull`).
+  if (!cull) await expect(page.locator(".box:not(.compact)")).toHaveCount(15);
   await expect(page).toHaveURL(/collapsed=(&|$)/);
 });
 

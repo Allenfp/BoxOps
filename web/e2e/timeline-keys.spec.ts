@@ -279,7 +279,7 @@ test("N or a lane's + adds a box there, after the focused box or near today; foc
   await expect.poll(() => heard(page)).toContain("Added PTO in Analytics, 2026-10-05 to 2026-10-09.");
 });
 
-test("Delete deletes the focused box or PTO block, once however long it's held, and says how to undo it", { tag: "@counts-boxes" }, async ({ page, github }) => {
+test("Delete deletes the focused box or PTO block, once however long it's held, and says how to undo it", async ({ page, github, cull }) => {
   // Data Engineering / FTE 2 holds Dagster then CDC: deleting Dagster puts focus on CDC.
   await box(page, DAGSTER).focus();
   await page.keyboard.press("Delete");
@@ -293,7 +293,9 @@ test("Delete deletes the focused box or PTO block, once however long it's held, 
   await page.keyboard.up("Backspace");
   await expect(box(page, CDC)).toHaveCount(0);
   await expect(page.locator('[role="grid"] [data-cell]:focus')).toHaveCount(1);
-  await expect(page.locator(".box")).toHaveCount(10);
+  await expect(toolbar(page)).toContainText("Save · 2 changes");
+  // Every box is counted, so not when the timeline draws only what's near the screen (`cull`).
+  if (!cull) await expect(page.locator(".box")).toHaveCount(10);
   expect(page.url()).toContain("zoom=months"); // not the browser's Back
 
   await page.keyboard.press("ControlOrMeta+z");
@@ -334,7 +336,7 @@ test("Delete on the only box in a department's extra area keeps focus in that de
 });
 
 test.describe("a branch preview", () => {
-  test("can be looked around, and what would change something says it can't", { tag: "@counts-boxes" }, async ({ page, github }) => {
+  test("can be looked around, and what would change something says it can't", async ({ page, github, cull }) => {
     const main = github.head;
     github.branches.feature = github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline v2") });
     github.head = main;
@@ -352,7 +354,8 @@ test.describe("a branch preview", () => {
     await page.keyboard.press("ArrowRight");
     await expect(page.getByRole("button", { name: "Add a box to Data Engineering / FTE 2" })).toHaveAttribute("aria-disabled", "true");
     await page.keyboard.press("Enter");
-    await expect(page.locator(".box")).toHaveCount(12);
+    // No box added. Every box is counted, so not when the timeline draws only what's near the screen (`cull`).
+    if (!cull) await expect(page.locator(".box")).toHaveCount(12);
     // Nor do departments move, here or in the table, which says why the same way.
     await page.keyboard.press("PageUp");
     await page.keyboard.press("Alt+ArrowDown");

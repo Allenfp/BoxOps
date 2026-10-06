@@ -40,11 +40,10 @@ export default defineConfig<Options>({
       use: { ...webkit, timezoneId },
     })),
     // The timeline's specs again with it drawing only what's near the screen, as it does for a
-    // big roadmap (the fixture's is small); but for tests that count every box it has.
+    // big roadmap (the fixture's is small). Checks that count every box it has are skipped there.
     {
       name: "webkit culled",
       testMatch: /\/(timeline|timeline-keys|drag|move|departments|pto)\.spec\.ts$/,
-      grepInvert: /@counts-boxes/,
       use: { ...webkit, timezoneId: "UTC", cull: true },
     },
     { name: "chromium", use: { ...devices["Desktop Chrome"], viewport, timezoneId: "UTC" } },
