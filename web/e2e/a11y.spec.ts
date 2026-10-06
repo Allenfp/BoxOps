@@ -77,6 +77,14 @@ const PARTS: [string, (page: Page) => Promise<void>][] = [
       await expect(page.getByRole("dialog", { name: "Team settings" })).toBeVisible();
     },
   ],
+  [
+    "the banner after a save, with its link to the commit",
+    async (page) => {
+      await dragDays(page, DAGSTER, 5);
+      await save(page);
+      await expect(page.locator(".banner.success a")).toBeVisible();
+    },
+  ],
 ];
 
 for (const colorScheme of ["light", "dark"] as const) {

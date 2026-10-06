@@ -211,7 +211,7 @@
   border-bottom: 1px solid var(--border);
 }
 .banner.success {
-  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
 }
 /* Notices from roadmap.json, in plain text: a security release and the like. */
 .banner.notice-security,
