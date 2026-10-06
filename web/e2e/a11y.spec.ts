@@ -78,6 +78,40 @@ const PARTS: [string, (page: Page) => Promise<void>][] = [
     },
   ],
   [
+    "the Keyboard shortcuts dialog",
+    async (page) => {
+      await page.getByRole("button", { name: "Settings", exact: true }).click();
+      await page.getByRole("button", { name: "Keyboard shortcuts…" }).click();
+      await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" }).getByRole("table", { name: "Moving a box or PTO" })).toBeVisible();
+    },
+  ],
+  [
+    "the warnings menu",
+    async (page) => {
+      await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
+      await expect(page.getByRole("dialog", { name: /warning/ })).toBeVisible();
+    },
+  ],
+  [
+    "the broken-rule popup",
+    async (page) => {
+      await box(page, DAGSTER).click();
+      const editor = page.getByRole("dialog", { name: /^Edit / });
+      await editor.getByRole("button", { name: "Rule", exact: true }).click();
+      await editor.getByLabel("New rule").selectOption("after");
+      await editor.getByLabel("Add a rule with").selectOption("C4P");
+      await page.keyboard.press("Escape");
+      await expect(page.locator(".toast")).toBeVisible();
+    },
+  ],
+  [
+    "a box's scale card",
+    async (page) => {
+      await box(page, DAGSTER).locator(".box-scale").hover();
+      await expect(page.getByRole("tooltip")).toContainText("Scale 30");
+    },
+  ],
+  [
     "the banner after a save, with its link to the commit",
     async (page) => {
       await dragDays(page, DAGSTER, 5);
