@@ -31,11 +31,88 @@ describe("releaseNotices", () => {
   });
 
   it("the newest Security: release beats a newer plain one", () => {
-    const { notices, annotations } = releaseNotices("0.1.0", [rel("v0.1.1", "Security: BoxOps 0.1.1"), rel("v0.1.3", "Security: BoxOps 0.1.3"), rel("v0.2.0")]);
+    const { notices, annotations } = releaseNotices("0.1.0", [rel("v0.1.1", "Security: BoxOps 0.1.1"), rel("v0.1.3", "Security: BoxOps 0.1.3"), rel("v0.1.4")]);
     expect(notices).toEqual([
       { level: "security", text: "BoxOps v0.1.3 fixes a security problem; this site runs v0.1.0. Ask a repository admin to merge the upgrade pull request." },
     ]);
     expect(annotations.map((a) => a.level)).toEqual(["warning"]);
+  });
+
+  describe("a security fix also released as a patch of the minor before (docs/releasing.md)", () => {
+    // 0.2.0 raised the data format; its fix, 0.2.1, came out first, then 0.1.1 with the same fix.
+    const dated = (entry: ReturnType<typeof rel>, published_at: string) => ({ ...entry, published_at });
+    const list = [
+      dated(rel("v0.2.1", "Security: BoxOps 0.2.1"), "2027-01-11T10:00:00Z"),
+      dated(rel("v0.1.1", "Security: BoxOps 0.1.1"), "2027-01-11T10:30:00Z"),
+      dated(rel("v0.2.0"), "2026-12-07T09:00:00Z"),
+      dated(rel("v0.1.0"), "2026-11-02T09:00:00Z"),
+    ];
+    const upgradeNote = (tag: string, own: string) => ({
+      level: "notice",
+      message: `BoxOps ${tag} is available; this run used v${own}: merge the BoxOps upgrade pull request, or run \`node .boxops/boxops.mjs upgrade ${tag}\`.`,
+    });
+
+    it("a site on that patch has the fix: the newer minor is only available, in the run and the app", () => {
+      expect(releaseNotices("0.1.1", list)).toEqual({
+        notices: [{ level: "info", text: "BoxOps v0.2.1 is available; this site runs v0.1.1." }],
+        annotations: [upgradeNote("v0.2.1", "0.1.1")],
+      });
+    });
+
+    it("a site before it is pointed to that patch, which needs no migration, and told of the newer minor", () => {
+      expect(releaseNotices("0.1.0", list)).toEqual({
+        notices: [{ level: "security", text: "BoxOps v0.1.1 fixes a security problem; this site runs v0.1.0. Ask a repository admin to upgrade it to v0.1.1." }],
+        annotations: [
+          {
+            level: "warning",
+            message:
+              "BoxOps v0.1.1 fixes a security problem (“Security: BoxOps 0.1.1”); this run used v0.1.0: run `node .boxops/boxops.mjs upgrade v0.1.1`, a patch of this minor release that needs no migration.",
+          },
+          upgradeNote("v0.2.1", "0.1.0"),
+        ],
+      });
+      // Without dates too: which fix to name is by version.
+      expect(releaseNotices("0.1.0", list.map(({ published_at: _, ...r }) => r))).toEqual(releaseNotices("0.1.0", list));
+    });
+
+    it("a site on the newer minor takes its own fix through the upgrade pull request", () => {
+      expect(releaseNotices("0.2.0", list).annotations).toEqual([
+        {
+          level: "warning",
+          message: "BoxOps v0.2.1 fixes a security problem (“Security: BoxOps 0.2.1”); this run used v0.2.0: merge the BoxOps upgrade pull request, or run `node .boxops/boxops.mjs upgrade v0.2.1`.",
+        },
+      ]);
+    });
+
+    it("a later security release is still one the patch lacks", () => {
+      const later = [dated(rel("v0.2.2", "Security: BoxOps 0.2.2"), "2027-02-01T09:00:00Z"), ...list];
+      expect(releaseNotices("0.1.1", later).notices).toEqual([
+        { level: "security", text: "BoxOps v0.2.2 fixes a security problem; this site runs v0.1.1. Ask a repository admin to merge the upgrade pull request." },
+      ]);
+      // Once its patch is out, that's the one named.
+      const patched = [dated(rel("v0.1.2", "Security: BoxOps 0.1.2"), "2027-02-01T09:30:00Z"), ...later];
+      expect(releaseNotices("0.1.1", patched).notices).toEqual([
+        { level: "security", text: "BoxOps v0.1.2 fixes a security problem; this site runs v0.1.1. Ask a repository admin to upgrade it to v0.1.2." },
+      ]);
+      expect(releaseNotices("0.1.2", patched).notices).toEqual([{ level: "info", text: "BoxOps v0.2.2 is available; this site runs v0.1.2." }]);
+    });
+
+    it("without both dates, or with the patch out first, it warns, unless the patch names the fix it carries", () => {
+      const warned = (r: ReturnType<typeof releaseNotices>) => r.notices.map((n) => `${n.level} ${n.text.split(";")[0]}`);
+      const undated = list.map(({ published_at: _, ...r }) => r);
+      const noneOfItsOwn = list.map((r) => (r.tag_name === "v0.1.1" ? { ...r, published_at: null } : r));
+      const notListed = list.filter((r) => r.tag_name !== "v0.1.1");
+      const patchFirst = list.map((r) => (r.tag_name === "v0.1.1" ? { ...r, published_at: "2027-01-11T09:00:00Z" } : r));
+      for (const releases of [undated, noneOfItsOwn, notListed, patchFirst]) {
+        expect(warned(releaseNotices("0.1.1", releases))).toEqual(["security BoxOps v0.2.1 fixes a security problem"]);
+        expect(warned(releaseNotices("0.1.1", releases, ["v0.2.1"]))).toEqual(["info BoxOps v0.2.1 is available"]);
+      }
+      // A date that isn't one is no date.
+      expect(warned(releaseNotices("0.1.1", list.map((r) => ({ ...r, published_at: r.tag_name === "v0.2.1" ? "soon" : r.published_at }))))).toEqual([
+        "security BoxOps v0.2.1 fixes a security problem",
+      ]);
+      expect(warned(releaseNotices("0.1.1", list.map((r) => ({ ...r, published_at: 5 }))))).toEqual(["security BoxOps v0.2.1 fixes a security problem"]);
+    });
   });
 
   it("titles are matched without regard to case", () => {

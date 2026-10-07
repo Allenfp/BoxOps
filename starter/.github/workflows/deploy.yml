@@ -39,7 +39,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BOXOPS_UPSTREAM: Allenfp/BoxOps # whose GitHub releases to check: a mirror's only if it copies them
-        run: gh api "repos/$BOXOPS_UPSTREAM/releases?per_page=30" --jq '[.[] | {tag_name, name, prerelease}]' > "$RUNNER_TEMP/boxops-releases.json"
+        run: gh api "repos/$BOXOPS_UPSTREAM/releases?per_page=30" --jq '[.[] | {tag_name, name, prerelease, published_at}]' > "$RUNNER_TEMP/boxops-releases.json"
       - id: boxops
         uses: Allenfp/BoxOps@<RELEASE_COMMIT_SHA> # v0.1.0
         with:

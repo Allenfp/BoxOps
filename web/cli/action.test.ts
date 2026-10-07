@@ -637,6 +637,24 @@ describe("notices (step 11)", () => {
     expect(r.notices).toEqual([{ level: "info", text: "BoxOps v0.1.1 is available; this site runs v0.1.0." }]);
   });
 
+  it("a patch of an older minor that carries a newer one's security fix: that one is only available (the lookup's dates say so)", async () => {
+    const list = [
+      { tag_name: "v0.2.1", name: "Security: BoxOps 0.2.1", prerelease: false, published_at: "2027-01-11T10:00:00Z" },
+      { tag_name: "v0.1.1", name: "Security: BoxOps 0.1.1", prerelease: false, published_at: "2027-01-11T10:30:00Z" },
+      { tag_name: "v0.2.0", name: "BoxOps 0.2.0", prerelease: false, published_at: "2026-12-07T09:00:00Z" },
+    ];
+    const patched = await withReleases(list, "0.1.1");
+    expect(patched.annotations).toEqual(["notice: BoxOps v0.2.1 is available; this run used v0.1.1: merge the BoxOps upgrade pull request, or run `node .boxops/boxops.mjs upgrade v0.2.1`."]);
+    expect(patched.notices).toEqual([{ level: "info", text: "BoxOps v0.2.1 is available; this site runs v0.1.1." }]);
+    // Before it: that patch, which needs no migration, rather than the newer minor.
+    const before = await withReleases(list, "0.1.0");
+    expect(before.annotations).toEqual([
+      "warning: BoxOps v0.1.1 fixes a security problem (“Security: BoxOps 0.1.1”); this run used v0.1.0: run `node .boxops/boxops.mjs upgrade v0.1.1`, a patch of this minor release that needs no migration.",
+      "notice: BoxOps v0.2.1 is available; this run used v0.1.0: merge the BoxOps upgrade pull request, or run `node .boxops/boxops.mjs upgrade v0.2.1`.",
+    ]);
+    expect(before.notices).toEqual([{ level: "security", text: "BoxOps v0.1.1 fixes a security problem; this site runs v0.1.0. Ask a repository admin to upgrade it to v0.1.1." }]);
+  });
+
   it("pre-releases count only when running one", async () => {
     const list = [{ tag_name: "v0.2.0-rc.2", name: "BoxOps 0.2.0-rc.2", prerelease: true }];
     expect((await withReleases(list)).notices).toEqual([]);

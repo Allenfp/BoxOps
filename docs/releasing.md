@@ -398,6 +398,16 @@ something (`web/scripts/check-changelog.mjs` checks the form; CI runs it):
    a release so only if no published release (but a withdrawn one) is of a
    later version.
 
+   Release the patch after the latest minor's fix, never before. A deploy
+   compares the dates the releases lookup lists: it takes a newer minor's
+   security release published before the release it runs to be one that
+   release carries, and doesn't warn of it; one published after, it warns
+   of. In the patch, also add the latest minor's fixed tag to
+   `FIXES_INCLUDED` in `web/cli/notices.ts`, which tells a deploy the same
+   when its lookup gives no dates (a workflow edited by hand, say) or the
+   patch went out first. Every later patch of that minor carries those
+   fixes too, and keeps the list: by its date, it's taken to.
+
 Roadmap repositories learn of it four ways: every deploy's annotations, the
 banner in their app, Dependabot's pull request (after its 3-day cooldown),
 and the advisory and release notes for those watching the repository.

@@ -41,7 +41,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BOXOPS_UPSTREAM: Allenfp/BoxOps # whose GitHub releases to check: a mirror's only if it copies them
-        run: gh api "repos/$BOXOPS_UPSTREAM/releases?per_page=30" --jq '[.[] | {tag_name, name, prerelease}]' > "$RUNNER_TEMP/boxops-releases.json"
+        run: gh api "repos/$BOXOPS_UPSTREAM/releases?per_page=30" --jq '[.[] | {tag_name, name, prerelease, published_at}]' > "$RUNNER_TEMP/boxops-releases.json"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         env:
           YARN_IGNORE_PATH: "1" # setup-node runs `yarn --version`: no yarnPath set in this repository may run

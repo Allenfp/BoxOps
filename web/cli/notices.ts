@@ -9,13 +9,27 @@
 import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import type { Notice } from "../src/model/bundle.ts";
 
-/** One release as `gh api …/releases --jq '[.[] | {tag_name, name, prerelease}]'` lists it (the API also says whether it's a draft). */
+/**
+ * One release as `gh api …/releases --jq '[.[] | {tag_name, name, prerelease, published_at}]'`
+ * lists it (the API also says whether it's a draft). `published_at` is
+ * optional: a list without it is read all the same.
+ */
 export interface ReleaseEntry {
   tag_name: string;
   name: string | null;
   prerelease: boolean;
   draft?: boolean;
+  published_at?: string | null;
 }
+
+/**
+ * The security releases of newer minors whose fixes this release carries
+ * too. A patch of an older minor that takes a newer one's security fix (a
+ * backport: docs/releasing.md, "Security releases") names that release's tag
+ * here, so its deploys don't warn of it even when the releases list can't
+ * tell by its dates (releaseNotices). None in this release.
+ */
+export const FIXES_INCLUDED: readonly string[] = [];
 
 /** major, minor, patch, and the release candidate's number (null for a release). */
 type Version = [number, number, number, number | null];
@@ -56,6 +70,12 @@ const isEntry = (r: unknown): r is ReleaseEntry =>
 
 const title = (r: ReleaseEntry) => (r.name ?? "").trim();
 
+/** When it was published, in ms; null if the list doesn't say (an older lookup's, or a draft's). */
+const publishedAt = (r: ReleaseEntry): number | null => {
+  const t = typeof r.published_at === "string" ? Date.parse(r.published_at) : Number.NaN;
+  return Number.isNaN(t) ? null : t;
+};
+
 /**
  * A release titled "Withdrawn: …": found bad after it was published
  * (docs/releasing.md, "A bad release"), so never one to move to.
@@ -83,11 +103,17 @@ export function newestRelease(releases: unknown): string | undefined {
  * the releases list (anything that isn't one is ignored). Only tags vX.Y.Z
  * count, not drafts, and release candidates (vX.Y.Z-rc.N, marked
  * prerelease) only while running one. A newer release titled "Security: …"
- * gives a security notice and a warning; any other newer one an info notice
- * and a notice annotation; a withdrawn one ("Withdrawn: …") none. If this
- * release is titled "Withdrawn: …", a warning, in the app too.
+ * gives a security notice and a warning, unless this release carries its
+ * fix: it's in `included` (FIXES_INCLUDED), or the list's dates say this
+ * release came out after it (an older minor's patch carries the fixes of
+ * the security releases before it: docs/releasing.md). The one named is a
+ * patch of this release's minor if there's one, which needs no migration
+ * (the newest release, a newer minor's, then gets a note), else the newest.
+ * Any other newer release gives an info notice and a notice annotation; a
+ * withdrawn one ("Withdrawn: …") none. If this release is titled
+ * "Withdrawn: …", a warning, in the app too.
  */
-export function releaseNotices(own: string, releases: unknown): Notices {
+export function releaseNotices(own: string, releases: unknown, included: readonly string[] = FIXES_INCLUDED): Notices {
   const mine = parseVersion(own);
   const out: Notices = { notices: [], annotations: [] };
   if (!mine || !Array.isArray(releases)) return out;
@@ -98,31 +124,44 @@ export function releaseNotices(own: string, releases: unknown): Notices {
     .map((r) => ({ r, v: parseVersion(r.tag_name) }))
     .filter((x): x is { r: ReleaseEntry; v: Version } => x.v !== null && x.r.tag_name.startsWith("v"))
     .filter((x) => candidate || (x.v[3] === null && !x.r.prerelease));
-  const newest = (list: typeof known) => [...list].sort((a, b) => compareVersions(b.v, a.v))[0]?.r;
+  const newest = (list: typeof known): (typeof known)[number] | undefined => [...list].sort((a, b) => compareVersions(b.v, a.v))[0];
+  const sameMinor = (v: Version) => v[0] === mine[0] && v[1] === mine[1];
   // Until the release that fixes it is out, a withdrawn one may well be the newest: never offered.
   const newer = known.filter((x) => compareVersions(x.v, mine) > 0 && !isWithdrawn(x.r));
-  const security = newest(newer.filter((x) => /^security:/i.test(title(x.r))));
   const latest = newest(newer);
+  const self = known.find((x) => compareVersions(x.v, mine) === 0);
+  const since = self ? publishedAt(self.r) : null;
+  const fixCarried = (r: ReleaseEntry) => {
+    const at = publishedAt(r);
+    return included.includes(r.tag_name) || (since !== null && at !== null && at <= since);
+  };
+  const fixes = newer.filter((x) => /^security:/i.test(title(x.r)) && !fixCarried(x.r));
+  const security = newest(fixes.filter((x) => sameMinor(x.v))) ?? newest(fixes);
+  // Dependabot's pull request moves to the newest release. A patch of this minor while the newest
+  // is a newer minor's (which, for there to be such a patch, raised the data format) is the way
+  // without a migration: that patch is the one to take, and the pull request is the longer way.
+  const patch = security !== undefined && latest !== undefined && sameMinor(security.v) && !sameMinor(latest.v);
   const upgrade = (tag: string) => `merge the BoxOps upgrade pull request, or run \`node .boxops/boxops.mjs upgrade ${tag}\``;
   if (security) {
+    const tag = security.r.tag_name;
     out.notices.push({
       level: "security",
-      text: `BoxOps ${security.tag_name} fixes a security problem; this site runs v${own}. Ask a repository admin to merge the upgrade pull request.`,
+      text: `BoxOps ${tag} fixes a security problem; this site runs v${own}. Ask a repository admin to ${patch ? `upgrade it to ${tag}` : "merge the upgrade pull request"}.`,
     });
     out.annotations.push({
       level: "warning",
-      message: `BoxOps ${security.tag_name} fixes a security problem (“${title(security)}”); this run used v${own}: ${upgrade(security.tag_name)}.`,
+      message: `BoxOps ${tag} fixes a security problem (“${title(security.r)}”); this run used v${own}: ${patch ? `run \`node .boxops/boxops.mjs upgrade ${tag}\`, a patch of this minor release that needs no migration` : upgrade(tag)}.`,
     });
-  } else if (latest) {
-    out.notices.push({ level: "info", text: `BoxOps ${latest.tag_name} is available; this site runs v${own}.` });
-    out.annotations.push({ level: "notice", message: `BoxOps ${latest.tag_name} is available; this run used v${own}: ${upgrade(latest.tag_name)}.` });
   }
-  const self = known.find((x) => compareVersions(x.v, mine) === 0 && isWithdrawn(x.r));
-  if (self) {
+  if (latest && (!security || patch)) {
+    if (!security) out.notices.push({ level: "info", text: `BoxOps ${latest.r.tag_name} is available; this site runs v${own}.` });
+    out.annotations.push({ level: "notice", message: `BoxOps ${latest.r.tag_name} is available; this run used v${own}: ${upgrade(latest.r.tag_name)}.` });
+  }
+  if (self && isWithdrawn(self.r)) {
     out.notices.push({ level: "warning", text: `This site runs BoxOps v${own}, which was withdrawn. Ask a repository admin to upgrade it.` });
     out.annotations.push({
       level: "warning",
-      message: `BoxOps v${own} was withdrawn (“${title(self.r)}”): upgrade to a newer release${latest ? ` (${latest.tag_name})` : ""}.`,
+      message: `BoxOps v${own} was withdrawn (“${title(self.r)}”): upgrade to a newer release${latest ? ` (${latest.r.tag_name})` : ""}.`,
     });
   }
   return out;

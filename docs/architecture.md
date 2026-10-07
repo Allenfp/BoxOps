@@ -1225,7 +1225,13 @@ this order, each failure an error annotation with a plain message:
     `roadmap.json`, any other newer one a notice and an `info` notice (but
     none for one titled "Withdrawn: …", nor a draft), and this release
     titled "Withdrawn: …" a warning (in the app too). Release candidates
-    count only when running one.
+    count only when running one. A security release this one carries isn't
+    warned of: one published before it (the lookup lists `published_at`:
+    an older minor's patch comes out after the fixes it takes), or named in
+    its `FIXES_INCLUDED`. Of the rest, a patch of this release's own minor
+    is the one named (it needs no migration), with a note of the newest
+    release when that's a newer minor's, which Dependabot's pull request
+    moves to.
 12. In build mode, `$RUNNER_TEMP/boxops-site` made afresh: the release's
     `dist/app` (each file checked against `BUILD.json`, and no other file)
     and `roadmap.json`. `repository` naming another repository makes the site

@@ -254,9 +254,10 @@ async function main(): Promise<number> {
 
     const event = join(work, "event.json");
     writeFileSync(event, JSON.stringify({ ref: "refs/heads/main", repository: { full_name: "acme/roadmap", default_branch: "main", private: true, visibility: "private" } }));
+    // As the starter's lookup step lists them (its jq).
     const releases = [
-      { tag_name: "v9.9.9", name: "Security: BoxOps 9.9.9", prerelease: false },
-      { tag_name: tag(), name: `BoxOps ${build?.version}`, prerelease: false },
+      { tag_name: "v9.9.9", name: "Security: BoxOps 9.9.9", prerelease: false, published_at: "2026-10-08T09:00:00Z" },
+      { tag_name: tag(), name: `BoxOps ${build?.version}`, prerelease: false, published_at: "2026-10-07T09:00:00Z" },
     ];
     writeFileSync(join(work, "runner-temp", "boxops-releases.json"), JSON.stringify(releases));
     writeFileSync(join(work, "runner-temp-b", "boxops-releases.json"), JSON.stringify(releases));

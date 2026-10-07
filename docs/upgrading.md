@@ -154,7 +154,15 @@ itself:
 Take a security release at once: merge Dependabot's pull request if it's
 there, or run `upgrade` as above. When the latest minor release raised the
 data format, the fix also comes as a patch of the minor before it, so you
-can take it without migrating (`upgrade v0.1.2`, say).
+can take it without migrating (`upgrade v0.1.2`, say). A site on that minor
+is pointed to the patch: "BoxOps v0.1.2 fixes a security problem (…); this
+run used v0.1.1: run `node .boxops/boxops.mjs upgrade v0.1.2`, a patch of
+this minor release that needs no migration", and the site says "Ask a
+repository admin to upgrade it to v0.1.2." A note names the newer minor,
+which Dependabot's pull request moves to (with a migration). Once on the
+patch, the deploy no longer warns of the newer minor's fix, which the patch
+carries (the lookup lists when each release came out); the newer minor
+stays a quiet note until you move to it.
 
 A release found to be bad is **withdrawn**, not deleted (a published release
 can't change, and your pin names its commit): its title starts "Withdrawn:",
