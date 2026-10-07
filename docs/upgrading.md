@@ -119,9 +119,12 @@ allows actions by exact commit adds the new one first
 
 **Mirrors.** Copy the new release into your mirror first
 ([enterprise.md](enterprise.md#a-mirror-of-boxops)); Dependabot, given
-access to it, then proposes it, or `upgrade` takes it. Mirrors of GitHub's
-actions are the same: Dependabot proposes their new versions only once
-you've copied them in ([enterprise.md](enterprise.md#enterprise-actions-only)).
+access to it, then proposes it, or `upgrade vX.Y.Z` takes it. Give
+`upgrade` the version: with none, it looks for the newest among the
+repository's GitHub releases, which a mirror doesn't have. Mirrors of
+GitHub's actions are the same: Dependabot proposes their new versions only
+once you've copied them in
+([enterprise.md](enterprise.md#enterprise-actions-only)).
 
 `node .boxops/boxops.mjs version` says which release runs, and
 `node .boxops/boxops.mjs doctor` checks the setup: Node.js, that every pin

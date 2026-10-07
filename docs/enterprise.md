@@ -154,8 +154,9 @@ copied. Then:
 
 - On the `uses:` lines, `Allenfp/BoxOps` becomes `acme/boxops`, with the
   same commit. `node .boxops/boxops.mjs upgrade` keeps the repository it
-  finds there; give it the version (`upgrade v0.2.0`), since "the latest"
-  is a GitHub release, which a mirror doesn't have.
+  finds there; give it the version (`upgrade v0.2.0`), since with none it
+  looks for the newest among the repository's GitHub releases, which a
+  mirror doesn't have (it says so, and changes nothing).
 - A private or internal mirror: Settings → Actions → General → **Access**,
   as above. The launcher on laptops downloads the tool from a private
   mirror through the API, with `GH_TOKEN`, `GITHUB_TOKEN` or the GitHub
