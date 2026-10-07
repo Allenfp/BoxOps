@@ -1,10 +1,11 @@
 // `upgrade [vX.Y.Z]`: moves a roadmap repository to another BoxOps release.
 // Resolves the tag (default: the newest release that wasn't withdrawn; a
 // withdrawn one is refused by name too) to its commit, fetches that
-// release's tool (checked against its BUILD.json) into the launcher's cache,
-// rewrites every BoxOps pin in the workflows (and its `# vX.Y.Z` comment),
-// then runs the NEW release's `migrate --check`, `sync` and `validate`.
-// Commits nothing. Node-only.
+// release's tool (checked against its BUILD.json, whose Node.js floor this
+// one must meet) into the launcher's cache and loads it, then, and only
+// then, rewrites every BoxOps pin in the workflows (and its `# vX.Y.Z`
+// comment), and runs the NEW release's `migrate --check`, `sync` and
+// `validate`. Commits nothing. Node-only.
 
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,26 +28,37 @@ export interface UpgradeOptions {
   roadmap?: string;
 }
 
+/** Whether this Node.js is `floor` ("major.minor") or newer. */
+function nodeAtLeast(floor: string): boolean {
+  const [major, minor] = floor.split(".").map(Number);
+  const [maj, min] = process.versions.node.split(".").map(Number);
+  return maj > major || (maj === major && min >= minor);
+}
+
 /**
  * A release's dist/boxops.mjs in the launcher's cache, with the BUILD.json of
  * the same commit, which must name the tag's version and describe the tool
- * (as the launcher checks it). Fetched if either isn't there, or the tool
- * isn't the file the BUILD.json describes.
+ * (as the launcher checks it), and whose Node.js floor (`node: ">=X.Y"`)
+ * this Node.js must be at (as the launcher checks it too; a minor release
+ * may raise it). Fetched if either isn't there, or the tool isn't the file
+ * the BUILD.json describes.
  */
 export async function fetchRelease(io: Io, root: string, repo: string, sha: string, tag: string): Promise<string> {
   const dir = releaseCache(io.env, root, repo, sha);
-  const version = (build: BuildJson) => {
+  const check = (build: BuildJson) => {
     if (`v${build.version}` !== tag) throw new Error(`${repo}@${sha.slice(0, 7)} is BoxOps ${build.version}, not ${tag}`);
+    const floor = /^>=(\d+\.\d+)$/.exec(build.node)?.[1];
+    if (floor && !nodeAtLeast(floor)) throw new UsageError(`BoxOps ${tag} needs Node.js ${floor} or newer (this is ${process.versions.node}): nothing was changed`);
   };
   const cached = cachedTool(dir);
   if (cached) {
-    version(cached.buildJson);
+    check(cached.buildJson);
     return cached.file;
   }
   const gh = gitHub(io.env, io.fetch);
   const text = new TextDecoder().decode(await fileAt(gh, repo, sha, "BUILD.json"));
   const build = parseBuildJson(text);
-  version(build);
+  check(build);
   const bytes = await fileAt(gh, repo, sha, "dist/boxops.mjs");
   if (digest(bytes) !== build.files["dist/boxops.mjs"]) throw new Error(`dist/boxops.mjs of ${repo}@${sha.slice(0, 7)} isn’t the file its BUILD.json describes`);
   return keepTool(dir, bytes, text);
@@ -80,6 +92,14 @@ export async function upgradeCommand(root: string, wanted: string | undefined, c
     return EXIT.ok;
   }
   const file = await fetchRelease(io, root, repo, sha, tag);
+  // Before a pin moves: a tool this Node.js can't load leaves everything as it was.
+  let main: Main;
+  try {
+    main = await (o.load ?? (async (f: string) => ((await import(pathToFileURL(f).href)) as { main: Main }).main))(file);
+    if (typeof main !== "function") throw new Error("it has no main");
+  } catch (e) {
+    throw new UsageError(`BoxOps ${tag}’s tool won’t load on Node.js ${process.versions.node} (${(e as Error).message}): nothing was changed`);
+  }
 
   const changed: string[] = [];
   for (const [path, text] of Object.entries(workflows)) {
@@ -91,7 +111,6 @@ export async function upgradeCommand(root: string, wanted: string | undefined, c
   const from = [...new Set(pins.map((p) => p.tag ?? p.ref.slice(0, 12)))].join(", ");
   io.out(`Moved the BoxOps pins in ${changed.join(", ")} from ${from} to ${tag} (${repo}@${sha.slice(0, 12)}).`);
 
-  const main = await (o.load ?? (async (f: string) => ((await import(pathToFileURL(f).href)) as { main: Main }).main))(file);
   // Not the launcher's number, nor its word that it has checked the BoxOps
   // files: it compared them with the old release's BUILD.json. The new
   // release reads them, after its sync has rewritten what it writes. Its

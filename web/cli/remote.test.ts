@@ -16,7 +16,7 @@ import { starterFiles } from "./embedded";
 import { gitHub } from "./github";
 import { ensureApp, startPreview } from "./preview";
 import { fetchRelease, upgradeCommand } from "./upgrade";
-import { openRelease, verifiedApp } from "./release";
+import { buildJsonText, openRelease, parseBuildJson, verifiedApp } from "./release";
 import { APP_FILES, ID, IGNORES_CASE, capture, cleanUp, fakeGitHub, releaseFiles, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
 import { SHELLS, block, paste, shellEnv, standIns } from "./test-shell";
@@ -243,6 +243,26 @@ describe("upgrade", () => {
     expect(await upgradeCommand(repo.dir, "v0.2.0", ctx, io, { load })).toBe(0);
     // Once, from validate; and not "the launcher is 0": the launcher is the file, this release's.
     expect(inner.stderr).toEqual(["boxops: the Pages guard in deploy.yml is 0; this BoxOps expects 1: run `node .boxops/boxops.mjs doctor`"]);
+  });
+
+  it("changes nothing for a release this Node.js can't run: below its BUILD.json's floor, or a tool that won't load", async () => {
+    const repo = adopter(A);
+    const floored = newRelease(join(tempDir(), "never.jsonl"));
+    floored["BUILD.json"] = buildJsonText({ ...parseBuildJson(String(floored["BUILD.json"])), node: ">=99.0" });
+    const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: floored } });
+    const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
+    expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, io)).toBe(2);
+    expect(io.stderr).toEqual([`boxops upgrade: BoxOps v0.2.0 needs Node.js 99.0 or newer (this is ${process.versions.node}): nothing was changed`]);
+    expect(gh.calls.filter((url) => url.endsWith("/dist/boxops.mjs"))).toEqual([]); // not even downloaded
+    expect(repo.git(["status", "--porcelain"])).toBe("");
+
+    const C = "c".repeat(40);
+    const broken = releaseFiles({ ...ID, version: "0.3.0", build: "0.3.0+fedcba987654" }, "export async function main( {\n");
+    const gh2 = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.3.0": C } }, files: { [C]: broken } });
+    const io2 = capture({ fetch: gh2.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
+    expect(await main(["upgrade", "v0.3.0"], { root: repo.dir }, io2)).toBe(2);
+    expect(io2.stderr).toEqual([expect.stringMatching(/^boxops upgrade: BoxOps v0\.3\.0’s tool won’t load on Node\.js \d+\.\d+\.\d+ \(.+\): nothing was changed$/)]);
+    expect(repo.git(["status", "--porcelain"])).toBe("");
   });
 
   it("checks the release's tool against its BUILD.json before running it", async () => {
