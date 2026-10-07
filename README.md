@@ -7,6 +7,14 @@ straight to `main`, and the site updates within a minute.
 
 **Open it:** https://allenfp.github.io/BoxOps/
 
+**For your team:** a roadmap repository of your own, made from the starter,
+runs a BoxOps release it pins: [docs/adopting.md](docs/adopting.md) sets one
+up (on GitHub Enterprise Cloud, with a private site; or public), and
+[docs/upgrading.md](docs/upgrading.md) keeps it current.
+[docs/enterprise.md](docs/enterprise.md) covers allow lists, mirrors, IP
+allow lists and self-hosted runners, and [docs/security.md](docs/security.md)
+what can change the code a site runs and how to check a release.
+
 ## Using the app
 
 - **Timeline.** Departments of lanes, one per FTE of capacity, over weeks,
@@ -197,6 +205,8 @@ else must pass the browser tests before it deploys.
 - [docs/architecture.md](docs/architecture.md): how loading, saving, conflicts,
   polling, layout, the command-line tool, the action and CI work.
 - [docs/decisions.md](docs/decisions.md): what was decided, when and why.
+- [docs/data-format.md](docs/data-format.md): what a release may change,
+  the data format among them, and how `migrate` moves a roadmap on.
 - [AGENTS.md](AGENTS.md): for AI assistants working on BoxOps: branches,
   the checks to run, the files that change together and the release rules.
 - [docs/releasing.md](docs/releasing.md): how a release is made (the release

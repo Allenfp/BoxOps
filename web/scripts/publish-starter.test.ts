@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { main as boxops } from "../cli/boxops";
 import { starterFiles } from "../cli/embedded";
 import { buildJsonText, makeBuildJson } from "../cli/release";
-import { renderStarter } from "../cli/starter";
+import { SOURCE_PLACEHOLDER, docLinks, renderStarter } from "../cli/starter";
 import { ID, capture, cleanUp, fakeGitHub, releaseFiles, tempDir } from "../cli/test-release";
 import { TestRepo } from "../cli/test-repo";
 import { SHELLS, block, paste, shellEnv, standIns, which } from "../cli/test-shell";
@@ -43,6 +43,9 @@ function configIdentity(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return env;
 }
 
+/** The pages of BoxOps' docs starter/ links to (path → blob or tree), as they come in it. */
+const DOC_LINKS = [...docLinks(starterFiles(), SOURCE_PLACEHOLDER)];
+
 interface Upstream {
   repo: TestRepo;
   /** The commit of main the release was built from. */
@@ -61,7 +64,8 @@ function upstream(o: { starter?: Record<string, string>; docs?: boolean; version
   repos.push(repo);
   const entries: Record<string, string> = {};
   for (const [path, text] of Object.entries(o.starter ?? starterFiles())) entries[`starter/${path}`] = text;
-  if (o.docs !== false) Object.assign(entries, { "docs/adopting.md": "# Adopting BoxOps\n", "templates/path-b/deploy.yml": "name: Deploy roadmap\n" });
+  // A file at each page it links to, and in each folder.
+  if (o.docs !== false) for (const [path, kind] of DOC_LINKS) entries[kind === "blob" ? path : `${path}/README.md`] = `# ${path}\n`;
   const source = repo.commit(entries, "Main");
   repo.git(["branch", "source", source]);
   const tool = Buffer.from("export async function main() { return 0; }\n");
@@ -118,7 +122,7 @@ describe("publish-starter", () => {
     const undocumented = upstream({ docs: false });
     const out = fresh();
     expect(() => publishStarter({ repoDir: undocumented.repo.dir, tag: "v0.1.0", commit: undocumented.release, out })).toThrow(
-      `The starter links to docs/adopting.md, templates/path-b in BoxOps, which ${undocumented.source.slice(0, 12)} hasn’t: nothing was written`,
+      `The starter links to ${DOC_LINKS.map(([path]) => path).join(", ")} in BoxOps, which ${undocumented.source.slice(0, 12)} hasn’t: nothing was written`,
     );
     expect(existsSync(out)).toBe(false);
     const full = fresh();

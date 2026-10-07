@@ -75,7 +75,7 @@ describe("renderStarter", () => {
  * A release needs none (AGENTS.md, Releases): its `init` would write links to
  * nothing, and publish-starter refuses to publish them.
  */
-const TO_WRITE = ["docs/adopting.md"];
+const TO_WRITE: string[] = [];
 
 describe("starter/'s links to BoxOps' docs", () => {
   it("go to pages git tracks here, but those still to write (and those aren't written)", () => {

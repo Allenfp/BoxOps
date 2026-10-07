@@ -18,7 +18,10 @@ This repository is BoxOps itself, not a team's roadmap:
 How it all works is in [docs/architecture.md](docs/architecture.md), and why
 in [docs/decisions.md](docs/decisions.md). The data format is
 [templates/guide/format.md](templates/guide/format.md), and how it may change
-[docs/data-format.md](docs/data-format.md).
+[docs/data-format.md](docs/data-format.md). What teams that use BoxOps read:
+[docs/adopting.md](docs/adopting.md) (setting a roadmap repository up),
+[docs/upgrading.md](docs/upgrading.md), [docs/enterprise.md](docs/enterprise.md)
+and [docs/security.md](docs/security.md).
 
 ## Branches and commits
 
@@ -113,6 +116,11 @@ Tests catch most of these; change the files together anyway.
   deploy key and runs nothing from this repository.
 - A file staged in `cutover/` and the live file it replaces
   (`web/scripts/cutover.test.ts`).
+- `docs/adopting.md`, `upgrading.md`, `enterprise.md` and `security.md`
+  (for teams that use BoxOps) and what they quote: the starter's workflows
+  (job and step names, permissions, the Pages guard's messages), the
+  commits of the actions it pins (the allow lists), the app's messages
+  about saving (`web/src/github/messages.ts`) and the action's.
 - `README.md`, `docs/` and `templates/` describe what the code does: change
   them with it.
 

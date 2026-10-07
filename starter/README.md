@@ -42,6 +42,14 @@ as of the release this repository was made with. In short:
   fills that in. If the organization approves tokens, an owner approves it
   first. The token stays in that browser tab only.
 
+Before you add real people: everything in `roadmap/` (names, emails,
+managers, notes, PTO and its notes) is in the site's `roadmap.json`, which
+anyone who can open the site can read; each save's commit shows the saver's
+GitHub name and email, unless they keep their email private; and PTO notes
+end up in commit messages, which history keeps. BoxOps'
+[docs/adopting.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/adopting.md#before-you-add-real-people-privacy) has
+more, with making a token and what each error means.
+
 ## Editing without the app
 
 The files can be edited by hand or by an AI assistant (see `AGENTS.md`) and
@@ -72,13 +80,18 @@ the new release against this roadmap; read the release notes in it, and merge
 when it's green. Some upgrades ask you to run `node .boxops/boxops.mjs
 migrate` (a new data format) or `sync` (a new `AGENTS.md` block or launcher)
 on the pull request's branch first. `node .boxops/boxops.mjs guide upgrading`
-has the details; `node .boxops/boxops.mjs upgrade` does it by hand, and
-`node .boxops/boxops.mjs doctor` checks the setup.
+has the details, as does BoxOps'
+[docs/upgrading.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/upgrading.md); `node .boxops/boxops.mjs upgrade`
+does it by hand, and `node .boxops/boxops.mjs doctor` checks the setup.
 
 Every deploy also looks up BoxOps' releases: when one fixes a security
 problem, the run warns and the site shows a notice until you upgrade.
 
 ## Enterprise notes
+
+More, and the commands for mirrors, in BoxOps'
+[docs/enterprise.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/enterprise.md); how a release is made and how to
+check one, in its [docs/security.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/security.md).
 
 - **Actions allow lists:** BoxOps is one entry, `Allenfp/BoxOps@*` (or your
   mirror). Allow lists of exact commits also need the commit
