@@ -1122,7 +1122,7 @@ builds the app and the tool afresh (`NODE_ENV=production`, and
 for the canary), and only from a checkout with nothing uncommitted or
 untracked (`--allow-dirty` to try one anyway, its build id ending in
 `.dirty`), since a release is a commit's, and none that git turned to CRLF
-(`core.autocrlf`, which `git status` doesn't show; `.gitattributes` has
+(`core.autocrlf`, which `git status` needn't show; `.gitattributes` has
 every text file checked out with LF). This `BUILD.json` lists every
 other file of the tree, the top-level ones too, and every file is written
 0644, so git's id for the tree is the same wherever it's built. Beside the

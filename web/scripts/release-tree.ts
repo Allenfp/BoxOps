@@ -27,8 +27,9 @@
 // buildVersion), from a checkout with nothing uncommitted or untracked (it
 // refuses otherwise; --allow-dirty to try anyway, which gives a build id ending
 // in .dirty), and no file git turned to CRLF (crlfCheckout). Every file is
-// written 0644, so the tree hash doesn't depend on the umask. Two builds of one commit are the same, byte for byte
-// (release-tree.test.ts builds one twice, in separate folders, to check).
+// written 0644, so the tree hash doesn't depend on the umask. Two builds of
+// one commit are the same, byte for byte (release-tree.test.ts builds one
+// twice, in separate folders, to check).
 // Then it checks what it wrote (check-release-tree.ts).
 
 import { execFileSync, spawnSync } from "node:child_process";
@@ -102,8 +103,9 @@ export function uncommitted(repoDir: string): string[] {
  * The files git tracks that the checkout at `repoDir` has with CRLF line ends
  * (some or all) where git has LF: a checkout git turned to CRLF, as
  * core.autocrlf (Git for Windows' default) does where .gitattributes doesn't
- * say eol=lf. `git status` shows none of them, but a build reads files as
- * they are on disk, so it would make other bytes under the same build id.
+ * say eol=lf. `git status` needn't show them (with core.autocrlf it compares
+ * files as they'd be committed), but a build reads files as they are on
+ * disk, so it would make other bytes under the same build id.
  */
 export function crlfCheckout(repoDir: string): string[] {
   const out = execFileSync("git", ["-c", "core.fsmonitor=false", "ls-files", "--eol", "-z"], { cwd: repoDir, env: gitFreeEnv(), encoding: "utf8", stdio: "pipe" });
@@ -247,7 +249,7 @@ export async function buildReleaseTree(o: TreeOptions): Promise<ReleaseTree> {
       `${repoDir} has uncommitted or untracked files (${dirty.slice(0, 5).join(", ")}${dirty.length > 5 ? ", …" : ""}): a release tree is built from a commit. Commit or stash them, or give --allow-dirty to try it anyway`,
     );
   }
-  // Even with --allow-dirty: git status doesn't show these, so the build id wouldn't say .dirty.
+  // Even with --allow-dirty: git status needn't show these, so the build id needn't say .dirty.
   const crlf = crlfCheckout(repoDir);
   if (crlf.length) {
     throw new Error(
