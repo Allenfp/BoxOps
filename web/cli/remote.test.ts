@@ -10,7 +10,7 @@ import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { main } from "./boxops";
 import { cacheRoot } from "./cache";
-import type { Io, LaunchContext } from "./context";
+import type { LaunchContext } from "./context";
 import { doctorCommand } from "./doctor";
 import { starterFiles } from "./embedded";
 import { gitHub } from "./github";
@@ -444,7 +444,7 @@ describe("preview", () => {
     repos.push(repo);
     repo.commit(sampleRepo(), "Start");
     repo.checkout();
-    const io: Io = capture({ cwd: repo.dir });
+    const io = capture({ cwd: repo.dir });
     const preview = await startPreview({ root: repo.dir, dir: join(repo.dir, "roadmap"), port: 0, io });
     try {
       expect(preview.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
@@ -462,6 +462,12 @@ describe("preview", () => {
       writeFileSync(join(repo.dir, "roadmap", "people.yaml"), "people: []\n");
       const second = await get(preview.url, "/roadmap.json", { "If-None-Match": String(first.headers.etag) });
       expect([second.status, JSON.parse(second.body).files["people.yaml"]]).toEqual([200, "people: []\n"]);
+      // The result line, when it changes: from the files as parsed for roadmap.json, the edited one parsed again.
+      expect(JSON.parse(second.body).parsed.files["people.yaml"]).toMatchObject({ kind: "people", people: [] });
+      expect(io.stderr).toEqual([
+        expect.stringMatching(/^\d\d:\d\d:\d\d roadmap\/: 1 departments, 2 lanes, 1 boxes — OK$/),
+        expect.stringMatching(/^\d\d:\d\d:\d\d roadmap\/: 1 departments, 2 lanes, 1 boxes — 1 issue\(s\)$/),
+      ]);
     } finally {
       await preview.close();
     }

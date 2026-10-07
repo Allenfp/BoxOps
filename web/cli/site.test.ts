@@ -6,7 +6,7 @@ import { readBundle } from "../src/model/bundle";
 import { parseFile } from "../src/model/parse";
 import { EXECUTABLE } from "../src/model/paths";
 import { RoadmapReadError } from "./git";
-import { appInfo, assembleBundle, buildBundle, buildVersion, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
+import { type ParseCache, appInfo, assembleBundle, buildBundle, buildVersion, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
 import { TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -216,6 +216,22 @@ describe("buildBundle locally", () => {
     // Unless told to (the browser tests, whose app was just built), or told not to.
     expect(parsed("0.1.0+0123456789ab.dirty", { parsed: true })).toBe("0.1.0+0123456789ab.dirty");
     expect(parsed("0.1.0+0123456789ab", { parsed: false })).toBeUndefined();
+  });
+
+  it("with a cache (the preview's), parses only the files it hasn't, by path and blob, and keeps the folder's alone", async () => {
+    const source = { repo: "", branch: "", commit: "", dir: "roadmap", tree: null, visibility: null, private: true, readonly: false, author: "", subject: "", date: "", history: [] };
+    const files = { "settings.yaml": "format: 1\n", "people.yaml": "people: []\n", "boxes/b1.yaml": "id: b1\n" };
+    const cache: ParseCache = new Map();
+    const first = assembleBundle(APP, source, await hashFolder(files), { cache });
+    expect(first).toEqual(assembleBundle(APP, source, await hashFolder(files)));
+    expect(cache.size).toBe(3);
+    // b1 edited, people.yaml gone, and its text at another path (what a file parses to depends on its path too).
+    const next = { "settings.yaml": files["settings.yaml"], "boxes/b1.yaml": "id: b1\ntitle: B1\n", "boxes/b2.yaml": "people: []\n" };
+    const second = assembleBundle(APP, source, await hashFolder(next), { cache });
+    expect(second).toEqual(assembleBundle(APP, source, await hashFolder(next)));
+    expect(second.parsed!.files["settings.yaml"]).toBe(first.parsed!.files["settings.yaml"]); // not parsed again
+    expect(second.parsed!.files["boxes/b1.yaml"]).not.toBe(first.parsed!.files["boxes/b1.yaml"]);
+    expect([...cache.keys()].map((k) => k.split("\0")[0]).sort()).toEqual(["boxes/b1.yaml", "boxes/b2.yaml", "settings.yaml"]);
   });
 
   it("warns when origin names no repository, without the credentials its URL holds", async () => {

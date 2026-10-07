@@ -13,11 +13,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { type GitTreeEntry, gitBlobSha, gitTreeSha } from "../src/github/git-objects.ts";
 import { type AppInfo, type Bundle, type BundleSource, type ParsedFiles, type RoadmapFolder, SCHEMA, type Visibility } from "../src/model/bundle.ts";
+import type { ParsedEntry } from "../src/model/load.ts";
 import { FORMAT } from "../src/model/format.ts";
 import { parseFile } from "../src/model/parse.ts";
 import { isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
 import type { RoadmapFiles } from "../src/model/types.ts";
-import { absolutePath, firstParents, gitPlumbing, readCommit, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git.ts";
+import { type CommitInfo, absolutePath, firstParents, gitPlumbing, readCommit, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git.ts";
 
 export type Env = Record<string, string | undefined>;
 
@@ -148,6 +149,15 @@ function history(repo: string, commit: string): string[] {
   return [...list];
 }
 
+/** readCommit, remembered as firstParents is (a preview builds a bundle twice a second): a commit never changes. */
+const commits = new Map<string, CommitInfo>();
+function commitInfo(repo: string, commit: string): CommitInfo {
+  const key = `${repo}\0${commit}`;
+  let info = commits.get(key);
+  if (!info) commits.set(key, (info = readCommit(repo, commit)));
+  return info;
+}
+
 /** Two reads of a roadmap folder hold the same files. */
 function sameFolder(a: RoadmapFolder, b: RoadmapFolder): boolean {
   const key = (f: RoadmapFolder) => JSON.stringify([Object.entries(f.blobs).sort(), [...f.ignored].sort()]);
@@ -179,22 +189,39 @@ export async function hashFolder(all: RoadmapFiles): Promise<RoadmapFolder> {
 const CLEAN_BUILD = /^[^+\s]+\+[0-9a-f]{12}$/;
 
 /**
+ * What files parsed to, kept from one build to the next (the preview's, every
+ * half second): by path and blob SHA, since what a file parses to depends on
+ * those alone (src/model/parse.ts).
+ */
+export type ParseCache = Map<string, ParsedEntry>;
+
+/**
  * The bundle for these files from this source: what buildBundle writes. With
  * `parsed`, each file as this build's parser makes of it, by path (without
  * the path itself), stamped with the build id. By default only under an id that names the
  * app's code exactly: two builds with uncommitted changes, or from outside a
  * git checkout, can share an id but not a parser, and a tab of one would take
  * the other's. `parsed: true` stamps any id (the browser tests, whose app is
- * the one just built here), `false` none.
+ * the one just built here), `false` none. With a `cache`, only the files not
+ * in it are parsed, and it's left holding this folder's files alone.
  */
-export function assembleBundle(app: AppInfo, source: BundleSource, folder: RoadmapFolder, o: { parsed?: boolean } = {}): Bundle {
+export function assembleBundle(app: AppInfo, source: BundleSource, folder: RoadmapFolder, o: { parsed?: boolean; cache?: ParseCache } = {}): Bundle {
   let parsed: ParsedFiles | undefined;
   if (app.build && (o.parsed ?? CLEAN_BUILD.test(app.build))) {
     parsed = { parser: app.build, files: {} };
+    const keys = new Set<string>();
     for (const path of Object.keys(folder.blobs)) {
-      const { path: _, ...entry } = parseFile(path, folder.files[path]);
+      const key = `${path}\0${folder.blobs[path]}`;
+      keys.add(key);
+      let entry = o.cache?.get(key);
+      if (!entry) {
+        const { path: _, ...made } = parseFile(path, folder.files[path]);
+        entry = made;
+        o.cache?.set(key, entry);
+      }
       parsed.files[path] = entry;
     }
+    if (o.cache) for (const key of o.cache.keys()) if (!keys.has(key)) o.cache.delete(key);
   }
   return {
     schema: SCHEMA,
@@ -237,6 +264,8 @@ export interface BuildOptions {
    * changes under the same build id as you edit it.
    */
   parsed?: boolean;
+  /** What files parsed to in earlier builds (see assembleBundle). */
+  parseCache?: ParseCache;
 }
 
 /** roadmap.json for the site, as described at the top of this file. */
@@ -286,7 +315,7 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
   }
 
   for (const w of folder.warnings ?? []) warn(`${dir}/${w.path} ${w.message}`);
-  const meta = commit ? readCommit(o.repoDir, commit) : undefined;
+  const meta = commit ? commitInfo(o.repoDir, commit) : undefined;
   let repo = o.repository ?? env.GITHUB_REPOSITORY ?? "";
   let branch = env.GITHUB_REF_NAME ?? "";
   if (!actions && o.repository === undefined) {
@@ -322,5 +351,5 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
       ? { run: `${server ?? "https://github.com"}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` }
       : {}),
   };
-  return assembleBundle(o.app, source, folder, { parsed: o.parsed });
+  return assembleBundle(o.app, source, folder, { parsed: o.parsed, cache: o.parseCache });
 }

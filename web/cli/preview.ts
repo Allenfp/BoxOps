@@ -16,13 +16,14 @@ import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dirname, extname, join, relative, sep } from "node:path";
 import { LIVE_HEADER } from "../src/model/bundle.ts";
+import { type ParsedFile, assemble } from "../src/model/load.ts";
 import { loadRoadmap } from "../src/model/parse.ts";
 import { writeWhole } from "./cache.ts";
 import { type Io, type LaunchContext, UsageError } from "./context.ts";
 import { fileAt, gitHub } from "./github.ts";
 import { type BuildJson, digest, findBuildJson, openRelease, parseBuildJson, releaseFile, verifiedApp } from "./release.ts";
 import { resultLine } from "./roadmap.ts";
-import { buildBundle } from "./site.ts";
+import { type ParseCache, buildBundle } from "./site.ts";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -112,6 +113,8 @@ export async function startPreview(o: PreviewOptions): Promise<Preview> {
   const app = new Map(verifiedApp(openRelease(o.io.cliDir, id.build)).map((f) => [f.path, f.file]));
   const roadmapDir = relative(o.root, o.dir).split(sep).join("/") || "roadmap";
   let lastResult = "";
+  // A file is parsed once, not at every poll: again only once it's changed.
+  const parseCache: ParseCache = new Map();
   const bundle = async () => {
     const b = await buildBundle({
       repoDir: o.root,
@@ -121,8 +124,12 @@ export async function startPreview(o: PreviewOptions): Promise<Preview> {
       // Never Actions' view of things, whatever the environment.
       env: {},
       warn: () => {},
+      parseCache,
     });
-    const loaded = loadRoadmap(b.files, b.ignored);
+    // The result line from the files as parsed for the bundle (the app's way), not parsed again.
+    const loaded = b.parsed
+      ? assemble(Object.fromEntries(Object.entries(b.parsed.files).map(([path, entry]) => [path, { ...entry, path } as ParsedFile])), b.ignored)
+      : loadRoadmap(b.files, b.ignored);
     const result = resultLine(loaded.roadmap, loaded.issues.length);
     if (result !== lastResult) o.io.err(`${new Date().toTimeString().slice(0, 8)} ${roadmapDir}/: ${result}`);
     lastResult = result;
