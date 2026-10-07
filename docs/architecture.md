@@ -1299,11 +1299,13 @@ commit; it prints the commands to publish it and pushes nothing.
   with `TZ=America/Los_Angeles` and with `TZ=Pacific/Kiritimati`, UTC−8/−7
   and UTC+14, so nothing depends on the runner's time zone), validation, the
   build, the command-line tool (built, then run on `starter/`'s files, and
-  writing this repo's site), the browser tests (WebKit first, then Chromium, then Firefox) and
-  the performance checks on every pull request and every push to a branch
-  other than `main`, whatever it changes. A pull request from a branch of
-  this repo is covered by that branch's push run, so only pull requests from
-  forks run it again.
+  writing this repo's site), the starter's dry run, the browser tests
+  (WebKit first, then Chromium, then Firefox) and the performance checks on
+  every pull request and every push to a branch other than `main`, whatever
+  it changes; and actionlint (its release checked against its SHA-256, with
+  the runner's shellcheck) on every workflow, this repo's, the starter's and
+  Path B's. A pull request from a branch of this repo is covered by that
+  branch's push run, so only pull requests from forks run it again.
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
   validation and the build on every push to `main`, then builds the
   command-line tool and writes the site with it (`build`: the app, and

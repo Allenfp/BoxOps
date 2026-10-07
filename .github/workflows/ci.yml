@@ -1,8 +1,9 @@
 # Checks pull requests and every branch except main (which pages.yml checks
 # before deploying): lint, types, unit tests (also in two far-apart time zones),
 # roadmap validation, a production build, the command-line tool on the
-# starter's files, the browser tests (WebKit, then Chromium and Firefox) and
-# the performance checks.
+# starter's files, the starter end to end, the browser tests (WebKit, then
+# Chromium and Firefox) and the performance checks; and lints the workflows,
+# this repository's, the starter's and Path B's.
 name: CI
 
 on:
@@ -73,6 +74,12 @@ jobs:
       # cache keyed only on runner.os restores the wrong Ubuntu's build.
       - name: Install the browsers
         run: npx playwright install --with-deps webkit chromium firefox
+      # A roadmap repository made from the starter, end to end and offline,
+      # with the build above as its release: the release's init, the
+      # launcher, the action (as uses: runs it, and Path B), and the site and
+      # the preview in WebKit.
+      - name: The starter, end to end
+        run: npx tsx scripts/starter-dry-run.ts
       # WebKit (Safari's engine) first, with the specs about dates in two more
       # time zones: Safari is the browser BoxOps is made for. Then the whole
       # suite in Chromium (Chrome, Edge) and in Firefox, which must work too.
@@ -102,3 +109,28 @@ jobs:
             web/playwright-report
             web/test-results
           retention-days: 14
+
+  workflows:
+    # As the test job: pushes to branches, and pull requests from forks.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # check out the repo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # actionlint, the release checked against its published SHA-256; it
+      # runs shellcheck (on the runner image) on every run: script.
+      - name: Lint the workflows (this repository's, the starter's and Path B's)
+        env:
+          V: 1.7.12
+          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          shellcheck --version | head -n 2
+          curl -fsSLo "$RUNNER_TEMP/actionlint.tgz" "https://github.com/rhysd/actionlint/releases/download/v$V/actionlint_${V}_linux_amd64.tar.gz"
+          echo "$SHA256  $RUNNER_TEMP/actionlint.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tgz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" .github/workflows/*.yml starter/.github/workflows/*.yml templates/path-b/*.yml

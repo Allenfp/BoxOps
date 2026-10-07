@@ -173,8 +173,9 @@ npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out <folder>
 Every pull request, and every push to a branch other than `main` (docs-only
 too), runs CI: lint, type check, the unit tests (also in two time zones far
 apart), validation, a build, the command-line tool on the starter's files,
-the browser tests (in WebKit, then Chromium and Firefox) and the performance
-checks. On `main`, the deploy lints, type-checks, validates, runs the unit
+the starter end to end (`npm run dry-run:starter`), the browser tests (in
+WebKit, then Chromium and Firefox) and the performance checks, and lints the
+workflows (actionlint and shellcheck), the starter's too. On `main`, the deploy lints, type-checks, validates, runs the unit
 tests and builds (the app, then the site with the command-line tool: the app
 plus `roadmap/` as its `roadmap.json`), and runs the browser tests in WebKit
 unless nothing outside `roadmap/` has changed since the version that is
