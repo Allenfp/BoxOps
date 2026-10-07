@@ -99,7 +99,7 @@ first time: it downloads the pinned release's tools once, and the first
 repository (`$BOXOPS_CACHE`, else `$XDG_CACHE_HOME/boxops` or
 `~/.cache/boxops`, else a folder in the temp folder). In a sandbox that has
 the network only while it's set up, run `node .boxops/boxops.mjs version`
-then, which fills the cache (and `preview` once, if you'll want it). With no
+then, which fills the cache, the app for `preview` and `build` too. With no
 network at all, set `BOXOPS_CLI` to the `dist/boxops.mjs` of a copy of the
 pinned release (a checkout of its commit, say): `preview` and `build` then
 use the `dist/app` beside it.

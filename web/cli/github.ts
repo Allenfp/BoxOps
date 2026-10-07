@@ -1,9 +1,9 @@
 // The little of GitHub the command-line tool asks, and only where it must:
 // doctor (is the pin a release?), upgrade and init (which commit is a tag?
-// fetch a release's files), and preview and build (the app's files, once).
-// Reads only; a token is used if there is one (GH_TOKEN, GITHUB_TOKEN or the
-// GitHub CLI's for github.com), for private mirrors and the API's rate
-// limit. Node-only.
+// fetch a release's files), and preview, build and version (the app's
+// files, once). Reads only; a token is used if there is one (GH_TOKEN,
+// GITHUB_TOKEN or the GitHub CLI's for github.com), for private mirrors and
+// the API's rate limit. Node-only.
 
 import { execFileSync } from "node:child_process";
 import type { Env } from "./gha.ts";

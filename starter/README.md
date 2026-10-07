@@ -67,11 +67,11 @@ The launcher runs the BoxOps release that `.github/workflows/deploy.yml` pins:
 downloaded once, checked against that release's `BUILD.json`, and kept in a
 cache outside the repository; `preview` downloads the app on its first run.
 A sandbox that has the network only while it's set up can fill the cache
-then with `node .boxops/boxops.mjs version`. Offline, set `BOXOPS_CLI` to
-that release's `dist/boxops.mjs`, downloaded beforehand. Behind a proxy, set
-`HTTPS_PROXY` (Node.js 22.21+ or 24+ uses it); a proxy that re-signs TLS also
-needs `node --use-system-ca .boxops/boxops.mjs …`, or `NODE_EXTRA_CA_CERTS`
-set to its certificate.
+then, the app too, with `node .boxops/boxops.mjs version`. Offline, set
+`BOXOPS_CLI` to that release's `dist/boxops.mjs`, downloaded beforehand.
+Behind a proxy, set `HTTPS_PROXY` (Node.js 22.21+ or 24+ uses it); a proxy
+that re-signs TLS also needs `node --use-system-ca .boxops/boxops.mjs …`, or
+`NODE_EXTRA_CA_CERTS` set to its certificate.
 
 ## Upgrading
 

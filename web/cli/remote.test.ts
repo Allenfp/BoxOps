@@ -659,6 +659,47 @@ describe("preview", () => {
   });
 });
 
+describe("version", () => {
+  it("through the launcher, fetches the app beside the tool it keeps, once, so preview works offline after", async () => {
+    const cliDir = tempDir();
+    const files = releaseFiles(ID);
+    writeFileSync(join(cliDir, "boxops.mjs"), files["dist/boxops.mjs"]);
+    writeFileSync(join(cliDir, "BUILD.json"), files["BUILD.json"]);
+    const ctx = { repo: "Allenfp/BoxOps", sha: A };
+    const line = `BoxOps 0.1.0 (Allenfp/BoxOps@${A.slice(0, 7)}, build ${ID.build}, data format 1)`;
+    // Offline: the answer all the same, and why there's no app yet.
+    const offline = capture({ cliDir, env: { GH_TOKEN: "test-token" } });
+    expect(await main(["version"], ctx, offline)).toBe(0);
+    expect([offline.stdout, offline.stderr]).toEqual([
+      [line],
+      [
+        `Fetching the app of Allenfp/BoxOps@${A.slice(0, 12)} (once)…`,
+        "boxops version: couldn’t fetch the app, which `preview` and `build` fetch on their first run instead: couldn’t reach GitHub (no network in this test)",
+      ],
+    ]);
+    // With the network, as a sandbox's setup has it: the app, each file checked against the BUILD.json kept.
+    const gh = fakeGitHub({ files: { [A]: files } });
+    const online = capture({ fetch: gh.fetch, cliDir });
+    expect(await main(["version"], ctx, online)).toBe(0);
+    expect([online.stdout, online.stderr]).toEqual([[line], [`Fetching the app of Allenfp/BoxOps@${A.slice(0, 12)} (once)…`]]);
+    expect(verifiedApp(openRelease(cliDir, ID.build)).map((f) => f.path).sort()).toEqual(Object.keys(APP_FILES).sort());
+    // Then, offline again: nothing to fetch, and preview serves the app.
+    const again = capture({ cliDir });
+    expect(await main(["version"], ctx, again)).toBe(0);
+    expect(again.stderr).toEqual([]);
+    const repo = new TestRepo();
+    repos.push(repo);
+    repo.commit(sampleRepo(), "Start");
+    repo.checkout();
+    const preview = await startPreview({ root: repo.dir, dir: join(repo.dir, "roadmap"), port: 0, io: capture({ cliDir, cwd: repo.dir }) });
+    try {
+      expect((await get(preview.url, "/assets/index-A1.js")).body).toBe(APP_FILES["assets/index-A1.js"]);
+    } finally {
+      await preview.close();
+    }
+  });
+});
+
 describe("build", () => {
   /** A checked-out repository holding the sample roadmap, acme/roadmap on github.com. */
   function sample(): TestRepo {

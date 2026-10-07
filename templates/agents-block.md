@@ -5,7 +5,8 @@ This repository is a team roadmap: YAML files in `roadmap/`, shown and edited by
 web app on this repository's GitHub Pages site. The app isn't in this repository: it's the
 BoxOps release pinned in `.github/workflows/deploy.yml`, and `node .boxops/boxops.mjs` runs
 exactly that release's tools (Node.js 22.12 or later; the first run downloads them, so in a
-sandbox, run `node .boxops/boxops.mjs version` while it has the network).
+sandbox, run `node .boxops/boxops.mjs version` while it has the network: it downloads the app
+that `preview` shows too).
 
 Full reference for this version: `node .boxops/boxops.mjs guide` (recipes, commit messages,
 capacity rules) and `node .boxops/boxops.mjs guide format` (every file and field).
@@ -36,7 +37,7 @@ capacity rules) and `node .boxops/boxops.mjs guide format` (every file and field
    `node .boxops/boxops.mjs report | diff "$B" -` and tell the user what got worse
    (a department over capacity, someone over 1 FTE or booked during PTO, a broken rule).
    To see it as the app shows it: `node .boxops/boxops.mjs preview` (http://127.0.0.1:4173,
-   read-only, until stopped; its first run downloads the app).
+   read-only, until stopped; its first run downloads the app, unless `version` has).
 5. `git pull --ff-only`, `git add roadmap/` (never `git add -A`), and commit in the app's
    style: one change → that change as the subject; otherwise `Roadmap: <n> changes` with one
    bullet per item (details: `node .boxops/boxops.mjs guide commits`).

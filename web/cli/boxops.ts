@@ -5,9 +5,9 @@
 // directly. Node-only.
 //
 // Commands work offline, except doctor, upgrade and init (they ask GitHub),
-// and preview and build the first time they need the app's files. The
-// `action` command is the GitHub Action's entry (action.ts), for Path B; it
-// isn't for people.
+// and preview and build the first time they need the app's files, which
+// version fetches too (it works without them). The `action` command is the
+// GitHub Action's entry (action.ts), for Path B; it isn't for people.
 
 import { existsSync, realpathSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -47,7 +47,7 @@ const HELP = `BoxOps command-line tool. In a roadmap repository: node .boxops/bo
   upgrade [vX.Y.Z]                move the pins to another release (default: the latest), then migrate --check, sync, validate
   build --out DIR [--commit REF | --worktree]   write the site the action would (for debugging and self-hosting)
   init <dir> [--action owner/repo@sha]          write a new roadmap repository's files, pinned to this release
-  version                         this release
+  version                         this release (and fetches the app preview needs, once)
 
 Options for every command: --root DIR (the repository; default: the one you're in), --roadmap NAME (default: roadmap).`;
 
@@ -250,6 +250,15 @@ const COMMANDS: Record<string, { values?: string[]; switches?: string[]; run: Co
       const id = io.identity();
       const where = ctx.repo && ctx.sha ? `${ctx.repo}@${ctx.sha.slice(0, 7)}, ` : "";
       io.out(`BoxOps ${id.version} (${where}build ${id.build}, data format ${FORMAT})`);
+      // Through the launcher, the app too, beside the tool it keeps (once: then nothing to do), so that a
+      // sandbox with the network only while it's set up, which runs `version` then, can `preview` later.
+      if (ctx.repo && ctx.sha) {
+        try {
+          await ensureApp(io.cliDir, ctx, io);
+        } catch (e) {
+          io.err(`boxops version: couldn’t fetch the app, which \`preview\` and \`build\` fetch on their first run instead: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
       return EXIT.ok;
     },
   },
