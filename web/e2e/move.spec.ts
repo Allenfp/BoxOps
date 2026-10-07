@@ -210,8 +210,10 @@ test("⌘S during a move saves it dropped where it is", async ({ page, github })
   await box(page, DAGSTER).focus();
   await press(page, "Space", "ArrowRight");
   await page.keyboard.press("ControlOrMeta+s");
+  // Waited for as it lands: keys pressed before the move's code has come are the move's once it
+  // has, ⌘S last, and until then the toolbar says "No changes" too.
+  await expect.poll(() => github.file(boxFile(DAGSTER))).toContain("start: 2026-09-15\nend: 2026-10-26\n");
   await expect(toolbar(page)).toContainText("No changes");
-  expect(github.file(boxFile(DAGSTER))).toContain("start: 2026-09-15\nend: 2026-10-26\n");
   await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
 });
 
