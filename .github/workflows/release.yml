@@ -206,7 +206,24 @@ jobs:
           export GIT_AUTHOR_NAME="BoxOps release" GIT_AUTHOR_EMAIL="boxops-release@users.noreply.github.com"
           export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
           remote="git@github.com:$GITHUB_REPOSITORY.git"
-          message() { printf 'BoxOps %s\n\nSource-Commit: %s\nRun: %s\n' "$V" "$GITHUB_SHA" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; }
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          message() { printf 'BoxOps %s\n\nSource-Commit: %s\nRun: %s\n' "$V" "$GITHUB_SHA" "$run"; }
+          # This job run again (Re-run failed jobs) after an attempt whose push
+          # went through and a later step failed: the tag is on this run's
+          # commit of the tested tree, so go on from there. On any other
+          # commit, stop.
+          tagged=$(git ls-remote "$remote" "refs/tags/v$V" | cut -f1)
+          if [ -n "$tagged" ]; then
+            git fetch -q --depth 1 "$remote" "$tagged"
+            body=$(git cat-file commit "$tagged")
+            if [ "$(git rev-parse "$tagged^{tree}")" != "$TREE" ] || ! grep -qxF "Source-Commit: $GITHUB_SHA" <<<"$body" || ! grep -qxF "Run: $run" <<<"$body"; then
+              echo "::error title=v$V is there already::The tag v$V is on $tagged, which isn't this run's commit of the tested tree."
+              exit 1
+            fi
+            echo "COMMIT=$tagged" >> "$GITHUB_ENV"
+            echo "v$V is on $tagged already: this run's commit of the tested tree, pushed by an earlier attempt. Going on from there."
+            exit 0
+          fi
           parent=$(git ls-remote "$remote" refs/heads/releases | cut -f1)
           if [ -n "$parent" ]; then
             git fetch -q --depth 1 "$remote" "$parent"
@@ -241,6 +258,16 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # An earlier attempt of this run may have made the release: a draft
+          # (its files maybe not all there) goes, to be made again; a
+          # published one is done.
+          if draft=$(gh release view "v$V" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" = false ]; then
+              echo "v$V is published already, by an earlier attempt of this run."
+              exit 0
+            fi
+            gh release delete "v$V" --yes
+          fi
           title="BoxOps $V"
           grep -qx -- '- Security: none' notes/notes.md || title="Security: BoxOps $V"
           {

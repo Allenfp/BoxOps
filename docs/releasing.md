@@ -76,6 +76,14 @@ Actions → Release → Run workflow, from `main`, with the version. Its jobs:
 A run takes about as long as CI, most of it the browser tests, and then
 waits for the approval.
 
+If publish fails after its push (attesting, or making the GitHub release),
+the tag is there and preflight would refuse a new run: run publish again
+instead, within 7 days (while the run's artifacts last), from the run's
+page, Re-run jobs → Re-run failed jobs (not all jobs), and approve it
+again. It finds the tag on this run's commit of the tested tree and goes on
+from there; a draft release the failed attempt left is deleted and made
+again.
+
 ## One-off settings
 
 The release workflow can't publish until these exist. All but the last can
