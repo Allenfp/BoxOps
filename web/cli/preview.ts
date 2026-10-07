@@ -2,9 +2,10 @@
 // served on 127.0.0.1 only. The site is what the action would build, but read
 // from the files on disk and marked local: the app shows it read-only, asks
 // GitHub nothing, and, told it's made afresh at each fetch (LIVE_HEADER),
-// fetches roadmap.json twice a second, so a saved file shows within a second. The app's files are this release's: dist/app beside the
-// tool, or, for a tool the launcher downloaded alone, fetched once by the
-// pinned commit, checked against its BUILD.json and kept beside it.
+// fetches roadmap.json twice a second, so a saved file shows within a
+// second. The app's files are this release's: dist/app beside the tool, or,
+// for a tool the launcher downloaded alone, fetched once by the pinned
+// commit, checked against its BUILD.json and kept beside it.
 // Node-only.
 
 import { spawn } from "node:child_process";
