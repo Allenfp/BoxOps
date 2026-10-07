@@ -1374,8 +1374,9 @@ a release must have none of.
   it, and the release workflow's deploy key held only by its publish job,
   which runs nothing from this repository), and that job's last step run
   with bash against a stand-in `gh` (`scripts/release-publish.test.ts`: the
-  release a draft, then published; a draft left made again; on a re-run, a
-  published release taken as done only if it's that run's). Those
+  release a draft, then published, and GitHub's latest only if none is of
+  a later version; a draft left made again; on a re-run, a published
+  release taken as done only if it's that run's). Those
   that read a whole roadmap read fixed copies (the browser tests' fixture,
   and `roadmap/` as shipped, in `web/src/model/fixtures/shipped-roadmap/`),
   never the live `roadmap/`, which saves may write any valid way.
@@ -1550,7 +1551,8 @@ a release must have none of.
   apart, and, once the maintainer approves the `release` environment, the
   tested tree (if git's id for it is CI's and the rebuild's) attested, then
   committed to `releases` and tagged in one push with the release deploy
-  key, and published as an immutable GitHub release. See
+  key, and published as an immutable GitHub release (GitHub's latest only
+  if no published release but a withdrawn one is of a later version). See
   [releasing.md](releasing.md).
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
   validation and the build on every push to `main`, then builds the

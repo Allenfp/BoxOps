@@ -308,5 +308,18 @@ jobs:
           pre=""
           if [[ "$V" == *-rc.* ]]; then pre=--prerelease; fi
           gh release create "v$V" --verify-tag --draft ${pre:+"$pre"} --title "$title" --notes-file "$RUNNER_TEMP/body.md" assets/*
-          gh release edit "v$V" --draft=false
-          echo "Published $title: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$V"
+          # GitHub's latest release (its releases page, releases/latest) only
+          # if no published release but a withdrawn one is of a later
+          # version: not a release candidate, nor a patch of an older minor
+          # (docs/releasing.md, "Security releases").
+          latest=false
+          if [ -z "$pre" ]; then
+            newest=$({
+              gh release list --exclude-drafts --exclude-pre-releases --limit 1000 --json tagName,name \
+                --jq '.[] | select((.name // "") | test("^\\s*withdrawn:"; "i") | not) | .tagName'
+              echo "v$V"
+            } | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+            if [ "$newest" = "v$V" ]; then latest=true; fi
+          fi
+          gh release edit "v$V" --draft=false --latest="$latest"
+          echo "Published $title (GitHub's latest release: $latest): $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$V"

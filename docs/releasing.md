@@ -80,7 +80,8 @@ Actions → Release → Run workflow, from `main`, with the version. Its jobs:
    attestations), and publishes the GitHub release with preflight's notes
    (a draft until its files are on it, then published, titled
    `BoxOps X.Y.Z`, or `Security: BoxOps X.Y.Z` when the changelog's
-   `Security:` line isn't `none`).
+   `Security:` line isn't `none`; GitHub's latest release only if no
+   published release, but a withdrawn one, is of a later version).
 
 A run takes about as long as CI, most of it the browser tests, and then
 waits for the approval.
@@ -383,7 +384,9 @@ something (`web/scripts/check-changelog.mjs` checks the form; CI runs it):
    workflow. The `release` environment then allows `release/*` branches as
    well as `main` (add the pattern, and remove it after), and preflight's
    check that the run is on `main` is relaxed for that run's branch in the
-   same change.
+   same change. The patch isn't GitHub's latest release: the workflow marks
+   a release so only if no published release (but a withdrawn one) is of a
+   later version.
 
 Roadmap repositories learn of it four ways: every deploy's annotations, the
 banner in their app, Dependabot's pull request (after its 3-day cooldown),

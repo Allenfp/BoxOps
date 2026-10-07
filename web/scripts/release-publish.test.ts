@@ -1,9 +1,10 @@
 // The release workflow's last step, "Publish the GitHub release"
 // (.github/workflows/release.yml), run with bash as the runner runs it,
 // against a stand-in `gh` that keeps the repository's releases in a file and
-// answers as GitHub's CLI does: the release made as a draft, then
-// published; a draft an earlier attempt left made again; and, on a re-run, a
-// published release taken as done only if it's this run's.
+// answers as GitHub's CLI does: the release made as a draft, then published,
+// GitHub's latest only if no published release but a withdrawn one is of a
+// later version; a draft an earlier attempt left made again; and, on a
+// re-run, a published release taken as done only if it's this run's.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -179,15 +180,15 @@ function publish(work: string, version: string, releases: Release[], run = "4242
 const changes = (calls: string[]) => calls.map((c) => c.split(" ").slice(0, 2).join(" ")).filter((c) => !["release view", "release list"].includes(c) && !c.startsWith("api "));
 
 describe("the release workflow's publish step", () => {
-  it("makes the release a draft with the files and the notes, then publishes it", () => {
+  it("makes the release a draft with the files and the notes, then publishes it: GitHub's latest, if no other is newer", () => {
     const work = jobFolder("0.1.1");
     const r = publish(work, "0.1.1", [published("v0.1.0")]);
     expect(r.stderr).toBe("");
     expect(r.code).toBe(0);
     expect(changes(r.calls)).toEqual(["release create", "release edit"]);
-    expect(r.calls).toContain("release edit v0.1.1 --draft=false");
+    expect(r.calls).toContain("release edit v0.1.1 --draft=false --latest=true");
     const made = r.releases.find((x) => x.tag_name === "v0.1.1");
-    expect(made).toMatchObject({ name: "BoxOps 0.1.1", draft: false, prerelease: false });
+    expect(made).toMatchObject({ name: "BoxOps 0.1.1", draft: false, prerelease: false, latest: true });
     expect(made?.assets.map((a) => a.name).sort()).toEqual(["SHA256SUMS", "boxops-0.1.1.tar.gz", "boxops.mjs", "sbom.spdx.json"]);
     expect(made?.body).toBe(
       [
@@ -200,13 +201,30 @@ describe("the release workflow's publish step", () => {
         readFileSync(join(work, "notes", "notes.md"), "utf8"),
       ].join("\n"),
     );
-    expect(r.stdout).toContain("Published BoxOps 0.1.1: https://github.com/Allenfp/BoxOps/releases/tag/v0.1.1");
+    expect(r.stdout).toContain("Published BoxOps 0.1.1 (GitHub's latest release: true): https://github.com/Allenfp/BoxOps/releases/tag/v0.1.1");
   });
 
   it("titles a release that fixes a security problem so, from its notes' Security: line", () => {
     const r = publish(jobFolder("0.1.1", "a link in a box's notes could run script"), "0.1.1", [published("v0.1.0")]);
     expect(r.code).toBe(0);
     expect(r.releases.find((x) => x.tag_name === "v0.1.1")?.name).toBe("Security: BoxOps 0.1.1");
+  });
+
+  it("doesn't make a patch of an older minor GitHub's latest, nor a release candidate; a withdrawn release doesn't count", () => {
+    const patch = publish(jobFolder("0.1.2"), "0.1.2", [published("v0.2.0"), published("v0.1.1"), published("v0.1.0")]);
+    expect(patch.code).toBe(0);
+    expect(patch.calls).toContain("release edit v0.1.2 --draft=false --latest=false");
+    // Version order, not text order: 0.10.0 is newer than 0.9.0.
+    const ten = publish(jobFolder("0.10.0"), "0.10.0", [published("v0.9.0"), published("v0.2.0")]);
+    expect(ten.calls).toContain("release edit v0.10.0 --draft=false --latest=true");
+    // 0.2.0 was withdrawn: 0.1.2 is the newest release one should move to.
+    const withdrawn = publish(jobFolder("0.1.2"), "0.1.2", [published("v0.2.0", { name: "Withdrawn: BoxOps 0.2.0" }), published("v0.1.1")]);
+    expect(withdrawn.calls).toContain("release edit v0.1.2 --draft=false --latest=true");
+    const candidate = publish(jobFolder("0.2.0-rc.1"), "0.2.0-rc.1", [published("v0.1.0")]);
+    expect(candidate.code).toBe(0);
+    expect(candidate.calls.filter((c) => c.startsWith("release create"))).toEqual([expect.stringContaining("release create v0.2.0-rc.1 --verify-tag --draft --prerelease --title BoxOps 0.2.0-rc.1")]);
+    expect(candidate.calls).not.toContainEqual(expect.stringMatching(/^release list/));
+    expect(candidate.calls).toContain("release edit v0.2.0-rc.1 --draft=false --latest=false");
   });
 
   it("makes again a draft an earlier attempt of the run left", () => {
