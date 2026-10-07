@@ -125,8 +125,11 @@ access to it, then proposes it, or `upgrade` takes it.
 `node .boxops/boxops.mjs doctor` checks the setup: Node.js, that every pin
 names the same commit and that it's a tagged release of the pinned
 repository, that the tool was signed by BoxOps' release workflow (with the
-GitHub CLI installed), the launcher, guard and block numbers, the workflows'
-permissions against the starter's, and retired runner labels.
+GitHub CLI installed), the guard's number, the launcher and the `AGENTS.md`
+block (their numbers and text), the workflows' permissions against the
+starter's, and retired runner labels. It runs through the launcher, so it
+can't vouch for a launcher changed to deceive: what can is in
+[security.md](security.md#risks-that-remain) (risk 4).
 
 ## Security releases
 

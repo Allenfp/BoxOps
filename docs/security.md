@@ -229,11 +229,20 @@ free of workflows that restore caches. The starter's use none.
    a token with admin rights for those settings alone
    ([releasing.md](releasing.md#one-off-settings)).
 4. **The launcher is code in your repository.** Only the push ruleset keeps
-   editors from changing it; without that ruleset, an editor could change
-   what teammates' laptops run when they use `node .boxops/boxops.mjs` (not
-   what the site runs). `node .boxops/boxops.mjs sync --check` and `doctor`
-   compare it with the release's (`sync --check` its text, LF or CRLF line
-   ends alike).
+   editors from changing it, and public repositories can't have one.
+   Without it, an editor could change what teammates' laptops run when they
+   use `node .boxops/boxops.mjs` (not what the site runs), or `AGENTS.md`'s
+   BoxOps block, which assistants follow. Every deploy warns when either
+   isn't the release's text, whatever number it gives: that check is the
+   release's own code, and runs neither. `doctor` and `sync --check`
+   compare them with the release's too, but they run through the launcher,
+   so a launcher changed to deceive has run before either reports, and
+   could make them say anything. Two checks run nothing of the
+   repository's: reading what changed, `git log -p -- .boxops AGENTS.md`;
+   and the release's own tool, run directly: download the `boxops.mjs` of
+   the release your workflows pin, check it
+   ([Checking a release](#checking-a-release)), and run
+   `node <that file> sync --check` in the repository.
 5. **Sites that share an origin.** Every public Pages site of one account,
    `<owner>.github.io/<repository>/`, is on the same origin, so their pages
    share browser storage: the scripts of any of them can read another's

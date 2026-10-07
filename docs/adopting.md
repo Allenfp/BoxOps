@@ -533,7 +533,9 @@ these differences:
   as themselves, and the workflows as themselves (on GitHub's web page, or
   with git; their token can't, having no Workflows permission). Give Write
   only to people you trust with those files, and look over what changes
-  there now and then: `git log -- .github .boxops AGENTS.md CLAUDE.md`.
+  there now and then: `git log -p -- .github .boxops AGENTS.md CLAUDE.md`.
+  Each deploy also warns when the launcher or `AGENTS.md`'s BoxOps block
+  isn't the release's text.
 - The token's **Resource owner** is the repository's owner: the
   organization, or your own account for a repository you own.
 - A private repository on Team or Pro gets a public site, which the deploy

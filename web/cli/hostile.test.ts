@@ -58,6 +58,12 @@ const { runAction } = await import("./action");
 const { main } = await import("./boxops");
 const { TestRepo } = await import("./test-repo");
 const { actionsEnv, capture, cleanUp, makeRelease, readOutputs, sampleRepo, tempDir, ID } = await import("./test-release");
+const { embedded } = await import("./embedded");
+
+// Run from source, the tool reads what it carries (the starter's launcher, which the action compares the
+// workspace's with, say) from this checkout, once, with git; a release has it compiled in. Read it now, so
+// the runs below start only what a release's would.
+embedded();
 
 const repos: InstanceType<typeof TestRepo>[] = [];
 const savedEnv = { ...process.env };

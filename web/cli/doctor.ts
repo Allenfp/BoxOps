@@ -13,7 +13,7 @@ import { GitHubError, gitHub, tags } from "./github.ts";
 import { COMMIT_SHA, contractNumber, findPins, type Pin } from "./pins.ts";
 import { AGENTS_BLOCK, GUARD, LAUNCHER, UPSTREAM } from "./release.ts";
 import { retiredRunners } from "./runners.ts";
-import { plainText } from "./sync.ts";
+import { hasReleaseBlock, isReleaseLauncher, plainText } from "./sync.ts";
 
 type Level = "ok" | "warning" | "problem" | "skipped";
 
@@ -94,19 +94,38 @@ export function nodeFinding(version = process.versions.node): Finding {
   return { level: ok ? "ok" : "problem", text: `Node.js ${version}${ok ? "" : ": BoxOps needs 22.12 or later"}` };
 }
 
-/** The launcher's, the guard's and AGENTS.md's block numbers against this release's. */
+/**
+ * The launcher's, the guard's and AGENTS.md's block numbers against this
+ * release's, and the launcher's and the block's text, which `sync` writes:
+ * one that says it's this release's may still have been changed, and a
+ * launcher that doesn't say isn't one. (doctor runs through the launcher, so
+ * one changed to deceive has run already and could print anything:
+ * docs/security.md says what doesn't run it.)
+ */
 export function contractFindings(root: string, workflows: Record<string, string>): Finding[] {
   const read = (path: string) => plainText(join(root, path));
   const out: Finding[] = [];
-  const check = (what: string, n: number | null, want: number, fix: string) => {
-    if (n === null) out.push({ level: "warning", text: `${what}: not found (${fix})` });
-    else if (n !== want) out.push({ level: "problem", text: `${what} is ${n}; this BoxOps’s is ${want} (${fix})` });
-    else out.push({ level: "ok", text: `${what} ${n}` });
+  /** `text`: whether the file's there but isn't what this release writes, and the command that shows its changes. */
+  const check = (what: string, n: number | null, want: number, fix: string, text?: { differs: boolean; log: string }) => {
+    if (n !== null && n !== want) out.push({ level: "problem", text: `${what} is ${n}; this BoxOps’s is ${want} (${fix})` });
+    else if (text?.differs) {
+      out.push({ level: "problem", text: `${what} isn’t this release’s text${n === null ? "" : ` (though it says ${n})`}: see what changed (\`${text.log}\`), then ${fix}` });
+    } else if (n === null) out.push({ level: "warning", text: `${what}: not found (${fix})` });
+    else out.push({ level: "ok", text: `${what} ${n}${text ? ", this release’s text" : ""}` });
   };
+  const sync = "run `node .boxops/boxops.mjs sync`";
   const launcher = read(".boxops/boxops.mjs");
-  check("Launcher", launcher === undefined ? null : contractNumber(launcher, "launcher"), LAUNCHER, "run `node .boxops/boxops.mjs sync`");
+  check("Launcher", launcher === undefined ? null : contractNumber(launcher, "launcher"), LAUNCHER, sync, {
+    differs: launcher !== undefined && !isReleaseLauncher(launcher),
+    log: "git log -p -- .boxops/boxops.mjs",
+  });
+  // An AGENTS.md without the block is the team's own: the block is missing, not changed.
   const agents = read("AGENTS.md");
-  check("AGENTS.md’s BoxOps block", agents === undefined ? null : contractNumber(agents, "block"), AGENTS_BLOCK, "run `node .boxops/boxops.mjs sync`");
+  const block = agents === undefined ? null : contractNumber(agents, "block");
+  check("AGENTS.md’s BoxOps block", block, AGENTS_BLOCK, sync, {
+    differs: agents !== undefined && block !== null && !hasReleaseBlock(agents),
+    log: "git log -p -- AGENTS.md",
+  });
   const deploy = workflows[".github/workflows/deploy.yml"];
   const guard = deploy === undefined ? null : contractNumber(deploy, "guard");
   if (guard !== null && guard !== GUARD) {

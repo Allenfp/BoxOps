@@ -25,8 +25,9 @@
 //      only with `on-problems: fail` (`deploy`, the default, publishes the
 //      site without the broken entries, as the app loads them).
 //   10. Consistency warnings, never fatal, also from git objects: every
-//      BoxOps pin in the workflows names one commit; the guard, launcher and
-//      AGENTS.md block are this release's; no retired runner labels.
+//      BoxOps pin in the workflows names one commit; the guard's number, and
+//      the launcher and AGENTS.md block (number and text), are this
+//      release's; no retired runner labels.
 //   11. Notices: newer releases, security fixes and withdrawals, from the
 //      optional releases-file (cli/notices.ts).
 //   12. Assembly (build mode): $RUNNER_TEMP/boxops-site, made fresh, gets this
@@ -52,6 +53,7 @@ import { type BuildJson, HERE, type Identity, identity, openRelease, verifiedApp
 import { headlines, resultLine } from "./roadmap.ts";
 import { retiredRunners } from "./runners.ts";
 import { buildBundle } from "./site.ts";
+import { hasReleaseBlock, isReleaseLauncher } from "./sync.ts";
 
 const TITLE = "BoxOps";
 const ROADMAP_DIR = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
@@ -320,13 +322,23 @@ export async function consistency(repoDir: string, commit: string, build: BuildJ
       message: `The Pages guard in deploy.yml is version ${guard}; this BoxOps expects ${build.guard}: \`node .boxops/boxops.mjs doctor\` shows what to change`,
     });
   }
-  const launcher = files[".boxops/boxops.mjs"] === undefined ? null : contractNumber(files[".boxops/boxops.mjs"], "launcher");
+  // The launcher and the block, number and text: one that says it's this release's may still have
+  // been changed, and the launcher is code that runs on teammates' machines. This check runs none of it.
+  const changed = (what: string, n: number | null, path: string, before: string) =>
+    `${what} isn’t this release’s${n === null ? "" : `, though it says ${n}`}: see what changed (\`git log -p -- ${path}\`) ${before}, then \`node .boxops/boxops.mjs sync\` writes this release’s`;
+  const launcherFile = files[".boxops/boxops.mjs"];
+  const launcher = launcherFile === undefined ? null : contractNumber(launcherFile, "launcher");
   if (launcher !== null && launcher !== build.launcher) {
     out.push({ file: ".boxops/boxops.mjs", message: `The launcher is version ${launcher}; this BoxOps writes ${build.launcher}: run \`node .boxops/boxops.mjs sync\`` });
+  } else if (launcherFile !== undefined && !isReleaseLauncher(launcherFile)) {
+    out.push({ file: ".boxops/boxops.mjs", message: changed("The launcher", launcher, ".boxops/boxops.mjs", "before anyone runs it") });
   }
-  const block = files["AGENTS.md"] === undefined ? null : contractNumber(files["AGENTS.md"], "block");
+  const agents = files["AGENTS.md"];
+  const block = agents === undefined ? null : contractNumber(agents, "block");
   if (block !== null && block !== build.agentsBlock) {
     out.push({ file: "AGENTS.md", message: `AGENTS.md’s BoxOps block is ${block}; this BoxOps writes ${build.agentsBlock}: run \`node .boxops/boxops.mjs sync\`` });
+  } else if (agents !== undefined && block !== null && !hasReleaseBlock(agents)) {
+    out.push({ file: "AGENTS.md", message: changed("AGENTS.md’s BoxOps block", block, "AGENTS.md", "before an assistant follows it") });
   }
   for (const file of workflowPaths) {
     for (const w of retiredRunners(files[file] ?? "", today)) out.push({ file, line: w.line, message: `This workflow ${w.message}` });

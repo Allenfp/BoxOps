@@ -64,6 +64,19 @@ export function withAgentsBlock(current: string | undefined): string {
   return `${block}${eol}${eol}${current}`;
 }
 
+/** Whether `text` is this release's launcher, with LF or CRLF line ends: what `sync` leaves as it is. */
+export const isReleaseLauncher = (text: string): boolean => withLauncher(text) === text;
+
+/** Whether AGENTS.md holds this release's block, between both markers, as `sync` writes it. */
+export function hasReleaseBlock(text: string): boolean {
+  if (!BEGIN.test(text)) return false;
+  try {
+    return withAgentsBlock(text) === text;
+  } catch {
+    return false; // one marker without the other
+  }
+}
+
 export interface SyncChange {
   /** Path from the repository's top level. */
   path: string;

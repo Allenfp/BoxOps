@@ -7,7 +7,7 @@ import { carried, collectEmbedded, embedded, starterFiles } from "./embedded";
 import { TOPICS, guideTopic, wholeGuide } from "./guide";
 import { contractNumber, findPins } from "./pins";
 import { AGENTS_BLOCK, GUARD, LAUNCHER } from "./release";
-import { agentsBlock, applySync, launcherText, planSync, withAgentsBlock } from "./sync";
+import { agentsBlock, applySync, hasReleaseBlock, isReleaseLauncher, launcherText, planSync, withAgentsBlock } from "./sync";
 import { cleanUp, tempDir } from "./test-release";
 
 afterEach(cleanUp);
@@ -174,6 +174,21 @@ describe("withAgentsBlock", () => {
   it("refuses one marker without the other", () => {
     expect(() => withAgentsBlock("<!-- boxops:begin block=1 -->\nno end\n")).toThrow("AGENTS.md has one BoxOps marker without the other");
     expect(() => withAgentsBlock("<!-- boxops:end -->\n<!-- boxops:begin block=1 -->\n")).toThrow("one BoxOps marker without the other");
+  });
+});
+
+describe("isReleaseLauncher and hasReleaseBlock (doctor's and the action's checks)", () => {
+  it("take only what sync would leave as it is, with LF or CRLF", () => {
+    const launcher = launcherText();
+    expect([isReleaseLauncher(launcher), isReleaseLauncher(launcher.replace(/\n/g, "\r\n"))]).toEqual([true, true]);
+    for (const other of [`${launcher}// one more line\n`, launcher.replace("(launcher: 1)", "(launcher: 2)"), "// BoxOps launcher (launcher: 1)\n", ""]) {
+      expect(isReleaseLauncher(other)).toBe(false);
+    }
+    const agents = starterFiles()["AGENTS.md"];
+    expect([hasReleaseBlock(agents), hasReleaseBlock(agents.replace(/\n/g, "\r\n")), hasReleaseBlock(`${agents}- Our own rule.\n`)]).toEqual([true, true, true]);
+    for (const other of [agents.replace("Never force-push.", "Force-push."), agents.replace("<!-- boxops:end -->", ""), "# Ours\n", ""]) {
+      expect(hasReleaseBlock(other)).toBe(false);
+    }
   });
 });
 
