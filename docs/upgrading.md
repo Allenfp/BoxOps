@@ -83,7 +83,8 @@ release, and propose one once it's been out 3 days (its cooldown):
 
 `node .boxops/boxops.mjs upgrade [vX.Y.Z]` moves every pin (and its
 comment) to that release, or to the newest when none is given (never one
-that was withdrawn, nor a release candidate); downloads the new release's
+that was withdrawn, nor a release candidate, nor one older than the pins'
+own, which only naming it moves back to); downloads the new release's
 tool, checked against its `BUILD.json` (a release that needs a newer
 Node.js than yours changes nothing); then runs the new release's
 `migrate --check`, `sync` and `validate`, which warns of what `sync`

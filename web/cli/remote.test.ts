@@ -212,6 +212,33 @@ describe("upgrade", () => {
     expect(await main(["upgrade", "v0.2.0"], { root: other.dir }, bare)).toBe(0);
   });
 
+  it("never moves back to an older release unless it's named: from a release candidate, or a release withdrawn since", async () => {
+    const C = "c".repeat(40);
+    const gh = fakeGitHub({
+      tags: { "Allenfp/BoxOps": { "v0.2.0": B, "v0.2.1": C, "v0.3.0-rc.1": A } },
+      // GitHub's "latest" could be any of them; the newest that wasn't withdrawn is 0.2.0.
+      releases: { "Allenfp/BoxOps": [rel("v0.3.0-rc.1", "BoxOps 0.3.0-rc.1", true), rel("v0.2.1", "Withdrawn: BoxOps 0.2.1"), rel("v0.2.0")] },
+      files: { [B]: newRelease(join(tempDir(), "calls.jsonl")) },
+    });
+    for (const [sha, tag] of [
+      [A, "v0.3.0-rc.1"],
+      [C, "v0.2.1"],
+    ]) {
+      const repo = adopter(sha, tag);
+      const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
+      const before = gh.calls.length;
+      expect(await main(["upgrade"], { root: repo.dir }, io)).toBe(2);
+      expect(io.stderr).toEqual([
+        `boxops upgrade: The newest release of Allenfp/BoxOps that wasn’t withdrawn, v0.2.0, is older than the pins’ ${tag}: nothing was changed (to move back to it anyway, give it: upgrade v0.2.0)`,
+      ]);
+      expect(gh.calls.slice(before)).toEqual(["https://api.github.com/repos/Allenfp/BoxOps/releases?per_page=30"]);
+      expect(repo.git(["status", "--porcelain"])).toBe("");
+      // Named, it moves.
+      expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, io)).toBe(0);
+      expect(readFileSync(join(repo.dir, ".github/workflows/deploy.yml"), "utf8")).toContain(`uses: Allenfp/BoxOps@${B} # v0.2.0\n`);
+    }
+  });
+
   it("runs the new release's migrate --check and validate on --roadmap's folder, and names it in what to run", async () => {
     const repo = adopter(A);
     const log = join(tempDir(), "calls.jsonl");

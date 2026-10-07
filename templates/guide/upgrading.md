@@ -28,7 +28,8 @@ Commands for upgrades (a repository admin's, or an assistant's when asked):
 - `node .boxops/boxops.mjs upgrade [vX.Y.Z]`: moves every pin (and its
   `# vX.Y.Z` comment) to that release, or the newest, then runs the new
   release's `migrate --check`, `sync` and `validate`. It commits nothing,
-  and never moves to a release that was withdrawn.
+  never moves to a release that was withdrawn, and moves back to an older
+  release only when it's named.
 - `node .boxops/boxops.mjs migrate [--check]`: brings `roadmap/` to the data
   format this release reads.
 - `node .boxops/boxops.mjs sync [--check]`: rewrites the managed block in
