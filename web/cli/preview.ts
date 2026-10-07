@@ -1,7 +1,7 @@
 // `preview [--port 4173] [--open]`: the working tree's roadmap in the app,
 // served on 127.0.0.1 only. The site is what the action would build, but read
 // from the files on disk and marked local: the app shows it read-only, asks
-// GitHub nothing, and fetches roadmap.json every second, so a saved file shows
+// GitHub nothing, and fetches roadmap.json twice a second, so a saved file shows
 // within a second. The app's files are this release's: dist/app beside the
 // tool, or, for a tool the launcher downloaded alone, fetched once by the
 // pinned commit, checked against its BUILD.json and kept beside it.
@@ -170,7 +170,8 @@ function openBrowser(url: string): void {
 export async function previewCommand(o: Omit<PreviewOptions, "io"> & { open: boolean }, ctx: LaunchContext, io: Io): Promise<number> {
   await ensureApp(io.cliDir, ctx, io);
   const preview = await startPreview({ ...o, io });
-  io.out(`BoxOps preview of ${relative(io.cwd, o.dir) || "."}/ at ${preview.url}`);
+  const near = relative(io.cwd, o.dir) || ".";
+  io.out(`BoxOps preview of ${near.length < o.dir.length ? near : o.dir}/ at ${preview.url}`);
   io.out("Read-only, from the files on disk: a saved file shows within a second. Ctrl+C stops it.");
   if (o.open) openBrowser(preview.url);
   await new Promise<void>((resolve) => {

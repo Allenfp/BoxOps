@@ -27,7 +27,8 @@ function replaceFile(file: string, text: string): void {
 }
 
 export async function migrateCommand(dir: string, check: boolean, io: Io): Promise<number> {
-  const shown = relative(io.cwd, dir) || ".";
+  const near = relative(io.cwd, dir) || ".";
+  const shown = near.length < dir.length ? near : dir;
   let folder;
   try {
     folder = await readRoadmapDir(dir);

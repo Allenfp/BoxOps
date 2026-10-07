@@ -253,7 +253,7 @@ test("a copy built from files on disk shows a saved file within a second, and no
   await page.reload();
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
   const calls = github.calls();
-  // A file saved on disk: the next look, a second later, brings it in.
+  // A file saved on disk: the next look, within a second, brings it in.
   github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") });
   github.deploy();
   await page.clock.runFor(1000);
