@@ -105,6 +105,41 @@ describe("the release tree's checks", () => {
     expect(check.build?.build).toBe(BUILD);
   });
 
+  it("check the SBOM beside the tree: this release's, naming exactly the packages its licence files name, each at its version", async () => {
+    const dir = goodTree();
+    // A package the tool bundles and the app doesn't.
+    writeFileSync(join(dir, "THIRD_PARTY_LICENSES.txt"), `${readFileSync(join(dir, "THIRD_PARTY_LICENSES.txt"), "utf8")}\n## @scope/pkg - 1.0.0 (MIT)\n\nMIT\n`);
+    rehash(dir);
+    const beside = dirname(dir);
+    const files = walk(dir);
+    writeFileSync(join(beside, "TREE"), `${await treeHash(dir, files)}\n`);
+    writeFileSync(join(beside, "SHA256SUMS"), sha256sums(dir, files));
+    const found = async (sbom: SpdxDocument | string) => {
+      writeFileSync(join(beside, "sbom.spdx.json"), typeof sbom === "string" ? sbom : JSON.stringify(sbom));
+      return (await checkReleaseTree(dir, { beside, webDir: WEB })).problems;
+    };
+    // dist/app/licenses.txt names react-dom, react and yaml; THIRD_PARTY_LICENSES.txt yaml and @scope/pkg.
+    expect(await found(spdx("0.1.0", ["react-dom@19.3.0", "react@19.3.0", "yaml@2.9.1", "@scope/pkg@1.0.0"]))).toEqual([]);
+    // What `npm sbom --omit dev` gave: no yaml, which a dev dependency (vite) names as an optional peer too.
+    expect(await found(spdx("0.1.0", ["react-dom@19.3.0", "react@19.3.0"]))).toEqual([
+      "sbom.spdx.json: doesn’t name yaml@2.9.1, which dist/app/licenses.txt names: the release bundles it",
+      "sbom.spdx.json: doesn’t name @scope/pkg@1.0.0, which THIRD_PARTY_LICENSES.txt names: the release bundles it",
+    ]);
+    // Another release's, with another yaml, and a dev dependency.
+    expect(await found(spdx("0.0.9", ["react-dom@19.3.0", "react@19.3.0", "yaml@2.8.0", "@scope/pkg@1.0.0", "vite@8.3.2"]))).toEqual([
+      "sbom.spdx.json: describes boxops-roadmap@0.0.9, not this release, 0.1.0",
+      "sbom.spdx.json: doesn’t name yaml@2.9.1, which dist/app/licenses.txt names: the release bundles it",
+      "sbom.spdx.json: names vite@8.3.2, which the release doesn’t bundle (no licence file names it)",
+      "sbom.spdx.json: names yaml@2.8.0, which the release doesn’t bundle (no licence file names it)",
+    ]);
+    expect(await found("{")).toEqual([expect.stringMatching(/^sbom\.spdx\.json: not JSON \(/)]);
+    expect(await found(JSON.stringify({ spdxVersion: "SPDX-3.0", packages: [] }))).toEqual(["sbom.spdx.json: not an SPDX 2 document"]);
+    expect(await found({ ...spdx("0.1.0", ["react-dom@19.3.0", "react@19.3.0", "yaml@2.9.1", "@scope/pkg@1.0.0"]), documentDescribes: [] })).toEqual([
+      "sbom.spdx.json: doesn’t describe one package, BoxOps’",
+      "sbom.spdx.json: names boxops-roadmap@0.1.0, which the release doesn’t bundle (no licence file names it)",
+    ]);
+  });
+
   it("check TREE and SHA256SUMS beside the tree", async () => {
     const dir = goodTree();
     const beside = dirname(dir);

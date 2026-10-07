@@ -1139,8 +1139,9 @@ node24 and using no other action; one build id in `BUILD.json`,
 `index.html` names; the licences of every package the tool bundles (its
 `//#region node_modules/…` comments) and the app depends on, and the icons';
 sizes (a file 1 MiB at most, 3 MiB and 200 files in all); and `TREE` and
-`SHA256SUMS`, with git's tree id computed without git. Releasing it is
-[docs/releasing.md](releasing.md)'s.
+`SHA256SUMS`, with git's tree id computed without git, and the SBOM: this
+release's, naming exactly the packages the licence files name, each at its
+version. Releasing it is [docs/releasing.md](releasing.md)'s.
 
 **Commands** (`node dist/boxops.mjs <command>` here; in a roadmap repository
 `node .boxops/boxops.mjs <command>`, the launcher, which runs the release its

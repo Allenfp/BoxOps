@@ -1,8 +1,9 @@
 // `npm run check:release-tree -- [folder]`: checks a release tree, the files
 // of a BoxOps release commit (scripts/release-tree.ts writes one), before
 // anything tests or ships it. The folder is release-tree.ts's --out (default
-// ../build), holding release/ and, beside it, TREE and SHA256SUMS, which are
-// checked too; or the tree itself.
+// ../build), holding release/ and, beside it, TREE, SHA256SUMS and (unless
+// built with --no-sbom) sbom.spdx.json, which are checked too; or the tree
+// itself.
 //
 // What it checks:
 //   - Only what a release holds: action.yml, README.md, LICENSE,
@@ -21,7 +22,9 @@
 //     the icons.
 //   - Sizes within limits (LIMITS).
 //   - TREE and SHA256SUMS, if there, are the tree's (the tree hash computed
-//     here, as git does, without git).
+//     here, as git does, without git); and the SBOM, sbom.spdx.json, if
+//     there, describes this release and names exactly the packages the two
+//     licence files name, each at its version (sbomProblems).
 
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
@@ -99,6 +102,13 @@ export function bundledPackages(code: string): string[] {
 /** The packages a Vite licence list names (its "## <name> - <version>" headings). */
 export const licensed = (text: string) => [...text.matchAll(/^## ((?:@[^/\s]+\/)?[^\s]+) - \S+/gm)].map((m) => m[1]);
 
+/**
+ * The packages a Vite licence list names, as name@version. Not the icons'
+ * notice (cli/licenses.ts adds it, "## Lucide icons (…)"): no package brings
+ * them in.
+ */
+export const licensedVersions = (text: string) => [...text.matchAll(/^## ((?:@[^/\s]+\/)?[^\s]+) - (\S+)/gm)].map((m) => `${m[1]}@${m[2]}`);
+
 /** As much of an SPDX 2 document as the release's SBOM is made and checked by (`npm sbom --sbom-format spdx` writes one). */
 export interface SpdxDocument {
   spdxVersion: string;
@@ -116,7 +126,31 @@ export interface SpdxPackage {
   externalRefs?: { referenceCategory: string; referenceType: string; referenceLocator: string }[];
 }
 
-/** Checks the release tree in `dir`; with `beside` (release-tree.ts's --out), its TREE and SHA256SUMS too, where they are. */
+/**
+ * What's wrong with a release's SBOM (`text`, sbom.spdx.json beside the
+ * tree): it describes one package, BoxOps', at the release's `version`, and
+ * names exactly the packages the release bundles, each at its version:
+ * `bundled`, those its licence files name (name@version → the file).
+ */
+export function sbomProblems(text: string, version: string | undefined, bundled: ReadonlyMap<string, string>): string[] {
+  let doc: SpdxDocument;
+  try {
+    doc = JSON.parse(text) as SpdxDocument;
+  } catch (e) {
+    return [`sbom.spdx.json: not JSON (${(e as Error).message})`];
+  }
+  if (!String(doc?.spdxVersion).startsWith("SPDX-2.") || !Array.isArray(doc.packages) || !Array.isArray(doc.documentDescribes)) return ["sbom.spdx.json: not an SPDX 2 document"];
+  const problems: string[] = [];
+  const root = doc.documentDescribes.length === 1 ? doc.packages.find((p) => p.SPDXID === doc.documentDescribes[0]) : undefined;
+  if (!root) problems.push("sbom.spdx.json: doesn’t describe one package, BoxOps’");
+  else if (version !== undefined && root.versionInfo !== version) problems.push(`sbom.spdx.json: describes ${root.name}@${root.versionInfo}, not this release, ${version}`);
+  const named = new Set(doc.packages.filter((p) => p !== root).map((p) => `${p.name}@${p.versionInfo}`));
+  for (const [pkg, file] of bundled) if (!named.has(pkg)) problems.push(`sbom.spdx.json: doesn’t name ${pkg}, which ${file} names: the release bundles it`);
+  for (const pkg of [...named].sort()) if (!bundled.has(pkg)) problems.push(`sbom.spdx.json: names ${pkg}, which the release doesn’t bundle (no licence file names it)`);
+  return problems;
+}
+
+/** Checks the release tree in `dir`; with `beside` (release-tree.ts's --out), its TREE and SHA256SUMS too, where they are, and its SBOM if it's there. */
 export async function checkReleaseTree(dir: string, o: { beside?: string; webDir?: string } = {}): Promise<TreeCheck> {
   const problems: string[] = [];
   const result: TreeCheck = { problems, dir, files: [], bytes: 0 };
@@ -232,6 +266,15 @@ export async function checkReleaseTree(dir: string, o: { beside?: string; webDir
     const sumsFile = join(o.beside, "SHA256SUMS");
     if (!existsSync(sumsFile)) problems.push(`${sumsFile}: missing`);
     else if (readFileSync(sumsFile, "utf8") !== sha256sums(dir, files)) problems.push("SHA256SUMS: not the tree’s files’ SHA-256s, one a line, sorted by path");
+    // A build without one (--no-sbom: the release workflow's rebuild) has none to check.
+    const sbomFile = join(o.beside, "sbom.spdx.json");
+    if (existsSync(sbomFile)) {
+      const bundled = new Map<string, string>();
+      for (const [file, text] of [["dist/app/licenses.txt", appLicences], ["THIRD_PARTY_LICENSES.txt", third]]) {
+        for (const pkg of licensedVersions(text)) if (!bundled.has(pkg)) bundled.set(pkg, file);
+      }
+      problems.push(...sbomProblems(readFileSync(sbomFile, "utf8"), build?.version, bundled));
+    }
   }
   return result;
 }
