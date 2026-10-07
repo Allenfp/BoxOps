@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { withContentSecurityPolicy } from "./cli/csp.ts";
+import { ICONS_NOTICE, licenseFile } from "./cli/licenses.ts";
 import { appInfo, buildBundle, findRepo } from "./cli/site.ts";
 import { LIVE_HEADER } from "./src/model/bundle.ts";
 
@@ -90,11 +91,12 @@ export default defineConfig({
   build: {
     // dist/app, as in a release (dist/ also gets the command-line tool: vite.cli.config.ts).
     outDir: "dist/app",
-    // The licences of what the app bundles (React, yaml), shipped with it.
+    // The licences of what the app bundles (React, yaml), shipped with it, and
+    // of the icons it draws (cli/licenses.ts).
     license: { fileName: "licenses.txt" },
   },
   define: { __BOXOPS_BUILD__: JSON.stringify(APP.build) },
-  plugins: [react(), roadmapData(), contentSecurityPolicy()],
+  plugins: [react(), roadmapData(), contentSecurityPolicy(), licenseFile("licenses.txt", { append: ICONS_NOTICE })],
   test: {
     environment: "node",
     // .tsx too, so a component's test is never skipped without a word.

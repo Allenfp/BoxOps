@@ -3,6 +3,7 @@ import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Plugin, defineConfig } from "vite";
 import { collectEmbedded } from "./cli/embedded.ts";
+import { licenseFile } from "./cli/licenses.ts";
 import { buildJsonText, identity, makeBuildJson } from "./cli/release.ts";
 
 // `npm run build:cli`: the command-line tool and the action, bundled for Node
@@ -94,7 +95,7 @@ export default defineConfig({
     // Bundle the yaml library (and anything else) in: adopters install nothing.
     noExternal: true,
   },
-  plugins: [actionEntry(), buildJson()],
+  plugins: [actionEntry(), buildJson(), licenseFile("THIRD_PARTY_LICENSES.txt", { bundler: "dist/boxops.mjs" })],
   build: {
     ssr: true,
     target: "node22.12",
@@ -105,7 +106,9 @@ export default defineConfig({
     sourcemap: false,
     copyPublicDir: false,
     reportCompressedSize: false,
-    license: { fileName: "boxops.licenses.md" },
+    // The licences of what boxops.mjs bundles (yaml): THIRD_PARTY_LICENSES.txt
+    // at the top of a release commit (scripts/release-tree.ts puts it there).
+    license: { fileName: "THIRD_PARTY_LICENSES.txt" },
     rolldownOptions: {
       input: { boxops: join(WEB_DIR, "cli/boxops.ts") },
       output: { format: "es", entryFileNames: "[name].mjs" },
