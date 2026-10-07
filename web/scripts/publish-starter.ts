@@ -14,7 +14,7 @@
 // BoxOps' docs the starter links to is there at the source commit.
 
 import { mkdirSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { UsageError, flag, parseArgs } from "../cli/context.ts";
 import { gitPlumbing } from "../cli/git.ts";
@@ -110,20 +110,28 @@ export function publishStarter(o: PublishOptions): Published {
   return { files: Object.keys(files).sort(), source, tagChecked: tagged === o.commit };
 }
 
-/** What a maintainer runs to publish the folder: the first time, then for each later release. */
+/** `text` as one word for a POSIX shell: in single quotes. */
+const shellWord = (text: string) => `'${text.replaceAll("'", `'\\''`)}'`;
+
+/**
+ * What a maintainer runs to publish the folder written, `out` (an absolute
+ * path, as the commands run in other folders): the first time, then for each
+ * later release. Indented lines are commands.
+ */
 export function publishCommands(out: string, tag: string): string[] {
+  if (!isAbsolute(out)) throw new Error(`publishCommands: ${out} isn’t an absolute path`);
   const repo = "Allenfp/boxops-starter";
   return [
-    `The first time (${repo} doesn't exist yet):`,
-    `  cd ${out}`,
+    `The first time (${repo} doesn't exist yet), in the folder written:`,
+    `  cd ${shellWord(out)}`,
     `  git init -b main && git add -A && git commit -m "BoxOps starter for ${tag}"`,
     `  gh repo create ${repo} --public --source . --push`,
     `  gh repo edit ${repo} --template`,
-    "  Then Settings → Pages → Source: GitHub Actions, and run Actions → Deploy roadmap.",
-    "Each later release, as a pull request:",
-    `  git clone git@github.com:${repo}.git && cd boxops-starter`,
+    "Then, on GitHub: Settings → Pages → Source: GitHub Actions, and run Actions → Deploy roadmap.",
+    "Each later release, as a pull request, from a new clone in a temporary folder:",
+    `  starter=$(mktemp -d) && git clone git@github.com:${repo}.git "$starter" && cd "$starter"`,
     `  git switch -c boxops-${tag}`,
-    `  rsync -a --delete --exclude=.git ${out}/ ./`,
+    `  rsync -a --delete --exclude=.git ${shellWord(`${out}/`)} ./`,
     `  git add -A && git commit -m "Upgrade BoxOps to ${tag}"`,
     `  git push -u origin boxops-${tag} && gh pr create --fill`,
     "Pushing workflow files takes SSH, or a token with the workflow scope.",
@@ -148,7 +156,7 @@ export async function main(argv: string[], repoDir = REPO_DIR): Promise<number> 
     console.log(`Wrote the starter for BoxOps ${tag} to ${shown} (${done.files.length} files): ${UPSTREAM}@${commit.slice(0, 12)}, built from ${done.source.slice(0, 12)}.`);
     if (!done.tagChecked) console.log(`This clone hasn't the tag ${tag}, so it wasn't checked to name that commit.`);
     console.log("Nothing was pushed. To publish it:");
-    for (const line of publishCommands(shown, tag)) console.log(`  ${line}`);
+    for (const line of publishCommands(dir, tag)) console.log(`  ${line}`);
     return 0;
   } catch (e) {
     console.error(`publish-starter: ${(e as Error).message}`);
