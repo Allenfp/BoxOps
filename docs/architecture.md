@@ -1169,10 +1169,14 @@ that. `npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out
 in this clone's git (never the working tree), after checking the release
 commit's `BUILD.json` names the tag's version, the tag (if fetched) names the
 commit, and every page of the docs the starter links to is there at that
-commit; it prints the commands to publish it and pushes nothing. `init`
-can't check that, so a unit test does: every page `starter/` links to is one
-git tracks, but for those listed as still to write (`TO_WRITE` in
-`cli/starter.test.ts`), which a release must have none of.
+commit. It pushes nothing: it prints the commands to publish the folder,
+each one command whose steps are joined with `&&`, so that pasted into an
+interactive shell, which has no `-e`, it stops at the first step that fails
+(a failed clone or `cd` leaves the folder it was pasted in alone, and rsync
+writes only into the new clone). `init` can't check the docs' pages, so a
+unit test does: every page `starter/` links to is one git tracks, but for
+those listed as still to write (`TO_WRITE` in `cli/starter.test.ts`), which
+a release must have none of.
 
 ## Tests and CI
 
@@ -1193,10 +1197,12 @@ git tracks, but for those listed as still to write (`TO_WRITE` in
   commands alone, `AGENTS.md` read only as a plain file, proxies and Node's
   options), the starter made for a release (what `init` writes, and `sync`
   for its files) and its links to BoxOps' docs (pages git tracks, but those
-  still to write), the commands `publish-starter` prints to publish it (run
-  with bash from another folder, against stand-ins for the starter
-  repository and `gh`), Path B's workflows (the starter's but for one step,
-  which the README shows, and setup-node told to read nothing in the
+  still to write), the commands `publish-starter` prints to publish it
+  (pasted into bash, and zsh where it's installed, without `-e`: from
+  another folder they publish it, against stand-ins for the starter
+  repository and `gh`, and after a failed clone or `cd` they change nothing
+  where they were pasted), Path B's workflows (the starter's but for one
+  step, which the README shows, and setup-node told to read nothing in the
   workspace) and that step run with bash against a stand-in for
   github.com, a hostile workspace (its files, git configuration and `GIT_*`
   variables try to run code: sentinel files stay unwritten, git is the only

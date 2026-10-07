@@ -62,6 +62,20 @@ export class UsageError extends Error {
   }
 }
 
+/** `text` as one word for a POSIX shell: in single quotes. */
+export const shellWord = (text: string): string => `'${text.replaceAll("'", `'\\''`)}'`;
+
+/**
+ * Steps as one command for bash or zsh, to print: indented two spaces (four
+ * on the lines that continue it), each line's steps and the lines joined
+ * with `&&`, the lines continued with `\`. Pasted whole, it stops at the
+ * first step that fails. Lines of their own wouldn't: the shell a command is
+ * pasted into has no `-e`, so after a failed `cd` or clone the rest would
+ * run in the folder it was pasted in.
+ */
+export const oneCommand = (lines: string[][]): string[] =>
+  lines.map((steps, i) => `${i ? "    " : "  "}${steps.join(" && ")}${i < lines.length - 1 ? " && \\" : ""}`);
+
 export interface Args {
   positional: string[];
   /** `--name value` (or `--name=value`) and `--switch` (true). */

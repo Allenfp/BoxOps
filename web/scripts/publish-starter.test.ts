@@ -2,11 +2,12 @@
 // clone: a commit of main with starter/ and the docs it links to, a release
 // commit built from it (BUILD.json naming it) and its tag. What it writes is
 // what that release's `init` writes, and `sync` too for the files it keeps;
-// the commands it prints, run with bash from another folder against a
-// stand-in for the starter repository and `gh`, publish that folder.
+// the commands it prints, pasted into bash and zsh from another folder
+// against stand-ins for the starter repository and `gh`, publish that
+// folder, and stop at a step that fails, changing nothing where they run.
 
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { main as boxops } from "../cli/boxops";
@@ -15,6 +16,7 @@ import { buildJsonText, makeBuildJson } from "../cli/release";
 import { renderStarter } from "../cli/starter";
 import { ID, capture, cleanUp, fakeGitHub, releaseFiles, tempDir } from "../cli/test-release";
 import { TestRepo } from "../cli/test-repo";
+import { SHELLS, block, paste, shellEnv, standIns, which } from "../cli/test-shell";
 import { main, publishCommands, publishStarter } from "./publish-starter";
 
 const repos: TestRepo[] = [];
@@ -25,11 +27,12 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-/** Every file under `dir` (path from it, "/"-separated → text). */
-function readTree(dir: string): Record<string, string> {
+/** Every file under `dir` (path from it, "/"-separated → text), but those in its folder `skip`. */
+function readTree(dir: string, skip?: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
-    if (entry.isFile()) out[join(entry.parentPath, entry.name).slice(dir.length + 1)] = readFileSync(join(entry.parentPath, entry.name), "utf8");
+    const path = join(entry.parentPath, entry.name).slice(dir.length + 1);
+    if (entry.isFile() && !(skip && path.startsWith(`${skip}/`))) out[path] = readFileSync(join(entry.parentPath, entry.name), "utf8");
   }
   return out;
 }
@@ -131,12 +134,27 @@ describe("publish-starter", () => {
     expect(await main(["--tag", "v0.1.0", "--commit", release, "--out", out], repo.dir)).toBe(0);
     const printed = log.mock.calls.map((c) => String(c[0]));
     expect(printed[0]).toMatch(new RegExp(`^Wrote the starter for BoxOps v0\\.1\\.0 to .*it's here \\(13 files\\): Allenfp/BoxOps@${release.slice(0, 12)}, built from ${source.slice(0, 12)}\\.$`));
-    expect(printed).toContain("Nothing was pushed. To publish it:");
-    // The folder written, whole and quoted for the shell, wherever the commands run.
-    const quoted = out.replaceAll("'", `'\\''`);
-    expect(printed).toContain(`    cd '${quoted}'`);
-    expect(printed).toContain(`    rsync -a --delete --exclude=.git '${quoted}/' ./`);
-    expect(printed.join("\n")).not.toMatch(/--force/);
+    // Each block one command whose steps stop at the first that fails; the folder written whole
+    // and quoted for the shell, wherever it runs; rsync into the new clone alone.
+    const quoted = `'${out.replaceAll("'", `'\\''`)}`;
+    expect(printed.slice(1)).toEqual([
+      "Nothing was pushed. To publish it:",
+      "  The first time (Allenfp/boxops-starter doesn't exist yet), in the folder written:",
+      `    cd ${quoted}' && git init -b main && git add -A && \\`,
+      '      git commit -m "BoxOps starter for v0.1.0" && \\',
+      "      gh repo create Allenfp/boxops-starter --public --source . --push && \\",
+      "      gh repo edit Allenfp/boxops-starter --template",
+      "  Then, on GitHub: Settings → Pages → Source: GitHub Actions, and run Actions → Deploy roadmap.",
+      "  Each later release, as a pull request, from a new clone in a temporary folder:",
+      "    starter=$(mktemp -d) && \\",
+      '      git clone git@github.com:Allenfp/boxops-starter.git "$starter" && \\',
+      '      cd "$starter" && git switch -c boxops-v0.1.0 && \\',
+      `      [ -d "$starter/.git" ] && rsync -a --delete --exclude=.git ${quoted}/' "$starter/" && \\`,
+      '      git add -A && git commit -m "Upgrade BoxOps to v0.1.0" && \\',
+      "      git push -u origin boxops-v0.1.0 && gh pr create --fill",
+      "  Each is one command: paste it whole, and it stops at the first step that fails.",
+      "  Pushing workflow files takes SSH, or a token with the workflow scope.",
+    ]);
     expect(() => publishCommands("starter", "v0.1.0")).toThrow("publishCommands: starter isn’t an absolute path");
     expect(await main(["--tag", "v0.1.0"], repo.dir)).toBe(2);
     expect(error.mock.calls.at(-1)?.[0]).toBe(
@@ -144,87 +162,112 @@ describe("publish-starter", () => {
     );
   });
 
-  it("prints commands that publish the folder it wrote, wherever they're run: tried with bash, git and rsync", async () => {
-    expect(onPath("rsync"), "rsync, which the printed commands use, is installed").toBe(true);
-    const { repo, release } = upstream();
-    // npm run in BoxOps' web/, with --out a folder beside the clone: ../../starter-out.
-    const top = tempDir();
-    const web = join(top, "BoxOps", "web");
-    mkdirSync(web, { recursive: true });
-    vi.stubEnv("INIT_CWD", web);
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    expect(await main(["--tag", "v0.1.0", "--commit", release, "--out", "../../starter-out"], repo.dir)).toBe(0);
-    const out = join(top, "starter-out");
-    const written = readTree(out);
-    expect(Object.keys(written)).toHaveLength(13);
-    const printed = log.mock.calls.map((c) => String(c[0]));
-    expect(printed[0]).toMatch(/ to \.\.\/\.\.\/starter-out \(13 files\)/);
+  // The printed commands, pasted into each shell as a maintainer would (cli/test-shell.ts), with
+  // local repositories standing in for GitHub's.
+  for (const shell of SHELLS) {
+    it(`prints commands that publish the folder it wrote, pasted into ${shell[0]} wherever it's open: tried with git and rsync`, async () => {
+      expect(which("rsync"), "rsync, which the printed commands use, is installed").toBeTruthy();
+      const { repo, release } = upstream();
+      // npm run in BoxOps' web/, with --out a folder beside the clone: ../../starter-out.
+      const top = tempDir();
+      const web = join(top, "BoxOps", "web");
+      mkdirSync(web, { recursive: true });
+      vi.stubEnv("INIT_CWD", web);
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      expect(await main(["--tag", "v0.1.0", "--commit", release, "--out", "../../starter-out"], repo.dir)).toBe(0);
+      const out = join(top, "starter-out");
+      const written = readTree(out);
+      expect(Object.keys(written)).toHaveLength(13);
+      const printed = log.mock.calls.map((c) => String(c[0]));
+      expect(printed[0]).toMatch(/ to \.\.\/\.\.\/starter-out \(13 files\)/);
 
-    // GitHub stood in for: the starter repository as an earlier release left it (a README this
-    // one rewrites, a file it hasn't), which git clones and pushes to by its SSH URL; and gh.
-    const github = new TestRepo();
-    repos.push(github);
-    github.commit({ "README.md": "The earlier starter\n", "dropped.txt": "Not in this release\n" }, "BoxOps starter for v0.0.9");
-    const stand = tempDir();
-    writeFileSync(join(stand, "gitconfig"), `[url "${github.dir}"]\n\tinsteadOf = git@github.com:Allenfp/boxops-starter.git\n`);
-    writeFileSync(join(stand, "gh"), `#!/bin/sh\nprintf '%s\\n' "$*" >> "${join(stand, "gh.log")}"\n`, { mode: 0o755 });
-    const env = {
-      PATH: `${stand}:${process.env.PATH}`,
-      HOME: stand,
-      TMPDIR: tempDir(),
-      GIT_CONFIG_GLOBAL: join(stand, "gitconfig"),
-      GIT_CONFIG_NOSYSTEM: "1",
-      // Local repositories only: nothing reaches github.com, whatever the commands say.
-      GIT_ALLOW_PROTOCOL: "file",
-      GIT_AUTHOR_NAME: "Maintainer",
-      GIT_AUTHOR_EMAIL: "maintainer@example.com",
-      GIT_COMMITTER_NAME: "Maintainer",
-      GIT_COMMITTER_EMAIL: "maintainer@example.com",
-    };
-    /** The commands under the heading that starts so (the indented lines after it), run in `cwd` with bash, -e and pipefail. */
-    const run = (heading: string, cwd: string) => {
-      const from = printed.findIndex((l) => l.startsWith(`  ${heading}`));
-      expect(from).toBeGreaterThan(0);
-      const rest = printed.slice(from + 1);
-      const commands = rest.slice(0, rest.findIndex((l) => !l.startsWith("    "))).map((l) => l.trim());
-      expect(commands.length).toBeGreaterThan(2);
-      const script = join(tempDir(), "commands.sh");
-      writeFileSync(script, `${commands.join("\n")}\n`);
-      const r = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", script], { cwd, encoding: "utf8", env });
-      expect(r.status, r.stderr).toBe(0);
-    };
-    const git = (dir: string, args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", env }).trim();
-    /** A commit's files: path → blob SHA. */
-    const tree = (dir: string, commit: string) =>
-      Object.fromEntries(
-        git(dir, ["ls-tree", "-r", commit])
-          .split("\n")
-          .map((line) => {
-            const [meta, path] = line.split("\t");
-            return [path, meta.split(" ")[2]];
-          }),
-      );
-    const blobs = Object.fromEntries(Object.entries(written).map(([path, text]) => [path, github.blob(text)]));
+      // The starter repository as an earlier release left it (a README this one rewrites, a file
+      // it hasn't), which git clones and pushes to by its SSH URL.
+      const github = new TestRepo();
+      repos.push(github);
+      github.commit({ "README.md": "The earlier starter\n", "dropped.txt": "Not in this release\n" }, "BoxOps starter for v0.0.9");
+      const stand = standIns();
+      const env = shellEnv(stand, `[url "${github.dir}"]\n\tinsteadOf = git@github.com:Allenfp/boxops-starter.git\n`);
+      const git = (dir: string, args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", env }).trim();
+      /** A commit's files: path → blob SHA. */
+      const tree = (dir: string, commit: string) =>
+        Object.fromEntries(
+          git(dir, ["ls-tree", "-r", commit])
+            .split("\n")
+            .map((line) => {
+              const [meta, path] = line.split("\t");
+              return [path, meta.split(" ")[2]];
+            }),
+        );
+      const blobs = Object.fromEntries(Object.entries(written).map(([path, text]) => [path, github.blob(text)]));
 
-    // A later release, from where npm ran: a branch of a new clone holding exactly the folder written.
-    run("Each later release", web);
-    expect(git(github.dir, ["log", "-1", "--format=%s", "boxops-v0.1.0"])).toBe("Upgrade BoxOps to v0.1.0");
-    expect(tree(github.dir, "boxops-v0.1.0")).toEqual(blobs);
-    expect(readFileSync(join(stand, "gh.log"), "utf8")).toBe("pr create --fill\n");
-    expect(readTree(out)).toEqual(written);
+      // A later release, from where npm ran: a branch of a new clone holding exactly the folder written.
+      const later = paste(shell, block(printed, "Each later release"), web, env);
+      expect(later.status, later.stderr).toBe(0);
+      expect(git(github.dir, ["log", "-1", "--format=%s", "boxops-v0.1.0"])).toBe("Upgrade BoxOps to v0.1.0");
+      expect(tree(github.dir, "boxops-v0.1.0")).toEqual(blobs);
+      expect(readFileSync(join(stand, "gh.log"), "utf8")).toBe("pr create --fill\n");
+      expect(readTree(out)).toEqual(written);
+      expect(readdirSync(web)).toEqual([]);
 
-    // The first time, from anywhere: the folder written becomes the repository.
-    run("The first time", top);
-    expect(git(out, ["log", "--format=%s"])).toBe("BoxOps starter for v0.1.0");
-    expect(tree(out, "HEAD")).toEqual(blobs);
-    expect(readFileSync(join(stand, "gh.log"), "utf8").split("\n").slice(1, 3)).toEqual([
-      "repo create Allenfp/boxops-starter --public --source . --push",
-      "repo edit Allenfp/boxops-starter --template",
-    ]);
-  });
+      // The first time, from anywhere: the folder written becomes the repository.
+      const first = paste(shell, block(printed, "The first time"), top, env);
+      expect(first.status, first.stderr).toBe(0);
+      expect(git(out, ["log", "--format=%s"])).toBe("BoxOps starter for v0.1.0");
+      expect(tree(out, "HEAD")).toEqual(blobs);
+      expect(readFileSync(join(stand, "gh.log"), "utf8").split("\n").slice(1, 3)).toEqual([
+        "repo create Allenfp/boxops-starter --public --source . --push",
+        "repo edit Allenfp/boxops-starter --template",
+      ]);
+    });
+
+    it(`prints commands that stop at a step that fails, pasted into ${shell[0]}: a failed clone or cd changes nothing where they run`, async () => {
+      const { repo, release } = upstream();
+      // No stand-in for the starter repository: git refuses its SSH URL, so the clone fails.
+      const stand = standIns();
+      const env = shellEnv(stand);
+      const git = (dir: string, args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", env }).trim();
+      // BoxOps' clone, where npm ran: a commit, a file git doesn't track, and an origin a push would reach.
+      const clone = new TestRepo();
+      repos.push(clone);
+      clone.commit({ "web/src/app.ts": "export {};\n", "README.md": "# BoxOps\n" }, "BoxOps");
+      clone.checkout();
+      clone.write({ "web/NOTES.local": "Not committed\n" });
+      const origin = tempDir();
+      git(origin, ["init", "-q", "--bare"]);
+      git(clone.dir, ["remote", "add", "origin", origin]);
+      git(clone.dir, ["push", "-q", "origin", "main"]);
+      const web = join(clone.dir, "web");
+      vi.stubEnv("INIT_CWD", web);
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      const out = join(tempDir(), "starter-out");
+      expect(await main(["--tag", "v0.1.0", "--commit", release, "--out", out], repo.dir)).toBe(0);
+      const printed = log.mock.calls.map((c) => String(c[0]));
+
+      /** All a run could change: the clone's files (but .git), its refs, branch and status, and origin's refs. */
+      const state = () => ({
+        files: readTree(clone.dir, ".git"),
+        refs: git(clone.dir, ["for-each-ref", "--format=%(refname) %(objectname)"]),
+        head: git(clone.dir, ["symbolic-ref", "HEAD"]),
+        status: git(clone.dir, ["status", "--porcelain", "--untracked-files=all"]),
+        origin: git(origin, ["for-each-ref", "--format=%(refname) %(objectname)"]),
+      });
+      const before = state();
+      expect(before.status).toBe("?? web/NOTES.local");
+
+      const later = paste(shell, block(printed, "Each later release"), web, env);
+      expect(later.status).not.toBe(0);
+      expect(later.stderr).toContain("transport 'ssh' not allowed");
+      expect(state()).toEqual(before);
+      expect(existsSync(join(stand, "gh.log")), "gh was run").toBe(false);
+
+      // The first time, with the folder written gone: its cd fails, and nothing after it runs.
+      rmSync(out, { recursive: true });
+      const first = paste(shell, block(printed, "The first time"), web, env);
+      expect(first.status).not.toBe(0);
+      expect(first.stderr).toMatch(/no such file or directory/i);
+      expect(state()).toEqual(before);
+      expect(existsSync(join(stand, "gh.log")), "gh was run").toBe(false);
+    });
+  }
 });
-
-/** Whether a program is on this PATH. */
-function onPath(name: string): boolean {
-  return (process.env.PATH ?? "").split(":").some((d) => d && existsSync(join(d, name)));
-}

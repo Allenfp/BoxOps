@@ -16,7 +16,7 @@
 import { mkdirSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { UsageError, flag, parseArgs } from "../cli/context.ts";
+import { UsageError, flag, oneCommand, parseArgs, shellWord } from "../cli/context.ts";
 import { gitPlumbing } from "../cli/git.ts";
 import { COMMIT_SHA } from "../cli/pins.ts";
 import { UPSTREAM, parseBuildJson } from "../cli/release.ts";
@@ -110,30 +110,35 @@ export function publishStarter(o: PublishOptions): Published {
   return { files: Object.keys(files).sort(), source, tagChecked: tagged === o.commit };
 }
 
-/** `text` as one word for a POSIX shell: in single quotes. */
-const shellWord = (text: string) => `'${text.replaceAll("'", `'\\''`)}'`;
-
 /**
  * What a maintainer runs to publish the folder written, `out` (an absolute
  * path, as the commands run in other folders): the first time, then for each
- * later release. Indented lines are commands.
+ * later release. Indented lines are commands, each block one command
+ * (`oneCommand`); rsync writes into the new clone alone, once it's checked to
+ * be one, never into the folder the command runs in.
  */
 export function publishCommands(out: string, tag: string): string[] {
   if (!isAbsolute(out)) throw new Error(`publishCommands: ${out} isn’t an absolute path`);
   const repo = "Allenfp/boxops-starter";
   return [
     `The first time (${repo} doesn't exist yet), in the folder written:`,
-    `  cd ${shellWord(out)}`,
-    `  git init -b main && git add -A && git commit -m "BoxOps starter for ${tag}"`,
-    `  gh repo create ${repo} --public --source . --push`,
-    `  gh repo edit ${repo} --template`,
+    ...oneCommand([
+      [`cd ${shellWord(out)}`, "git init -b main", "git add -A"],
+      [`git commit -m "BoxOps starter for ${tag}"`],
+      [`gh repo create ${repo} --public --source . --push`],
+      [`gh repo edit ${repo} --template`],
+    ]),
     "Then, on GitHub: Settings → Pages → Source: GitHub Actions, and run Actions → Deploy roadmap.",
     "Each later release, as a pull request, from a new clone in a temporary folder:",
-    `  starter=$(mktemp -d) && git clone git@github.com:${repo}.git "$starter" && cd "$starter"`,
-    `  git switch -c boxops-${tag}`,
-    `  rsync -a --delete --exclude=.git ${shellWord(`${out}/`)} ./`,
-    `  git add -A && git commit -m "Upgrade BoxOps to ${tag}"`,
-    `  git push -u origin boxops-${tag} && gh pr create --fill`,
+    ...oneCommand([
+      ["starter=$(mktemp -d)"],
+      [`git clone git@github.com:${repo}.git "$starter"`],
+      ['cd "$starter"', `git switch -c boxops-${tag}`],
+      ['[ -d "$starter/.git" ]', `rsync -a --delete --exclude=.git ${shellWord(`${out}/`)} "$starter/"`],
+      ["git add -A", `git commit -m "Upgrade BoxOps to ${tag}"`],
+      [`git push -u origin boxops-${tag}`, "gh pr create --fill"],
+    ]),
+    "Each is one command: paste it whole, and it stops at the first step that fails.",
     "Pushing workflow files takes SSH, or a token with the workflow scope.",
   ];
 }
