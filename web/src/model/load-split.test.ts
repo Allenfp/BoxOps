@@ -6,13 +6,17 @@
 // files.
 
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readRoadmapDir } from "../../cli/git";
 import { hashFolder } from "../../cli/site";
 import { generateRoadmap } from "../../scripts/gen-roadmap";
 import { type ParsedEntry, forgetParsed, loadFolder, loadFolderNow, rememberParsed } from "./load";
 import { loadRoadmap, parseFile } from "./parse";
 import type { RoadmapFiles } from "./types";
+
+// The 2,000-box roadmap's tests hash, parse and check its 2,000 files twice: a second on a quiet
+// machine, and up to 11 with the browser tests running alongside, past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 const folder = (path: string) => readRoadmapDir(fileURLToPath(new URL(path, import.meta.url)));
 /** As JSON, maps as their entries in order: key order counts too. */
