@@ -360,8 +360,10 @@ and the advisory and release notes for those watching the repository.
 
 ## A bad release
 
-A published release can't be deleted or changed: its tag and files are
-immutable. Instead:
+A published release's tag and files can't change, and deleting the release
+would only hide it: roadmap repositories pin its commit, its tag name can't
+be used again (GitHub keeps it for immutable releases), and the title below
+needs the release. Instead:
 
 1. Edit its title to `Withdrawn: BoxOps X.Y.Z` (titles stay editable).
    Every deploy still running it then warns, in its run and in the app.
