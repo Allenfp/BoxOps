@@ -10,7 +10,7 @@
 // isn't for people.
 
 import { existsSync, realpathSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatDay } from "../src/model/dates.ts";
 import { FORMAT } from "../src/model/format.ts";
@@ -134,18 +134,24 @@ async function build(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
   const worktree = args.flags.worktree === true;
   if (commit !== undefined && worktree) throw new UsageError("Give --commit or --worktree, not both");
   const root = rootOf(args, ctx, io);
-  const dir = flag(args, "roadmap") ?? "roadmap";
+  // The roadmap folder in --root, as every command takes it; git, and the
+  // bundle's source.dir, name it from the top of the repository it's in.
+  const folder = join(root, flag(args, "roadmap") ?? "roadmap");
+  const repoDir = findRepo(root) ?? root;
+  const dir = relative(repoDir, folder).split(sep).join("/");
+  if (!dir || dir === ".." || dir.startsWith("../") || isAbsolute(dir)) {
+    throw new UsageError(`The roadmap folder (${folder}) must be in the repository (${repoDir}), not the repository itself or outside it`);
+  }
   const id = io.identity();
   // The launcher keeps a release's tool and BUILD.json alone: the first build (or preview) fetches the app.
   await ensureApp(io.cliDir, ctx, io);
   const app = verifiedApp(openRelease(io.cliDir, id.build));
-  const repoDir = findRepo(root) ?? root;
   let bundle;
   try {
     bundle = await buildBundle({
       repoDir,
       dir,
-      ...(worktree && { worktree: join(root, dir) }),
+      ...(worktree && { worktree: folder }),
       ...(commit !== undefined && { commit }),
       app: { version: id.version, build: id.build, time: id.time },
       env: io.env,
@@ -153,7 +159,7 @@ async function build(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
     });
   } catch (e) {
     if (!(e instanceof RoadmapReadError)) throw e;
-    for (const p of e.problems) io.err(issueLine(join(root, dir), p, io.cwd));
+    for (const p of e.problems) io.err(issueLine(folder, p, io.cwd));
     io.err(`${dir}/ can’t be read as it is: nothing was written`);
     return EXIT.problems;
   }
@@ -165,7 +171,7 @@ async function build(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
     return EXIT.format;
   }
   const loaded = loadRoadmap(bundle.files, bundle.ignored);
-  for (const issue of loaded.issues) io.err(issueLine(join(root, dir), issue, io.cwd));
+  for (const issue of loaded.issues) io.err(issueLine(folder, issue, io.cwd));
   writeSite(resolve(io.cwd, out), app, bundle);
   io.out(resultLine(loaded.roadmap, loaded.issues.length));
   io.out(`Wrote the site to ${out}: BoxOps ${id.build}, ${bundle.source.local ? "the files on disk (local, read-only)" : `commit ${bundle.source.commit.slice(0, 12)}`}${loaded.issues.length ? ", without the broken entries" : ""}.`);

@@ -176,6 +176,36 @@ describe("build", () => {
     expect(() => readdirSync(none)).toThrow();
   });
 
+  it("reads --roadmap in --root's folder, as validate does, though the repository's top is above it; never outside it", async () => {
+    const sub = { ...SAMPLE, "settings.yaml": SAMPLE["settings.yaml"].replace("title: Our roadmap", "title: Sub roadmap") };
+    const repo = checkout({ ...sampleRepo(), ...Object.fromEntries(Object.entries(sub).map(([p, t]) => [`sub/roadmap/${p}`, t])) });
+    const site = async (...flags: string[]) => {
+      const out = join(tempDir(), "site");
+      const r = await run(["build", "--root", join(repo.dir, "sub"), "--out", out, ...flags], { cwd: repo.dir });
+      return { code: r.code, bundle: JSON.parse(readFileSync(join(out, "roadmap.json"), "utf8")) };
+    };
+    const head = await site();
+    expect([head.code, head.bundle.source.dir, head.bundle.source.tree, head.bundle.files["settings.yaml"]]).toEqual([
+      0,
+      "sub/roadmap",
+      repo.git(["rev-parse", "HEAD:sub/roadmap"]),
+      sub["settings.yaml"],
+    ]);
+    const disk = await site("--worktree");
+    expect([disk.bundle.source.dir, disk.bundle.source.local, disk.bundle.files["settings.yaml"]]).toEqual(["sub/roadmap", true, sub["settings.yaml"]]);
+    // From the top, --roadmap names it the same way.
+    const top = await run(["build", "--roadmap", "sub/roadmap", "--out", join(tempDir(), "top")], { cwd: repo.dir });
+    expect(top.code).toBe(0);
+    // A problem's path is the folder's, where it was typed from.
+    writeFileSync(join(repo.dir, "sub", "roadmap", "notes.txt"), "x\n");
+    const noted = await run(["build", "--root", "sub", "--worktree", "--out", join(tempDir(), "noted")], { cwd: repo.dir });
+    expect([noted.code, noted.stderr.split("\n")]).toEqual([1, expect.arrayContaining(["sub/roadmap/notes.txt: unexpected file; roadmap files live in departments/ or boxes/"])]);
+    for (const roadmap of ["../elsewhere", "."]) {
+      const r = await run(["build", "--roadmap", roadmap, "--out", join(tempDir(), "x")], { cwd: repo.dir });
+      expect([r.code, r.stderr]).toEqual([2, `boxops build: The roadmap folder (${join(repo.dir, roadmap)}) must be in the repository (${repo.dir}), not the repository itself or outside it`]);
+    }
+  });
+
   it("names what keeps settings.yaml's format from being read, on its line, and takes format: 0 as migrate does", async () => {
     const none = join(tempDir(), "none");
     const yaml = await run(["build", "--out", none], { cwd: checkout(sampleRepo({ "roadmap/settings.yaml": "format: 1\ntitle: [unclosed\n" })).dir });
