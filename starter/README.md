@@ -46,11 +46,14 @@ pushed to `main`. With Node.js 22.12 or later:
 node .boxops/boxops.mjs validate   # must end in "— OK"
 node .boxops/boxops.mjs report     # capacity, overloads, PTO clashes, everyone's bookings
 node .boxops/boxops.mjs preview    # this working copy's roadmap at http://127.0.0.1:4173 (read-only)
-node .boxops/boxops.mjs guide      # the full guide: recipes, commit messages, the file format
+node .boxops/boxops.mjs guide      # the guide: workflow, recipes, commit messages, upgrading
+node .boxops/boxops.mjs guide format   # every file and field, and what validate checks
 ```
 
-The launcher runs the BoxOps release that `.github/workflows/deploy.yml` pins
-(downloaded once, then cached outside the repository).
+The launcher runs the BoxOps release that `.github/workflows/deploy.yml` pins:
+downloaded once, checked against that release's `BUILD.json`, and kept in a
+cache outside the repository. Offline, set `BOXOPS_CLI` to a downloaded
+release's `dist/boxops.mjs`.
 
 ## Upgrading
 
@@ -73,8 +76,11 @@ problem, the run warns and the site shows a notice until you upgrade.
   `actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f`.
 - **Mirrors:** mirror BoxOps' `releases` branch and `v*` tags into your
   organization (the commits stay the same), keep "boxops" in the mirror's
-  name, and change `Allenfp/BoxOps` on the `uses:` lines and in
-  `BOXOPS_UPSTREAM`.
+  name, and change `Allenfp/BoxOps` on the `uses:` lines. Keep
+  `BOXOPS_UPSTREAM` on `Allenfp/BoxOps` if the deploy can read it: the
+  update and security notices come from its GitHub releases, which a mirror
+  doesn't have. The launcher reads a private mirror with `GH_TOKEN`, or
+  `gh auth token`.
 - **IP allow lists:** GitHub's standard runners can't be allow-listed. Use
   larger runners with static addresses or self-hosted runners (`runs-on` in
   both workflows); editors' browsers need allowed networks too.
