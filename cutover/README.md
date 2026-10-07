@@ -57,8 +57,9 @@ without changes to check.)
    "Assemble the site (the app, and roadmap.json from roadmap/)" step and its
    `build:cli` step.
 4. `.github/workflows/ci.yml`, as above.
-5. `docs/data-format.md`: `npm run validate -- <folder>` checks a folder other
-   than `e2e/fixtures/roadmap` (it says `../roadmap`).
+5. `docs/data-format.md`'s "In this repository": `npm run validate` checks
+   `e2e/fixtures/roadmap` unless given another folder (it says `../roadmap`,
+   the live demo's roadmap), and the bullet on how the demo deploys goes.
 6. Split `AGENTS.md`: this repository's becomes the guide for working on
    BoxOps itself (branches, `npm test`, `npm run e2e`). Its roadmap-editing
    guide already lives in `templates/` (`agents-block.md` and `guide/*.md`),

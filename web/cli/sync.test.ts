@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadRoadmap } from "../src/model/parse";
 import { carried, collectEmbedded, embedded, starterFiles } from "./embedded";
-import { TOPICS, formatGuide, guideTopic, wholeGuide } from "./guide";
+import { TOPICS, guideTopic, wholeGuide } from "./guide";
 import { contractNumber, findPins } from "./pins";
 import { AGENTS_BLOCK, GUARD, LAUNCHER } from "./release";
 import { agentsBlock, applySync, launcherText, planSync, withAgentsBlock } from "./sync";
@@ -86,7 +86,7 @@ describe("guide", () => {
   it("tells a roadmap repository's reader to use the launcher, never npm or web/", () => {
     for (const t of TOPICS) expect(guideTopic(t)).not.toMatch(/\bnpm\b|cd web|\bweb\//);
     expect(guideTopic("format")).toContain("`node .boxops/boxops.mjs validate`");
-    expect(formatGuide("Run `cd web && npm run report` and `npm run validate`.")).toBe("Run `node .boxops/boxops.mjs report` and `node .boxops/boxops.mjs validate`.");
+    expect(guideTopic("format")).toMatch(/^# BoxOps guide: the file format\n/);
   });
 
   it("carries the files git tracks, as on disk, and nothing untracked", () => {
@@ -105,8 +105,7 @@ describe("guide", () => {
       "templates/gone.md": "gone\n",
       "starter/README.md": "readme\n",
       "starter/.github/workflows/deploy.yml": "deploy\n",
-      "docs/data-format.md": "format\n",
-      "docs/other.md": "not carried\n",
+      "docs/data-format.md": "not carried\n",
     });
     git("add", "-A");
     git("-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "-m", "Start");
@@ -116,7 +115,6 @@ describe("guide", () => {
     git("rm", "-q", "templates/old.md");
     rmSync(join(dir, "templates/gone.md"));
     expect(collectEmbedded(dir)).toEqual({
-      "docs/data-format.md": "format\n",
       "starter/.github/workflows/deploy.yml": "deploy\n",
       "starter/README.md": "edited\n",
       "starter/new.md": "new\n",
@@ -128,7 +126,8 @@ describe("guide", () => {
   it("carries the files it needs, and only plain text", () => {
     const paths = Object.keys(embedded());
     expect(paths).toContain("templates/agents-block.md");
-    expect(paths).toContain("docs/data-format.md");
+    expect(paths).toContain("templates/guide/format.md");
+    expect(paths.filter((p) => !p.startsWith("templates/") && !p.startsWith("starter/"))).toEqual([]);
     expect(carried("starter/CLAUDE.md")).toBe("@AGENTS.md\n");
     expect(() => carried("web/package.json")).toThrow("BoxOps doesn’t carry web/package.json");
   });

@@ -5,7 +5,7 @@ This repo is a team roadmap. The data is plain YAML in `roadmap/`; a web app in
 You can do everything the app does by editing the YAML files and pushing to
 `main`. This file explains how.
 
-Read [docs/data-format.md](docs/data-format.md) for the full file format. The
+Read [templates/guide/format.md](templates/guide/format.md) for the full file format. The
 essentials are below.
 
 ## How the roadmap works
@@ -228,7 +228,7 @@ relations:
 
 Check with `npm run report` whether the rule holds today; a broken rule is
 allowed but tell the user. The full table of rules is in
-[docs/data-format.md](docs/data-format.md#rules-between-boxes).
+[templates/guide/format.md](templates/guide/format.md#rules-between-boxes).
 
 **Move a box to another department.** Change its `lane`. Its code stays the
 same; only the prefix people see changes (DE-A1F becomes AN-A1F).

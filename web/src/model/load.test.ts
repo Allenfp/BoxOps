@@ -1,4 +1,4 @@
-// One row per rule in docs/data-format.md "What the validator checks" (and the
+// One row per rule in templates/guide/format.md "What the validator checks" (and the
 // edge cases around them): a file as written → the exact problems reported,
 // and whether the file becomes lossy (left partly out, so the app won't write it).
 

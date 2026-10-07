@@ -10,8 +10,10 @@ repositories (not for working on BoxOps itself):
   `web/cli/release.ts` with it), so the action and `doctor` can tell a copy
   is old.
 - `guide/*.md`: `node .boxops/boxops.mjs guide [topic]`, the full reference
-  for assistants and people editing a roadmap by hand. `guide format` prints
-  `docs/data-format.md`.
+  for assistants and people editing a roadmap by hand: `overview`, `recipes`,
+  `commits` (the commit messages the app writes, which a unit test checks
+  against `web/src/model/summary.ts`), `format` (every file and field, and
+  what the validator checks) and `upgrading`.
 - `path-b/`: the starter's `deploy.yml` and `check.yml` for organizations
   that allow only GitHub's own actions: git fetches the pinned release and
   Node.js runs its `dist/action.mjs`. Only the BoxOps step differs from the

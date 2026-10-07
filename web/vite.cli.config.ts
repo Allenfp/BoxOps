@@ -7,9 +7,8 @@ import { buildJsonText, identity, makeBuildJson } from "./cli/release.ts";
 
 // `npm run build:cli`: the command-line tool and the action, bundled for Node
 // by Vite 8's Rolldown (no other bundler): dist/boxops.mjs (the engine, every
-// command and what they carry: what git tracks in templates/ and starter/,
-// and docs/data-format.md; the yaml library inside; unminified, so anyone
-// can read what runs) and dist/action.mjs (a few lines: it imports
+// command and what they carry: what git tracks in templates/ and starter/;
+// the yaml library inside; unminified, so anyone can read what runs) and dist/action.mjs (a few lines: it imports
 // ./boxops.mjs and runs runAction, with Path B's flags if it's given any).
 // Then dist/BUILD.json, naming the build and every file's SHA-256, as a
 // release's does: run `npm run build` first, so dist/app is there to list.

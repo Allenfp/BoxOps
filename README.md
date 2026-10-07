@@ -130,8 +130,10 @@ straight to `main`, and the site updates within a minute.
 The YAML files can be edited directly, by a person or an AI assistant, and
 pushed to `main`; every push is validated before it deploys.
 
-- [docs/data-format.md](docs/data-format.md): every file and field, and what the
-  validator checks.
+- [templates/guide/format.md](templates/guide/format.md): every file and
+  field, and what the validator checks (and
+  [docs/data-format.md](docs/data-format.md): the commands in this
+  repository, and how the format may change).
 - [AGENTS.md](AGENTS.md): step-by-step instructions for AI assistants, with
   recipes.
 - From `web/`: `npm run validate` checks the files; `npm run report` lists

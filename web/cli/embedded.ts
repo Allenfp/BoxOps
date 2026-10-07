@@ -1,9 +1,8 @@
 // Text from the BoxOps repository that the command-line tool carries, so it
-// works offline and always matches its own release: the AGENTS.md block and
-// the guide (templates/), the starter repository's files (starter/), and the
-// data format reference (docs/data-format.md). vite.cli.config.ts compiles
-// them into dist/boxops.mjs; run from source, they're read from the checkout.
-// Node-only.
+// works offline and always matches its own release: the AGENTS.md block, the
+// guide and Path B's workflows (templates/), and the starter repository's
+// files (starter/). vite.cli.config.ts compiles them into dist/boxops.mjs;
+// run from source, they're read from the checkout. Node-only.
 
 import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync } from "node:fs";
@@ -13,7 +12,7 @@ import { HERE } from "./release.ts";
 declare const __BOXOPS_EMBEDDED__: Record<string, string> | undefined;
 
 /** What's carried, from the BoxOps repository's top level: folders (every file in them git tracks, dotfiles too) and files. */
-export const EMBEDDED_PATHS = ["templates", "starter", "docs/data-format.md"];
+export const EMBEDDED_PATHS = ["templates", "starter"];
 
 /**
  * The files git tracks (committed, or added) under `paths` in the BoxOps

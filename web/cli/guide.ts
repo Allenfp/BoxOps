@@ -1,25 +1,15 @@
 // `guide [topic]`: the full guide to editing a roadmap repository, carried in
-// the tool (templates/guide/, and docs/data-format.md for `format`), so it
-// always matches the release that runs. Node-only.
+// the tool (templates/guide/<topic>.md), so it always matches the release
+// that runs. Node-only.
 
 import { carried } from "./embedded.ts";
 
 export const TOPICS = ["overview", "recipes", "commits", "format", "upgrading"] as const;
 export type Topic = (typeof TOPICS)[number];
 
-/**
- * docs/data-format.md as a roadmap repository's reader needs it: its checks
- * are run with the launcher there, not with npm in BoxOps' web/.
- */
-export function formatGuide(doc: string): string {
-  return doc
-    .replace(/`npm run validate -- <folder>`[\s\S]*?where you run `npm`\./, "`node .boxops/boxops.mjs validate <folder>` (and `report <folder>`) checks another roadmap folder.")
-    .replace(/`(?:cd web && )?npm run (validate|report)`/g, "`node .boxops/boxops.mjs $1`");
-}
-
 /** One topic's text. */
 export function guideTopic(topic: Topic): string {
-  return topic === "format" ? formatGuide(carried("docs/data-format.md")) : carried(`templates/guide/${topic}.md`);
+  return carried(`templates/guide/${topic}.md`);
 }
 
 /** `guide` with no topic: everything but the file format (`guide format`, which is long). */

@@ -255,7 +255,7 @@ both.
   line). A bad entry or value the app can't use is left out and its file is
   marked lossy, as is a file with a YAML alias, so the app won't write that
   file (the rules starred in [What the validator
-  checks](data-format.md#what-the-validator-checks)); the rest, such as
+  checks](../templates/guide/format.md#what-the-validator-checks)); the rest, such as
   weekend dates, an unknown type, flag or engineer, or a code two files
   share, are only flagged. Problems are compared by a key without list
   positions or line numbers, so one that was already there never counts as
@@ -1022,8 +1022,8 @@ rest of what a release's `dist/` holds:
 
 - `dist/boxops.mjs`: the engine (loading, validation, the report, the
   roadmap readers, `roadmap.json`), every command, and what they carry (the
-  files git tracks in `templates/` and `starter/`, and `docs/data-format.md`;
-  nothing untracked), the `yaml` library inside: no npm, no `node_modules`.
+  files git tracks in `templates/` and `starter/`; nothing untracked), the
+  `yaml` library inside: no npm, no `node_modules`.
   Unminified, about 450 kB. Node 22.12 or later.
 - `dist/action.mjs`: a few lines that import `boxops.mjs` and run the action.
 - `dist/BUILD.json`: the build id (the app's, compiled into both), the commit
@@ -1045,7 +1045,7 @@ the roadmap is in another data format.
 | `preview [--port 4173] [--open]` | Serves the working tree's roadmap with the release's app on 127.0.0.1 only (other `Host` names are refused): `roadmap.json` made afresh on each fetch, marked local and sent with `BoxOps-Live: 1`, so the app looks twice a second and shows a saved file within a second. Only the app's files listed in `BUILD.json` are served. The launcher keeps a release's tool with its `BUILD.json` alone, so the first preview fetches the app beside them, by the pinned commit, each file checked against that `BUILD.json` (later ones, only a file missing or damaged). |
 | `build --out DIR [--commit REF \| --worktree]` | Writes the site the action would: the app (each file checked against `BUILD.json`) and `roadmap.json`, into a new or empty folder. `pages.yml` deploys this repo's demo this way until it has its own repository. |
 | `migrate [--check]` | Runs the data format migrations (`src/model/migrations/`): each edits text in place at spots the yaml Document API locates, so comments, order and line ends stay; they're idempotent; the chain sets `format` last; then it validates. 0.1.0's only migration, 0 → 1, stamps `format: 1`. |
-| `guide [topic]` | The guide for this release: `templates/guide/` and, for `format`, `docs/data-format.md`. |
+| `guide [topic]` | The guide for this release: `templates/guide/<topic>.md` (overview, recipes, commits, format, upgrading); with no topic, all but `format`. |
 | `sync [--check]` | Rewrites `AGENTS.md`'s managed block (`templates/agents-block.md`, between `<!-- boxops:begin block=N … -->` and `<!-- boxops:end -->`) and the launcher, and makes `CLAUDE.md` if there's none. Never the workflows; never through a symlink. |
 | `doctor` | Checks Node, that every pin names one commit and is a tag of the pinned repository (`git/matching-refs/tags`: a fork's commit seen through it isn't), the pins' comments, `gh attestation verify` with the release workflow as signer (if `gh` is installed), the launcher, guard and block numbers, the workflows' permissions against the starter's (with the change to make), and retired runner labels. |
 | `upgrade [vX.Y.Z]` | Resolves the tag (default: the latest release), fetches that release's tool and `BUILD.json` into the launcher's cache, as the launcher keeps them (outside the repository; the tool checked against the `BUILD.json`), rewrites every BoxOps `uses:` and Path B `BOXOPS_ACTION:` line with its `# vX.Y.Z` comment (line ends kept), then runs the new release's `migrate --check`, `sync` and `validate`. Commits nothing. |
