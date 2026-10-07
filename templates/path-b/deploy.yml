@@ -96,7 +96,7 @@ jobs:
             case "${status:-none}" in
               404) echo "::error title=GitHub Pages isn't set up::Settings → Pages → Source: GitHub Actions, then Visibility: Private. Re-run this workflow afterwards. Nothing was published." ;;
               401|403) echo "::error title=Couldn't read the Pages settings (HTTP $status)::If your organization uses an IP allow list, run this workflow on a runner with an allowed IP address (README → Enterprise). Otherwise check this job still has pages: write. Nothing was published." ;;
-              *) echo "::error title=GitHub API problem (${status:-no response})::Couldn't read the Pages settings: $(head -c 300 "$err" | tr '\n' ' '). Re-run later. Nothing was published." ;;
+              *) echo "::error title=GitHub API problem (${status:-no response})::Couldn't read the Pages settings: $(head -c 300 "$err" | tr '\n' ' ' | sed 's/ *$//'). Re-run later. Nothing was published." ;;
             esac
             exit 1
           fi
@@ -107,7 +107,7 @@ jobs:
             exit 1
           fi
           if [ "$VISIBILITY" != "public" ] && [ "$public" != "false" ] && [ "$ALLOW_PUBLIC_SITE" != "true" ]; then
-            echo "::error title=Refusing to publish a $VISIBILITY roadmap to a public site::Settings → Pages → Visibility: Private, then re-run. Nothing was published."
+            echo "::error title=Refusing to publish to a public site::This repository is ${VISIBILITY:-not public}, but its Pages site is public: Settings → Pages → Visibility: Private, then re-run. Nothing was published."
             exit 1
           fi
       - id: deployment
