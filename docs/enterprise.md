@@ -246,7 +246,8 @@ included, from an address not on the list:
   account, and each deploy warns of a security release anyway.
 - **Repository collaborators** (managed users who aren't members of the
   roadmap's organization) can't use fine-grained tokens on it: they need a
-  classic token with the `repo` scope.
+  classic token with the `repo` scope, which needs no single sign-on
+  authorization for that organization.
 - With Entra ID and Conditional Access, every token use is checked against
   the policy's networks, as with an IP allow list.
 
@@ -294,11 +295,13 @@ session only. Under the organization's (or enterprise's) policies, Settings
 - **Maximum lifetime** (366 days by default): a token over it is refused;
   the app's link to make one leaves GitHub's default expiry, 30 days.
 - **Classic tokens**: only outside and repository collaborators need them
-  (with the `repo` scope, authorized for SAML single sign-on); restricting
-  them keeps those people from saving.
-- **Fine-grained tokens restricted**: editors need classic tokens, which
-  the app takes, saying they reach every repository their owner can write
-  to.
+  (with the `repo` scope; GitHub doesn't ask either kind to authorize a
+  token for single sign-on with an organization they're only a
+  collaborator in); restricting them keeps those people from saving.
+- **Fine-grained tokens restricted**: editors need classic tokens (members
+  authorize theirs for SAML single sign-on, if the organization uses it),
+  which the app takes, saying they reach every repository their owner can
+  write to.
 
 ## Billing
 

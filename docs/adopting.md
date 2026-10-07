@@ -187,10 +187,10 @@ Settings → Personal access tokens → Settings → **Fine-grained tokens** tab
 
 On the **Tokens (classic)** tab: outside collaborators can't use
 fine-grained tokens on an organization's repositories, only classic ones
-(with the `repo` scope, which reaches every repository they can write to,
-and authorized for SAML single sign-on if the organization uses it). If you
-restrict classic tokens, outside collaborators can view but not save; make
-editors members instead.
+(with the `repo` scope, which reaches every repository they can write to;
+single sign-on doesn't apply to outside collaborators, so their tokens need
+no authorizing for it). If you restrict classic tokens, outside
+collaborators can view but not save; make editors members instead.
 
 ### 5. IP allow lists and runners
 
@@ -475,10 +475,10 @@ minute later, and other open tabs within about two minutes.
 
 **Outside collaborators** can't use fine-grained tokens: make a classic one
 (Developer settings → Personal access tokens → Tokens (classic) → Generate
-new token (classic)) with the `repo` scope, and, if the organization uses
-single sign-on, **Configure SSO** → **Authorize** next to it. It can write to
-every repository you can, so keep it to this use, or become a member
-instead.
+new token (classic)) with the `repo` scope. Single sign-on doesn't apply to
+outside collaborators, so it needs no authorizing for the organization. It
+can write to every repository you can, so keep it to this use, or become a
+member instead.
 
 ## Troubleshooting
 
@@ -493,7 +493,7 @@ GitHub's answer.
 | "This token can't see `<org>/<repo>`" (404) | Its resource owner is your account, not the organization; the repository isn't selected; approval is pending; its lifetime is over the organization's maximum; or you're an outside collaborator with a fine-grained token. | Check the token on GitHub (Settings → Developer settings → Fine-grained tokens), or wait for approval. |
 | "This token can see `<repo>` but can't save to it", or "can read `<repo>` but not write to it" (403) | Contents is Read-only. | Edit the token: Contents → Read and write. |
 | "Your GitHub account can't write to `<repo>`" | Your account has Read, not Write. | Ask a repository admin for Write. |
-| "`<org>` uses single sign-on. Authorize this token" | A classic token not authorized for SAML. | Configure SSO → Authorize, next to the token. |
+| "`<org>` uses single sign-on. Authorize this token" | A member's classic token not authorized for SAML. | Configure SSO → Authorize, next to the token. |
 | "`<org>` doesn't accept this token" | The organization forbids this kind of token, or its lifetime is over the maximum. | Make the kind it allows, expiring within its limit. |
 | "`<org>` only allows GitHub access from approved networks" | An IP allow list or Conditional Access policy. | Save from the office network or VPN. |
 | "GitHub's rules for main blocked this save" | A ruleset (pull requests, checks, signed commits, commit metadata). | An admin lets editors through: [Organization rulesets](#7-organization-rulesets), [Rulesets](#4-rulesets). |
