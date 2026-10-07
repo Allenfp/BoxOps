@@ -38,6 +38,8 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read # check out the repo, and look for the tag
+    outputs:
+      notes: ${{ steps.versions.outputs.notes }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,6 +49,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: From main; the version, web/package.json and CHANGELOG.md agree; the tag is new
+        id: versions
         env:
           V: ${{ inputs.version }}
           GH_TOKEN: ${{ github.token }}
@@ -67,6 +70,7 @@ jobs:
             exit 1
           fi
           node web/scripts/check-changelog.mjs --release "$base" --notes "$RUNNER_TEMP/notes/notes.md"
+          echo "notes=$(sha256sum "$RUNNER_TEMP/notes/notes.md" | cut -d' ' -f1)" >>"$GITHUB_OUTPUT"
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$V" --silent 2>"$RUNNER_TEMP/tag-error"; then
             echo "::error title=v$V exists::The tag v$V is there already, and a release is for good: release the next version."
             exit 1
@@ -98,6 +102,9 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read # check out the repo
+    outputs:
+      tree: ${{ steps.rebuilt.outputs.tree }}
+      sums: ${{ steps.rebuilt.outputs.sums }}
     defaults:
       run:
         working-directory: web
@@ -112,9 +119,14 @@ jobs:
           package-manager-cache: false
       - run: npm ci --ignore-scripts
       - name: Build the release tree again
+        id: rebuilt
         env:
           V: ${{ inputs.version }}
-        run: npm run release:build -- --version "$V" --no-sbom
+        run: |
+          npm run release:build -- --version "$V" --no-sbom
+          echo "tree=$(cat ../build/TREE)" >>"$GITHUB_OUTPUT"
+          echo "sums=$(sha256sum ../build/SHA256SUMS | cut -d' ' -f1)" >>"$GITHUB_OUTPUT"
+      # To compare by hand with CI's when they differ (publish uses the outputs).
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reproduce
@@ -126,7 +138,7 @@ jobs:
 
   publish:
     name: publish
-    needs: [verify, reproduce]
+    needs: [preflight, verify, reproduce]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     # The maintainer approves this job; the environment holds the release
@@ -145,27 +157,36 @@ jobs:
           path: built
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: reproduce
-          path: repro
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
           name: release-notes
           path: notes
-      # git's own id for the tree the tests ran on, made again here from the
-      # downloaded files: the release commit is that tree, byte for byte.
+      # The release commit is the tested tree, byte for byte: git's id for
+      # the downloaded files, and their SHA256SUMS' SHA-256, must be what
+      # CI's release tree job and the rebuild gave as outputs, and the notes
+      # what preflight checked. Job outputs: no later job can change one,
+      # where any job of this run could replace an artifact.
       - name: The tree to ship is the tested tree, and the rebuild's
+        env:
+          TESTED_TREE: ${{ needs.verify.outputs.tree }}
+          TESTED_SUMS: ${{ needs.verify.outputs.sums }}
+          REBUILT_TREE: ${{ needs.reproduce.outputs.tree }}
+          REBUILT_SUMS: ${{ needs.reproduce.outputs.sums }}
+          NOTES_SHA256: ${{ needs.preflight.outputs.notes }}
         run: |
           set -euo pipefail
-          cmp built/TREE repro/TREE
-          cmp built/SHA256SUMS repro/SHA256SUMS
+          if ! [[ "$TESTED_TREE" =~ ^[0-9a-f]{40}$ && "$TESTED_SUMS" =~ ^[0-9a-f]{64}$ ]] || [ "$REBUILT_TREE" != "$TESTED_TREE" ] || [ "$REBUILT_SUMS" != "$TESTED_SUMS" ]; then
+            echo "::error title=The rebuild isn't the tested tree::CI tested tree ${TESTED_TREE:-(none)}, SHA256SUMS ${TESTED_SUMS:-(none)}; the rebuild made ${REBUILT_TREE:-(none)}, SHA256SUMS ${REBUILT_SUMS:-(none)}."
+            exit 1
+          fi
+          echo "$TESTED_SUMS  built/SHA256SUMS" | sha256sum --check --quiet --strict -
+          echo "$NOTES_SHA256  notes/notes.md" | sha256sum --check --quiet --strict -
           (cd built/release && sha256sum --check --quiet --strict ../SHA256SUMS)
           [ "$(find built/release -type f | wc -l)" -eq "$(wc -l <built/SHA256SUMS)" ]
           export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_DIR="$RUNNER_TEMP/release.git" GIT_INDEX_FILE="$RUNNER_TEMP/release.index"
           git init -q --bare "$GIT_DIR"
           git -C built/release --work-tree=. -c core.autocrlf=false -c core.fileMode=true add --all --force .
           tree=$(git write-tree)
-          if [ "$tree" != "$(cat built/TREE)" ]; then
-            echo "::error title=Not the tested tree::The downloaded files make tree $tree; the tests ran on $(cat built/TREE)."
+          if [ "$tree" != "$TESTED_TREE" ]; then
+            echo "::error title=Not the tested tree::The downloaded files make tree $tree; the tests ran on $TESTED_TREE."
             exit 1
           fi
           echo "TREE=$tree" >> "$GITHUB_ENV"

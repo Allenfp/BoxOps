@@ -35,6 +35,7 @@ interface Job {
   steps?: Step[];
   needs?: string | string[];
   with?: Record<string, unknown>;
+  outputs?: Record<string, string>;
 }
 interface Workflow {
   on: Record<string, unknown>;
@@ -126,7 +127,31 @@ describe("the release workflow", () => {
     expect((ci.on.workflow_call as { inputs: Record<string, unknown> }).inputs.version).toBeDefined();
     const upload = ci.jobs["release-tree"].steps?.find((s) => s.uses?.startsWith("actions/upload-artifact@"));
     expect(upload?.with).toMatchObject({ name: "release-tree", path: "build/" });
-    expect(release.jobs.publish.needs).toEqual(["verify", "reproduce"]);
+    expect(release.jobs.publish.needs).toEqual(["preflight", "verify", "reproduce"]);
+  });
+
+  it("checks what it ships against the tested tree's and the rebuild's job outputs, which no later job can change", () => {
+    // Any job of the run could upload an artifact under a name already used:
+    // the tree id and SHA256SUMS' digest come as outputs of the jobs that built them.
+    const called = (ci.on.workflow_call as { outputs: Record<string, { value: string }> }).outputs;
+    expect(called.tree.value).toBe("${{ jobs.release-tree.outputs.tree }}");
+    expect(called.sums.value).toBe("${{ jobs.release-tree.outputs.sums }}");
+    expect(ci.jobs["release-tree"].outputs).toEqual({ tree: "${{ steps.tree.outputs.tree }}", sums: "${{ steps.tree.outputs.sums }}" });
+    expect(release.jobs.reproduce.outputs).toEqual({ tree: "${{ steps.rebuilt.outputs.tree }}", sums: "${{ steps.rebuilt.outputs.sums }}" });
+    expect(release.jobs.preflight.outputs).toEqual({ notes: "${{ steps.versions.outputs.notes }}" });
+    const steps = release.jobs.publish.steps ?? [];
+    expect(steps.filter((s) => s.uses?.startsWith("actions/download-artifact@")).map((s) => s.with?.name)).toEqual(["release-tree", "release-notes"]);
+    const check = steps.find((s) => s.env?.TESTED_TREE);
+    expect(check?.env).toEqual({
+      TESTED_TREE: "${{ needs.verify.outputs.tree }}",
+      TESTED_SUMS: "${{ needs.verify.outputs.sums }}",
+      REBUILT_TREE: "${{ needs.reproduce.outputs.tree }}",
+      REBUILT_SUMS: "${{ needs.reproduce.outputs.sums }}",
+      NOTES_SHA256: "${{ needs.preflight.outputs.notes }}",
+    });
+    expect(check?.run).toContain('echo "$TESTED_SUMS  built/SHA256SUMS" | sha256sum --check --quiet --strict -');
+    expect(check?.run).toContain('echo "$NOTES_SHA256  notes/notes.md" | sha256sum --check --quiet --strict -');
+    expect(check?.run).toContain('if [ "$tree" != "$TESTED_TREE" ]; then');
   });
 
   it("holds the deploy key in its publish job alone, in the release environment, which runs nothing from this repository", () => {
