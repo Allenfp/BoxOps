@@ -297,7 +297,7 @@ describe("preview", () => {
     }
   });
 
-  it("fetches the app once for a tool the launcher downloaded alone, checking every file", async () => {
+  it("fetches the app once for a tool with no BUILD.json beside it (a release's boxops.mjs alone), checking every file", async () => {
     const cliDir = tempDir();
     writeFileSync(join(cliDir, "boxops.mjs"), "export async function main() { return 0; }\n");
     const gh = fakeGitHub({ files: { [A]: releaseFiles(ID) } });

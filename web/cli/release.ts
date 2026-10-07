@@ -8,9 +8,10 @@
 // file's SHA-256; the action copies the app only after checking every file
 // against it. `npm run build && npm run build:cli` makes the same layout in
 // web/dist/, with BUILD.json in dist/ itself, and the launcher's cache keeps
-// boxops.mjs alone (preview fetches the app beside it). So BUILD.json is
-// looked for beside the CLI's folder (the release) or in it, and a path
-// "dist/X" in it is the file X in the CLI's own folder.
+// boxops.mjs with its commit's BUILD.json beside it (preview fetches the app
+// there). So BUILD.json is looked for beside the CLI's folder (the release)
+// or in it, and a path "dist/X" in it is the file X in the CLI's own
+// folder.
 
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
