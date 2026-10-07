@@ -20,12 +20,14 @@
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "@playwright/test";
 import { readRoadmapDir } from "../cli/git";
 import { appInfo, assembleBundle, hashFolder } from "../cli/site";
 import { type GitFileMode, gitBlobSha, gitTreeSha } from "../src/github/git-objects";
 import { type AppInfo, type Bundle, LIVE_HEADER } from "../src/model/bundle";
+import { APP_DIR } from "./app-dir";
 
 export const REPO = "acme/roadmap";
 export const BRANCH = "main";
@@ -107,11 +109,11 @@ const FIXTURE = fileURLToPath(new URL("./fixtures/roadmap", import.meta.url));
  */
 const APP = builtApp() ?? appInfo(fileURLToPath(new URL("..", import.meta.url)));
 
-/** The app in dist/app, as its index.html names it; null if there's no build. */
+/** The app under test (app-dir.ts: dist/app, or a release tree's), as its index.html names it; null if there's no build. */
 export function builtApp(): AppInfo | null {
   let html: string;
   try {
-    html = readFileSync(new URL("../dist/app/index.html", import.meta.url), "utf8");
+    html = readFileSync(join(APP_DIR, "index.html"), "utf8");
   } catch {
     return null;
   }

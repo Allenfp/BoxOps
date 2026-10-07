@@ -17,7 +17,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "validate": "tsx scripts/validate.ts",
-    "e2e": "vite build && playwright test",
+    "e2e": "vite build && vite build -c vite.cli.config.ts && playwright test",
     "perf": "vite build && playwright test -c playwright.perf.config.ts",
     "report": "tsx scripts/report.ts",
     "gen-roadmap": "tsx scripts/gen-roadmap.ts",

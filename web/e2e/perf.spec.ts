@@ -2,10 +2,12 @@ import { readFileSync, readdirSync } from "node:fs";
 import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { extname } from "node:path";
+import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { type Browser, type Page, expect, test } from "@playwright/test";
 import { assembleBundle, hashFolder } from "../cli/site";
 import type { AppInfo, BundleSource } from "../src/model/bundle";
+import { APP_DIR } from "./app-dir";
 import { builtApp } from "./fake-github";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import { PX_PER_DAY } from "../src/timeline/scale";
@@ -60,7 +62,7 @@ const RUNS = 3;
 /** Boxes drawn when the timeline shows, at 1440 × 900: about 70 near the screen, at 500 boxes or 2,000. */
 const MAX_DRAWN = 200;
 
-const DIST = new URL("../dist/app/", import.meta.url);
+const DIST = pathToFileURL(`${APP_DIR}/`);
 const read = (path: string) => readFileSync(new URL(path, DIST), "utf8");
 /** The app as built, so the bundle's parsed files carry the page's own build id. */
 const APP: AppInfo = builtApp() ?? { version: "", build: "", time: "" };

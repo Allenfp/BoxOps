@@ -1,10 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
+import { APP_DIR, RELEASE_DIR } from "./e2e/app-dir";
 
 // Browser tests run against the production build (`vite preview`) in WebKit,
 // the engine behind Safari, the browser BoxOps is made for; then the whole
 // suite again in Chromium (Chrome, Edge) and Firefox, which must work too.
 // GitHub and the site's roadmap.json are faked per test (see
-// e2e/fake-github.ts), so no network access is needed.
+// e2e/fake-github.ts), so no network access is needed. The build is
+// web/dist/app, or with $BOXOPS_RELEASE_DIR a release tree's dist/app
+// (e2e/app-dir.ts): CI tests the files a release ships.
 
 const viewport = { width: 1440, height: 900 };
 const webkit = { ...devices["Desktop Safari"], viewport };
@@ -60,7 +63,7 @@ export default defineConfig<Options>({
     { name: "firefox", use: { ...devices["Desktop Firefox"], viewport, timezoneId: "UTC" } },
   ],
   webServer: {
-    command: "npx vite preview --port 4173 --strictPort",
+    command: `npx vite preview --port 4173 --strictPort${RELEASE_DIR ? ` --outDir ${JSON.stringify(APP_DIR)}` : ""}`,
     url: "http://localhost:4173/",
     reuseExistingServer: !process.env.CI,
   },
