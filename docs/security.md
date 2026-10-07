@@ -10,9 +10,12 @@ Setting a roadmap up is [adopting.md](adopting.md); policies and mirrors,
 
 Privately, please, not in a public issue: on https://github.com/Allenfp/BoxOps,
 the **Security** tab → **Advisories** → **Report a vulnerability** (GitHub's
-private vulnerability reporting). A fix comes as a release whose title
-starts "Security:", announced as [upgrading.md](upgrading.md#security-releases)
-says, with an advisory on the repository once it's out.
+private vulnerability reporting). If your account can't (an Enterprise
+Managed Users account may not reach a repository outside its enterprise),
+report from a personal GitHub account instead. A fix comes as a release
+whose title starts "Security:", announced as
+[upgrading.md](upgrading.md#security-releases) says, with an advisory on
+the repository once it's out.
 
 ## The chain of trust
 
