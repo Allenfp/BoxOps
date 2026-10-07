@@ -6,7 +6,7 @@
 // source, a public site for a repository that isn't public, and all well.
 
 import { spawnSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -35,15 +35,19 @@ function guardStep(deploy: string): Step {
 /** What `gh api repos/acme/roadmap/pages` does: prints `body` (JSON), or fails with `error` on stderr. */
 type Answer = { body: unknown } | { error: string };
 
+/** The folder jq is in (the guard uses it, as GitHub's runners have it), from this PATH. */
+const JQ_DIR = (process.env.PATH ?? "").split(":").find((d) => d && existsSync(join(d, "jq")));
+
 /** Runs the guard, as bash with -e and pipefail, for a repository of this visibility; its exit code and output. */
 function guard(answer: Answer, visibility: string, allowPublicSite?: string) {
+  expect(JQ_DIR, "jq, which the guard uses, is installed").toBeDefined();
   const dir = tempDir();
   const respond = "body" in answer ? `cat <<'JSON'\n${JSON.stringify(answer.body)}\nJSON\n` : `printf '%s\\n' '${answer.error}' >&2\nexit 1\n`;
   writeFileSync(join(dir, "gh"), `#!/bin/sh\n[ "$*" = "api repos/acme/roadmap/pages" ] || { echo "unexpected: gh $*" >&2; exit 99; }\n${respond}`, { mode: 0o755 });
   const step = guardStep(starterFiles()[".github/workflows/deploy.yml"]);
   writeFileSync(join(dir, "guard.sh"), step.run ?? "");
   const env = {
-    PATH: `${dir}:/usr/bin:/bin`,
+    PATH: `${dir}:${JQ_DIR}:/usr/bin:/bin`,
     GH_TOKEN: "token",
     GITHUB_REPOSITORY: "acme/roadmap",
     RUNNER_TEMP: dir,
