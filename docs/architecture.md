@@ -1399,7 +1399,8 @@ a release must have none of.
   runner's time zone), the changelog's form and validation; **release
   tree**, `npm run release:build` (the version `release.yml` gives, else
   `web/package.json`'s; no package's install script runs there) and its
-  check, the release's tool on `starter/`'s files and the sites it writes,
+  check (and the changelog's numbers against its `BUILD.json`), the
+  release's tool on `starter/`'s files and the sites it writes,
   then the tree uploaded for the jobs after it; **browser tests**, on that
   tree (`BOXOPS_RELEASE_DIR`): the starter's dry run, the browser tests
   (WebKit first, then Chromium, then Firefox) and the performance checks;

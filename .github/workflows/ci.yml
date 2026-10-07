@@ -119,6 +119,10 @@ jobs:
           fi
       - name: Check it (only a release's files, each in BUILD.json; one build id; licences; sizes)
         run: npm run check:release-tree
+      # The changelog's top section gives this build's data format, AGENTS.md
+      # block, launcher and guard (docs/releasing.md, "The changelog").
+      - name: The changelog's numbers are the release tree's
+        run: node scripts/check-changelog.mjs --build-json ../build/release/BUILD.json
       # The release's tool, as a roadmap repository's launcher runs it, on the
       # starter's files; then the site it writes from the starter's roadmap at
       # this commit, and from roadmap/ (the demo's, as pages.yml writes it,

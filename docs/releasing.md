@@ -311,7 +311,9 @@ something (`web/scripts/check-changelog.mjs` checks the form; CI runs it):
 - The data format, AGENTS.md block, launcher and guard lines start with the
   release's number (`BUILD.json`'s `format`, `agentsBlock`, `launcher`,
   `guard`), then say whether it changed and what to do if it did;
-  `check-changelog.mjs --build-json` compares them with a build's.
+  `check-changelog.mjs --build-json` compares them with a build's, and CI
+  runs it on the release tree it builds, so a release's notes give its
+  numbers.
 - The heading's dash is an em dash with a space each side, and the date is
   `YYYY-MM-DD`.
 
