@@ -197,6 +197,16 @@ export interface BuildOptions {
   dir?: string;
   /** Read the roadmap from this folder on disk instead (the dev server): the bundle is local. */
   worktree?: string;
+  /** Read it from git objects at this commit (HEAD, a branch or a SHA) instead of GITHUB_SHA or, locally, HEAD or the files on disk. */
+  commit?: string;
+  /**
+   * The repository the roadmap belongs to (owner/name), in place of
+   * GITHUB_REPOSITORY or the origin remote's. Naming one other than the
+   * workflow's in Actions makes the site read-only, and private.
+   */
+  repository?: string;
+  /** The site never offers to save. */
+  readonly?: boolean;
   app: AppInfo;
   /** Default: process.env. */
   env?: Env;
@@ -233,9 +243,10 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
     } catch {
       // Not in a repository: no commit to name.
     }
-  } else if (actions) {
-    if (!env.GITHUB_SHA) throw new Error("GITHUB_SHA isn’t set");
-    commit = resolveCommit(o.repoDir, env.GITHUB_SHA);
+  } else if (o.commit !== undefined || actions) {
+    const rev = o.commit ?? env.GITHUB_SHA;
+    if (!rev) throw new Error("GITHUB_SHA isn’t set");
+    commit = resolveCommit(o.repoDir, rev);
     folder = await readRoadmapGit(o.repoDir, commit, dir);
   } else {
     const disk = await readRoadmapDir(join(o.repoDir, dir));
@@ -257,9 +268,9 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
 
   for (const w of folder.warnings ?? []) warn(`${dir}/${w.path} ${w.message}`);
   const meta = commit ? readCommit(o.repoDir, commit) : undefined;
-  let repo = env.GITHUB_REPOSITORY ?? "";
+  let repo = o.repository ?? env.GITHUB_REPOSITORY ?? "";
   let branch = env.GITHUB_REF_NAME ?? "";
-  if (!actions) {
+  if (!actions && o.repository === undefined) {
     // Outside a repository (a dev server on some folder) there's nothing to name.
     const remote = commit ? localGit(o.repoDir, ["remote", "get-url", "origin"]) : "";
     const named = repoFromRemote(remote);
@@ -269,9 +280,11 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
     } else if (commit && !repo) {
       warn(`Can’t tell the repository from the origin remote${remote ? ` (${withoutCredentials(remote)})` : ""}: source.repo is empty`);
     }
-    branch = commit ? gitPlumbing(o.repoDir, "rev-parse", ["--abbrev-ref", "HEAD"]).toString().trim() : "";
   }
-  const { visibility, private: isPrivate } = actions ? repoVisibility(env) : { visibility: null, private: true };
+  if (!actions) branch = commit ? gitPlumbing(o.repoDir, "rev-parse", ["--abbrev-ref", "HEAD"]).toString().trim() : "";
+  // Another repository's roadmap (a canary, a mirror) is read-only, and never taken to be public.
+  const another = actions && repo.toLowerCase() !== (env.GITHUB_REPOSITORY ?? "").toLowerCase();
+  const { visibility, private: isPrivate } = actions ? repoVisibility({ ...env, GITHUB_REPOSITORY: repo }) : { visibility: null, private: true };
   const source: BundleSource = {
     repo,
     branch,
@@ -280,14 +293,14 @@ export async function buildBundle(o: BuildOptions): Promise<Bundle> {
     tree: local ? null : folder.tree,
     visibility,
     private: isPrivate,
-    readonly: false,
+    readonly: o.readonly === true || another,
     ...(local ? { local: true } : {}),
     author: meta?.author ?? "",
     subject: meta?.subject ?? "",
     date: meta?.date ?? "",
     history: commit ? history(o.repoDir, commit) : [],
-    ...(actions && env.GITHUB_RUN_ID && repo
-      ? { run: `${env.GITHUB_SERVER_URL ?? "https://github.com"}/${repo}/actions/runs/${env.GITHUB_RUN_ID}` }
+    ...(actions && env.GITHUB_RUN_ID && env.GITHUB_REPOSITORY
+      ? { run: `${server ?? "https://github.com"}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` }
       : {}),
   };
   return assembleBundle(o.app, source, folder, { parsed: o.parsed });
