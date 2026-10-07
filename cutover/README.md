@@ -109,14 +109,36 @@ On a branch, merged by pull request:
    the live demo's roadmap), and the bullet on how the demo deploys goes.
 4. `AGENTS.md` is already the guide for working on BoxOps itself (the
    roadmap-editing guide is `templates/`'s, which the demo's repository
-   gets): drop its `roadmap/` bullet and its last section, "Editing the
-   demo's roadmap".
-5. Docs: README's "Open it" link, its `npm run dev` line and its "Editing
-   without the app" section (to the demo and the starter),
-   `docs/architecture.md` (this repository's `roadmap/`, the dev server's
-   default, the Deploy bullet, and CI on `main`), and `docs/decisions.md`
-   (rows for the starter and the prebuilt action, the demo's repository and
-   versioning).
+   gets): drop its `roadmap/` bullet, its last section ("Editing the demo's
+   roadmap"), the `roadmap/` row of its checks, `cutover/.github/workflows/`
+   in the workflows' row, and the bullet on the files staged in `cutover/`
+   ("Files that change together"); and its first rule's reason becomes that
+   `main` takes merged pull requests only (its ruleset), each deploying
+   `/next/`, not the demo.
+5. Docs:
+   - `README.md`: its opening (the demo's roadmap is `Allenfp/boxops-demo`'s
+     now) and "Open it" link, its `npm run dev` and
+     `node dist/boxops.mjs build` lines and its "Editing without the app"
+     section (to the demo and the starter), and its CI paragraph (CI runs
+     on every pull request and on `main`, and lints this repository's, the
+     starter's and Path B's workflows; the deploy is the redirect and
+     `/next/`).
+   - `docs/architecture.md`: this repository's `roadmap/`, the dev server's
+     default, the Deploy bullet and CI on `main`; and `cutover/` in the
+     layout (the folder, and `cutover.test.ts` in `scripts/`), in the unit
+     tests (the files staged there) and in CI's workflows job (the
+     workflows it lints).
+   - `docs/releasing.md`: "At the cutover" (its pointer to this README, and
+     "the cutover's `ci.yml`", now just `ci.yml`), "before the cutover" in
+     "One-off settings", and "(before the cutover, the demo)" in the release
+     pull request's step.
+   - `docs/decisions.md`: rows for the starter and the prebuilt action, the
+     demo's repository and versioning; the app-build row's last sentence
+     (how `pages.yml` writes this repository's site) and the default-branch
+     row's "once the cutover has CI run there".
+
+   Then `git grep -n -i cutover` lists what's left to reword: nothing may
+   send a reader to `cutover/`, or speak of the cutover as still to come.
 6. `npm run lint`, `npm run typecheck`, `npm test`, `npm run e2e` and
    actionlint, as for any change.
 
