@@ -101,7 +101,7 @@ A box's progress isn't stored: the app works it out from the dates (not
 started before `start`, under way until `end`, finished after). `status` is
 only for flagging a problem, and most boxes have none ("on track").
 
-## departments/&lt;id&gt;.yaml
+## `departments/<id>.yaml`
 
 ```yaml
 id: data-eng
@@ -143,7 +143,7 @@ is the sum of the FTE of its lanes that exist that day (all of them, unless
 some have `start` or `end`). Outside its dates a lane is hatched out on the
 timeline and no box is drawn in it.
 
-## boxes/&lt;id&gt;.yaml
+## `boxes/<id>.yaml`
 
 ```yaml
 id: bx-b27c-fivetran-cost-review

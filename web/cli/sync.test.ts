@@ -83,6 +83,11 @@ describe("guide", () => {
     expect(whole).not.toContain("## settings.yaml");
   });
 
+  it("reads the same in a terminal as on GitHub: no HTML entities", () => {
+    for (const t of TOPICS) expect([t, guideTopic(t).match(/&#?\w+;/g)]).toEqual([t, null]);
+    expect(carried("templates/agents-block.md")).not.toMatch(/&#?\w+;/);
+  });
+
   it("tells a roadmap repository's reader to use the launcher, never npm or web/", () => {
     for (const t of TOPICS) expect(guideTopic(t)).not.toMatch(/\bnpm\b|cd web|\bweb\//);
     expect(guideTopic("format")).toContain("`node .boxops/boxops.mjs validate`");
