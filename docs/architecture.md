@@ -1011,10 +1011,10 @@ workflows, and runs the app's prebuilt release; nothing is built there).
 rest of what a release's `dist/` holds:
 
 - `dist/boxops.mjs`: the engine (loading, validation, the report, the
-  roadmap readers, `roadmap.json`), every command, and what they carry
-  (`templates/`, `starter/`, `docs/data-format.md`), the `yaml` library
-  inside: no npm, no `node_modules`. Unminified, about 450 kB. Node 22.12 or
-  later.
+  roadmap readers, `roadmap.json`), every command, and what they carry (the
+  files git tracks in `templates/` and `starter/`, and `docs/data-format.md`;
+  nothing untracked), the `yaml` library inside: no npm, no `node_modules`.
+  Unminified, about 450 kB. Node 22.12 or later.
 - `dist/action.mjs`: a few lines that import `boxops.mjs` and run the action.
 - `dist/BUILD.json`: the build id (the app's, compiled into both), the commit
   it was built from, the data format, the contract numbers (`bundle`, the

@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadRoadmap } from "../src/model/parse";
-import { carried, embedded, starterFiles } from "./embedded";
+import { carried, collectEmbedded, embedded, starterFiles } from "./embedded";
 import { TOPICS, formatGuide, guideTopic, wholeGuide } from "./guide";
 import { contractNumber, findPins } from "./pins";
 import { AGENTS_BLOCK, GUARD, LAUNCHER } from "./release";
@@ -87,6 +87,42 @@ describe("guide", () => {
     for (const t of TOPICS) expect(guideTopic(t)).not.toMatch(/\bnpm\b|cd web|\bweb\//);
     expect(guideTopic("format")).toContain("`node .boxops/boxops.mjs validate`");
     expect(formatGuide("Run `cd web && npm run report` and `npm run validate`.")).toBe("Run `node .boxops/boxops.mjs report` and `node .boxops/boxops.mjs validate`.");
+  });
+
+  it("carries the files git tracks, as on disk, and nothing untracked", () => {
+    const dir = tempDir();
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" }, stdio: "pipe" });
+    git("init", "-q");
+    const write = (files: Record<string, string>) => {
+      for (const [path, text] of Object.entries(files)) {
+        mkdirSync(join(dir, path, ".."), { recursive: true });
+        writeFileSync(join(dir, path), text);
+      }
+    };
+    write({
+      "templates/agents-block.md": "block\n",
+      "templates/old.md": "old\n",
+      "templates/gone.md": "gone\n",
+      "starter/README.md": "readme\n",
+      "starter/.github/workflows/deploy.yml": "deploy\n",
+      "docs/data-format.md": "format\n",
+      "docs/other.md": "not carried\n",
+    });
+    git("add", "-A");
+    git("-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "-m", "Start");
+    // Edited, added but not committed, deleted: as on disk. Never tracked: left out.
+    write({ "starter/README.md": "edited\n", "starter/new.md": "new\n", "starter/.DS_Store": "junk", "templates/agents-block.md~": "backup\n", "starter/notes.swp": "x" });
+    git("add", "starter/new.md");
+    git("rm", "-q", "templates/old.md");
+    rmSync(join(dir, "templates/gone.md"));
+    expect(collectEmbedded(dir)).toEqual({
+      "docs/data-format.md": "format\n",
+      "starter/.github/workflows/deploy.yml": "deploy\n",
+      "starter/README.md": "edited\n",
+      "starter/new.md": "new\n",
+      "templates/agents-block.md": "block\n",
+    });
+    expect(() => collectEmbedded(tempDir())).toThrow(/^Can’t list the files git tracks in /);
   });
 
   it("carries the files it needs, and only plain text", () => {
