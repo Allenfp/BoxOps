@@ -1,10 +1,11 @@
 // `sync [--check]`: keeps a roadmap repository's BoxOps files in step with the
 // release that runs: the managed block in AGENTS.md (between its
 // `<!-- boxops:begin block=N … -->` and `<!-- boxops:end -->` markers; the
-// team's notes outside it stay), the launcher (.boxops/boxops.mjs), and
-// CLAUDE.md, made if it's missing (one that's there, of whatever kind, is
-// left alone). Never the workflows: changing those is `upgrade`'s, or a
-// person's. Node-only.
+// team's notes outside it stay) and the launcher (.boxops/boxops.mjs), each
+// with the line ends it has (LF, or CRLF as Git for Windows checks files
+// out), and CLAUDE.md, made if it's missing (one that's there, of whatever
+// kind, is left alone). Never the workflows: changing those is `upgrade`'s,
+// or a person's. Node-only.
 
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -29,6 +30,18 @@ export function agentsBlock(): { number: number; text: string } {
 
 /** The launcher this release writes. */
 export const launcherText = () => carried("starter/.boxops/boxops.mjs");
+
+/**
+ * The launcher this release writes, with the line ends of the one there
+ * (LF or CRLF): one checked out with CRLF (by Git for Windows'
+ * core.autocrlf, its default) is this release's if it's the same text with
+ * LF, and one rewritten stays CRLF, which git commits as LF.
+ */
+export function withLauncher(current: string | undefined): string {
+  const text = launcherText().replace(/\r\n/g, "\n");
+  if (current === undefined || !current.includes("\r\n")) return text;
+  return current.replace(/\r\n/g, "\n") === text ? current : text.replace(/\n/g, "\r\n");
+}
 
 /**
  * AGENTS.md with this release's block: replaced between the markers, or, in
@@ -86,7 +99,7 @@ export function planSync(root: string): SyncChange[] {
   const changes: SyncChange[] = [];
   const want: [string, (current: string | undefined) => string][] = [
     ["AGENTS.md", withAgentsBlock],
-    [".boxops/boxops.mjs", () => launcherText()],
+    [".boxops/boxops.mjs", withLauncher],
   ];
   for (const [path, make] of want) {
     const current = readPlain(join(root, path), path);

@@ -227,7 +227,8 @@ free of workflows that restore caches. The starter's use none.
    editors from changing it; without that ruleset, an editor could change
    what teammates' laptops run when they use `node .boxops/boxops.mjs` (not
    what the site runs). `node .boxops/boxops.mjs sync --check` and `doctor`
-   compare it with the release's.
+   compare it with the release's (`sync --check` its text, LF or CRLF line
+   ends alike).
 5. **Sites that share an origin.** Every public Pages site of one account,
    `<owner>.github.io/<repository>/`, is on the same origin, so their pages
    share browser storage: the scripts of any of them can read another's

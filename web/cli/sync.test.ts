@@ -211,6 +211,22 @@ describe("planSync and applySync", () => {
     expect(readFileSync(join(root, ".github/workflows/deploy.yml"), "utf8")).toBe("name: Ours\n");
   });
 
+  it("takes a launcher checked out with CRLF (Git for Windows' default) for this release's, and keeps CRLF in one it rewrites", () => {
+    const root = tempDir();
+    applySync(root, planSync(root));
+    const launcher = join(root, ".boxops/boxops.mjs");
+    writeFileSync(launcher, launcherText().replace(/\n/g, "\r\n"));
+    expect(planSync(root)).toEqual([]);
+    writeFileSync(launcher, "// BoxOps launcher (launcher: 0)\r\nold\r\n");
+    const changes = planSync(root);
+    expect(changes.map((c) => [c.path, c.created, c.text])).toEqual([[".boxops/boxops.mjs", false, launcherText().replace(/\n/g, "\r\n")]]);
+    applySync(root, changes);
+    expect(planSync(root)).toEqual([]);
+    // With LF, as git checks it out elsewhere: LF.
+    writeFileSync(launcher, "// BoxOps launcher (launcher: 0)\nold\n");
+    expect(planSync(root).map((c) => c.text)).toEqual([launcherText()]);
+  });
+
   it("leaves a CLAUDE.md that's there alone, whatever it is: a symlink to AGENTS.md, even one to nothing", () => {
     for (const target of ["AGENTS.md", "nowhere.md"]) {
       const root = tempDir();
