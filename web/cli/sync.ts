@@ -2,8 +2,9 @@
 // release that runs: the managed block in AGENTS.md (between its
 // `<!-- boxops:begin block=N … -->` and `<!-- boxops:end -->` markers; the
 // team's notes outside it stay), the launcher (.boxops/boxops.mjs), and
-// CLAUDE.md, made if it's missing. Never the workflows: changing those is
-// `upgrade`'s, or a person's. Node-only.
+// CLAUDE.md, made if it's missing (one that's there, of whatever kind, is
+// left alone). Never the workflows: changing those is `upgrade`'s, or a
+// person's. Node-only.
 
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -83,16 +84,17 @@ export function planSync(root: string): SyncChange[] {
   const dotBoxops = lstatSync(join(root, ".boxops"), { throwIfNoEntry: false });
   if (dotBoxops && !dotBoxops.isDirectory()) throw new Error(".boxops isn’t a folder; sync won’t write through it");
   const changes: SyncChange[] = [];
-  const want: [string, (current: string | undefined) => string | undefined][] = [
+  const want: [string, (current: string | undefined) => string][] = [
     ["AGENTS.md", withAgentsBlock],
     [".boxops/boxops.mjs", () => launcherText()],
-    ["CLAUDE.md", (current) => (current === undefined ? "@AGENTS.md\n" : undefined)],
   ];
   for (const [path, make] of want) {
     const current = readPlain(join(root, path), path);
     const text = make(current);
-    if (text !== undefined && text !== current) changes.push({ path, text, created: current === undefined });
+    if (text !== current) changes.push({ path, text, created: current === undefined });
   }
+  // Made if there's none, else neither read nor written: whatever is there stays, a link to AGENTS.md (as many make it) too.
+  if (!lstatSync(join(root, "CLAUDE.md"), { throwIfNoEntry: false })) changes.push({ path: "CLAUDE.md", text: "@AGENTS.md\n", created: true });
   return changes;
 }
 

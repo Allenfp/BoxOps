@@ -33,8 +33,8 @@ Commands for upgrades (a repository admin's, or an assistant's when asked):
   format this release reads.
 - `node .boxops/boxops.mjs sync [--check]`: rewrites the managed block in
   `AGENTS.md` and the launcher to this release's text (team notes outside the
-  block stay), and adds `CLAUDE.md` if it's missing. It never changes the
-  workflows.
+  block stay), and adds `CLAUDE.md` if it's missing (one that's there, a
+  link to `AGENTS.md` say, stays as it is). It never changes the workflows.
 
 ## The usual way: Dependabot
 

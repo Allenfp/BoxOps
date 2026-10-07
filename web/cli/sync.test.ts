@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadRoadmap } from "../src/model/parse";
@@ -209,6 +209,28 @@ describe("planSync and applySync", () => {
     expect(readFileSync(join(root, "AGENTS.md"), "utf8")).toBe(`# Ours\n${BLOCK}\n## Team notes\nBe kind.\n`);
     expect(readFileSync(join(root, "CLAUDE.md"), "utf8")).toBe("Our own CLAUDE.md\n");
     expect(readFileSync(join(root, ".github/workflows/deploy.yml"), "utf8")).toBe("name: Ours\n");
+  });
+
+  it("leaves a CLAUDE.md that's there alone, whatever it is: a symlink to AGENTS.md, even one to nothing", () => {
+    for (const target of ["AGENTS.md", "nowhere.md"]) {
+      const root = tempDir();
+      mkdirSync(join(root, ".boxops"));
+      writeFileSync(join(root, "AGENTS.md"), "# Ours\n<!-- boxops:begin block=0 -->\nold\n<!-- boxops:end -->\n");
+      writeFileSync(join(root, ".boxops/boxops.mjs"), "// BoxOps launcher (launcher: 0)\n");
+      symlinkSync(target, join(root, "CLAUDE.md"));
+      const changes = planSync(root);
+      expect([target, changes.map((c) => [c.path, c.created])]).toEqual([
+        target,
+        [
+          ["AGENTS.md", false],
+          [".boxops/boxops.mjs", false],
+        ],
+      ]);
+      applySync(root, changes);
+      expect(readlinkSync(join(root, "CLAUDE.md"))).toBe(target);
+      expect(readFileSync(join(root, "AGENTS.md"), "utf8")).toBe(`# Ours\n${BLOCK}\n`);
+      expect(planSync(root)).toEqual([]);
+    }
   });
 
   it("won't write through a symlink", () => {
