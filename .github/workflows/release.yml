@@ -271,13 +271,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          made="The release commit \`$COMMIT\` (branch \`releases\`), built from main at \`$GITHUB_SHA\` by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
           # An earlier attempt of this run may have made the release: a draft
-          # (its files maybe not all there) goes, to be made again; a
-          # published one is done.
+          # (its files maybe not all there) goes, to be made again. A
+          # published one is done if it's this run's: a workflow's
+          # (github-actions[bot]), naming this run, with this run's files and
+          # no other. Anyone who can push here can make a release of a tag
+          # that's there, and a published one can't be replaced: stop.
           if draft=$(gh release view "v$V" --json isDraft --jq .isDraft 2>/dev/null); then
             if [ "$draft" = false ]; then
-              echo "v$V is published already, by an earlier attempt of this run."
-              exit 0
+              release=$(gh api "repos/$GH_REPO/releases/tags/v$V")
+              author=$(jq -r .author.login <<<"$release")
+              body=$(jq -r .body <<<"$release" | tr -d '\r')
+              theirs=$(jq -r '.assets[] | "\(.name) \(.digest)"' <<<"$release" | sort)
+              ours=$(cd assets && for file in *; do echo "$file sha256:$(sha256sum "$file" | cut -d' ' -f1)"; done | sort)
+              if [ "$author" = "github-actions[bot]" ] && [ "$theirs" = "$ours" ] && grep -qxF -- "$made" <<<"$body"; then
+                echo "v$V is published already, by an earlier attempt of this run."
+                exit 0
+              fi
+              echo "::error title=v$V has a release this run didn't make::Its author ($author), files or notes aren't this run's. A published release can't be replaced: withdraw it and release the next version (docs/releasing.md, \"A bad release\")."
+              exit 1
             fi
             gh release delete "v$V" --yes
           fi
@@ -286,14 +299,14 @@ jobs:
           {
             echo "    uses: $GITHUB_REPOSITORY@$COMMIT # v$V"
             echo
-            echo "The release commit \`$COMMIT\` (branch \`releases\`), built from main at \`$GITHUB_SHA\` by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+            echo "$made"
             echo "What runs in a roadmap repository's workflow: \`dist/action.mjs\`, \`dist/boxops.mjs\` (unminified) and git. No network, no token, no npm, no build."
             echo "Check a file came from this workflow: \`gh attestation verify <file> -R $GITHUB_REPOSITORY --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml\`"
             echo
             cat notes/notes.md
           } >"$RUNNER_TEMP/body.md"
-          pre=()
-          if [[ "$V" == *-rc.* ]]; then pre=(--prerelease); fi
-          gh release create "v$V" --verify-tag --draft "${pre[@]}" --title "$title" --notes-file "$RUNNER_TEMP/body.md" assets/*
+          pre=""
+          if [[ "$V" == *-rc.* ]]; then pre=--prerelease; fi
+          gh release create "v$V" --verify-tag --draft ${pre:+"$pre"} --title "$title" --notes-file "$RUNNER_TEMP/body.md" assets/*
           gh release edit "v$V" --draft=false
           echo "Published $title: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$V"

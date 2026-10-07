@@ -1372,7 +1372,10 @@ a release must have none of.
   permissions but each job's own, a time limit on each, checkouts that keep
   no credentials, each action pinned to one commit with its version beside
   it, and the release workflow's deploy key held only by its publish job,
-  which runs nothing from this repository). Those
+  which runs nothing from this repository), and that job's last step run
+  with bash against a stand-in `gh` (`scripts/release-publish.test.ts`: the
+  release a draft, then published; a draft left made again; on a re-run, a
+  published release taken as done only if it's that run's). Those
   that read a whole roadmap read fixed copies (the browser tests' fixture,
   and `roadmap/` as shipped, in `web/src/model/fixtures/shipped-roadmap/`),
   never the live `roadmap/`, which saves may write any valid way.

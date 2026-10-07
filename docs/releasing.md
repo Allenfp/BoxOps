@@ -92,7 +92,13 @@ publish again instead, within 7 days (while the run's artifacts last), from
 the run's page, Re-run jobs → Re-run failed jobs (not all jobs), and
 approve it again. It attests the files again (which does no harm), finds
 the tag on this run's commit of the tested tree and goes on from there; a
-draft release the failed attempt left is deleted and made again.
+draft release the failed attempt left is deleted and made again. A
+published release of the tag is taken as done only if it's this run's: the
+workflow's (`github-actions[bot]`), naming this run, with this run's files
+and no other. Anyone who can push here can make a release of a tag that's
+there, and a published release can't be replaced, so any other fails the
+run: withdraw it and release the next version
+([A bad release](#a-bad-release)).
 
 ## One-off settings
 
