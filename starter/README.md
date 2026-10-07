@@ -25,7 +25,10 @@ as of the release this repository was made with. In short:
    straight to `main`), and a push ruleset that restricts `.github/**`,
    `.boxops/**`, `AGENTS.md` and `CLAUDE.md`, with **Repository admin** and
    **Dependabot** allowed to bypass it.
-5. **Make it yours:** set `title` in `roadmap/settings.yaml` and replace the
+5. **Dependabot** brings each BoxOps upgrade as a pull request: check that
+   **Settings → Code security** leaves its version updates on and, with a
+   mirror, give Dependabot access to it (an organization setting).
+6. **Make it yours:** set `title` in `roadmap/settings.yaml` and replace the
    example department, people and boxes, here or in the app.
 
 ## People
