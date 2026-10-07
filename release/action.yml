@@ -1,0 +1,75 @@
+# BoxOps release action. This file is the root of every release commit on the
+# `releases` branch of Allenfp/BoxOps; `main` has no action.yml, so only
+# released, tested commits can be used as an action. It runs dist/action.mjs,
+# which is web/cli/action.ts (see docs/architecture.md, "The command-line tool
+# and the action").
+name: BoxOps
+description: Check a BoxOps roadmap and assemble its GitHub Pages site from this prebuilt release. Reads git objects only; no network, no token, no build.
+author: Allenfp
+branding:
+  icon: calendar
+  color: blue
+
+inputs:
+  mode:
+    description: >-
+      build: check the roadmap and assemble the site (pushes to the default branch).
+      check: check only (pull requests); any problem fails the step.
+    required: false
+    default: build
+  roadmap:
+    description: Folder holding the roadmap YAML, relative to `path`.
+    required: false
+    default: roadmap
+  path:
+    description: Where actions/checkout put the repository, relative to the workspace.
+    required: false
+    default: .
+  on-problems:
+    description: >-
+      build mode only. deploy: assemble the site without the broken entries and report
+      how many in the `problems` output (the starter then turns the run red).
+      fail: stop, so the last good site stays live. Hard errors (data format,
+      symlinks, limits, wrong branch, missing settings.yaml) always stop the build.
+    required: false
+    default: deploy
+  releases-file:
+    description: >-
+      Optional JSON list of BoxOps releases written by the workflow's lookup step.
+      Used only for update and security notices; missing or unreadable is ignored.
+    required: false
+    default: ""
+  read-only:
+    description: "true: the site never offers to save (demos, canaries, mirrors)."
+    required: false
+    default: "false"
+  repository:
+    description: >-
+      The repository the roadmap belongs to (owner/name). Naming a repository other
+      than the one running this workflow forces read-only.
+    required: false
+    default: ${{ github.repository }}
+  summary:
+    description: "true: add the capacity report to the job summary."
+    required: false
+    default: "true"
+
+outputs:
+  site:
+    description: Absolute path of the assembled site (build mode), for actions/upload-pages-artifact.
+  version:
+    description: BoxOps version that ran, e.g. 0.1.0.
+  build:
+    description: App build id, e.g. 0.1.0+3a2fab7621ff. Open tabs reload when it changes.
+  format:
+    description: Data format of the roadmap.
+  commit:
+    description: Commit the roadmap was read from.
+  problems:
+    description: Number of roadmap problems found (0 when clean).
+  result:
+    description: 'One-line result, e.g. "1 departments, 2 lanes, 2 boxes — OK".'
+
+runs:
+  using: node24
+  main: dist/action.mjs

@@ -1,9 +1,10 @@
 import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
+import { parse } from "yaml";
 import { afterEach, describe, expect, it } from "vitest";
 import { readBundle } from "../src/model/bundle";
-import { runAction } from "./action";
+import { readInputs, runAction } from "./action";
 import { LIMITS } from "./git";
 import { buildJsonText, makeBuildJson, parseBuildJson } from "./release";
 import { type ActionsEnv, APP_FILES, ID, SAMPLE, actionsEnv, cleanUp, makeRelease, readOutputs, sampleRepo, tempDir } from "./test-release";
@@ -574,5 +575,28 @@ describe("the release's own files (step 12)", () => {
     expect(parsed.files["dist/a.js"]).toBe("sha256-ypeBEsobvcr6wjGzmiPcTaeG7/gUfE5yuYB3ha/uSLs=");
     expect(() => parseBuildJson(text.replace('"dist/a.js"', '"../a.js"'))).toThrow("BUILD.json isn’t a BoxOps build description");
     expect(() => parseBuildJson(text.replace('"dist/a.js"', '"dist/.env"'))).toThrow();
+  });
+});
+
+describe("action.yml (release/action.yml, the root of each release commit)", () => {
+  const yml = parse(readFileSync(new URL("../../release/action.yml", import.meta.url), "utf8")) as {
+    inputs: Record<string, { default: string }>;
+    outputs: Record<string, unknown>;
+    runs: Record<string, string>;
+  };
+
+  it("declares the inputs the action reads, with the defaults it assumes", () => {
+    expect(Object.keys(yml.inputs)).toEqual(["mode", "roadmap", "path", "on-problems", "releases-file", "read-only", "repository", "summary"]);
+    // What the runner passes: each input as INPUT_<NAME>, its default when the workflow gives none.
+    const env = Object.fromEntries(Object.entries(yml.inputs).map(([k, v]) => [`INPUT_${k.toUpperCase()}`, v.default.replace("${{ github.repository }}", "acme/roadmap")]));
+    expect(readInputs(env, [])).toEqual(readInputs({}, ["--repository", "acme/roadmap"]));
+    expect(yml.inputs["on-problems"].default).toBe("deploy");
+  });
+
+  it("declares every output the action sets, and runs dist/action.mjs on node24", async () => {
+    const { repo } = workspace();
+    const r = await run({ repo });
+    expect(Object.keys(r.outputs).sort()).toEqual(Object.keys(yml.outputs).sort());
+    expect(yml.runs).toEqual({ using: "node24", main: "dist/action.mjs" });
   });
 });
