@@ -35,8 +35,8 @@ release, and what to do when a release goes wrong.
   The signer workflow is what matters: a tag's existence, or
   `gh release verify` alone, says nothing about who published it.
 - **That the tree is the commit's:** extract the tarball into an empty
-  folder, `git init -q && git add -A && git write-tree` there, and compare
-  with `git rev-parse <release commit>^{tree}`.
+  folder, run `git init -q && git -c core.autocrlf=false add --all --force . && git write-tree`
+  there, and compare with `git rev-parse <release commit>^{tree}`.
 
 How it's built so that a release ships what was tested: CI (`ci.yml`) builds
 the release tree, checks it, and runs the browser tests on its app and its
@@ -71,8 +71,8 @@ Actions → Release → Run workflow, from `main`, with the version. Its jobs:
    `BoxOps X.Y.Z`, or `Security: BoxOps X.Y.Z` when the changelog's
    `Security:` line isn't `none`).
 
-A run takes about as long as CI (the browser tests, about half an hour on
-a 2-CPU runner), plus the wait for approval.
+A run takes about as long as CI, most of it the browser tests, and then
+waits for the approval.
 
 ## One-off settings
 
