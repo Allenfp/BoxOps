@@ -165,12 +165,13 @@ both.
   bundle read-only, with a banner, and never calls GitHub for it. Served by
   the dev server or `preview`, which make it afresh at each fetch and say so
   (a `BoxOps-Live: 1` header), it's fetched again twice a second (every 5
-  seconds after a failure), a changed file shown without a notice; a local
-  build's hosted as plain files is fetched once more, then left alone, since
-  it can't change. `validate` and `report` read files on disk under the
-  same rules: symlinks are errors, never followed. A submodule, though, is
-  just a folder on disk, so only a build from git objects stops on one. The app still opens a `roadmap.json` from before schema 1, treating
-  what it lacks as unknown.
+  seconds after a failure), a changed file shown without a notice; one from
+  a local build, hosted as plain files, is fetched once more, then left
+  alone, since it can't change. `validate` and `report` read files on disk
+  under the same rules: symlinks are errors, never followed. A submodule,
+  though, is just a folder on disk, so only a build from git objects stops
+  on one. The app still opens a `roadmap.json` from before schema 1,
+  treating what it lacks as unknown.
 - **On load** the app paints the bundle as soon as `roadmap.json` arrives.
   Then, in the background and for 4 seconds at most (an abort signal on the
   GitHub client stops every call of the read), it asks GitHub for the head
