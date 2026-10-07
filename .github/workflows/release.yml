@@ -1,6 +1,8 @@
 # Releases BoxOps (docs/releasing.md), run by hand from main with a version:
-# X.Y.Z, or X.Y.Z-rc.N for a release candidate (a prerelease).
-#   preflight  the version, web/package.json and CHANGELOG.md agree; the tag is new
+# X.Y.Z, or X.Y.Z-rc.N for a release candidate (a prerelease); and, to be
+# sure it releases what was reviewed, the commit of main reviewed.
+#   preflight  main is the commit reviewed, if given; the version,
+#              web/package.json and CHANGELOG.md agree; the tag is new
 #   verify     all of CI on this commit (ci.yml), which builds the release
 #              tree, checks it and tests it as built
 #   reproduce  the release tree built again, apart: a fresh install, no cache
@@ -23,6 +25,11 @@ on:
         description: "X.Y.Z, or X.Y.Z-rc.N (web/package.json says X.Y.Z, and CHANGELOG.md has its section)"
         required: true
         type: string
+      commit:
+        description: "The commit of main you reviewed, the release pull request's (7 to 40 hex digits): the run stops if main has moved on. Optional"
+        required: false
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -48,16 +55,30 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - name: From main; the version, web/package.json and CHANGELOG.md agree; the tag is new
+      - name: From main, at the commit reviewed if given; the version, web/package.json and CHANGELOG.md agree; the tag is new
         id: versions
         env:
           V: ${{ inputs.version }}
+          REVIEWED: ${{ inputs.commit }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ "$GITHUB_REF" != refs/heads/main ]; then
             echo "::error title=Releases come from main::This run is for $GITHUB_REF. Run the workflow from main."
             exit 1
+          fi
+          # The run releases main as it was when it started: with the commit
+          # reviewed given, nothing merged since can slip in.
+          if [ -n "$REVIEWED" ]; then
+            reviewed=$(printf '%s' "$REVIEWED" | tr 'A-F' 'a-f')
+            if ! [[ "$reviewed" =~ ^[0-9a-f]{7,40}$ ]]; then
+              echo "::error title=Not a commit::The commit given, $REVIEWED, isn’t 7 to 40 hex digits of one."
+              exit 1
+            fi
+            if [[ "$GITHUB_SHA" != "$reviewed"* ]]; then
+              echo "::error title=main has moved on::This run is for main at $GITHUB_SHA, not $REVIEWED, the commit reviewed: see what was merged since, then run the workflow again."
+              exit 1
+            fi
           fi
           if ! [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
             echo "::error title=Not a version::The version given, $V, isn’t X.Y.Z or X.Y.Z-rc.N."

@@ -56,9 +56,14 @@ on every change (`web/scripts/release-tree.test.ts`).
 
 ## The release workflow
 
-Actions → Release → Run workflow, from `main`, with the version. Its jobs:
+Actions → Release → Run workflow, from `main`, with the version and, to be
+sure it releases what was reviewed, `commit`: the commit of `main` the
+release pull request made (or its first 7 hex digits or more). A run
+releases `main` as it is when it starts, whatever was merged since the
+review. Its jobs:
 
-1. **preflight**: the run is on `main`; the version is `X.Y.Z` or
+1. **preflight**: the run is on `main`, at `commit` when it's given (it
+   stops if `main` has moved on); the version is `X.Y.Z` or
    `X.Y.Z-rc.N`; `web/package.json` says `X.Y.Z`; `CHANGELOG.md` is in form
    and its top section is `X.Y.Z`'s, with no Unreleased section above it
    (`web/scripts/check-changelog.mjs --release`): that section becomes the
@@ -69,19 +74,22 @@ Actions → Release → Run workflow, from `main`, with the version. Its jobs:
 3. **reproduce**: the release tree built again, apart.
 4. **publish**, in the `release` environment, so it waits for the
    maintainer's approval (the run's page: Review deployments → `release` →
-   Approve and deploy). It runs nothing from this repository, only git,
-   curl, jq, tar, gh and GitHub's own actions: it downloads the tested
-   tree, checks its tree id and its `SHA256SUMS` against what CI's release
-   tree job and the rebuild gave as their jobs' outputs (no later job can
-   change those, while any job of the run could replace an artifact), the
-   SBOM against CI's, and every file against `SHA256SUMS`; it attests the
-   files, then commits the tree to `releases` and tags it in one atomic
-   push with the deploy key (so no tag is ever out without its
-   attestations), and publishes the GitHub release with preflight's notes
-   (a draft until its files are on it, then published, titled
-   `BoxOps X.Y.Z`, or `Security: BoxOps X.Y.Z` when the changelog's
-   `Security:` line isn't `none`; GitHub's latest release only if no
-   published release, but a withdrawn one, is of a later version).
+   Approve and deploy). Before approving, check the run is for the commit
+   reviewed: its page names the commit, and so does preflight's log
+   ("Releasing BoxOps X.Y.Z from main@…"); without `commit`, anything merged
+   since the review would ship too. It runs nothing from this repository,
+   only git, curl, jq, tar, gh and GitHub's own actions: it downloads the
+   tested tree, checks its tree id and its `SHA256SUMS` against what CI's
+   release tree job and the rebuild gave as their jobs' outputs (no later
+   job can change those, while any job of the run could replace an
+   artifact), the SBOM against CI's, and every file against `SHA256SUMS`; it
+   attests the files, then commits the tree to `releases` and tags it in one
+   atomic push with the deploy key (so no tag is ever out without its
+   attestations), and publishes the GitHub release with preflight's notes (a
+   draft until its files are on it, then published, titled `BoxOps X.Y.Z`,
+   or `Security: BoxOps X.Y.Z` when the changelog's `Security:` line isn't
+   `none`; GitHub's latest release only if no published release, but a
+   withdrawn one, is of a later version).
 
 A run takes about as long as CI, most of it the browser tests, and then
 waits for the approval.
@@ -309,13 +317,15 @@ About 30 to 45 minutes of attention, most of it waiting for CI.
    in Safari (before the cutover, the demo). Merge.
 2. **A data format change (a minor release) goes out as a release candidate
    first**: Actions → Release → Run workflow, from `main`, version
-   `X.Y.Z-rc.1`. When preflight, verify and reproduce have passed, approve
-   the `release` environment; publish makes a prerelease.
+   `X.Y.Z-rc.1`, `commit` the release pull request's commit on `main`. When
+   preflight, verify and reproduce have passed, and the run is for that
+   commit, approve the `release` environment; publish makes a prerelease.
 3. **The canary.** In the private GHEC canary repository,
    `node .boxops/boxops.mjs upgrade vX.Y.Z-rc.1` (Dependabot never offers a
    prerelease to a repository on a release), push a branch, open a pull
    request, and work through the canary checklist (below).
-4. **The release**: Run workflow with `X.Y.Z`, and approve.
+4. **The release**: Run workflow with `X.Y.Z` and, as `commit`, the commit
+   of `main` reviewed for it; check the run is for it, and approve.
 5. **Dogfood it, without waiting for Dependabot's cooldown:**
    - `Allenfp/boxops-demo`: `node .boxops/boxops.mjs upgrade vX.Y.Z` on a
      branch, a pull request, green, merge; then check the deploy and a save.

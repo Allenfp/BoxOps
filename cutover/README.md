@@ -33,7 +33,12 @@ of the work until then, so the cutover commit makes their changes itself
 ## Before the cutover commit
 
 1. A release candidate, `v0.1.0-rc.1`, is out (`docs/releasing.md`), and the
-   starter repository, `Allenfp/boxops-starter`, published for it.
+   starter repository, `Allenfp/boxops-starter`, published for it. Until
+   step 2 the old demo token can still write to `main` here, so look over
+   `git log` on `main` since the release pull request first (the demo's
+   saves change `roadmap/` alone), and give the release workflow the newest
+   commit you looked over as `commit`: the run stops if `main` has moved on
+   from it.
 2. Demo edits here stop, before its roadmap is copied (step 3), so that the
    copy has every save: close the demo's open tabs (their code writes to
    `roadmap/` here and has no build-id check), then revoke the old token
