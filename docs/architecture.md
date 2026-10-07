@@ -1408,18 +1408,20 @@ a release must have none of.
   where nothing is built or installed: the tree's action, as `uses:` runs
   it, on a repository of the starter's files made hostile
   (`scripts/smoke/`: npm scripts, `vite.config.*`, `.npmrc`, `.env`, git
-  hooks, filters and fsmonitor, and `GIT_*` variables, each leaving a
-  sentinel file if anything runs it), in check mode and, where the run is on
-  `main` (weekly, for a release), build mode, its outputs and site checked
-  (elsewhere the tree's tool writes the site: build mode publishes the
-  default branch only, and the action through `uses:` must refuse it there,
-  as it must a symlink or a submodule in the roadmap, data format 2 and a
-  roadmap without `settings.yaml`, each failing its step with a `result`
-  output saying why); then bad repositories, each refused with its error
-  annotation (symlinks, submodules, a `.git` file, data formats 0 and 2, no
-  `settings.yaml`, a branch that isn't the default, bytes that aren't
-  UTF-8, inputs out of bounds, GitHub Enterprise Server, problems in check
-  and build modes), and the action with the network cut off; **workflows**,
+  hooks, filters and fsmonitor, each leaving a sentinel file if anything
+  runs it), in check mode (with `GIT_*` variables that would send git to
+  objects that aren't there and have it write a trace, which the action
+  drops) and, where the run is on `main` (weekly, for a release), build
+  mode, its outputs and site checked (elsewhere the tree's tool writes the
+  site: build mode publishes the default branch only, and the action
+  through `uses:` must refuse it there, as it must a symlink or a submodule
+  in the roadmap, data format 2 and a roadmap without `settings.yaml`, each
+  failing its step with a `result` output saying why); then bad
+  repositories, each refused with its error annotation (symlinks,
+  submodules, a `.git` file, data formats 0 and 2, no `settings.yaml`, a
+  branch that isn't the default, bytes that aren't UTF-8, inputs out of
+  bounds, GitHub Enterprise Server, problems in check and build modes), and
+  the action with the network cut off; **workflows**,
   actionlint and shellcheck (each release checked against its SHA-256) on
   every workflow (this repo's, the starter's, Path B's and the cutover's),
   shellcheck on the smoke scripts, and the Pages guard's test against a

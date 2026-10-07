@@ -274,16 +274,16 @@ jobs:
         run: |
           bash web/scripts/smoke/starter-repo.sh starter-copy
           bash web/scripts/smoke/plant-hostile.sh starter-copy "$RUNNER_TEMP/sentinels"
-      # With GIT_* variables that would point git elsewhere or run a program:
-      # the action drops them.
+      # With GIT_* variables git's plumbing honours, even with --git-dir: one
+      # pointing it at objects that aren't there (git fails), one having it
+      # write a trace into the sentinels. The action drops them all
+      # (cli/hostile.test.ts tries more).
       - name: The release's action checks it (check mode)
         id: check
         uses: ./build/release
         env:
-          GIT_DIR: /nonexistent
-          GIT_CONFIG_COUNT: "1"
-          GIT_CONFIG_KEY_0: core.fsmonitor
-          GIT_CONFIG_VALUE_0: touch ${{ runner.temp }}/sentinels/env-fsmonitor
+          GIT_OBJECT_DIRECTORY: /nonexistent
+          GIT_TRACE: ${{ runner.temp }}/sentinels/env-trace
         with:
           path: starter-copy
           mode: check
