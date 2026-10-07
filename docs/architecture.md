@@ -177,8 +177,8 @@ a pull request, a branch ──► CI (ci.yml): test, release tree, browser test
 main ──► Pages (pages.yml): the demo, the app and roadmap/ built here
 Actions → Release → Run workflow (release.yml), from main:
   preflight ─► verify (all of ci.yml) and reproduce (a second build)
-  ─► publish, once the maintainer approves: the tested tree committed to
-     `releases` and tagged with the deploy key, attested, published
+  ─► publish, once the maintainer approves: the tested tree attested,
+     committed to `releases` and tagged with the deploy key, published
      ─► roadmap repositories pin it; Dependabot offers it to them
 ```
 

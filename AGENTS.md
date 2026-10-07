@@ -61,9 +61,10 @@ firefox` for the browser tests):
 | any Markdown (`README.md`, `AGENTS.md`, `docs/`, `starter/`, `templates/`) | `node scripts/check-doc-links.mjs`: every relative link and anchor resolves, and each link's text is on one line (`npm test` runs it too) |
 | `roadmap/` | `npm run validate` |
 
-`npm test` also runs git, bash, `jq` and `rsync`, which macOS and GitHub's
-Ubuntu runners have (elsewhere, `jq` and `rsync` may need installing), and
-zsh where it's installed. It builds a release tree twice, in clones of this
+`npm test` also runs git, bash, `jq`, `rsync` and `sha256sum` (the release
+workflow's steps run as written), which macOS and GitHub's Ubuntu runners
+have (elsewhere, `jq` and `rsync` may need installing), and zsh where it's
+installed. It builds a release tree twice, in clones of this
 checkout's files (`scripts/release-tree.test.ts`): they must be the same,
 byte for byte.
 
