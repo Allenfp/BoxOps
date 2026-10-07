@@ -320,7 +320,13 @@ test("the Engineers list closes, name or not, once the table is scrolled till it
 });
 
 test("the calendar closes once the table is scrolled till its field is under the header, focus back in the field", async ({ page, github: _ }) => {
+  // A resize closes an open calendar, and nothing here waits a frame as a click would: its event, which
+  // can come a frame late, has to have come before the calendar opens.
+  await page.evaluate(() => {
+    (window as unknown as { resized: Promise<void> }).resized = new Promise((done) => addEventListener("resize", () => done(), { once: true }));
+  });
   await page.setViewportSize({ width: 1440, height: 500 });
+  await page.evaluate(() => (window as unknown as { resized: Promise<void> }).resized);
   const start = row(page, "CDC pipeline for orders DB").getByRole("textbox", { name: "Start" });
   await start.focus();
   await page.keyboard.press("Alt+ArrowDown");
