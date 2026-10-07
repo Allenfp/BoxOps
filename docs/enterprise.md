@@ -23,7 +23,7 @@ Nothing in the roadmap repository is built or installed.
 | GitHub's own actions only | Path B: BoxOps fetched by commit with git and run with Node.js ([Path B](#path-b-githubs-own-actions-only)). |
 | npm, package proxies | Not involved: roadmap repositories have no `package.json`, and nothing installs packages, in CI or on laptops. |
 | IP allow list | GitHub's standard runners can't be allow-listed: larger runners with static addresses, or self-hosted runners. Editors save from allowed networks ([IP allow lists](#ip-allow-lists)). |
-| Self-hosted runners | Linux or macOS, runner v2.327.1 or later, git 2.18 or later, `bash`, `gh` and `jq` ([Self-hosted runners](#self-hosted-runners)). |
+| Self-hosted runners | Linux or macOS, runner v2.327.1 or later, git 2.18 or later, `bash`, `gh`, `jq`, and GNU tar (`gtar` on macOS) ([Self-hosted runners](#self-hosted-runners)). |
 | Enterprise Managed Users | Sites are always private. `init` if a template outside the enterprise can't be used ([Enterprise Managed Users](#enterprise-managed-users)). |
 | Rulesets | Rules a browser save can't meet need editors on the bypass list, or the repository excluded ([Rulesets](#rulesets)). |
 | Token policies | Fine-grained tokens with Contents: Read and write; approval and lifetime limits work as GitHub documents ([Tokens](#tokens)). |
@@ -214,6 +214,12 @@ included, from an address not on the list:
 - **`bash`, `gh` (the GitHub CLI) and `jq`**: the deploy job's "Check the
   GitHub Pages settings" step uses them, and the releases lookup uses
   `gh` (without it, that optional step fails and there are no notices).
+- **GNU tar**: `actions/upload-pages-artifact` packs the site with
+  `tar --dereference --hard-dereference` on Linux, options BusyBox's tar
+  (as on Alpine) and bsdtar don't have, and with `gtar` on macOS, which a
+  Mac of your own has only once GNU tar is installed as `gtar` (Homebrew's
+  `gnu-tar`). Without it, the deploy fails at that step, after the BoxOps
+  step has passed, and nothing is published.
 - **Network**: what GitHub lists for self-hosted runners in "Self-hosted
   runners reference": `github.com`, `api.github.com`,
   `*.actions.githubusercontent.com`, `codeload.github.com` (to download
