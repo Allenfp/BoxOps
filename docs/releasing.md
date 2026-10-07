@@ -440,6 +440,10 @@ a GitHub Enterprise Cloud organization with private Pages:
 
 - The first run's guard message ("GitHub Pages isn't set up"), then Pages
   set to GitHub Actions and Private, and the re-run publishing.
+- What the `github-pages` environment holds once Pages is set up, before
+  anyone changes it: whether GitHub has already added a `main` rule under
+  Deployment branches and tags ([adopting.md](adopting.md#3-let-only-main-deploy-then-deploy)'s
+  step 3 allows for either; say there which it is).
 - With the site's visibility Public, the deploy refuses.
 - The guard's other messages: 403 (no access), and 404 and 5xx where they
   can be had.

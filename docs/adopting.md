@@ -328,11 +328,13 @@ gh api -X PUT repos/<org>/<name>/pages -F public=false
 
 ### 3. Let only `main` deploy, then deploy
 
-Settings → Environments → **github-pages** (the first run made it, with
-no rules) → **Deployment branches and tags**: **Selected branches and
-tags** → **Add deployment branch or tag rule** → Ref type **Branch**, name
-`main` → **Add rule**. Then only runs on `main` can publish the site (BoxOps'
-action also refuses to build it from any other branch).
+Settings → Environments → **github-pages** (the first run made it) →
+**Deployment branches and tags**. GitHub may have set it already: if it's
+**Selected branches and tags** with one rule, `main`, leave it. If not,
+choose **Selected branches and tags** → **Add deployment branch or tag
+rule** → Ref type **Branch**, name `main` → **Add rule**, and remove any
+other rule. Then only runs on `main` can publish the site (BoxOps' action
+also refuses to build it from any other branch).
 
 Then deploy: Actions → **Deploy roadmap** → **Run workflow** (branch `main`)
 → **Run workflow**; or open the failed run and choose **Re-run jobs** →
