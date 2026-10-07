@@ -6,7 +6,8 @@
 // second. The app's files are this release's: dist/app beside the tool, or,
 // for one the launcher keeps with its BUILD.json (or one given alone, with
 // none beside it), fetched once by the pinned commit, each checked against
-// that BUILD.json and kept beside it. Node-only.
+// that BUILD.json and kept beside it (ensureApp, which build uses too).
+// Node-only.
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -47,12 +48,14 @@ function appFilesToFetch(cliDir: string, build: BuildJson): string[] {
 
 /**
  * Makes sure the app's files are beside the tool in `cliDir`, as BUILD.json
- * describes them. A release has them. The launcher's cache holds the tool
- * and its commit's BUILD.json until the first preview, which fetches each
- * app file from `repo@sha` (the pin), checked against that BUILD.json, and
- * keeps it there; only files missing or damaged are fetched. Beside a tool
- * with no BUILD.json, BUILD.json is fetched first (it must name this tool's
- * build) and kept last, once the app is whole.
+ * describes them, for the commands that need them (preview and build). A
+ * release has them. The launcher's cache holds the tool and its commit's
+ * BUILD.json until the first of those, which fetches each app file from
+ * `repo@sha` (the pin), checked against that BUILD.json, and keeps it there;
+ * only files missing or damaged are fetched. Beside a tool with no
+ * BUILD.json, BUILD.json is fetched first (it must name this tool's build)
+ * and kept last, once the app is whole. Without the pin (the tool run
+ * without the launcher), a UsageError says how to run it.
  */
 export async function ensureApp(cliDir: string, ctx: LaunchContext, io: Io): Promise<void> {
   const id = io.identity();
@@ -62,8 +65,8 @@ export async function ensureApp(cliDir: string, ctx: LaunchContext, io: Io): Pro
   if (!ctx.repo || !ctx.sha) {
     throw new UsageError(
       missing
-        ? `The app beside ${cliDir} isn’t whole (${missing[0]} is missing or damaged): run preview through .boxops/boxops.mjs, which fetches it`
-        : `No app beside ${cliDir}: run preview through .boxops/boxops.mjs, or set BOXOPS_CLI to a release’s dist/boxops.mjs`,
+        ? `The app beside ${cliDir} isn’t whole (${missing[0]} is missing or damaged): run the command through .boxops/boxops.mjs, which fetches it`
+        : `No app beside ${cliDir}: run the command through .boxops/boxops.mjs, or set BOXOPS_CLI to a release’s dist/boxops.mjs`,
     );
   }
   const where = `${ctx.repo}@${ctx.sha.slice(0, 12)}`;

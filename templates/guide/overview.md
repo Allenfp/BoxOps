@@ -94,15 +94,15 @@ admin (a push rule may refuse them from anyone else).
 ## The tools and the network
 
 `node .boxops/boxops.mjs` needs Node.js 22.12 or later, and the network the
-first time: it downloads the pinned release's tools once, and `preview`
-downloads the app the first time it runs, into a cache outside the
+first time: it downloads the pinned release's tools once, and the first
+`preview` (or `build`) downloads the app, into a cache outside the
 repository (`$BOXOPS_CACHE`, else `$XDG_CACHE_HOME/boxops` or
 `~/.cache/boxops`, else a folder in the temp folder). In a sandbox that has
 the network only while it's set up, run `node .boxops/boxops.mjs version`
 then, which fills the cache (and `preview` once, if you'll want it). With no
 network at all, set `BOXOPS_CLI` to the `dist/boxops.mjs` of a copy of the
-pinned release (a checkout of its commit, say): `preview` then uses the
-`dist/app` beside it.
+pinned release (a checkout of its commit, say): `preview` and `build` then
+use the `dist/app` beside it.
 
 ## Lane labels
 

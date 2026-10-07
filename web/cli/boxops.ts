@@ -5,8 +5,9 @@
 // directly. Node-only.
 //
 // Commands work offline, except doctor, upgrade and init (they ask GitHub),
-// and preview the first time it needs the app's files. The `action` command is
-// the GitHub Action's entry (action.ts), for Path B; it isn't for people.
+// and preview and build the first time they need the app's files. The
+// `action` command is the GitHub Action's entry (action.ts), for Path B; it
+// isn't for people.
 
 import { existsSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -23,7 +24,7 @@ import { TOPICS, type Topic, guideTopic, wholeGuide } from "./guide.ts";
 import { initCommand } from "./init.ts";
 import { migrateCommand } from "./migrate.ts";
 import { contractNumber } from "./pins.ts";
-import { previewCommand } from "./preview.ts";
+import { ensureApp, previewCommand } from "./preview.ts";
 import { AGENTS_BLOCK, GUARD, LAUNCHER, openRelease, verifiedApp, writeSite } from "./release.ts";
 import { issueLine, loadDir, resultLine } from "./roadmap.ts";
 import { buildBundle, findRepo } from "./site.ts";
@@ -135,6 +136,8 @@ async function build(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
   const root = rootOf(args, ctx, io);
   const dir = flag(args, "roadmap") ?? "roadmap";
   const id = io.identity();
+  // The launcher keeps a release's tool and BUILD.json alone: the first build (or preview) fetches the app.
+  await ensureApp(io.cliDir, ctx, io);
   const app = verifiedApp(openRelease(io.cliDir, id.build));
   const repoDir = findRepo(root) ?? root;
   let bundle;

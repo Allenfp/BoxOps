@@ -4,8 +4,8 @@
 // machines. The order, the checks and the layout are the launcher's
 // (starter/.boxops/boxops.mjs): a release's folder holds its boxops.mjs and
 // the BUILD.json of the same commit, which the tool is checked against
-// whenever it's used, and, once preview has run, the app beside them
-// (app/**, cli/preview.ts). Node-only.
+// whenever it's used, and, once preview or build has run, the app beside
+// them (app/**, cli/preview.ts). Node-only.
 
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";

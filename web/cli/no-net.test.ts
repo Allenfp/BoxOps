@@ -1,8 +1,9 @@
-// The action, and every command but doctor, upgrade, init and preview's first
-// fetch of the app, work without the network: with every way Node reaches it
-// (sockets, TLS, DNS, HTTP, fetch, UDP) made to fail and noted, they run as
-// usual and nothing is noted. Git, the one program the action starts, is told
-// to use no transport (cli/git.ts) and never fetches what a clone lacks.
+// The action, and every command but doctor, upgrade, init and preview's or
+// build's first fetch of the app, work without the network: with every way
+// Node reaches it (sockets, TLS, DNS, HTTP, fetch, UDP) made to fail and
+// noted, they run as usual and nothing is noted. Git, the one program the
+// action starts, is told to use no transport (cli/git.ts) and never fetches
+// what a clone lacks.
 
 import dgram from "node:dgram";
 import dns from "node:dns";

@@ -5,7 +5,7 @@ import { buildReport, formatReport } from "../src/model/report";
 import { loadRoadmap } from "../src/model/parse";
 import { main } from "./boxops";
 import type { Io, LaunchContext } from "./context";
-import { ID, NASTY, NASTY_SHOWN, NASTY_YAML, SAMPLE, capture, cleanUp, obeyed, sampleRepo, tempDir } from "./test-release";
+import { ID, NASTY, NASTY_SHOWN, NASTY_YAML, SAMPLE, capture, cleanUp, makeRelease, obeyed, sampleRepo, tempDir } from "./test-release";
 import { type Entry, TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -179,7 +179,10 @@ describe("build", () => {
   it("needs a release beside it, this build's", async () => {
     const repo = checkout();
     const r = await run(["build", "--out", join(tempDir(), "s")], { cwd: repo.dir, cliDir: tempDir() });
-    expect([r.code, r.stderr]).toEqual([2, expect.stringMatching(/^boxops build: No BUILD.json beside /)]);
+    expect([r.code, r.stderr]).toEqual([2, expect.stringMatching(/^boxops build: No app beside .*: run the command through \.boxops\/boxops\.mjs, or set BOXOPS_CLI/)]);
+    const other = makeRelease({ ...ID, build: "0.1.0+ffffffffffff" });
+    const o = await run(["build", "--out", join(tempDir(), "s")], { cwd: repo.dir, cliDir: other });
+    expect([o.code, o.stderr]).toEqual([2, expect.stringMatching(/describes BoxOps build 0\.1\.0\+ffffffffffff, but this is 0\.1\.0\+0123456789ab: the release is damaged or mixed up$/)]);
   });
 });
 

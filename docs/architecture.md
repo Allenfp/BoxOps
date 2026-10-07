@@ -1148,8 +1148,8 @@ the roadmap is in another data format.
 |---|---|
 | `validate [--json] [folder]` | `npm run validate`'s check and output, line for line (it's what that script runs). |
 | `report [--json] [folder]` | `npm run report`'s text, byte for byte; `--json` with dates as `YYYY-MM-DD`. |
-| `preview [--port 4173] [--open]` | Serves the working tree's roadmap with the release's app on 127.0.0.1 only (other `Host` names are refused): `roadmap.json` made afresh on each fetch, marked local and sent with `BoxOps-Live: 1`, so the app looks twice a second and shows a saved file within a second. Only the app's files listed in `BUILD.json` are served. The launcher keeps a release's tool with its `BUILD.json` alone, so the first preview fetches the app beside them, by the pinned commit, each file checked against that `BUILD.json` (later ones, only a file missing or damaged). |
-| `build --out DIR [--commit REF \| --worktree]` | Writes the site the action would: the app (each file checked against `BUILD.json`) and `roadmap.json`, into a new or empty folder. `pages.yml` deploys this repo's demo this way until it has its own repository. |
+| `preview [--port 4173] [--open]` | Serves the working tree's roadmap with the release's app on 127.0.0.1 only (other `Host` names are refused): `roadmap.json` made afresh on each fetch, marked local and sent with `BoxOps-Live: 1`, so the app looks twice a second and shows a saved file within a second. Only the app's files listed in `BUILD.json` are served. The launcher keeps a release's tool with its `BUILD.json` alone, so the first preview (or `build`) fetches the app beside them, by the pinned commit, each file checked against that `BUILD.json` (later ones, only a file missing or damaged). |
+| `build --out DIR [--commit REF \| --worktree]` | Writes the site the action would: the app (each file checked against `BUILD.json`; through the launcher, fetched first as for `preview`) and `roadmap.json`, into a new or empty folder. `pages.yml` deploys this repo's demo this way until it has its own repository. |
 | `migrate [--check]` | Runs the data format migrations (`src/model/migrations/`): each edits text in place at spots the yaml Document API locates, so comments, order and line ends stay; they're idempotent; the chain sets `format` last; then it validates. 0.1.0's only migration, 0 → 1, stamps `format: 1`. |
 | `guide [topic]` | The guide for this release: `templates/guide/<topic>.md` (overview, recipes, commits, format, upgrading); with no topic, all but `format`. |
 | `sync [--check]` | Rewrites `AGENTS.md`'s managed block (`templates/agents-block.md`, between `<!-- boxops:begin block=N … -->` and `<!-- boxops:end -->`) and the launcher, and makes `CLAUDE.md` if there's none. Never the workflows; never through a symlink. |
@@ -1158,10 +1158,11 @@ the roadmap is in another data format.
 | `init <dir> [--action owner/repo@sha]` | Writes the starter's files made for a release (`cli/starter.ts`: every pin, and `README.md`'s links to BoxOps' docs at the commit of `main` the release was built from, since a release commit holds no docs), the release being the tool's own tag resolved to a commit, or the commit given, whose `BUILD.json` must name this build and that commit of `main`. The next steps it prints are one command, the folder quoted, that stops at the first step that fails. |
 | `version` | `BoxOps 0.1.0 (Allenfp/BoxOps@abc1234, build 0.1.0+…, data format 1)`. |
 
-Only `doctor`, `upgrade`, `init` and `preview`'s first fetch of the app use
-the network (read-only; a token from `GH_TOKEN`, `GITHUB_TOKEN` or
-`gh auth token --hostname github.com` if there is one: never the token of
-another host gh is signed in to, such as a GitHub Enterprise Server's).
+Only `doctor`, `upgrade` and `init` use the network, and `preview` and
+`build` when they fetch the app (read-only; a token from `GH_TOKEN`,
+`GITHUB_TOKEN` or `gh auth token --hostname github.com` if there is one:
+never the token of another host gh is signed in to, such as a GitHub
+Enterprise Server's).
 `validate`, `report`, `build`, `preview`, `migrate`, `upgrade` and `guide`
 (`WARNING_COMMANDS`; not `sync`, `doctor`, `init`, `version` or `help`) warn
 when the repository's launcher, `AGENTS.md` block or Pages guard isn't this

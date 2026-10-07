@@ -410,7 +410,7 @@ describe("preview", () => {
       `dist/app/assets/index-A1.js from Allenfp/BoxOps@${B.slice(0, 12)} isn’t the file its BUILD.json describes`,
     );
     expect(readdirSync(other)).not.toContain("BUILD.json");
-    await expect(ensureApp(tempDir(), {}, capture())).rejects.toThrow(/^No app beside .*: run preview through \.boxops\/boxops\.mjs/);
+    await expect(ensureApp(tempDir(), {}, capture())).rejects.toThrow(/^No app beside .*: run the command through \.boxops\/boxops\.mjs/);
   });
 
   it("beside the BUILD.json the launcher keeps, fetches the app alone, and later only what's missing or damaged", async () => {
@@ -440,7 +440,7 @@ describe("preview", () => {
     expect(readdirSync(join(cliDir, "app"))).not.toContain("favicon.svg");
     // Run without the launcher, it can't know the pin, and says what's wrong.
     await expect(ensureApp(cliDir, {}, io)).rejects.toThrow(
-      `The app beside ${cliDir} isn’t whole (dist/app/favicon.svg is missing or damaged): run preview through .boxops/boxops.mjs, which fetches it`,
+      `The app beside ${cliDir} isn’t whole (dist/app/favicon.svg is missing or damaged): run the command through .boxops/boxops.mjs, which fetches it`,
     );
   });
 
@@ -453,6 +453,67 @@ describe("preview", () => {
     );
     expect(gh.calls).toEqual([`https://raw.githubusercontent.com/Allenfp/BoxOps/${B}/BUILD.json`]);
     expect(readdirSync(cliDir)).toEqual(["boxops.mjs"]);
+  });
+});
+
+describe("build", () => {
+  /** A checked-out repository holding the sample roadmap, acme/roadmap on github.com. */
+  function sample(): TestRepo {
+    const repo = new TestRepo();
+    repos.push(repo);
+    repo.commit(sampleRepo(), "Start");
+    repo.checkout();
+    repo.git(["remote", "add", "origin", "https://github.com/acme/roadmap.git"]);
+    return repo;
+  }
+
+  /** The files of a site folder, "/"-separated, sorted. */
+  const siteFiles = (dir: string) =>
+    readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((d) => d.isFile())
+      .map((d) => join(d.parentPath, d.name).slice(dir.length + 1).split("\\").join("/"))
+      .sort();
+
+  it("through the launcher, fetches the app beside the tool and BUILD.json it keeps, once, then writes the site", async () => {
+    const repo = sample();
+    const cliDir = tempDir();
+    const files = releaseFiles(ID);
+    writeFileSync(join(cliDir, "boxops.mjs"), files["dist/boxops.mjs"]);
+    writeFileSync(join(cliDir, "BUILD.json"), files["BUILD.json"]);
+    const gh = fakeGitHub({ files: { [A]: files } });
+    const ctx = { root: repo.dir, repo: "Allenfp/BoxOps", sha: A };
+    const io = capture({ fetch: gh.fetch, cliDir, cwd: repo.dir });
+    const out = join(tempDir(), "site");
+    expect(await main(["build", "--out", out], ctx, io)).toBe(0);
+    expect(io.stderr).toEqual([`Fetching the app of Allenfp/BoxOps@${A.slice(0, 12)} (once)…`]);
+    expect(siteFiles(out)).toEqual([...Object.keys(APP_FILES), "roadmap.json"].sort());
+    for (const [path, text] of Object.entries(APP_FILES)) expect([path, readFileSync(join(out, path), "utf8")]).toEqual([path, text]);
+    expect(JSON.parse(readFileSync(join(out, "roadmap.json"), "utf8")).source.commit).toBe(repo.git(["rev-parse", "HEAD"]));
+    // The next one fetches nothing.
+    const calls = gh.calls.length;
+    expect(await main(["build", "--out", join(tempDir(), "again")], ctx, capture({ fetch: gh.fetch, cliDir, cwd: repo.dir }))).toBe(0);
+    expect(gh.calls.length).toBe(calls);
+  });
+
+  it("run without the launcher, says how to run it, not that the release is damaged", async () => {
+    const repo = sample();
+    const kept = tempDir();
+    const files = releaseFiles(ID);
+    writeFileSync(join(kept, "boxops.mjs"), files["dist/boxops.mjs"]);
+    writeFileSync(join(kept, "BUILD.json"), files["BUILD.json"]);
+    const io = capture({ cliDir: kept, cwd: repo.dir });
+    const out = join(tempDir(), "site");
+    expect(await main(["build", "--out", out], {}, io)).toBe(2);
+    expect(io.stderr).toEqual([
+      `boxops build: The app beside ${kept} isn’t whole (dist/app/assets/index-A1.js is missing or damaged): run the command through .boxops/boxops.mjs, which fetches it`,
+    ]);
+    // A release's boxops.mjs alone: not "in web/, run npm run build && npm run build:cli".
+    const alone = tempDir();
+    writeFileSync(join(alone, "boxops.mjs"), files["dist/boxops.mjs"]);
+    const io2 = capture({ cliDir: alone, cwd: repo.dir });
+    expect(await main(["build", "--out", out], {}, io2)).toBe(2);
+    expect(io2.stderr).toEqual([`boxops build: No app beside ${alone}: run the command through .boxops/boxops.mjs, or set BOXOPS_CLI to a release’s dist/boxops.mjs`]);
+    expect(() => readdirSync(out)).toThrow();
   });
 });
 
