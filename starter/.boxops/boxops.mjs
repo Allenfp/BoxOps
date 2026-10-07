@@ -128,7 +128,7 @@ async function download(dir) {
     `couldn’t download BoxOps ${tag ?? sha.slice(0, 7)} from ${repo}. Check the network; behind a proxy, set ` +
       `HTTPS_PROXY (Node.js 22.21+ or 24+ uses it; this is ${process.versions.node}) and, if it re-signs TLS, ` +
       "run `node --use-system-ca .boxops/boxops.mjs …`; for a private mirror set GH_TOKEN or run " +
-      "`gh auth login`; offline, set BOXOPS_CLI to a release’s dist/boxops.mjs.",
+      "`gh auth login`; offline, set BOXOPS_CLI to that release’s dist/boxops.mjs.",
   );
 }
 

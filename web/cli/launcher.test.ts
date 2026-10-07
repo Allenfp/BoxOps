@@ -217,7 +217,7 @@ describe("the launcher's download", () => {
     const none = launch(root, ["version"], { github: {} });
     expect([none.code, none.stderr]).toEqual([
       2,
-      `boxops: couldn’t download BoxOps v0.1.0 from acme/boxops-mirror. Check the network; behind a proxy, set HTTPS_PROXY (Node.js 22.21+ or 24+ uses it; this is ${process.versions.node}) and, if it re-signs TLS, run \`node --use-system-ca .boxops/boxops.mjs …\`; for a private mirror set GH_TOKEN or run \`gh auth login\`; offline, set BOXOPS_CLI to a release’s dist/boxops.mjs.`,
+      `boxops: couldn’t download BoxOps v0.1.0 from acme/boxops-mirror. Check the network; behind a proxy, set HTTPS_PROXY (Node.js 22.21+ or 24+ uses it; this is ${process.versions.node}) and, if it re-signs TLS, run \`node --use-system-ca .boxops/boxops.mjs …\`; for a private mirror set GH_TOKEN or run \`gh auth login\`; offline, set BOXOPS_CLI to that release’s dist/boxops.mjs.`,
     ]);
     expect(none.calls.every((c) => c.auth === null)).toBe(true);
   });
