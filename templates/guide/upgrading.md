@@ -90,6 +90,8 @@ commit, and runs its `dist/action.mjs` (with `--mode check` in `check.yml`).
 The starter's README shows the step; BoxOps' `templates/path-b/` has both
 workflows whole. Its pin is a line like
 `BOXOPS_ACTION: Allenfp/BoxOps@<sha> # vX.Y.Z`, which the launcher, `doctor`
-and the deploy's checks read as they read `uses:`. Dependabot can't move it,
-so upgrade with `node .boxops/boxops.mjs upgrade`, which rewrites it like
-any pin (Dependabot still proposes upgrades of GitHub's own actions).
+and the deploy's checks read as they read `uses:`. The README's copy keeps
+the release the repository was made with, so give the line the commit and
+tag of the `uses:` line it replaces. Dependabot can't move it, so upgrade
+with `node .boxops/boxops.mjs upgrade`, which rewrites it like any pin
+(Dependabot still proposes upgrades of GitHub's own actions).

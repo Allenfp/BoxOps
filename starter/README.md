@@ -126,11 +126,14 @@ problem, the run warns and the site shows a notice until you upgrade.
             node "$dir/dist/action.mjs" --releases-file "$RUNNER_TEMP/boxops-releases.json"
   ```
 
-  Keep `BOXOPS_ACTION` on the commit and tag of the `uses:` line it
-  replaces. Dependabot can't move it; `node .boxops/boxops.mjs upgrade`
-  does, and the launcher and `doctor` read it as they read `uses:`. git
-  fetches it from github.com without a token: from BoxOps itself, not a
-  private mirror.
+  This copy names the release this repository was made with, and neither
+  Dependabot nor `upgrade` changes this README: so set `BOXOPS_ACTION` to
+  the commit and tag of the `uses:` line it replaces. Dependabot can't move
+  it after that; `node .boxops/boxops.mjs upgrade` does, and the launcher
+  and `doctor` read it as they read `uses:`. git fetches it from github.com
+  without a token, so it must name a public repository: BoxOps itself, or a
+  public mirror. For a private mirror, name `Allenfp/BoxOps` there instead
+  (the commit is the same).
 - GitHub Enterprise Server, GHE.com and Windows runners aren't supported.
 
 The starter files in this repository are MIT-0: use them as you like, no
