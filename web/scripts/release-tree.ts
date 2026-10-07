@@ -26,8 +26,8 @@
 // one with a pre-release tag, such as 0.1.0-rc.1, too: cli/site.ts's
 // buildVersion), from a checkout with nothing uncommitted or untracked (it
 // refuses otherwise; --allow-dirty to try anyway, which gives a build id ending
-// in .dirty). Every file is written 0644, so the tree hash doesn't depend on
-// the umask. Two builds of one commit are the same, byte for byte
+// in .dirty), and no file git turned to CRLF (crlfCheckout). Every file is
+// written 0644, so the tree hash doesn't depend on the umask. Two builds of one commit are the same, byte for byte
 // (release-tree.test.ts builds one twice, in separate folders, to check).
 // Then it checks what it wrote (check-release-tree.ts).
 
@@ -96,6 +96,26 @@ export function uncommitted(repoDir: string): string[] {
     const err = e as Error & { stderr?: string };
     throw new Error(`Can’t ask git about ${repoDir} (${err.stderr?.trim() || err.message}): a release tree is built from a git checkout`);
   }
+}
+
+/**
+ * The files git tracks that the checkout at `repoDir` has with CRLF line ends
+ * (some or all) where git has LF: a checkout git turned to CRLF, as
+ * core.autocrlf (Git for Windows' default) does where .gitattributes doesn't
+ * say eol=lf. `git status` shows none of them, but a build reads files as
+ * they are on disk, so it would make other bytes under the same build id.
+ */
+export function crlfCheckout(repoDir: string): string[] {
+  const out = execFileSync("git", ["-c", "core.fsmonitor=false", "ls-files", "--eol", "-z"], { cwd: repoDir, env: gitFreeEnv(), encoding: "utf8", stdio: "pipe" });
+  // "i/lf    w/crlf  attr/text=auto eol=lf \t<path>"
+  return out
+    .split("\0")
+    .filter(Boolean)
+    .flatMap((entry) => {
+      const tab = entry.indexOf("\t");
+      const [index, tree] = entry.slice(0, tab).split(/\s+/);
+      return index === "i/lf" && (tree === "w/crlf" || tree === "w/mixed") ? [entry.slice(tab + 1)] : [];
+    });
 }
 
 /** Every file under `dir`, "/"-separated, relative to it, sorted. */
@@ -225,6 +245,13 @@ export async function buildReleaseTree(o: TreeOptions): Promise<ReleaseTree> {
   if (dirty.length && !o.allowDirty) {
     throw new Error(
       `${repoDir} has uncommitted or untracked files (${dirty.slice(0, 5).join(", ")}${dirty.length > 5 ? ", …" : ""}): a release tree is built from a commit. Commit or stash them, or give --allow-dirty to try it anyway`,
+    );
+  }
+  // Even with --allow-dirty: git status doesn't show these, so the build id wouldn't say .dirty.
+  const crlf = crlfCheckout(repoDir);
+  if (crlf.length) {
+    throw new Error(
+      `${repoDir} has files with CRLF line ends where git has LF (${crlf.slice(0, 5).join(", ")}${crlf.length > 5 ? ", …" : ""}), as git checks them out with core.autocrlf: a build reads the files as they are, so it wouldn’t be the commit’s. Clone it again with \`git -c core.autocrlf=false clone …\``,
     );
   }
 

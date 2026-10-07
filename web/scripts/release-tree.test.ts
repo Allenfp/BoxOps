@@ -15,7 +15,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildJsonText, makeBuildJson, parseBuildJson } from "../cli/release";
 import { cleanUp, readOutputs, tempDir } from "../cli/test-release";
 import { LIMITS, type SpdxDocument, bundledPackages, checkReleaseTree, sha256sums, treeHash } from "./check-release-tree";
-import { gitTree, releaseSbom, renderReadme } from "./release-tree";
+import { buildReleaseTree, crlfCheckout, gitTree, releaseSbom, renderReadme, uncommitted } from "./release-tree";
 
 afterEach(cleanUp);
 
@@ -427,6 +427,41 @@ function buildTwice(): Built {
   });
   return { work, commit: git(src, ["rev-parse", "HEAD"]), builds };
 }
+
+describe("the checkout a release tree is built from", () => {
+  it("has no file git turned to CRLF (core.autocrlf), which git status doesn't show: .gitattributes makes them LF", async () => {
+    const work = tempDir();
+    const src = join(work, "src");
+    const files = { "web/package.json": '{ "version": "0.1.0" }\n', "release/action.yml": "name: BoxOps\nruns:\n  using: node24\n", LICENSE: "MIT License\n" };
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(src, path)), { recursive: true });
+      writeFileSync(join(src, path), text);
+    }
+    git(work, ["init", "-q", "-b", "main", src]);
+    git(src, ["add", "-A"]);
+    git(src, ["commit", "-q", "-m", "LF, as git keeps them"]);
+    // As Git for Windows checks it out (core.autocrlf=true), and as git status then sees it: no change.
+    const clone = join(work, "crlf");
+    git(work, ["clone", "-q", "--config", "core.autocrlf=true", src, clone]);
+    expect(readFileSync(join(clone, "LICENSE"), "utf8")).toBe("MIT License\r\n");
+    expect(uncommitted(clone)).toEqual([]);
+    expect(crlfCheckout(clone)).toEqual(["LICENSE", "release/action.yml", "web/package.json"]);
+    await expect(buildReleaseTree({ out: join(work, "out"), webDir: join(clone, "web"), allowDirty: true, sbom: false, log: () => {} })).rejects.toThrow(
+      `${clone} has files with CRLF line ends where git has LF (LICENSE, release/action.yml, web/package.json), as git checks them out with core.autocrlf: a build reads the files as they are, so it wouldn’t be the commit’s. Clone it again with \`git -c core.autocrlf=false clone …\``,
+    );
+    expect(existsSync(join(work, "out"))).toBe(false);
+    // With this repository's .gitattributes, the same clone has them as git does.
+    copyFileSync(join(REPO, ".gitattributes"), join(src, ".gitattributes"));
+    git(src, ["add", "-A"]);
+    git(src, ["commit", "-q", "-m", "Line ends LF on checkout"]);
+    const fresh = join(work, "fresh");
+    git(work, ["clone", "-q", "--config", "core.autocrlf=true", src, fresh]);
+    expect(readFileSync(join(fresh, "LICENSE"), "utf8")).toBe("MIT License\n");
+    expect(crlfCheckout(fresh)).toEqual([]);
+    // As is this checkout.
+    expect(crlfCheckout(REPO)).toEqual([]);
+  });
+});
 
 describe("a release tree built from one commit", () => {
   let built: Built;

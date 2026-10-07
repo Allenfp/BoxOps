@@ -1,0 +1,6 @@
+# Every text file is checked out with LF line ends, whatever core.autocrlf
+# says (Git for Windows sets it true): a release is built from the files as
+# they are on disk, and anyone can rebuild one to compare
+# (docs/security.md, "Build it yourself").
+* text=auto eol=lf
+*.png binary

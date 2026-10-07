@@ -128,10 +128,12 @@ git ls-remote https://github.com/Allenfp/BoxOps.git refs/tags/v0.1.0
 so anyone can rebuild a release and compare. The commit of `main` a release
 was built from is its `BUILD.json`'s `source` (and the `Source-Commit:` line
 of the release commit's message). With git, and the Node.js that commit's
-`.nvmrc` names:
+`.nvmrc` names (`core.autocrlf=false`: a checkout with CRLF line ends, as
+Git for Windows makes by default, builds other bytes, and
+`npm run release:build` refuses one):
 
 ```sh
-git clone -q https://github.com/Allenfp/BoxOps.git boxops-source && cd boxops-source
+git -c core.autocrlf=false clone -q https://github.com/Allenfp/BoxOps.git boxops-source && cd boxops-source
 git checkout -q <source commit> && cd web
 npm ci --ignore-scripts && npm run release:build -- --version 0.1.0
 cat ../build/TREE
