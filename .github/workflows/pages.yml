@@ -1,4 +1,4 @@
-# Builds the roadmap app (with roadmap/ baked in) and publishes it to GitHub Pages.
+# Builds the roadmap app, adds roadmap/ as its roadmap.json, and publishes it to GitHub Pages.
 # The unit and browser tests are skipped only when nothing outside roadmap/ has
 # changed since the commit the live site was built from, so saves from the app
 # go live quickly and app code never goes live untested, even when its own run
@@ -123,6 +123,13 @@ jobs:
         if: steps.changes.outputs.app == 'true'
         run: npm test
       - run: npm run build
+      - run: npm run build:cli
+      # The app's build holds no roadmap: the site is that app plus a
+      # roadmap.json the command-line tool makes from roadmap/ at this commit
+      # (from git objects; visibility from the event), as the BoxOps action
+      # will once the demo has its own repository (see cutover/).
+      - name: Assemble the site (the app, and roadmap.json from roadmap/)
+        run: node dist/boxops.mjs build --out "$RUNNER_TEMP/site"
 
       # No browser cache: the WebKit download is a few seconds of this step,
       # and a cache keyed only on runner.os restores the wrong Ubuntu's build.
@@ -147,7 +154,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: web/dist
+          path: ${{ runner.temp }}/site
 
   deploy:
     needs: build

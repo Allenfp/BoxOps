@@ -5,7 +5,8 @@ import { extname } from "node:path";
 import { gzipSync } from "node:zlib";
 import { type Browser, type Page, expect, test } from "@playwright/test";
 import { assembleBundle, hashFolder } from "../cli/site";
-import { type AppInfo, type BundleSource, readBundle } from "../src/model/bundle";
+import type { AppInfo, BundleSource } from "../src/model/bundle";
+import { builtApp } from "./fake-github";
 import { generateRoadmap } from "../scripts/gen-roadmap";
 import { PX_PER_DAY } from "../src/timeline/scale";
 import { LAZY_OPTIONS_ABOVE } from "../src/components/LazySelect";
@@ -59,10 +60,10 @@ const RUNS = 3;
 /** Boxes drawn when the timeline shows, at 1440 × 900: about 70 near the screen, at 500 boxes or 2,000. */
 const MAX_DRAWN = 200;
 
-const DIST = new URL("../dist/", import.meta.url);
+const DIST = new URL("../dist/app/", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, DIST), "utf8");
 /** The app as built, so the bundle's parsed files carry the page's own build id. */
-const APP: AppInfo = readBundle(JSON.parse(read("roadmap.json"))).app;
+const APP: AppInfo = builtApp() ?? { version: "", build: "", time: "" };
 /** index.html's script: the app's main file. */
 const MAIN = /<script type="module" crossorigin src="\.\/assets\/([^"]+\.js)"/.exec(read("index.html"))?.[1] ?? "";
 /** The app's files that hold the yaml library (by a class name it keeps in a string). */

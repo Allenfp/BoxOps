@@ -13,8 +13,9 @@ const DEV_ROADMAP = process.env.BOXOPS_ROADMAP
   ? resolve(process.env.INIT_CWD ?? process.cwd(), process.env.BOXOPS_ROADMAP)
   : resolve(REPO_DIR, "roadmap");
 /**
- * The build id and time, in roadmap.json and in index.html. The id is also
- * defined for the app; the time isn't, as it changes with every commit while
+ * The build id and time, in index.html (and the dev server's roadmap.json;
+ * a site's comes from the command-line tool, built with the same id). The id
+ * is also defined for the app; the time isn't, as it changes with every commit while
  * the id changes only with the app's code: the JavaScript then stays the same
  * from one roadmap save's deploy to the next, so a tab left open can still
  * fetch the parts of the app it loads later.
@@ -22,13 +23,13 @@ const DEV_ROADMAP = process.env.BOXOPS_ROADMAP
 const APP = appInfo(WEB_DIR, REPO_DIR);
 
 /**
- * Serves the roadmap as `roadmap.json` (cli/site.ts; the fields are in
- * src/model/bundle.ts).
- * Build: read from git objects at HEAD (or GITHUB_SHA in Actions) and emitted
- * next to index.html, so Pages viewers need no GitHub API calls. A local
- * build whose roadmap/ has uncommitted changes uses the files on disk and is
- * marked local.
- * Dev: the files on disk, re-read on every request and always marked local;
+ * The roadmap and the build id around the app.
+ * Build: index.html names the build (<meta name="boxops-build"> and
+ * "boxops-build-time"); no roadmap is read. A site's roadmap.json is written
+ * next to the app by the action, or by `node dist/boxops.mjs build` (cli/),
+ * so one build of the app serves every roadmap.
+ * Dev: `roadmap.json` (cli/site.ts; the fields are in src/model/bundle.ts)
+ * from the files on disk, re-read on every request and always marked local;
  * YAML edits reload the page.
  */
 function roadmapData(): Plugin {
@@ -64,10 +65,6 @@ function roadmapData(): Plugin {
         );
       });
     },
-    async generateBundle() {
-      const bundle = await buildBundle({ repoDir: REPO_DIR, app: APP, warn: (message) => this.warn(message) });
-      this.emitFile({ type: "asset", fileName: "roadmap.json", source: JSON.stringify(bundle) });
-    },
     transformIndexHtml: () => [
       { tag: "meta", attrs: { name: "boxops-build", content: APP.build }, injectTo: "head" },
       { tag: "meta", attrs: { name: "boxops-build-time", content: APP.time }, injectTo: "head" },
@@ -87,6 +84,12 @@ function contentSecurityPolicy(): Plugin {
 export default defineConfig({
   // Relative asset paths so the site works under https://<user>.github.io/BoxOps/.
   base: "./",
+  build: {
+    // dist/app, as in a release (dist/ also gets the command-line tool: vite.cli.config.ts).
+    outDir: "dist/app",
+    // The licences of what the app bundles (React, yaml), shipped with it.
+    license: { fileName: "licenses.txt" },
+  },
   define: { __BOXOPS_BUILD__: JSON.stringify(APP.build) },
   plugins: [react(), roadmapData(), contentSecurityPolicy()],
   test: {

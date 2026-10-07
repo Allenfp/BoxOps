@@ -1,7 +1,8 @@
 # Checks pull requests and every branch except main (which pages.yml checks
 # before deploying): lint, types, unit tests (also in two far-apart time zones),
-# roadmap validation, a production build, the browser tests (WebKit, then
-# Chromium and Firefox) and the performance checks.
+# roadmap validation, a production build, the command-line tool on the
+# starter's files, the browser tests (WebKit, then Chromium and Firefox) and
+# the performance checks.
 name: CI
 
 on:
@@ -58,6 +59,15 @@ jobs:
         run: npm test
       - run: npm run validate
       - run: npm run build
+      # The command-line tool and action (dist/boxops.mjs), run as a roadmap
+      # repository would: on the starter's files, then writing the demo's site.
+      - run: npm run build:cli
+      - name: The tool on the starter, and the demo's site
+        run: |
+          node dist/boxops.mjs validate --root ../starter
+          node dist/boxops.mjs sync --check --root ../starter
+          node dist/boxops.mjs migrate --check --root ../starter
+          node dist/boxops.mjs build --out "$RUNNER_TEMP/site"
 
       # No browser cache: the downloads are a few seconds of this step, and a
       # cache keyed only on runner.os restores the wrong Ubuntu's build.

@@ -25,7 +25,7 @@ import type { Page } from "@playwright/test";
 import { readRoadmapDir } from "../cli/git";
 import { appInfo, assembleBundle, hashFolder } from "../cli/site";
 import { type GitFileMode, gitBlobSha, gitTreeSha } from "../src/github/git-objects";
-import { type AppInfo, type Bundle, readBundle } from "../src/model/bundle";
+import type { AppInfo, Bundle } from "../src/model/bundle";
 
 export const REPO = "acme/roadmap";
 export const BRANCH = "main";
@@ -100,18 +100,24 @@ export type FakeReply =
 const FIXTURE = fileURLToPath(new URL("./fixtures/roadmap", import.meta.url));
 /**
  * The app under test, as the build saw it (same build id as the JS): from the
- * built site's roadmap.json, since a commit after `npm run build` changes what
- * git says (and every test would then see a newer BoxOps). Without a build
- * (unit tests may run first), git's answer.
+ * built index.html's <meta name="boxops-build"> and "boxops-build-time", since
+ * a commit after `npm run build` changes what git says (and every test would
+ * then see a newer BoxOps). Without a build (unit tests may run first), git's
+ * answer.
  */
 const APP = builtApp() ?? appInfo(fileURLToPath(new URL("..", import.meta.url)));
 
-function builtApp(): AppInfo | null {
+/** The app in dist/app, as its index.html names it; null if there's no build. */
+export function builtApp(): AppInfo | null {
+  let html: string;
   try {
-    return readBundle(JSON.parse(readFileSync(new URL("../dist/roadmap.json", import.meta.url), "utf8"))).app;
+    html = readFileSync(new URL("../dist/app/index.html", import.meta.url), "utf8");
   } catch {
     return null;
   }
+  const meta = (name: string) => new RegExp(`<meta name="${name}" content="([^"]*)"`).exec(html)?.[1];
+  const build = meta("boxops-build");
+  return build ? { version: build.split("+")[0], build, time: meta("boxops-build-time") ?? "" } : null;
 }
 const utf8 = new TextEncoder();
 const strictUtf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });

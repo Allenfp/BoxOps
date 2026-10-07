@@ -17,5 +17,5 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "types": ["node"]
   },
-  "include": ["cli", "scripts", "e2e", "src/**/*.test.ts", "src/**/*.test.tsx", "src/globals.d.ts", "vite.config.ts", "playwright.config.ts", "playwright.perf.config.ts"]
+  "include": ["cli", "scripts", "e2e", "src/**/*.test.ts", "src/**/*.test.tsx", "src/globals.d.ts", "vite.config.ts", "vite.cli.config.ts", "playwright.config.ts", "playwright.perf.config.ts"]
 }

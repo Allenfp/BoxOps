@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:cli": "vite build -c vite.cli.config.ts",
     "preview": "vite preview",
     "lint": "oxlint --deny-warnings",
     "typecheck": "tsc -b",
