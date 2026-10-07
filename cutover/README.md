@@ -132,10 +132,10 @@ On a branch, merged by pull request:
      "the cutover's `ci.yml`", now just `ci.yml`), "before the cutover" in
      "One-off settings", and "(before the cutover, the demo)" in the release
      pull request's step.
-   - `docs/decisions.md`: rows for the starter and the prebuilt action, the
-     demo's repository and versioning; the app-build row's last sentence
-     (how `pages.yml` writes this repository's site) and the default-branch
-     row's "once the cutover has CI run there".
+   - `docs/decisions.md`: the demo's row (the demo has moved, and nothing
+     is staged), the app-build row's last sentence (how `pages.yml` writes
+     this repository's site) and the default-branch row's "once the cutover
+     has CI run there".
 
    Then `git grep -n -i cutover` lists what's left to reword: nothing may
    send a reader to `cutover/`, or speak of the cutover as still to come.
