@@ -1130,18 +1130,19 @@ and a random id): npm's SBOM of every package installed, cut down to the
 production packages `npm ls --omit dev` lists, and BoxOps' own package at
 the release's version. (`npm sbom --omit dev` alone leaves out `yaml`, which
 vite, a dev dependency, names as an optional peer.) Two builds of one commit
-are the same, byte for byte. `npm run check:release-tree` (`scripts/check-release-tree.ts`)
-checks a tree: only a release's files, none hidden, executable, a symlink,
-source, `node_modules`, a workflow or a source map; each in `BUILD.json`
-with its SHA-256, and no other; `action.yml` running `dist/action.mjs` on
-node24 and using no other action; one build id in `BUILD.json`,
-`index.html`, the app's JavaScript, the tool and `README.md`; the files
-`index.html` names; the licences of every package the tool bundles (its
-`//#region node_modules/…` comments) and the app depends on, and the icons';
-sizes (a file 1 MiB at most, 3 MiB and 200 files in all); and `TREE` and
-`SHA256SUMS`, with git's tree id computed without git, and the SBOM: this
-release's, naming exactly the packages the licence files name, each at its
-version. Releasing it is [docs/releasing.md](releasing.md)'s.
+are the same, byte for byte. `npm run check:release-tree`
+(`scripts/check-release-tree.ts`) checks a tree: only a release's files,
+none hidden, executable, a symlink, source, `node_modules`, a workflow or a
+source map; each in `BUILD.json` with its SHA-256, and no other;
+`action.yml` running `dist/action.mjs` on node24 and using no other action;
+one build id in `BUILD.json`, `index.html`, the app's JavaScript, the tool
+and `README.md`; the files `index.html` names; the licences of every package
+the tool bundles (its `//#region node_modules/…` comments, which an
+unminified tool has, `yaml`'s among them) and the app depends on, and the
+icons'; sizes (a file 1 MiB at most, 3 MiB and 200 files in all); and `TREE`
+and `SHA256SUMS`, with git's tree id computed without git, and the SBOM:
+this release's, naming exactly the packages the licence files name, each at
+its version. Releasing it is [docs/releasing.md](releasing.md)'s.
 
 **Commands** (`node dist/boxops.mjs <command>` here; in a roadmap repository
 `node .boxops/boxops.mjs <command>`, the launcher, which runs the release its

@@ -261,6 +261,24 @@ describe("the release tree's checks", () => {
     expect(bundledPackages("//#region node_modules/yaml/dist/a.js\n//#region node_modules/yaml/dist/b.js\n//#region node_modules/@a/b/c.js\n//#region src/x.ts\n")).toEqual(["@a/b", "yaml"]);
   });
 
+  it("find a tool whose packages can't be told (minified, no region comments), or without yaml; a nested package is its own", async () => {
+    const dir = goodTree();
+    writeFileSync(join(dir, "dist/boxops.mjs"), `const RELEASE={"build":"${BUILD}"};var yaml=1;\n`);
+    rehash(dir);
+    expect(await problems(dir)).toEqual([
+      "dist/boxops.mjs: no `//#region node_modules/…` comments, so what it bundles, and their licences, can’t be checked: it must stay unminified (vite.cli.config.ts’s minify: false)",
+    ]);
+    writeFileSync(join(dir, "dist/boxops.mjs"), `//#region node_modules/other/index.js\nvar other = 1;\n//#endregion\nconst RELEASE = { "build": "${BUILD}" };\n`);
+    rehash(dir);
+    expect(await problems(dir)).toEqual([
+      "dist/boxops.mjs: no `//#region node_modules/yaml/…` comment: the tool always bundles yaml",
+      "THIRD_PARTY_LICENSES.txt: doesn’t name other, which dist/boxops.mjs bundles",
+    ]);
+    // The package of a file's last node_modules/: b, in a's; and a path Rolldown gives from another folder.
+    const nested = "//#region node_modules/a/node_modules/b/x.js\n//#region node_modules/a/node_modules/@s/p/y.js\n//#region ../node_modules/yaml/dist/z.js\n";
+    expect(bundledPackages(nested)).toEqual(["@s/p", "b", "yaml"]);
+  });
+
   it("find a missing file, a file over the size limit, and too many", async () => {
     const dir = goodTree();
     unlinkSync(join(dir, "LICENSE"));

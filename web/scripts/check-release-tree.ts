@@ -17,7 +17,8 @@
 //     the app's JavaScript's and the tool's are one; the files index.html
 //     names are there; its Content-Security-Policy is.
 //   - The licences: THIRD_PARTY_LICENSES.txt names every package
-//     dist/boxops.mjs bundles (its `//#region node_modules/…` comments), and
+//     dist/boxops.mjs bundles (its `//#region node_modules/…` comments, which
+//     must be there, yaml's among them: it's unminified), and
 //     dist/app/licenses.txt every package web/package.json depends on, and
 //     the icons.
 //   - Sizes within limits (LIMITS).
@@ -93,11 +94,19 @@ export async function treeHash(dir: string, files: string[]): Promise<string> {
   return gitTreeSha(listed);
 }
 
-/** The packages a bundle's `//#region node_modules/<name>/…` comments name (Rolldown writes them, unminified). */
+/**
+ * The packages a bundle's `//#region …node_modules/<name>/…` comments name
+ * (Rolldown writes them, unminified): the package of each file's last
+ * node_modules/, so one nested in another's (node_modules/a/node_modules/b/)
+ * is b.
+ */
 export function bundledPackages(code: string): string[] {
-  const names = [...code.matchAll(/^\/\/#region node_modules\/((?:@[^/\s]+\/)?[^/\s]+)\//gm)].map((m) => m[1]);
+  const names = [...code.matchAll(/^\/\/#region (?:\S*\/)?node_modules\/((?:@[^/\s]+\/)?[^/\s]+)\//gm)].map((m) => m[1]);
   return [...new Set(names)].sort();
 }
+
+/** What dist/boxops.mjs always bundles: yaml, the parser it reads every roadmap with. */
+export const TOOL_BUNDLES = ["yaml"];
 
 /** The packages a Vite licence list names (its "## <name> - <version>" headings). */
 export const licensed = (text: string) => [...text.matchAll(/^## ((?:@[^/\s]+\/)?[^\s]+) - \S+/gm)].map((m) => m[1]);
@@ -241,12 +250,17 @@ export async function checkReleaseTree(dir: string, o: { beside?: string; webDir
     if (!read("README.md").includes(`build \`${build.build}\``)) problems.push(`README.md: doesn’t name build ${build.build}`);
   }
 
-  // Licences.
+  // Licences. The tool is unminified (vite.cli.config.ts), so its `//#region node_modules/…` comments name
+  // what it bundles: without any, a minified tool or another bundler's comments, there'd be nothing to check.
   const third = read("THIRD_PARTY_LICENSES.txt");
   const cli = read("dist/boxops.mjs");
-  if (third && cli) {
-    const named = licensed(third);
-    for (const pkg of bundledPackages(cli)) if (!named.includes(pkg)) problems.push(`THIRD_PARTY_LICENSES.txt: doesn’t name ${pkg}, which dist/boxops.mjs bundles`);
+  if (cli) {
+    const bundled = bundledPackages(cli);
+    if (!bundled.length) {
+      problems.push("dist/boxops.mjs: no `//#region node_modules/…` comments, so what it bundles, and their licences, can’t be checked: it must stay unminified (vite.cli.config.ts’s minify: false)");
+    }
+    for (const pkg of TOOL_BUNDLES) if (bundled.length && !bundled.includes(pkg)) problems.push(`dist/boxops.mjs: no \`//#region node_modules/${pkg}/…\` comment: the tool always bundles ${pkg}`);
+    if (third) for (const pkg of bundled) if (!licensed(third).includes(pkg)) problems.push(`THIRD_PARTY_LICENSES.txt: doesn’t name ${pkg}, which dist/boxops.mjs bundles`);
   }
   const appLicences = read("dist/app/licenses.txt");
   const webDir = o.webDir ?? fileURLToPath(new URL("..", import.meta.url));
