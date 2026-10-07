@@ -1,7 +1,7 @@
 // The commands that ask GitHub (doctor, upgrade, init) and preview, against a
-// fake GitHub (a `fetch` that answers from a table), and the launcher.
+// fake GitHub (a `fetch` that answers from a table). The launcher has its own
+// tests (launcher.test.ts).
 
-import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { join } from "node:path";
@@ -13,7 +13,6 @@ import { starterFiles } from "./embedded";
 import { ensureApp, startPreview } from "./preview";
 import { fetchRelease } from "./upgrade";
 import { buildJsonText, type Identity, makeBuildJson, openRelease, verifiedApp } from "./release";
-import { launcherText } from "./sync";
 import { APP_FILES, ID, capture, cleanUp, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
 
@@ -386,56 +385,5 @@ describe("preview", () => {
     );
     expect(gh.calls).toEqual([`https://raw.githubusercontent.com/Allenfp/BoxOps/${B}/BUILD.json`]);
     expect(readdirSync(cliDir)).toEqual(["boxops.mjs"]);
-  });
-});
-
-describe("the launcher (starter/.boxops/boxops.mjs)", () => {
-  /** A roadmap repository with the launcher, this deploy.yml, and a stand-in tool that prints what it was given. */
-  function launcherRepo(deploy: string | null): { root: string; cli: string } {
-    const root = tempDir();
-    mkdirSync(join(root, ".boxops"));
-    writeFileSync(join(root, ".boxops", "boxops.mjs"), launcherText());
-    if (deploy !== null) {
-      mkdirSync(join(root, ".github", "workflows"), { recursive: true });
-      writeFileSync(join(root, ".github", "workflows", "deploy.yml"), deploy);
-    }
-    const cli = join(tempDir(), "boxops.mjs");
-    writeFileSync(cli, "export async function main(argv, ctx) { console.log(JSON.stringify({ argv, ctx })); return argv[0] === 'fail' ? 3 : 0; }\n");
-    return { root, cli };
-  }
-  const launch = (root: string, args: string[], env: Record<string, string>) => {
-    const r = spawnSync(process.execPath, [join(root, ".boxops", "boxops.mjs"), ...args], { encoding: "utf8", env: { PATH: process.env.PATH ?? "", HOME: tempDir(), ...env } });
-    return { code: r.status, stdout: r.stdout.trim(), stderr: r.stderr.trim() };
-  };
-
-  it("finds the pin by the repository's name, CRLF, mirrors and Path B included, and passes main the contract", () => {
-    const cases: [string, string, string | undefined][] = [
-      [`jobs:\r\n  build:\r\n    steps:\r\n      - id: boxops\r\n        uses: Allenfp/BoxOps@${A} # v0.1.0\r\n`, "Allenfp/BoxOps", "v0.1.0"],
-      [`      - uses: "acme/boxops-mirror@${A}" # v0.1.0 (mirror)\n`, "acme/boxops-mirror", "v0.1.0"],
-      [`    env:\n      BOXOPS_ACTION: Allenfp/BoxOps@${A}\n`, "Allenfp/BoxOps", undefined],
-    ];
-    for (const [deploy, repo, tag] of cases) {
-      const { root, cli } = launcherRepo(`      - uses: actions/checkout@${B} # v7.0.1\n${deploy}`);
-      const r = launch(root, ["version", "--x"], { BOXOPS_CLI: cli });
-      expect(r.code).toBe(0);
-      expect(JSON.parse(r.stdout)).toEqual({ argv: ["version", "--x"], ctx: { root: realpathSync(root), repo, sha: A, ...(tag && { tag }), launcher: 1 } });
-    }
-  });
-
-  it("passes the tool's exit code on, and says what's wrong without a pin or deploy.yml", () => {
-    const { root, cli } = launcherRepo(`uses: Allenfp/BoxOps@${A}\n`);
-    expect(launch(root, ["fail"], { BOXOPS_CLI: cli }).code).toBe(3);
-    const unpinned = launcherRepo("uses: Allenfp/BoxOps@v0.1.0\n");
-    expect(launch(unpinned.root, ["version"], { BOXOPS_CLI: unpinned.cli })).toMatchObject({
-      code: 2,
-      stderr: "boxops: no `uses: <owner>/<boxops repo>@<40-character commit SHA>` line in .github/workflows/deploy.yml",
-    });
-    const none = launcherRepo(null);
-    expect(launch(none.root, ["version"], { BOXOPS_CLI: none.cli })).toMatchObject({ code: 2, stderr: "boxops: no .github/workflows/deploy.yml in this repository, so no BoxOps release to run" });
-  });
-
-  it("refuses a cache inside the repository (before any download)", () => {
-    const { root } = launcherRepo(`uses: Allenfp/BoxOps@${A}\n`);
-    expect(launch(root, ["version"], { BOXOPS_CACHE: join(root, ".cache") })).toMatchObject({ code: 2, stderr: "boxops: BOXOPS_CACHE must be outside this repository" });
   });
 });

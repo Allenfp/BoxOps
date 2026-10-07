@@ -238,6 +238,8 @@ describe("sync, guide, version, help", () => {
       "boxops: AGENTS.md’s BoxOps block is 0; this BoxOps writes 1: run `node .boxops/boxops.mjs sync`",
       "boxops: the Pages guard in deploy.yml is 0; this BoxOps expects 1: run `node .boxops/boxops.mjs doctor`",
     ]);
+    // Not again when the launcher has said so (it checks against the release's BUILD.json).
+    expect(await run(["validate"], { cwd: repo.dir }, { root: repo.dir, launcher: 0, checked: true })).toMatchObject({ code: 0, stderr: "" });
   });
 
   it("guide prints a topic, or all of them; an unknown topic is a usage error", async () => {

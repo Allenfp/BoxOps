@@ -17,6 +17,13 @@ export interface LaunchContext {
   tag?: string;
   /** The launcher's own contract number. */
   launcher?: number;
+  /**
+   * The launcher has compared itself, AGENTS.md's BoxOps block and
+   * deploy.yml's Pages guard with this release's BUILD.json, and warned of
+   * any that differ, so the tool doesn't again (launcher 1 does whenever it
+   * has a BUILD.json: always, but for a BOXOPS_CLI that has none beside it).
+   */
+  checked?: boolean;
 }
 
 export interface Io {
