@@ -18,8 +18,20 @@ export function which(name: string): string | undefined {
     .find((file) => existsSync(file));
 }
 
-/** The shells commands are pasted into: bash, and zsh (macOS's own) where it's installed; with no startup files. */
-export const SHELLS: string[][] = [["bash", "--noprofile", "--norc"], ...(which("zsh") ? [["zsh", "-f"]] : [])];
+/**
+ * The shells commands are pasted into, with no startup files: bash, and zsh
+ * (macOS's own) where `find` finds it (on this PATH, by default). Where zsh
+ * must be there, with BOXOPS_TEST_ZSH=1 (CI's unit tests, which install it),
+ * a missing one is an error, not its cases left out without a word.
+ */
+export function shells(find: (name: string) => string | undefined = which, env: NodeJS.ProcessEnv = process.env): string[][] {
+  const zsh = find("zsh");
+  if (!zsh && env.BOXOPS_TEST_ZSH === "1") throw new Error("BOXOPS_TEST_ZSH=1, but zsh isn’t installed: the commands printed for pasting would go untried in it");
+  return [["bash", "--noprofile", "--norc"], ...(zsh ? [["zsh", "-f"]] : [])];
+}
+
+/** The shells commands are pasted into here (shells()). */
+export const SHELLS: string[][] = shells();
 
 /**
  * Stand-ins, in a folder to put first on PATH, for what printed commands run

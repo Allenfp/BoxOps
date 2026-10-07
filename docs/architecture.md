@@ -1355,13 +1355,14 @@ a release must have none of.
   and its links to BoxOps' docs (pages git tracks, but those still to
   write), the commands `publish-starter` prints to publish it and those
   `init` prints to start a repository (pasted into bash, and zsh where it's
-  installed, without `-e`: from another folder they do so, against stand-ins
-  for GitHub's repositories and `gh`, and after a failed clone or `cd` they
-  change nothing where they were pasted; `publish-starter`'s commit as the
-  maintainer's GitHub no-reply address, whatever git's global identity, and
-  push nothing made as another), Path B's workflows (the starter's
-  but for one step, which the README shows, and setup-node told to read
-  nothing in the workspace) and that step run with bash against a stand-in
+  installed, as CI has it, without `-e`: from another folder they do so,
+  against stand-ins for GitHub's repositories and `gh`, and after a failed
+  clone or `cd` they change nothing where they were pasted;
+  `publish-starter`'s commit as the maintainer's GitHub no-reply address,
+  whatever git's global identity, and push nothing made as another), Path
+  B's workflows (the starter's but for one step, which the README shows, and
+  setup-node told to read nothing in the workspace) and that step run with
+  bash against a stand-in
   for github.com, a hostile workspace (its files, a `git` of its own that
   relative folders on PATH would find, git configuration and `GIT_*`
   variables try to run code: sentinel files stay unwritten, git, from PATH's
@@ -1518,11 +1519,13 @@ a release must have none of.
   requests from forks run it again), by hand, weekly, and for a release
   (`release.yml` calls it). Its jobs, which run no package's install
   script (`npm ci --ignore-scripts`): **test**, lint, the type check, the
-  unit tests (again with `TZ=America/Los_Angeles` and with
-  `TZ=Pacific/Kiritimati`, UTC−8/−7 and UTC+14, so nothing depends on the
-  runner's time zone), the changelog's form, the docs' links (every
-  relative link and anchor in the Markdown git tracks, as GitHub resolves
-  them: `scripts/check-doc-links.mjs`) and validation; **release
+  unit tests (with zsh installed, which they paste commands into as well as
+  bash: `BOXOPS_TEST_ZSH=1` has them fail without it; again with
+  `TZ=America/Los_Angeles` and with `TZ=Pacific/Kiritimati`, UTC−8/−7 and
+  UTC+14, so nothing depends on the runner's time zone), the changelog's
+  form, the docs' links (every relative link and anchor in the Markdown git
+  tracks, as GitHub resolves them: `scripts/check-doc-links.mjs`) and
+  validation; **release
   tree**, `npm run release:build` (the version `release.yml` gives, else
   `web/package.json`'s) and its check (the changelog's numbers too: a
   release's own section's, which must be the top one), the release's tool

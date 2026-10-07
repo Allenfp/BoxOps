@@ -64,11 +64,13 @@ firefox` for the browser tests):
 `npm test` also runs git, bash, `jq`, `rsync` and `sha256sum` (the release
 workflow's steps run as written), which macOS and GitHub's Ubuntu runners
 have (elsewhere, `jq` and `rsync` may need installing), and zsh where it's
-installed. It builds a release tree twice, in clones of this
-checkout's files (`scripts/release-tree.test.ts`): they must be the same,
-byte for byte. A test file whose tests start programs many times gives each
-30 seconds, not vitest's 5 (`vi.setConfig({ testTimeout: 30_000 })` at its
-top, saying why): their time grows with the machine's load.
+installed: CI's test job installs it, and its `BOXOPS_TEST_ZSH=1` makes the
+tests fail without it (`web/cli/test-shell.ts`). It builds a release tree
+twice, in clones of this checkout's files (`scripts/release-tree.test.ts`):
+they must be the same, byte for byte. A test file whose tests start
+programs many times gives each 30 seconds, not vitest's 5
+(`vi.setConfig({ testTimeout: 30_000 })` at its top, saying why): their
+time grows with the machine's load.
 
 Before `npm run e2e` or `npm run perf`, make sure nothing listens on port
 4173 (`lsof -nP -iTCP:4173 -sTCP:LISTEN`): outside CI, Playwright uses a

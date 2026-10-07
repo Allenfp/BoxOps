@@ -67,6 +67,11 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read # check out the repo
+    # The unit tests paste the commands BoxOps prints into zsh, macOS's shell,
+    # as well as bash (cli/test-shell.ts). It's installed below; this has the
+    # tests fail without it, rather than leave it untried.
+    env:
+      BOXOPS_TEST_ZSH: "1"
     defaults:
       run:
         working-directory: web
@@ -85,6 +90,11 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm run typecheck
+      # For the unit tests (BOXOPS_TEST_ZSH, above): GitHub's Ubuntu runners haven't zsh.
+      - name: Install zsh
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends zsh
       # They include a release tree built twice from one commit, in two
       # clones, which must be the same byte for byte, and CI's smoke scripts
       # run against it.

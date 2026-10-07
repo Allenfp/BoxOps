@@ -36,6 +36,7 @@ interface Job {
   needs?: string | string[];
   with?: Record<string, unknown>;
   outputs?: Record<string, string>;
+  env?: Record<string, string>;
 }
 interface Workflow {
   on: Record<string, unknown>;
@@ -130,6 +131,20 @@ describe("Dependabot's pull requests", () => {
     const folders = [...new Set(FILES.map((p) => p.slice(0, p.lastIndexOf("/"))))].map((d) => (d === ".github/workflows" ? "/" : `/${d}`));
     expect([...(actions?.directories ?? [])].sort()).toEqual(folders.sort());
     expect(actions?.groups).toEqual({ "github-actions": { patterns: ["actions/*"] } });
+  });
+});
+
+describe("CI's unit tests", () => {
+  it("paste printed commands into zsh as well as bash: the test job installs it first, and has them fail without it", () => {
+    const test = workflow(".github/workflows/ci.yml").jobs.test;
+    const steps = test.steps ?? [];
+    // GitHub's Ubuntu runners haven't zsh; cli/test-shell.ts would leave it out without a word.
+    const install = steps.findIndex((s) => /apt-get install .*\bzsh$/m.test(s.run ?? ""));
+    const tests = steps.flatMap((s, i) => (s.run === "npm test" ? [i] : []));
+    expect(tests).toHaveLength(3);
+    expect(install).toBeGreaterThan(-1);
+    expect(install).toBeLessThan(Math.min(...tests));
+    expect(test.env).toEqual({ BOXOPS_TEST_ZSH: "1" });
   });
 });
 
