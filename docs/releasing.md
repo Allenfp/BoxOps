@@ -405,8 +405,8 @@ something (`web/scripts/check-changelog.mjs` checks the form; CI runs it):
    of. In the patch, also add the latest minor's fixed tag to
    `FIXES_INCLUDED` in `web/cli/notices.ts`, which tells a deploy the same
    when its lookup gives no dates (a workflow edited by hand, say) or the
-   patch went out first. Every later patch of that minor carries those
-   fixes too, and keeps the list: by its date, it's taken to.
+   patch went out first. Every later patch of that minor must carry those
+   fixes too, and keep the list: by its date, a deploy takes it to.
 
 Roadmap repositories learn of it four ways: every deploy's annotations, the
 banner in their app, Dependabot's pull request (after its 3-day cooldown),

@@ -87,10 +87,9 @@ upgraded. Upgrade straight away: merge Dependabot's pull request, or run
 `node .boxops/boxops.mjs upgrade` and push the result. When the warning names
 a patch of the minor release you run (`upgrade v0.1.2`, say), take that one:
 the newer minor Dependabot's pull request moves to may need a migration, and
-the patch doesn't. A release titled
-"Withdrawn: …" shouldn't be used: a deploy running one says so, none
-offers one, `upgrade` won't move to one, and a Dependabot pull request
-proposing one shouldn't be merged.
+the patch doesn't. A release titled "Withdrawn: …" shouldn't be used: a
+deploy running one says so, none offers one, `upgrade` won't move to one,
+and a Dependabot pull request proposing one shouldn't be merged.
 
 ## Going back
 
