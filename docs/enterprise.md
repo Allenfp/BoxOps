@@ -185,14 +185,18 @@ list**), or Enterprise Managed Users with a Conditional Access policy on
 Entra ID, GitHub refuses every token, the workflows' `GITHUB_TOKEN`
 included, from an address not on the list:
 
-- **Runners.** GitHub's standard hosted runners can't be allow-listed:
-  `actions/checkout` can't fetch the repository, and the deploy's "Check the
-  GitHub Pages settings" step fails with "Couldn't read the Pages settings
-  (HTTP 403)". Use larger runners with static IP address ranges, or Azure
-  private networking (both always billed, even within included minutes), or
-  [self-hosted runners](#self-hosted-runners); add their addresses to the
-  list; and set `runs-on` to them in every job: `build`, `deploy` and
-  `problems` in `deploy.yml`, `check` in `check.yml`.
+- **Runners.** GitHub's standard hosted runners can't be allow-listed, so
+  on them the deploy fails at its first step: `actions/checkout`, in
+  **Check and assemble**, can't fetch the repository ("… has an IP allow
+  list enabled, and your IP address is not permitted to access this
+  resource"), and nothing after it runs. Use larger runners with static IP
+  address ranges, or Azure private networking (both always billed, even
+  within included minutes), or [self-hosted runners](#self-hosted-runners);
+  add their addresses to the list; and set `runs-on` to them in every job:
+  `build`, `deploy` and `problems` in `deploy.yml`, `check` in `check.yml`.
+  A job left on a standard runner still fails: **Publish**, say, at "Check
+  the GitHub Pages settings", with "Couldn't read the Pages settings (HTTP
+  403)".
 - **Browsers.** The app sends an editor's token from their browser, to save
   and to check for newer saves, so editors work from allowed networks: the
   office, or a VPN. The app says "only allows GitHub access from approved

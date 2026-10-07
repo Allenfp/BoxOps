@@ -199,12 +199,15 @@ Only if Settings → Authentication security → **IP allow list** is enabled
 checks addresses):
 
 - GitHub's standard hosted runners can't reach the organization's
-  repositories, so the workflows fail: `actions/checkout` can't fetch the
-  repository, and "Check the GitHub Pages settings" gets HTTP 403. Use
-  larger runners with static IP address ranges (always billed, even within
-  your included minutes) or self-hosted runners, add their addresses to the
-  allow list, and change `runs-on` in every job of both workflows:
-  [enterprise.md](enterprise.md).
+  repositories, so the workflows fail at their first step:
+  `actions/checkout` can't fetch the repository ("… has an IP allow list
+  enabled, and your IP address is not permitted to access this resource"),
+  and nothing after it runs. Use larger runners with static IP address
+  ranges (always billed, even within your included minutes) or self-hosted
+  runners, add their addresses to the allow list, and change `runs-on` in
+  every job of both workflows: [enterprise.md](enterprise.md#ip-allow-lists).
+  A job left on a standard runner still fails: **Publish**, say, at "Check
+  the GitHub Pages settings", with HTTP 403.
 - Every save, and the app's check for newer saves, sends the editor's token
   from their browser, so editors save from allowed networks only (the
   office, or a VPN).
@@ -514,7 +517,8 @@ Each deploy is a run of **Deploy roadmap** (Actions tab): its jobs are
 | "GitHub Pages isn't set up" | Pages has no source yet (a new repository). | [Step 2](#2-turn-on-pages-private-before-the-first-deploy-that-passes), then run it again. |
 | "Pages source isn't GitHub Actions" | Source is a branch. | Settings → Pages → Source: GitHub Actions. |
 | "Refusing to publish to a public site" | The repository isn't public, but its site is. | Settings → Pages → GitHub Pages visibility: Private. |
-| "Couldn't read the Pages settings (HTTP 403)" | An IP allow list keeps the runner out (or the job lost `pages: write`). | A runner with an allowed address: [enterprise.md](enterprise.md). |
+| **Check and assemble** fails at `actions/checkout`: "… has an IP allow list enabled, and your IP address is not permitted to access this resource" | GitHub's standard runners can't be on the organization's IP allow list. | Runners with allowed addresses, in every job of both workflows: [enterprise.md](enterprise.md#ip-allow-lists). |
+| "Couldn't read the Pages settings (HTTP 403)" | **Publish** runs where an IP allow list keeps it out, though **Check and assemble** didn't: `runs-on` was changed in some jobs, not all (or the job lost `pages: write`). | Every job on a runner with an allowed address: [enterprise.md](enterprise.md#ip-allow-lists). |
 | "The roadmap has N problem(s)" | Files with mistakes, made by hand. The site was published without the broken entries. | Fix the files the annotations on **Check and assemble** name, and push. |
 | "This roadmap is in data format N; BoxOps X reads format M" | An upgrade needs a migration, or the pin is older than the data. | [upgrading.md](upgrading.md). The site stays as it was. |
 | "roadmap/settings.yaml:N: … The data format can't be read until that's fixed" | A mistake in `settings.yaml` (a YAML syntax error, say) keeps its `format:` from being read. | Fix the line it names, and push. The site stays as it was. |
