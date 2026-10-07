@@ -24,6 +24,7 @@ check.)
 | `.github/workflows/ci.yml` | It runs on every pull request, from this repository's branches too (not only forks'), and on pushes to `main` alone: `pages.yml` no longer tests what it deploys, and the `main` ruleset's required checks are the pull request's own runs. It writes no site from `roadmap/`, and lints no workflows in `cutover/`. A run on `main` is never cancelled by a newer one: it may be the only test of what a merge made. |
 | `web/vite.config.ts` | `DEV_ROADMAP`, what `npm run dev` shows when `$BOXOPS_ROADMAP` isn't set, becomes the browser tests' roadmap, `web/e2e/fixtures/roadmap` (it's `../roadmap` now), and its doc comment with it. |
 | `web/scripts/roadmap-dir.ts` | The default folder of `npm run validate` and `npm run report` becomes `e2e/fixtures/roadmap` (it's `../roadmap` now), in its usage line and comment too. |
+| `web/scripts/workflows.test.ts` | It stops looking for workflows in `cutover/`, which the cutover commit deletes (it requires this folder's `pages.yml` until then), and its first comment and first test's name stop naming them. |
 
 `AGENTS.md`, `README.md` and `docs/` aren't staged: they change with the rest
 of the work until then, so the cutover commit makes their changes itself

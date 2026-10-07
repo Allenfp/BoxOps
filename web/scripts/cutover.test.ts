@@ -114,6 +114,17 @@ const STAGED: Record<string, [string, string][] | null> = {
     ["(default: ../roadmap)`", "(default: e2e/fixtures/roadmap)`"],
     ['resolve("../roadmap")', 'resolve("e2e/fixtures/roadmap")'],
   ],
+  "web/scripts/workflows.test.ts": [
+    [
+      "// The rules every workflow here keeps (this repository's, the starter's, Path\n" +
+        "// B's and the cutover's): no permissions but what each job asks for, a time\n",
+      "// The rules every workflow here keeps (this repository's, the starter's and\n" +
+        "// Path B's): no permissions but what each job asks for, a time\n",
+    ],
+    [' "templates/path-b", "cutover/.github/workflows"]', ' "templates/path-b"]'],
+    [`it("is found: this repository's, the starter's, Path B's and the cutover's"`, `it("is found: this repository's, the starter's and Path B's"`],
+    ['        "cutover/.github/workflows/pages.yml",\n', ""],
+  ],
 };
 
 /** Every file git tracks under cutover/ but its README (not a .DS_Store Finder left), by the path it replaces. */
