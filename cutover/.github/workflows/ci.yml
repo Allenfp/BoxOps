@@ -3,7 +3,7 @@
 # (main, and the latest release), and for a release (release.yml calls
 # it on the commit it releases, with the version). Its jobs:
 #   test          lint, types, unit tests (also in two far-apart time zones),
-#                 the changelog's form, npm run validate
+#                 the changelog's form, the docs' links, npm run validate
 #   release tree  the release tree (npm run release:build): the files a
 #                 release commit holds, built, checked and uploaded; every job
 #                 below tests those files, which a release ships byte for byte
@@ -102,6 +102,10 @@ jobs:
         run: npm test
       - name: The changelog's form (CHANGELOG.md, docs/releasing.md)
         run: node scripts/check-changelog.mjs
+      # Every relative link and anchor in the Markdown git tracks (README.md,
+      # AGENTS.md, docs/, starter/, templates/), as GitHub resolves them.
+      - name: The docs' links
+        run: node scripts/check-doc-links.mjs
       - run: npm run validate
 
   release-tree:

@@ -95,7 +95,9 @@ web/
                             to end, offline), release-tree.ts and
                             check-release-tree.ts (a release commit's
                             tree, built and checked), check-changelog.mjs
-                            (CHANGELOG.md's form), smoke/ (CI's smoke
+                            (CHANGELOG.md's form), check-doc-links.mjs
+                            (every Markdown file's relative links and
+                            anchors resolve), smoke/ (CI's smoke
                             runs of a release's action), cutover.test.ts
                             (what's staged in cutover/), workflows.test.ts
                             (the rules every workflow keeps)
@@ -1322,7 +1324,9 @@ a release must have none of.
   clone with its own copy of the dependencies: the two the same byte for
   byte, git's tree id the one computed without git, and CI's smoke scripts
   passing against it; its checks against a small tree made right and broken
-  every way they look for), the changelog's check, the licence files, and
+  every way they look for), the changelog's check, the docs' link check
+  (this repository's Markdown, and a small repository with a link of every
+  kind it reads, right and broken), the licence files, and
   the rules every workflow keeps (`scripts/workflows.test.ts`: no
   permissions but each job's own, a time limit on each, checkouts that keep
   no credentials, each action pinned to one commit with its version beside
@@ -1457,7 +1461,9 @@ a release must have none of.
   script (`npm ci --ignore-scripts`): **test**, lint, the type check, the
   unit tests (again with `TZ=America/Los_Angeles` and with
   `TZ=Pacific/Kiritimati`, UTC−8/−7 and UTC+14, so nothing depends on the
-  runner's time zone), the changelog's form and validation; **release
+  runner's time zone), the changelog's form, the docs' links (every
+  relative link and anchor in the Markdown git tracks, as GitHub resolves
+  them: `scripts/check-doc-links.mjs`) and validation; **release
   tree**, `npm run release:build` (the version `release.yml` gives, else
   `web/package.json`'s) and its check (the changelog's numbers too), the
   release's tool on `starter/`'s files and the sites it writes,

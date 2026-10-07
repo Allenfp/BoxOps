@@ -58,6 +58,7 @@ firefox` for the browser tests):
 | what a release holds or how it's built (`release/`, `scripts/release-tree.ts`, `scripts/check-release-tree.ts`, the Vite configs) | from a checkout with everything committed, `npm run release:build` and `npm run check:release-tree` (`--allow-dirty` builds an uncommitted one to try); then `BOXOPS_RELEASE_DIR=../build/release npm run e2e` and `npm run dry-run:starter` with it, as CI runs them |
 | a workflow (`.github/workflows/`, `starter/.github/workflows/`, `templates/path-b/`, `cutover/.github/workflows/`) or a smoke script (`scripts/smoke/`) | actionlint, with shellcheck installed (CI's `workflows` job runs both, and shellcheck on the smoke scripts; `.github/actionlint.yaml` names runners it doesn't know yet) |
 | `CHANGELOG.md` | `node scripts/check-changelog.mjs` |
+| any Markdown (`README.md`, `AGENTS.md`, `docs/`, `starter/`, `templates/`) | `node scripts/check-doc-links.mjs`: every relative link and anchor resolves, and each link's text is on one line (`npm test` runs it too) |
 | `roadmap/` | `npm run validate` |
 
 `npm test` also runs git, bash, `jq` and `rsync`, which macOS and GitHub's

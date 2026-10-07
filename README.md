@@ -186,21 +186,21 @@ npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out <folder>
 
 Every pull request, and every push to a branch other than `main` (docs-only
 too), runs CI: lint, type check, the unit tests (also in two time zones far
-apart), the changelog's form and validation; then the release tree, built
-and checked as a release would ship it, and tested as built: its tool on the
-starter's files, the starter end to end, the browser tests on its app (in
-WebKit, then Chromium and Firefox), the performance checks, and its action
-on three runners (Ubuntu 24.04, its Arm build, and 26.04: the starter's
-files made hostile, bad repositories, no network); and it lints the
-workflows with actionlint and shellcheck: this repository's, the starter's,
-Path B's and the cutover's. It runs weekly too, on `main` and the latest
-release. On `main`, the deploy lints, type-checks, validates, runs the
-unit tests and builds (the app, then the site with the command-line tool:
-the app plus `roadmap/` as its `roadmap.json`), and runs the browser tests
-in WebKit unless nothing outside `roadmap/` has changed since the version
-that is live. So a save from the app usually goes live within a minute (a
-few minutes if an app change is deploying at the same time), and anything
-else must pass the browser tests before it deploys.
+apart), the changelog's form, the docs' links and validation; then the
+release tree, built and checked as a release would ship it, and tested as
+built: its tool on the starter's files, the starter end to end, the browser
+tests on its app (in WebKit, then Chromium and Firefox), the performance
+checks, and its action on three runners (Ubuntu 24.04, its Arm build, and
+26.04: the starter's files made hostile, bad repositories, no network); and
+it lints the workflows with actionlint and shellcheck: this repository's,
+the starter's, Path B's and the cutover's. It runs weekly too, on `main` and
+the latest release. On `main`, the deploy lints, type-checks, validates,
+runs the unit tests and builds (the app, then the site with the command-line
+tool: the app plus `roadmap/` as its `roadmap.json`), and runs the browser
+tests in WebKit unless nothing outside `roadmap/` has changed since the
+version that is live. So a save from the app usually goes live within a
+minute (a few minutes if an app change is deploying at the same time), and
+anything else must pass the browser tests before it deploys.
 
 - [docs/architecture.md](docs/architecture.md): how loading, saving, conflicts,
   polling, layout, the command-line tool, the action and CI work.
