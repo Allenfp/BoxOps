@@ -1118,9 +1118,14 @@ organization that allows only GitHub's own actions: the BoxOps step becomes
 `BOXOPS_ACTION: <owner>/<repo>@<sha> # vX.Y.Z` line with git (from
 github.com, without a token) into the runner's temp folder, checks that's
 the commit it has, and runs its `dist/action.mjs`, the file `uses:` runs,
-with `--releases-file …` (`--mode check` in `check.yml`). The launcher,
-`doctor`, `upgrade` and the action's checks read a `BOXOPS_ACTION:` line as
-a pin; Dependabot can't move it. The starter's README shows the step.
+with `--releases-file …` (`--mode check` in `check.yml`). setup-node is
+told to leave the workspace alone, as the action does:
+`package-manager-cache: false` (by default it reads a `package.json` there
+and, if that names npm, its `.npmrc` and lock file, and keeps a cache), and
+`YARN_IGNORE_PATH=1` (it runs `yarn --version` there, which would run a
+`yarnPath` a `.yarnrc` or `.yarnrc.yml` names). The launcher, `doctor`,
+`upgrade` and the action's checks read a `BOXOPS_ACTION:` line as a pin;
+Dependabot can't move it. The starter's README shows the step.
 
 **The launcher** (`starter/.boxops/boxops.mjs`, `launcher: 1`) finds the pin
 in `deploy.yml` by the repository's name (the first `<owner>/<repo with

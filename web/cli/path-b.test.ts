@@ -71,6 +71,19 @@ describe("Path B's workflows", () => {
     });
   }
 
+  it("set up Node.js with nothing of the repository's read or run: no package.json, no yarnPath", () => {
+    // setup-node runs in the job that builds the site, in a workspace that anyone who can push
+    // roadmap/ can add files to. Left to its defaults, it reads the workspace's package.json (if
+    // that names npm: its .npmrc and lock file too, and it keeps a cache), and it runs
+    // `yarn --version` there, which runs any yarnPath a .yarnrc or .yarnrc.yml names.
+    for (const name of WORKFLOWS) {
+      const steps = Object.values((parse(pathB(name)) as Workflow).jobs).flatMap((j) => j.steps);
+      expect(steps.filter(isSetupNode), name).toEqual([
+        { uses: expect.stringMatching(/^actions\/setup-node@[0-9a-f]{40}$/), env: { YARN_IGNORE_PATH: "1" }, with: { "node-version": 24, "package-manager-cache": false } },
+      ]);
+    }
+  });
+
   it("pin the release on a BOXOPS_ACTION line the launcher, doctor and upgrade read, with the starter's permissions", () => {
     for (const name of WORKFLOWS) {
       expect(findPins(pathB(name))).toEqual([expect.objectContaining({ repo: "Allenfp/BoxOps", ref: "<RELEASE_COMMIT_SHA>", tag: "v0.1.0", pathB: true })]);

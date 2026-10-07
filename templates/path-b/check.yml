@@ -26,8 +26,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        env:
+          YARN_IGNORE_PATH: "1" # setup-node runs `yarn --version`: no yarnPath set in this repository may run
         with:
           node-version: 24
+          package-manager-cache: false # no package.json read here, and no cache kept
       - name: BoxOps (Path B, no third-party action)
         env:
           BOXOPS_ACTION: Allenfp/BoxOps@<RELEASE_COMMIT_SHA> # v0.1.0
