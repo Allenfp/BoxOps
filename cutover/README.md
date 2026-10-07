@@ -124,10 +124,12 @@ On a branch, merged by pull request:
      starter's and Path B's workflows; the deploy is the redirect and
      `/next/`).
    - `docs/architecture.md`: this repository's `roadmap/`, the dev server's
-     default, the Deploy bullet and CI on `main`; and `cutover/` in the
-     layout (the folder, and `cutover.test.ts` in `scripts/`), in the unit
-     tests (the files staged there) and in CI's workflows job (the
-     workflows it lints).
+     default, the Deploy bullet and CI on `main`, and in "Building and
+     deploying", `pages.yml`'s line and the paragraph under it (the
+     redirect and `/next/`, as they are); and `cutover/` in the layout (the
+     folder, and `cutover.test.ts` in `scripts/`), in the unit tests (the
+     files staged there) and in CI's workflows job (the workflows it
+     lints).
    - `docs/releasing.md`: "At the cutover" (its pointer to this README, and
      "the cutover's `ci.yml`", now just `ci.yml`), "before the cutover" in
      "One-off settings", and "(before the cutover, the demo)" in the release

@@ -127,6 +127,63 @@ Node's types (`tsconfig.app.json`); `cli/`, `scripts/`, `e2e/`, the unit tests
 and the configs have them (`tsconfig.node.json`). `npm run typecheck` checks
 both.
 
+## Building and deploying
+
+From a commit to a site, in a roadmap repository and in this one. A roadmap
+repository is made from `starter/` (setting one up:
+[adopting.md](adopting.md)), and nothing is built in it: its workflows run
+the prebuilt BoxOps release they pin by commit.
+
+```
+editor's browser        roadmap repository                                     GitHub Pages
+Save ─GraphQL createCommitOnBranch─► main: roadmap/*.yaml
+                                     │ a push to main (roadmap/** or deploy.yml)
+                                     ▼
+            Deploy roadmap (.github/workflows/deploy.yml)
+            ├ Check and assemble                              [contents: read]
+            │   actions/checkout (keeps no credentials)
+            │   Look up BoxOps releases: gh api → releases file (optional)
+            │   Allenfp/BoxOps@<pinned commit>: roadmap/ from git objects,
+            │     checked → the release's dist/app + roadmap.json
+            │   actions/upload-pages-artifact
+            ├ Publish                          [pages: write, id-token: write]
+            │   Check the GitHub Pages settings (bash, gh, jq)
+            │   actions/deploy-pages ──────────────────────────────────► the site
+            └ Roadmap problems (only with problems): turns the run red
+open tabs ◄── the site's roadmap.json every 2 minutes: newer saves; a new build → reload
+```
+
+- The BoxOps step is the release's `dist/action.mjs`
+  ([The command-line tool and the action](#the-command-line-tool-and-the-action)):
+  it reads the roadmap from git's objects, validates it, and writes the
+  site, the release's prebuilt app and a `roadmap.json`, starting no program
+  but git and calling no one.
+- **Pull requests** run **Check roadmap** (`check.yml`): the same release,
+  in check mode, where any problem fails the check.
+- **Upgrades** come as Dependabot's pull requests, which move the pin in
+  both workflows; Check roadmap runs the new release on them, and merging
+  one changes `deploy.yml`, so the next deploy runs it
+  ([upgrading.md](upgrading.md)).
+- **On a laptop**, `node .boxops/boxops.mjs` (the launcher) runs the pinned
+  release's command-line tool: `validate`, `report`, `preview` and more.
+
+In this repository (see [Tests and CI](#tests-and-ci)):
+
+```
+a pull request, a branch ──► CI (ci.yml): test, release tree, browser tests,
+                             smoke (three runners), workflows
+main ──► Pages (pages.yml): the demo, the app and roadmap/ built here
+Actions → Release → Run workflow (release.yml), from main:
+  preflight ─► verify (all of ci.yml) and reproduce (a second build)
+  ─► publish, once the maintainer approves: the tested tree committed to
+     `releases` and tagged with the deploy key, attested, published
+     ─► roadmap repositories pin it; Dependabot offers it to them
+```
+
+The demo moves to a repository of its own at the cutover (`cutover/`), and
+`pages.yml` becomes a redirect to it and `/next/`, a read-only preview of
+`main` built with this commit's release tree.
+
 ## Reading
 
 - **At build time** the site gets a `roadmap.json` next to the app
@@ -159,10 +216,11 @@ both.
     uncommitted app changes, `+unknown` outside a git checkout). Both are put
     in `index.html` (`<meta name="boxops-build">` and `"boxops-build-time"`),
     and the id is defined for the app as `__BOXOPS_BUILD__`; the app compares
-    them with every `roadmap.json` it fetches (see [Tabs left
-    open](#tabs-left-open)). The time, HEAD's committer date, is kept out of
-    the JavaScript, so roadmap-only saves leave every app file as it was and
-    a tab left open can still fetch the parts it loads on first use;
+    them with every `roadmap.json` it fetches (see
+    [Tabs left open](#tabs-left-open)). The time, HEAD's committer date, is
+    kept out of the JavaScript, so roadmap-only saves leave every app file as
+    it was and a tab left open can still fetch the parts it loads on first
+    use;
   - `schema` (1), `format` and `notices`;
   - `parsed` (optional): each roadmap file as the build's parser makes of it
     (`model/parse.ts`), by path (each without its path), stamped with the
@@ -265,12 +323,12 @@ both.
 - **Problems.** Loading is lenient: every problem is reported (with its
   line). A bad entry or value the app can't use is left out and its file is
   marked lossy, as is a file with a YAML alias, so the app won't write that
-  file (the rules starred in [What the validator
-  checks](../templates/guide/format.md#what-the-validator-checks)); the rest, such as
-  weekend dates, an unknown type, flag or engineer, or a code two files
-  share, are only flagged. Problems are compared by a key without list
-  positions or line numbers, so one that was already there never counts as
-  new.
+  file (the rules starred in
+  [What the validator checks](../templates/guide/format.md#what-the-validator-checks));
+  the rest, such as weekend dates, an unknown type, flag or engineer, or a
+  code two files share, are only flagged. Problems are compared by a key
+  without list positions or line numbers, so one that was already there
+  never counts as new.
 - **Parsing.** Each roadmap file is parsed on its own (`model/parse.ts`), then
   the files are checked together (`model/load.ts`). The app keeps what each
   file parsed to for the session, by blob SHA, so a poll or a save that brings
