@@ -2,13 +2,15 @@
 # Makes the roadmap repository DIR hostile, for the smoke tests: files and git
 # configuration that would run code if anything ran, imported or configured
 # itself from them (npm scripts and .npmrc, vite.config.*, a tsconfig.json
-# plugin, a .env, a launcher, git hooks, filters, textconv, fsmonitor, a
-# pager, credential and ssh helpers, an alias). Each leaves a file in the
-# empty folder SENTINELS when it runs, so a run of the action that leaves
+# plugin, a .env, a launcher, a `git` of its own where a relative folder on
+# PATH would find it, git hooks, filters, textconv, fsmonitor, a pager,
+# credential and ssh helpers, an alias). Each leaves a file in the empty
+# folder SENTINELS when it runs, so a run of the action that leaves
 # SENTINELS empty ran none of them. The files are committed (an adopter's
-# repository could hold them), then the git configuration is planted, then a
-# control: plain `git status` in DIR must set a trap off, proving they're
-# live on this machine; its sentinels are cleared.
+# repository could hold them), then the git configuration is planted, then
+# the controls: plain `git status` in DIR must set a trap off, and git in DIR
+# with a relative folder first on PATH must run the planted one, proving
+# they're live on this machine; their sentinels are cleared.
 #
 # Usage: plant-hostile.sh DIR SENTINELS
 set -euo pipefail
@@ -48,7 +50,15 @@ printf '#!/bin/sh\n%s\n' "$(touch_ hook)" >"$dir/hooks/post-checkout"
 chmod +x "$dir/hooks/post-checkout"
 # A launcher that isn't BoxOps': nothing in CI may run it.
 printf '// BoxOps launcher (launcher: 1)\nimport { writeFileSync } from "node:fs";\nwriteFileSync(%s, "ran");\n' "\"$sentinels/launcher\"" >"$dir/.boxops/boxops.mjs"
+# A git of its own, executable, at the top and where npm puts programs (an
+# editor's token can commit them through the API, .gitignore or not): what
+# `.`, `node_modules/.bin` or an empty entry on PATH finds in DIR.
+mkdir -p "$dir/node_modules/.bin"
+printf '#!/bin/sh\n%s\nexit 1\n' "$(touch_ git)" >"$dir/git"
+printf '#!/bin/sh\n%s\nexit 1\n' "$(touch_ node_modules-git)" >"$dir/node_modules/.bin/git"
+chmod +x "$dir/git" "$dir/node_modules/.bin/git"
 git -C "$dir" add -A
+git -C "$dir" add -f node_modules/.bin/git
 git -C "$dir" commit -q -m "Hostile files"
 
 # Configuration only this clone has: every way git could be made to run something.
@@ -78,12 +88,19 @@ for hook in post-checkout pre-commit post-index-change reference-transaction fsm
   chmod +x "$dir/.git/hooks/$hook"
 done
 
-# The control: plain git in DIR sets traps off.
+# The controls: plain git in DIR sets traps off, and a relative folder first
+# on PATH finds the planted git there.
 git -C "$dir" status >/dev/null 2>&1 || true
 if [ -z "$(ls -A "$sentinels")" ]; then
   echo "plant-hostile.sh: plain git status in $dir set no trap off, so the traps prove nothing here" >&2
   exit 1
 fi
+(cd "$dir" && PATH="node_modules/.bin:$PATH" git --version) >/dev/null 2>&1 || true
+(cd "$dir" && PATH=".:$PATH" git --version) >/dev/null 2>&1 || true
+if [ ! -e "$sentinels/git" ] || [ ! -e "$sentinels/node_modules-git" ]; then
+  echo "plant-hostile.sh: a relative folder on PATH didn't find the git planted in $dir, so that trap proves nothing here" >&2
+  exit 1
+fi
 set_off=$(cd "$sentinels" && printf '%s ' *)
-echo "$dir: hostile (plain git status set off: ${set_off% })"
+echo "$dir: hostile (the controls set off: ${set_off% })"
 rm -f "$sentinels"/*

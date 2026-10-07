@@ -9,7 +9,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildJsonText, makeBuildJson, parseBuildJson } from "../cli/release";
@@ -341,10 +341,12 @@ describe("a release tree built from one commit", () => {
     const repo = join(ws, "starter-copy");
     const sentinels = join(built.work, "sentinels");
     run("starter-repo.sh", [repo]);
-    expect(run("plant-hostile.sh", [repo, sentinels])).toContain("hostile (plain git status set off: ");
+    const setOff = /hostile \(the controls set off: (.*)\)$/m.exec(run("plant-hostile.sh", [repo, sentinels]))?.[1].split(" ");
+    expect(setOff).toEqual(expect.arrayContaining(["git", "node_modules-git"]));
     expect(readdirSync(sentinels)).toEqual([]);
     expect(run("no-net.sh", [release, repo])).toContain("ok: build mode, no network call (1 departments, 2 lanes, 2 boxes — OK)");
-    // The action as `uses:` runs it, then what it made, as the smoke job checks it.
+    // The action as `uses:` runs it, then what it made, as the smoke job checks it: with relative folders first
+    // on PATH (an earlier step can put them there), which would find the git planted in the repository.
     const temp = join(built.work, "runner-temp");
     mkdirSync(temp);
     writeFileSync(join(built.work, "event.json"), JSON.stringify({ repository: { full_name: "acme/roadmap", default_branch: "main", private: true, visibility: "private" } }));
@@ -352,7 +354,7 @@ describe("a release tree built from one commit", () => {
     const action = spawnSync(process.execPath, [join(release, "dist", "action.mjs")], {
       encoding: "utf8",
       env: {
-        PATH: process.env.PATH,
+        PATH: ["node_modules/.bin", ".", "", process.env.PATH].join(delimiter),
         GITHUB_ACTIONS: "true",
         GITHUB_SERVER_URL: "https://github.com",
         GITHUB_REPOSITORY: "acme/roadmap",

@@ -162,7 +162,10 @@ free of workflows that restore caches. The starter's use none.
 - **The action starts no program but git**, hardened: plumbing commands
   only (`rev-parse`, `cat-file`, `ls-tree`), with the system's and user's
   configuration, hooks, filters, textconv, fsmonitor and pager off, and
-  `GIT_*` variables dropped. It makes no network call and takes no token.
+  `GIT_*` variables dropped. It's the git in PATH's absolute folders, run in
+  the `.git` folder: a `git` committed to the repository never runs, even
+  when an earlier step has put a relative folder such as `node_modules/.bin`
+  on PATH. It makes no network call and takes no token.
   Nothing in the workspace runs or counts as configuration:
   `package.json`, `.npmrc`, `vite.config.*`, `tsconfig.json`, `.env`. CI
   checks this on every change, with a workspace whose files would each leave

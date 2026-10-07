@@ -31,7 +31,8 @@
 //      release's dist/app (each file checked against BUILD.json) and
 //      roadmap.json. Data never becomes HTML, CSS or SVG.
 //   13. Outputs ($GITHUB_OUTPUT, heredoc-delimited) and the job summary.
-// The only child process is git; nothing in the workspace is executed,
+// The only child process is git (the one in PATH's absolute folders, run in
+// the .git folder: cli/git.ts); nothing in the workspace is executed,
 // imported or read as configuration; no network; no token.
 
 import { lstatSync, readFileSync, realpathSync, rmSync } from "node:fs";

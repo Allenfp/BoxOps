@@ -7,6 +7,7 @@
 import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { absolutePath } from "./git.ts";
 import { HERE } from "./release.ts";
 
 declare const __BOXOPS_EMBEDDED__: Record<string, string> | undefined;
@@ -20,13 +21,14 @@ export const EMBEDDED_PATHS = ["templates", "starter"];
  * `init` would otherwise write into new repositories.
  */
 export function trackedFiles(repoDir: string, paths: string[]): string[] {
-  // As cli/site.ts's appInfo reads this checkout: no system configuration, no fsmonitor hook, no GIT_* variable.
+  // As cli/site.ts's appInfo reads this checkout: no system configuration, no fsmonitor hook, no GIT_* variable,
+  // the git in PATH's absolute folders.
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) if (!key.startsWith("GIT_")) env[key] = value;
   try {
     const listed = execFileSync("git", ["-c", "core.fsmonitor=false", "ls-files", "-z", "--cached", "--", ...paths], {
       cwd: repoDir,
-      env: { ...env, GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" },
+      env: { ...env, PATH: absolutePath(), GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" },
       encoding: "utf8",
       stdio: "pipe",
     });

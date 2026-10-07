@@ -1212,11 +1212,14 @@ this order, each failure an error annotation with a plain message:
     annotation early or start a workflow command, in either form the runner
     reads: `::` at a line's start, or the older `##[` anywhere in it).
 
-The only program it starts is git; nothing in the workspace is run, imported
-or read as configuration (`package.json`, `.npmrc`, `vite.config.*`,
-`tsconfig.json`, `.env`, the repository's hooks, filters, textconv, fsmonitor
-and pager are all left alone, and `GIT_*` variables are dropped); it makes no
-network call and takes no token.
+The only program it starts is git, the one in PATH's absolute folders, run
+in the `.git` folder (a relative folder on PATH, such as `node_modules/.bin`,
+would find a `git` committed to the repository); nothing in the workspace is
+run, imported or read as configuration (`package.json`, `.npmrc`,
+`vite.config.*`, `tsconfig.json`, `.env`, the repository's hooks, filters,
+textconv, fsmonitor and pager are all left alone, and `GIT_*` variables are
+dropped); it makes no network call and takes no token. The command-line
+tool's git, locally, is found the same way.
 
 **Path B** (`templates/path-b/`) is the starter's two workflows for an
 organization that allows only GitHub's own actions: the BoxOps step becomes
@@ -1312,9 +1315,11 @@ a release must have none of.
   push nothing made as another), Path B's workflows (the starter's
   but for one step, which the README shows, and setup-node told to read
   nothing in the workspace) and that step run with bash against a stand-in
-  for github.com, a hostile workspace (its files, git configuration and
-  `GIT_*` variables try to run code: sentinel files stay unwritten, git is
-  the only program started, and the site is a clean workspace's), and no
+  for github.com, a hostile workspace (its files, a `git` of its own that
+  relative folders on PATH would find, git configuration and `GIT_*`
+  variables try to run code: sentinel files stay unwritten, git, from PATH's
+  absolute folders, is the only program started, and the site is a clean
+  workspace's), and no
   network call from the action or the offline commands (every way Node
   reaches the network made to fail and noted), that each file staged in
   `cutover/` is the live one with only the cutover's changes made (and the
@@ -1473,11 +1478,12 @@ a release must have none of.
   **smoke**, on `ubuntu-24.04`, `ubuntu-24.04-arm` and `ubuntu-26.04`,
   where nothing is built or installed: the tree's action, as `uses:` runs
   it, on a repository of the starter's files made hostile
-  (`scripts/smoke/`: npm scripts, `vite.config.*`, `.npmrc`, `.env`, git
-  hooks, filters and fsmonitor, each leaving a sentinel file if anything
-  runs it), in check mode (with `GIT_*` variables that would send git to
-  objects that aren't there and have it write a trace, which the action
-  drops) and, where the run is on `main` (weekly, for a release), build
+  (`scripts/smoke/`: npm scripts, `vite.config.*`, `.npmrc`, `.env`, a
+  `git` of its own, git hooks, filters and fsmonitor, each leaving a
+  sentinel file if anything runs it), in check mode (with `GIT_*`
+  variables that would send git to objects that aren't there and have it
+  write a trace, which the action drops) and, where the run is on `main`
+  (weekly, for a release), build
   mode, its outputs and site checked (elsewhere the tree's tool writes the
   site: build mode publishes the default branch only, and the action
   through `uses:` must refuse it there, as it must a symlink or a submodule

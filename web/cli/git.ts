@@ -5,7 +5,9 @@
 //   something the checkout added (a symlink to a secret, a filter's output).
 //   Git runs hardened and as plumbing only (rev-parse, cat-file, ls-tree): no
 //   hooks, filters, textconv or fsmonitor, no system or global configuration,
-//   no fetching of objects a partial clone lacks, never a prompt.
+//   no fetching of objects a partial clone lacks, never a prompt; and it's the
+//   git in PATH's absolute folders, run in the .git folder, never a `git`
+//   committed to the repository.
 // - readRoadmapDir: from a folder on disk, with lstat, so a symlink is never
 //   followed. The dev server and `npm run validate`/`report` use it.
 //
@@ -22,7 +24,7 @@
 
 import { execFileSync } from "node:child_process";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { delimiter, isAbsolute, join, resolve } from "node:path";
 import { gitBlobSha } from "../src/github/git-objects.ts";
 import type { RoadmapFolder } from "../src/model/bundle.ts";
 import { EXECUTABLE, READ_LIMITS, isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
@@ -109,15 +111,29 @@ class Triage {
 
 type Plumbing = "rev-parse" | "cat-file" | "ls-tree";
 
-/** The caller's environment without any GIT_* variable (GIT_DIR, GIT_CONFIG_*, …), plus the hardening. */
+/**
+ * PATH's absolute folders alone, for git to be found in. A program is looked
+ * for in the folder it runs in, and a relative folder on PATH (`.`,
+ * `node_modules/.bin`, or an empty entry, which means `.`) would be one of
+ * the repository's, where anyone who can push could have committed a `git`.
+ */
+export const absolutePath = (path = process.env.PATH ?? ""): string =>
+  path
+    .split(delimiter)
+    .filter((p) => p !== "" && isAbsolute(p))
+    .join(delimiter);
+
+/** The caller's environment without any GIT_* variable (GIT_DIR, GIT_CONFIG_*, …) or relative folder on PATH, plus the hardening. */
 function gitEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const [key, value] of Object.entries(process.env)) if (!key.startsWith("GIT_")) env[key] = value;
+  // PATH whatever its case (Windows' is Path), given again below.
+  for (const [key, value] of Object.entries(process.env)) if (!key.startsWith("GIT_") && key.toUpperCase() !== "PATH") env[key] = value;
   // GIT_NO_LAZY_FETCH (git 2.44 and later): a partial clone never fetches a missing object from its remote (a
   // network call, with the repository's remote and credential config) to answer. Older git ignores it without a
   // word; protocol.allow=never (gitPlumbing) stops the fetch there.
   return {
     ...env,
+    PATH: absolutePath(),
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_TERMINAL_PROMPT: "0",
@@ -157,17 +173,23 @@ export interface GitOptions {
   checkout?: boolean;
 }
 
-/** Runs one plumbing command against the repository whose top level is `repo`; returns its output. */
+/**
+ * Runs one plumbing command against the repository whose top level is `repo`;
+ * returns its output. git runs in the .git folder, which no commit can put a
+ * file in (Windows looks for a program in the folder it runs in first, and
+ * PATH may name relative folders: see absolutePath).
+ */
 export function gitPlumbing(
   repo: string,
   command: Plumbing,
   args: string[],
   o: { input?: string; maxBuffer?: number } & GitOptions = {},
 ): Buffer {
+  const dir = gitDir(repo, o.checkout);
   // No transport at all: plumbing never needs one, and a lazy fetch (see gitEnv) inherits this.
-  const argv = ["--git-dir", gitDir(repo, o.checkout), "-c", "core.hooksPath=/dev/null", "-c", "protocol.allow=never", command, ...args];
+  const argv = ["--git-dir", dir, "-c", "core.hooksPath=/dev/null", "-c", "protocol.allow=never", command, ...args];
   try {
-    return execFileSync("git", argv, { cwd: repo, env: gitEnv(), input: o.input, maxBuffer: o.maxBuffer ?? 1024 * 1024, stdio: "pipe" });
+    return execFileSync("git", argv, { cwd: dir, env: gitEnv(), input: o.input, maxBuffer: o.maxBuffer ?? 1024 * 1024, stdio: "pipe" });
   } catch (e) {
     const err = e as NodeJS.ErrnoException & { stderr?: Buffer };
     if (err.code === "ENOENT") {

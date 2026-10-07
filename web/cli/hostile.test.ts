@@ -1,22 +1,26 @@
 // A hostile workspace: a roadmap repository whose files and git configuration
 // try to run code or steer BoxOps (a vite.config.js, npm scripts and .npmrc,
 // a tsconfig.json plugin, a .env, git hooks, filters, textconv, fsmonitor, a
-// pager, and GIT_* variables in the environment). The action and the offline
-// commands must neither run any of it (sentinel files stay unwritten) nor be
+// pager, a `git` of its own where a relative folder on PATH finds it, and
+// GIT_* variables in the environment). The action and the offline commands
+// must neither run any of it (sentinel files stay unwritten) nor be
 // influenced by it (the site is the same as a clean workspace's), and the
 // only program the action starts is git, hardened and as plumbing.
 
+import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, isAbsolute, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-/** Every program started through node:child_process, with its arguments and environment. */
-const started = vi.hoisted(() => [] as { file: string; args: string[]; env?: Record<string, string | undefined> }[]);
+/** Every program started through node:child_process, with its arguments, environment and folder. */
+const started = vi.hoisted(() => [] as { file: string; args: string[]; env?: Record<string, string | undefined>; cwd?: string }[]);
 
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
-  const record = (file: unknown, args: unknown, options: unknown) =>
-    started.push({ file: String(file), args: Array.isArray(args) ? args.map(String) : [], env: (options as { env?: Record<string, string> } | undefined)?.env });
+  const record = (file: unknown, args: unknown, options: unknown) => {
+    const o = options as { env?: Record<string, string>; cwd?: string } | undefined;
+    started.push({ file: String(file), args: Array.isArray(args) ? args.map(String) : [], env: o?.env, cwd: o?.cwd });
+  };
   return {
     ...actual,
     execFileSync: ((file: string, args?: readonly string[], options?: object) => {
@@ -70,6 +74,9 @@ afterEach(() => {
 /** Shell code that leaves a file named `name` in `sentinels`: proof that something ran. */
 const touch = (sentinels: string, name: string) => `touch ${JSON.stringify(join(sentinels, name))}`;
 
+/** PATH with relative folders first, as `node_modules/.bin`, `.` and an empty entry (`.` too): run in the workspace, they find its own `git`. */
+const relativePath = () => ["node_modules/.bin", ".", "", savedEnv.PATH].join(delimiter);
+
 /** A workspace with the sample roadmap and every trap we know of, committed and checked out. */
 function hostileWorkspace(sentinels: string): InstanceType<typeof TestRepo> {
   const evil = join(sentinels, "..", "evil.cjs");
@@ -89,6 +96,9 @@ function hostileWorkspace(sentinels: string): InstanceType<typeof TestRepo> {
       ".boxops/boxops.mjs": `// BoxOps launcher (launcher: 1)\nimport { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(join(sentinels, "launcher"))}, "ran");\n`,
       "hooks/post-checkout": { mode: "100755", content: hook },
       "roadmap/.hidden/evil.sh": { mode: "100755", content: hook },
+      // A git of its own (an editor's token can commit one, executable, through the API): a relative folder on PATH finds it.
+      git: { mode: "100755", content: `#!/bin/sh\n${touch(sentinels, "git")}\nexit 1\n` },
+      "node_modules/.bin/git": { mode: "100755", content: `#!/bin/sh\n${touch(sentinels, "node_modules-git")}\nexit 1\n` },
     }),
     "Add the example project",
   );
@@ -149,6 +159,7 @@ describe("a hostile workspace", () => {
     mkdirSync(sentinels);
     const repo = hostileWorkspace(sentinels);
     hostileGitEnv(sentinels);
+    process.env.PATH = relativePath();
     const cliDir = makeRelease();
     const env = { ...actionsEnv(repo.dir), NODE_OPTIONS: "", BOXOPS_CLI: join(sentinels, "..", "evil.cjs") };
     started.length = 0;
@@ -158,10 +169,12 @@ describe("a hostile workspace", () => {
     expect(code).toBe(0);
     expect(readdirSync(sentinels)).toEqual([]);
 
-    // Only git, as plumbing, hardened, with no GIT_* variable of the environment's.
+    // Only git, as plumbing, hardened, with no GIT_* variable of the environment's; the git in PATH's absolute
+    // folders, run in the .git folder (where no commit can put a file): never the workspace's own.
     expect(new Set(started.map((s) => s.file))).toEqual(new Set(["git"]));
     for (const s of started) {
       expect(s.args.slice(0, 6)).toEqual(["--git-dir", join(realpathSync(repo.dir), ".git"), "-c", "core.hooksPath=/dev/null", "-c", "protocol.allow=never"]);
+      expect([s.cwd, s.env?.PATH]).toEqual([s.args[1], process.env.PATH?.split(delimiter).filter(isAbsolute).join(delimiter)]);
       expect(["rev-parse", "cat-file", "ls-tree"]).toContain(s.args[6]);
       expect(s.args).not.toContain("--filters");
       expect(s.args).not.toContain("--textconv");
@@ -171,6 +184,7 @@ describe("a hostile workspace", () => {
 
     // The same site as a clean workspace with the same roadmap.
     for (const key of Object.keys(process.env)) if (key.startsWith("GIT_") && !(key in savedEnv)) delete process.env[key];
+    process.env.PATH = savedEnv.PATH;
     const clean = new TestRepo();
     repos.push(clean);
     clean.commit(sampleRepo(), "Add the example project");
@@ -191,13 +205,20 @@ describe("a hostile workspace", () => {
     // (They aren't real hooks or filters, so git fails after running them.)
     expect(() => repo.git(["status"])).toThrow();
     expect(readdirSync(sentinels)).toContain("fsmonitor");
+    // A relative folder on PATH finds the workspace's own git, which fails too.
+    for (const folder of ["node_modules/.bin", ".", ""]) {
+      expect(() => execFileSync("git", ["--version"], { cwd: repo.dir, env: { ...process.env, PATH: `${folder}${delimiter}${process.env.PATH}` }, stdio: "pipe" })).toThrow();
+    }
+    expect(readdirSync(sentinels)).toEqual(expect.arrayContaining(["git", "node_modules-git"]));
   });
 
-  // On a person's machine the environment is theirs, so only the workspace's traps here.
+  // On a person's machine the environment is theirs, so only the workspace's traps here, and a PATH with
+  // relative folders (as `./node_modules/.bin`), which no git BoxOps starts looks in.
   it("the offline commands run nothing of it either", async () => {
     const sentinels = join(tempDir(), "ran");
     mkdirSync(sentinels);
     const repo = hostileWorkspace(sentinels);
+    process.env.PATH = relativePath();
     const out = join(tempDir(), "site");
     const codes: Record<string, number> = {};
     for (const argv of [["validate"], ["report"], ["migrate", "--check"], ["sync", "--check"], ["guide"], ["version"], ["build", "--out", out, "--commit", "HEAD"]]) {
@@ -208,5 +229,6 @@ describe("a hostile workspace", () => {
     expect(existsSync(join(out, "roadmap.json"))).toBe(true);
     expect(readdirSync(sentinels)).toEqual([]);
     expect([...new Set(started.map((s) => s.file))]).toEqual(["git"]);
+    for (const s of started) expect((s.env?.PATH ?? "").split(delimiter).every(isAbsolute)).toBe(true);
   });
 });

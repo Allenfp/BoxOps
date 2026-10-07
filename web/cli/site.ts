@@ -17,20 +17,22 @@ import { FORMAT } from "../src/model/format.ts";
 import { parseFile } from "../src/model/parse.ts";
 import { isHiddenPath, isRoadmapPath } from "../src/model/paths.ts";
 import type { RoadmapFiles } from "../src/model/types.ts";
-import { firstParents, gitPlumbing, readCommit, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git.ts";
+import { absolutePath, firstParents, gitPlumbing, readCommit, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git.ts";
 
 export type Env = Record<string, string | undefined>;
 
 const posix = (path: string) => path.split(sep).join("/");
 
 /**
- * Plain git in the checkout this app is built from, for what plumbing can't
- * tell: the origin's URL and whether web/ has changes. Never used on roadmap
- * data. The user's and the repository's configuration apply, but not the
- * system's, and `status` never starts an fsmonitor.
+ * Plain git, for what plumbing can't tell: whether web/ has changes in the
+ * checkout this app is built from, and a local build's origin URL. Never used
+ * on roadmap data. The user's and the repository's configuration apply, but
+ * not the system's, and `status` never starts an fsmonitor. It's the git in
+ * PATH's absolute folders (absolutePath): it runs in a roadmap repository's
+ * folder too, for the origin.
  */
 function localGit(cwd: string, args: string[]): string {
-  const env = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" };
+  const env = { ...process.env, PATH: absolutePath(), GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" };
   try {
     return execFileSync("git", ["-c", "core.fsmonitor=false", ...args], { cwd, encoding: "utf8", env, stdio: "pipe" }).trim();
   } catch {
