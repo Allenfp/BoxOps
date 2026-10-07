@@ -1393,15 +1393,16 @@ a release must have none of.
   branch other than `main`, whatever it changes (a pull request from a
   branch of this repo is covered by that branch's push run, so only pull
   requests from forks run it again), by hand, weekly, and for a release
-  (`release.yml` calls it). Its jobs: **test**, lint, the type check, the
+  (`release.yml` calls it). Its jobs, which run no package's install
+  script (`npm ci --ignore-scripts`): **test**, lint, the type check, the
   unit tests (again with `TZ=America/Los_Angeles` and with
   `TZ=Pacific/Kiritimati`, UTC−8/−7 and UTC+14, so nothing depends on the
   runner's time zone), the changelog's form and validation; **release
   tree**, `npm run release:build` (the version `release.yml` gives, else
-  `web/package.json`'s; no package's install script runs there) and its
-  check (and the changelog's numbers against its `BUILD.json`), the
-  release's tool on `starter/`'s files and the sites it writes,
-  then the tree uploaded for the jobs after it; **browser tests**, on that
+  `web/package.json`'s) and its check (and the changelog's numbers against
+  its `BUILD.json`), the release's tool on `starter/`'s files and the sites
+  it writes, then the tree uploaded for the jobs after it; **browser
+  tests**, on that
   tree (`BOXOPS_RELEASE_DIR`): the starter's dry run, the browser tests
   (WebKit first, then Chromium, then Firefox) and the performance checks;
   **smoke**, on `ubuntu-24.04`, `ubuntu-24.04-arm` and `ubuntu-26.04`,
