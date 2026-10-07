@@ -6,8 +6,8 @@
 //   node .boxops/boxops.mjs validate | report | preview | migrate | guide | doctor | sync | upgrade | version
 // That commit's dist/boxops.mjs is downloaded once, checked against the commit's BUILD.json, and
 // kept with it in a cache outside this repository (a file in the repository would run as code on
-// everyone's machine). Most commands (not sync, doctor, init or version) warn when this launcher,
-// AGENTS.md's BoxOps block or deploy.yml's Pages guard isn't the release's.
+// everyone's machine). The commands validate, report, build, preview, migrate, upgrade and guide
+// warn when this launcher, AGENTS.md's BoxOps block or deploy.yml's Pages guard isn't the release's.
 // Env: BOXOPS_CLI=<that release's dist/boxops.mjs> (offline), BOXOPS_CACHE=<a folder outside this
 // repository>, GH_TOKEN (private mirrors; else `gh auth token`), HTTPS_PROXY (a proxy).
 import { execFileSync, spawnSync } from "node:child_process";
@@ -205,8 +205,8 @@ function githubToken() {
 /**
  * Warns when this launcher, AGENTS.md's BoxOps block or deploy.yml's Pages guard isn't what the
  * release's BUILD.json names, on the commands the tool warns on (not `sync`, which writes the
- * first two, `doctor`, which lists them all, `init`, `version`, `help` or the action). True: it
- * has, and the tool needn't; false: the tool decides.
+ * first two, `doctor`, which lists them all, `init`, `version`, `help`, the action or a command
+ * the tool hasn't). True: it has, and the tool needn't; false: the tool decides.
  */
 function warn(build) {
   if (!["validate", "report", "build", "preview", "migrate", "upgrade", "guide"].includes(process.argv[2])) return false;

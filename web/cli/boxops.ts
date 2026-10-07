@@ -169,8 +169,9 @@ async function build(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
 }
 
 /**
- * Warnings, on every command, when the repository's BoxOps files aren't this
- * release's: here unless the launcher has given them (`ctx.checked`).
+ * Warnings, on the commands that warn (WARNING_COMMANDS), when the
+ * repository's BoxOps files aren't this release's: here unless the launcher
+ * has given them (`ctx.checked`).
  */
 function staleWarnings(root: string, ctx: LaunchContext, io: Io): void {
   if (ctx.checked) return;

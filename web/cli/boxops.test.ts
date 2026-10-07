@@ -229,7 +229,7 @@ describe("sync, guide, version, help", () => {
     expect(await run(["sync", "--check", "--root", root])).toMatchObject({ code: 0, stdout: "AGENTS.md’s BoxOps block (1), the launcher (1) and CLAUDE.md are this release’s." });
   });
 
-  it("every other command warns when the repository's BoxOps files are older", async () => {
+  it("the commands that warn do when the repository's BoxOps files are older", async () => {
     const repo = checkout(sampleRepo({ "AGENTS.md": "<!-- boxops:begin block=0 -->\n<!-- boxops:end -->\n", ".github/workflows/deploy.yml": "# boxops-guard: 0\n" }));
     const r = await run(["validate"], { cwd: repo.dir }, { root: repo.dir, launcher: 0 });
     expect(r.code).toBe(0);
