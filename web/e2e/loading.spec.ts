@@ -246,6 +246,25 @@ test("a roadmap.json that arrives but can't be opened: a plain message and Try a
   await expect(page.locator(".box").first()).toBeVisible();
 });
 
+test("a copy built from files on disk shows a saved file within a second, and no notice", async ({ page, github }) => {
+  // What `boxops preview` serves: the working tree, at HEAD's commit, made afresh on each fetch.
+  const head = github.head;
+  github.patchBundle = (b) => ({ ...b, source: { ...b.source, commit: head, history: [head], local: true } });
+  await page.reload();
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
+  const calls = github.calls();
+  // A file saved on disk: the next look, a second later, brings it in.
+  github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") });
+  github.deploy();
+  await page.clock.runFor(1000);
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  expect(await looseBannerText(page)).toEqual([]);
+  // Unchanged files on the next look: nothing redrawn, still nothing asked of GitHub.
+  await page.clock.runFor(1000);
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  expect(github.calls()).toBe(calls);
+});
+
 test("a copy built from files on disk is read-only and asks GitHub nothing", async ({ page, github }) => {
   github.patchBundle = (b) => ({ ...b, source: { ...b.source, local: true } });
   await page.reload();

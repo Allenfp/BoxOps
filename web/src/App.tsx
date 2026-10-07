@@ -54,6 +54,10 @@ const ZOOM_LABEL: Record<ZoomLevel, string> = { weeks: "Weeks", months: "Months"
 
 /** How often open tabs look for other people's saves. */
 const POLL_MS = 2 * 60_000;
+/** How often a copy built from the files on disk (a preview, the dev server) looks for an edited file. */
+const LOCAL_POLL_MS = 1000;
+/** Its wait after a failed look (the preview stopped, say). */
+const LOCAL_RETRY_MS = 5000;
 /** Failed polls in a row before the tab says it has lost the site. */
 const LOST_AFTER = 2;
 /** The longest wait between polls while they fail. */
@@ -431,6 +435,38 @@ export function App() {
     };
   }, [pollable, seen, show, noteSite]);
 
+  // A copy built from the files on disk (`boxops preview`, `npm run dev`): its
+  // roadmap.json is made afresh on each fetch from the working tree, so look
+  // every second, and show what changed. Same-origin and local: no GitHub.
+  const watching = state.status === "ready" && !state.preview && !!state.source.local;
+  useEffect(() => {
+    if (!watching) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = async () => {
+      let wait = LOCAL_POLL_MS;
+      try {
+        const bundle = await fetchBundle(SITE_MS);
+        if (stopped) return;
+        noteSite(bundle);
+        const current = onScreen.current;
+        const next = await snapshotOf(bundle);
+        if (current && !changesScreen(next, current)) return;
+        const loaded = await fromSnapshot(next);
+        if (!stopped) show(loaded);
+      } catch {
+        wait = LOCAL_RETRY_MS;
+      } finally {
+        if (!stopped) timer = setTimeout(() => void check(), wait);
+      }
+    };
+    timer = setTimeout(() => void check(), LOCAL_POLL_MS);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [watching, show, noteSite]);
+
   if (state.status === "loading") return <div className="splash">Loading roadmap…</div>;
   if (state.status === "error") {
     const { newToken } = state;
@@ -597,8 +633,8 @@ const issueText = (i: Issue) => `roadmap/${i.path}${i.line ? `, line ${i.line}` 
 function RoadmapView(props: ViewProps) {
   const { roadmap: base, issues, files, source, lastSave, remote } = props;
   // Read-only, like a branch preview: a roadmap in another data format, a copy
-  // built from files on disk (`npm run dev`, or a build with uncommitted
-  // roadmap/ changes), a site built not to save, and a tab whose BoxOps is
+  // built from files on disk (`boxops preview`, `npm run dev`, a build of the
+  // working tree), a site built not to save, and a tab whose BoxOps is
   // older than the site's (its code could drop what the newer one writes).
   const preview = props.preview || props.formatStatus !== "current" || !!source.local || source.readonly || props.update !== null;
   // A private repository and no token: no call to GitHub is made, so this is the deployed copy.
@@ -1507,8 +1543,8 @@ function RoadmapView(props: ViewProps) {
         {source.local && !props.preview && (
           <Banner>
             <span>
-              Read-only: this copy was built from the files on disk (<code>npm run dev</code>, or a build with uncommitted
-              changes in <code>roadmap/</code>), so it can’t save. Edit the YAML files, or save from the deployed site.
+              Read-only: this copy was built from the files on disk (a preview, or a build with uncommitted changes), so it
+              can’t save. Edit the YAML files: a preview shows each saved file within a second.
             </span>
           </Banner>
         )}
