@@ -80,7 +80,7 @@ export async function ensureApp(cliDir: string, ctx: LaunchContext, io: Io): Pro
   }
   for (const path of missing ?? appFilesToFetch(cliDir, build)) {
     const bytes = await fileAt(gh, ctx.repo, ctx.sha, path);
-    if (digest(bytes) !== build.files[path]) throw new Error(`${path} from ${where} isn’t the file its BUILD.json describes`);
+    if (digest(bytes) !== build.files[path]) throw new Error(`${path} from ${where} isn’t the file ${local ? "the BUILD.json beside this tool" : "its BUILD.json"} describes`);
     const file = releaseFile(cliDir, path);
     mkdirSync(dirname(file), { recursive: true });
     writeWhole(file, bytes);

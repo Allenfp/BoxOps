@@ -336,8 +336,14 @@ describe("preview", () => {
     await ensureApp(cliDir, { repo: "Allenfp/BoxOps", sha: A }, io);
     expect(fetched()).toEqual(["dist/app/assets/parse-B2.js", "dist/app/favicon.svg"]);
     expect(verifiedApp(openRelease(cliDir, ID.build))).toHaveLength(Object.keys(APP_FILES).length);
-    // Run without the launcher, it can't know the pin, and says what's wrong.
+    // A file GitHub serves that isn't the one the BUILD.json beside the tool describes: refused, not kept.
     rmSync(join(cliDir, "app", "favicon.svg"));
+    const swapped = fakeGitHub({ files: { [A]: { ...files, "dist/app/favicon.svg": "<svg onload='steal()'/>" } } });
+    await expect(ensureApp(cliDir, { repo: "Allenfp/BoxOps", sha: A }, capture({ fetch: swapped.fetch, cliDir }))).rejects.toThrow(
+      `dist/app/favicon.svg from Allenfp/BoxOps@${A.slice(0, 12)} isn’t the file the BUILD.json beside this tool describes`,
+    );
+    expect(readdirSync(join(cliDir, "app"))).not.toContain("favicon.svg");
+    // Run without the launcher, it can't know the pin, and says what's wrong.
     await expect(ensureApp(cliDir, {}, io)).rejects.toThrow(
       `The app beside ${cliDir} isn’t whole (dist/app/favicon.svg is missing or damaged): run preview through .boxops/boxops.mjs, which fetches it`,
     );
