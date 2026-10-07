@@ -17,7 +17,7 @@ import { renderStarter } from "../cli/starter";
 import { ID, capture, cleanUp, fakeGitHub, releaseFiles, tempDir } from "../cli/test-release";
 import { TestRepo } from "../cli/test-repo";
 import { SHELLS, block, paste, shellEnv, standIns, which } from "../cli/test-shell";
-import { main, publishCommands, publishStarter } from "./publish-starter";
+import { NO_REPLY, main, publishCommands, publishStarter } from "./publish-starter";
 
 const repos: TestRepo[] = [];
 afterEach(() => {
@@ -35,6 +35,12 @@ function readTree(dir: string, skip?: string): Record<string, string> {
     if (entry.isFile() && !(skip && path.startsWith(`${skip}/`))) out[path] = readFileSync(join(entry.parentPath, entry.name), "utf8");
   }
   return out;
+}
+
+/** shellEnv's environment with git's identity taken out: only the global configuration's is left, as on a maintainer's machine. */
+function configIdentity(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  for (const key of ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"]) delete env[key];
+  return env;
 }
 
 interface Upstream {
@@ -137,11 +143,16 @@ describe("publish-starter", () => {
     // Each block one command whose steps stop at the first that fails; the folder written whole
     // and quoted for the shell, wherever it runs; rsync into the new clone alone.
     const quoted = `'${out.replaceAll("'", `'\\''`)}`;
+    // Each commit as the maintainer's no-reply address, checked before anything is pushed.
+    const noReply =
+      "git log -1 --format='%ae%n%ce' | sort -u | " +
+      `awk '!/@users\\.noreply\\.github\\.com$/ && $0 != "noreply@github.com" { print "not a GitHub no-reply address: " $0 > "/dev/stderr"; bad = 1 } END { exit bad }'`;
     expect(printed.slice(1)).toEqual([
       "Nothing was pushed. To publish it:",
       "  The first time (Allenfp/boxops-starter doesn't exist yet), in the folder written:",
       `    cd ${quoted}' && git init -b main && git add -A && \\`,
-      '      git commit -m "BoxOps starter for v0.1.0" && \\',
+      '      git config user.email 29790605+Allenfp@users.noreply.github.com && git commit -m "BoxOps starter for v0.1.0" && \\',
+      `      ${noReply} && \\`,
       "      gh repo create Allenfp/boxops-starter --public --source . --push && \\",
       "      gh repo edit Allenfp/boxops-starter --template",
       "  Then, on GitHub: Settings → Pages → Source: GitHub Actions, and run Actions → Deploy roadmap.",
@@ -150,9 +161,11 @@ describe("publish-starter", () => {
       '      git clone git@github.com:Allenfp/boxops-starter.git "$starter" && \\',
       '      cd "$starter" && git switch -c boxops-v0.1.0 && \\',
       `      [ -d "$starter/.git" ] && rsync -a --delete --exclude=.git ${quoted}/' "$starter/" && \\`,
-      '      git add -A && git commit -m "Upgrade BoxOps to v0.1.0" && \\',
+      '      git add -A && git config user.email 29790605+Allenfp@users.noreply.github.com && git commit -m "Upgrade BoxOps to v0.1.0" && \\',
+      `      ${noReply} && \\`,
       "      git push -u origin boxops-v0.1.0 && gh pr create --fill",
       "  Each is one command: paste it whole, and it stops at the first step that fails.",
+      "  Each commits as 29790605+Allenfp@users.noreply.github.com, not your global git address, and stops before pushing a commit made as any other.",
       "  Pushing workflow files takes SSH, or a token with the workflow scope.",
     ]);
     expect(() => publishCommands("starter", "v0.1.0")).toThrow("publishCommands: starter isn’t an absolute path");
@@ -194,9 +207,13 @@ describe("publish-starter", () => {
       const github = new TestRepo();
       repos.push(github);
       github.commit({ "README.md": "The earlier starter\n", "dropped.txt": "Not in this release\n" }, "BoxOps starter for v0.0.9");
+      // The maintainer's identity is a personal address, in their global git configuration.
       const stand = standIns();
-      const env = shellEnv(stand, `[url "${github.dir}"]\n\tinsteadOf = git@github.com:Allenfp/boxops-starter.git\n`);
+      const env = configIdentity(
+        shellEnv(stand, `[user]\n\tname = Maintainer\n\temail = maintainer@example.com\n[url "${github.dir}"]\n\tinsteadOf = git@github.com:Allenfp/boxops-starter.git\n`),
+      );
       const git = (dir: string, args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", env }).trim();
+      const madeAs = `Maintainer <${NO_REPLY}>, Maintainer <${NO_REPLY}>`;
       /** A commit's files: path → blob SHA. */
       const tree = (dir: string, commit: string) =>
         Object.fromEntries(
@@ -213,6 +230,7 @@ describe("publish-starter", () => {
       const later = paste(shell, block(printed, "Each later release"), web, env);
       expect(later.status, later.stderr).toBe(0);
       expect(git(github.dir, ["log", "-1", "--format=%s", "boxops-v0.1.0"])).toBe("Upgrade BoxOps to v0.1.0");
+      expect(git(github.dir, ["log", "-1", "--format=%an <%ae>, %cn <%ce>", "boxops-v0.1.0"])).toBe(madeAs);
       expect(tree(github.dir, "boxops-v0.1.0")).toEqual(blobs);
       expect(readFileSync(join(stand, "gh.log"), "utf8")).toBe("pr create --fill\n");
       expect(readTree(out)).toEqual(written);
@@ -222,11 +240,35 @@ describe("publish-starter", () => {
       const first = paste(shell, block(printed, "The first time"), top, env);
       expect(first.status, first.stderr).toBe(0);
       expect(git(out, ["log", "--format=%s"])).toBe("BoxOps starter for v0.1.0");
+      expect(git(out, ["log", "--format=%an <%ae>, %cn <%ce>"])).toBe(madeAs);
       expect(tree(out, "HEAD")).toEqual(blobs);
       expect(readFileSync(join(stand, "gh.log"), "utf8").split("\n").slice(1, 3)).toEqual([
         "repo create Allenfp/boxops-starter --public --source . --push",
         "repo edit Allenfp/boxops-starter --template",
       ]);
+    });
+
+    it(`prints commands that push no commit made as an address but the no-reply one, pasted into ${shell[0]}`, async () => {
+      const { repo, release } = upstream();
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      const out = join(tempDir(), "starter-out");
+      expect(await main(["--tag", "v0.1.0", "--commit", release, "--out", out], repo.dir)).toBe(0);
+      const printed = log.mock.calls.map((c) => String(c[0]));
+      const github = new TestRepo();
+      repos.push(github);
+      github.commit({ "README.md": "The earlier starter\n" }, "BoxOps starter for v0.0.9");
+      // GIT_AUTHOR_EMAIL and GIT_COMMITTER_EMAIL in the environment (shellEnv's) win over `git config user.email`.
+      const stand = standIns();
+      const env = shellEnv(stand, `[url "${github.dir}"]\n\tinsteadOf = git@github.com:Allenfp/boxops-starter.git\n`);
+      const refs = () => execFileSync("git", ["-C", github.dir, "for-each-ref", "--format=%(refname) %(objectname)"], { encoding: "utf8", env }).trim();
+      const before = refs();
+      for (const heading of ["Each later release", "The first time"]) {
+        const pasted = paste(shell, block(printed, heading), tempDir(), env);
+        expect(pasted.status, heading).not.toBe(0);
+        expect(pasted.stderr, heading).toContain("not a GitHub no-reply address: maintainer@example.com");
+      }
+      expect(refs()).toBe(before);
+      expect(existsSync(join(stand, "gh.log")), "gh was run").toBe(false);
     });
 
     it(`prints commands that stop at a step that fails, pasted into ${shell[0]}: a failed clone or cd changes nothing where they run`, async () => {

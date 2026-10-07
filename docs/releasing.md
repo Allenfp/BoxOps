@@ -302,7 +302,9 @@ About 30 to 45 minutes of attention, most of it waiting for CI.
    - `Allenfp/boxops-starter`: `npm run publish-starter -- --tag vX.Y.Z
      --commit <release commit> --out <folder>` (from `web/`, after
      `git fetch origin main releases --tags`) writes it and prints the
-     commands that publish it; its own deploy runs.
+     commands that publish it, which commit as Allenfp's GitHub no-reply
+     address and push nothing made as another (a public repository's
+     history is public); its own deploy runs.
    - The GHEC canary: upgrade to the release.
 
 Patch releases skip the release candidate unless they change something the

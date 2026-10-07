@@ -1,9 +1,9 @@
 // `npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out <folder> [--source <commit>]`:
 // writes the starter repository (Allenfp/boxops-starter) for a BoxOps
 // release into a new or empty folder, and prints the commands a maintainer
-// runs to publish it. It never pushes, and asks GitHub nothing: everything
-// comes from this clone's git, so fetch first (`git fetch origin main
-// releases --tags`).
+// runs to publish it (committing as the maintainer's GitHub no-reply
+// address). It never pushes, and asks GitHub nothing: everything comes from
+// this clone's git, so fetch first (`git fetch origin main releases --tags`).
 //
 // The files are starter/ as it is at the commit of main the release was
 // built from (its BUILD.json's `source`; --source to say so when it's
@@ -110,12 +110,26 @@ export function publishStarter(o: PublishOptions): Published {
   return { files: Object.keys(files).sort(), source, tagChecked: tagged === o.commit };
 }
 
+/** The maintainer's GitHub no-reply address: what the starter repository's commits are made as, never a personal one. */
+export const NO_REPLY = "29790605+Allenfp@users.noreply.github.com";
+
+/**
+ * Fails, naming it on stderr, if the commit just made has an author or
+ * committer address that isn't a GitHub no-reply one (GIT_AUTHOR_EMAIL or
+ * GIT_COMMITTER_EMAIL in the environment win over `git config`).
+ */
+const NO_REPLY_CHECK =
+  "git log -1 --format='%ae%n%ce' | sort -u | " +
+  `awk '!/@users\\.noreply\\.github\\.com$/ && $0 != "noreply@github.com" { print "not a GitHub no-reply address: " $0 > "/dev/stderr"; bad = 1 } END { exit bad }'`;
+
 /**
  * What a maintainer runs to publish the folder written, `out` (an absolute
  * path, as the commands run in other folders): the first time, then for each
  * later release. Indented lines are commands, each block one command
  * (`oneCommand`); rsync writes into the new clone alone, once it's checked to
- * be one, never into the folder the command runs in.
+ * be one, never into the folder the command runs in. Each commits as
+ * NO_REPLY, whatever the global git identity is, and checks it did before
+ * anything is pushed.
  */
 export function publishCommands(out: string, tag: string): string[] {
   if (!isAbsolute(out)) throw new Error(`publishCommands: ${out} isn’t an absolute path`);
@@ -124,7 +138,8 @@ export function publishCommands(out: string, tag: string): string[] {
     `The first time (${repo} doesn't exist yet), in the folder written:`,
     ...oneCommand([
       [`cd ${shellWord(out)}`, "git init -b main", "git add -A"],
-      [`git commit -m "BoxOps starter for ${tag}"`],
+      [`git config user.email ${NO_REPLY}`, `git commit -m "BoxOps starter for ${tag}"`],
+      [NO_REPLY_CHECK],
       [`gh repo create ${repo} --public --source . --push`],
       [`gh repo edit ${repo} --template`],
     ]),
@@ -135,10 +150,12 @@ export function publishCommands(out: string, tag: string): string[] {
       [`git clone git@github.com:${repo}.git "$starter"`],
       ['cd "$starter"', `git switch -c boxops-${tag}`],
       ['[ -d "$starter/.git" ]', `rsync -a --delete --exclude=.git ${shellWord(`${out}/`)} "$starter/"`],
-      ["git add -A", `git commit -m "Upgrade BoxOps to ${tag}"`],
+      ["git add -A", `git config user.email ${NO_REPLY}`, `git commit -m "Upgrade BoxOps to ${tag}"`],
+      [NO_REPLY_CHECK],
       [`git push -u origin boxops-${tag}`, "gh pr create --fill"],
     ]),
     "Each is one command: paste it whole, and it stops at the first step that fails.",
+    `Each commits as ${NO_REPLY}, not your global git address, and stops before pushing a commit made as any other.`,
     "Pushing workflow files takes SSH, or a token with the workflow scope.",
   ];
 }

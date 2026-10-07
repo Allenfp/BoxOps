@@ -1247,7 +1247,9 @@ a release must have none of.
   `init` prints to start a repository (pasted into bash, and zsh where it's
   installed, without `-e`: from another folder they do so, against stand-ins
   for GitHub's repositories and `gh`, and after a failed clone or `cd` they
-  change nothing where they were pasted), Path B's workflows (the starter's
+  change nothing where they were pasted; `publish-starter`'s commit as the
+  maintainer's GitHub no-reply address, whatever git's global identity, and
+  push nothing made as another), Path B's workflows (the starter's
   but for one step, which the README shows, and setup-node told to read
   nothing in the workspace) and that step run with bash against a stand-in
   for github.com, a hostile workspace (its files, git configuration and
