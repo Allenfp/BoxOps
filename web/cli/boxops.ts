@@ -25,7 +25,7 @@ import { initCommand } from "./init.ts";
 import { migrateCommand } from "./migrate.ts";
 import { contractNumber } from "./pins.ts";
 import { ensureApp, previewCommand } from "./preview.ts";
-import { AGENTS_BLOCK, GUARD, LAUNCHER, openRelease, verifiedApp, writeSite } from "./release.ts";
+import { AGENTS_BLOCK, GUARD, LAUNCHER, findBuildJson, openRelease, verifiedApp, writeSite } from "./release.ts";
 import { issueLine, loadDir, resultLine } from "./roadmap.ts";
 import { buildBundle, findRepo } from "./site.ts";
 import { applySync, planSync, plainText } from "./sync.ts";
@@ -250,9 +250,10 @@ const COMMANDS: Record<string, { values?: string[]; switches?: string[]; run: Co
       const id = io.identity();
       const where = ctx.repo && ctx.sha ? `${ctx.repo}@${ctx.sha.slice(0, 7)}, ` : "";
       io.out(`BoxOps ${id.version} (${where}build ${id.build}, data format ${FORMAT})`);
-      // Through the launcher, the app too, beside the tool it keeps (once: then nothing to do), so that a
-      // sandbox with the network only while it's set up, which runs `version` then, can `preview` later.
-      if (ctx.repo && ctx.sha) {
+      // Through the launcher, from its cache (the tool and its BUILD.json), the app too (once: then
+      // there's nothing to fetch), so that a sandbox with the network only while it's set up, which
+      // runs `version` then, can `preview` later. Not beside a tool BOXOPS_CLI names alone.
+      if (ctx.repo && ctx.sha && findBuildJson(io.cliDir)) {
         try {
           await ensureApp(io.cliDir, ctx, io);
         } catch (e) {

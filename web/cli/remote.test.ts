@@ -697,6 +697,12 @@ describe("version", () => {
     } finally {
       await preview.close();
     }
+    // A release's boxops.mjs alone, which BOXOPS_CLI names (one downloaded beside other files, say): nothing written there.
+    const alone = tempDir();
+    writeFileSync(join(alone, "boxops.mjs"), files["dist/boxops.mjs"]);
+    const lone = capture({ fetch: gh.fetch, cliDir: alone });
+    expect(await main(["version"], ctx, lone)).toBe(0);
+    expect([lone.stdout, lone.stderr, readdirSync(alone)]).toEqual([[line], [], ["boxops.mjs"]]);
   });
 });
 
