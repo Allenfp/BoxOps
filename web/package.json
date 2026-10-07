@@ -18,7 +18,8 @@
     "e2e": "vite build && playwright test",
     "perf": "vite build && playwright test -c playwright.perf.config.ts",
     "report": "tsx scripts/report.ts",
-    "gen-roadmap": "tsx scripts/gen-roadmap.ts"
+    "gen-roadmap": "tsx scripts/gen-roadmap.ts",
+    "publish-starter": "tsx scripts/publish-starter.ts"
   },
   "dependencies": {
     "react": "^19.3.0",

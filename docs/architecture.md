@@ -89,7 +89,9 @@ web/
                             `report`: the tool's commands; an optional
                             argument names another roadmap folder),
                             gen-roadmap.ts (synthetic roadmaps of any size),
-                            cutover.test.ts (what's staged in cutover/)
+                            publish-starter.ts (the starter repository for
+                            a release), cutover.test.ts (what's staged in
+                            cutover/)
   e2e/                      browser tests, fake GitHub, fixture roadmap
   index.html                early theme, boot watchdog (inline scripts)
   vite.config.ts            the app: build id, CSP, licences; roadmap.json
@@ -1139,6 +1141,21 @@ it, `AGENTS.md`'s block or `deploy.yml`'s Pages guard isn't what the
 `BUILD.json` names) and tells the tool it has, and calls the tool's
 `main(argv, { root, repo, sha, tag, launcher, checked })`, a contract that
 stays the same across 0.x.
+
+**The starter** (`starter/`) is the starter repository's 13 files as they
+are for every release, with placeholders: each BoxOps pin is
+`Allenfp/BoxOps@<RELEASE_COMMIT_SHA> # vX.Y.Z`, and `README.md` links BoxOps'
+docs at `<SOURCE_COMMIT_SHA>`. `cli/starter.ts` makes them for one release:
+the pins moved to its commit and tag (as `upgrade` moves pins), the links to
+the commit of `main` it was built from (its `BUILD.json`'s `source`; the
+release commit holds no docs, so its tag can't be linked). `init` writes
+that. `npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out
+<folder>` (`scripts/publish-starter.ts`) writes the same for
+`Allenfp/boxops-starter`, from `starter/` as it is at that commit of `main`
+in this clone's git (never the working tree), after checking the release
+commit's `BUILD.json` names the tag's version, the tag (if fetched) names the
+commit, and every page of the docs the starter links to is there at that
+commit; it prints the commands to publish it and pushes nothing.
 
 ## Tests and CI
 
