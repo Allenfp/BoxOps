@@ -68,6 +68,10 @@ a commit on `main`. So:
      Tell the user about anything your change made worse: a department newly
      over capacity or full, someone newly over 1 FTE or at a higher level,
      someone newly booked during their PTO, a rule now broken.
+   - To see the roadmap as the app shows it, `node .boxops/boxops.mjs preview`
+     serves this working copy at http://127.0.0.1:4173: read-only, showing
+     each saved file within a second, until it's stopped (Ctrl-C), so start
+     it in the background if you need the shell meanwhile.
 5. **Commit to `main`.** Always `git pull --ff-only` right before committing
    (validate again if anything came in). Stage only the roadmap
    (`git add roadmap/`), never `git add -A`. Write the message the way the app
@@ -85,6 +89,19 @@ Don't open pull requests or create branches for roadmap edits unless asked:
 the team's convention is that saves go straight to `main`. Changes to
 `.github/`, `.boxops/`, `AGENTS.md` and `CLAUDE.md` are for a repository
 admin (a push rule may refuse them from anyone else).
+
+## The tools and the network
+
+`node .boxops/boxops.mjs` needs Node.js 22.12 or later, and the network the
+first time: it downloads the pinned release's tools once, and `preview`
+downloads the app the first time it runs, into a cache outside the
+repository (`$BOXOPS_CACHE`, else `$XDG_CACHE_HOME/boxops` or
+`~/.cache/boxops`, else a folder in the temp folder). In a sandbox that has
+the network only while it's set up, run `node .boxops/boxops.mjs version`
+then, which fills the cache (and `preview` once, if you'll want it). With no
+network at all, set `BOXOPS_CLI` to the `dist/boxops.mjs` of a copy of the
+pinned release (a checkout of its commit, say): `preview` then uses the
+`dist/app` beside it.
 
 ## Lane labels
 
