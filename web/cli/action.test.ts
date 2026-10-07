@@ -217,7 +217,22 @@ describe("branch (step 2)", () => {
     expect(errors(await run({ repo, env: { GITHUB_REF_NAME: "main", GITHUB_REF_TYPE: "tag" } }))).toHaveLength(1);
     expect((await run({ repo, env: { GITHUB_REF_NAME: "trunk" }, payload: { default_branch: "trunk" } })).code).toBe(0);
     expect(errors(await run({ repo, env: { GITHUB_EVENT_PATH: "/nonexistent" } }))).toEqual([
-      "error: Can’t tell the repository’s default branch from the event payload, so nothing was built: run this on a push or workflow_dispatch event",
+      "error: Can’t tell the repository’s default branch from the event payload, so nothing was built: run this on a push, schedule or workflow_dispatch event",
+    ]);
+  });
+
+  it("builds on a schedule, which runs on the default branch, though its payload has no repository", async () => {
+    const { repo } = workspace();
+    const event = join(tempDir(), "event.json");
+    writeFileSync(event, JSON.stringify({ schedule: "41 5 * * *" }));
+    const r = await run({ repo, env: { GITHUB_EVENT_NAME: "schedule", GITHUB_EVENT_PATH: event } });
+    expect([r.code, r.annotations]).toEqual([0, []]);
+    // Its visibility can't be told, so the site counts as private.
+    expect(JSON.parse(readFileSync(join(r.outputs.site, "roadmap.json"), "utf8")).source).toMatchObject({ branch: "main", visibility: null, private: true });
+    // Only a branch, and only on a schedule.
+    expect(errors(await run({ repo, env: { GITHUB_EVENT_NAME: "schedule", GITHUB_EVENT_PATH: event, GITHUB_REF_TYPE: "tag" } }))).toHaveLength(1);
+    expect(errors(await run({ repo, env: { GITHUB_EVENT_NAME: "push", GITHUB_EVENT_PATH: event } }))).toEqual([
+      "error: Can’t tell the repository’s default branch from the event payload, so nothing was built: run this on a push, schedule or workflow_dispatch event",
     ]);
   });
 

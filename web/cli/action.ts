@@ -8,7 +8,7 @@
 //      Linux or macOS runners, known input values; the action's own ref should
 //      be a commit SHA.
 //   2. Branch (build mode): the run's ref must be the default branch, from the
-//      event payload (no token needed).
+//      event payload (no token needed); a scheduled run always is.
 //   3. Repository: `path` inside the workspace, with a .git folder of its own;
 //      `roadmap` a plain relative folder name.
 //   4–7. The roadmap read from git objects at the checkout's HEAD, never the
@@ -157,11 +157,18 @@ function eventRepository(env: Env): Record<string, unknown> {
   }
 }
 
-/** Step 2: build mode publishes the default branch only. */
+/**
+ * Step 2: build mode publishes the default branch only. A scheduled run's
+ * payload has no repository, but GitHub runs schedules on the default branch
+ * only (its ref is that branch), so one is let through.
+ */
 export function checkBranch(env: Env): void {
+  if (env.GITHUB_EVENT_NAME === "schedule" && env.GITHUB_REF_TYPE === "branch") return;
   const branch = eventRepository(env).default_branch;
   if (typeof branch !== "string" || !branch) {
-    throw new ActionError("Can’t tell the repository’s default branch from the event payload, so nothing was built: run this on a push or workflow_dispatch event");
+    throw new ActionError(
+      "Can’t tell the repository’s default branch from the event payload, so nothing was built: run this on a push, schedule or workflow_dispatch event",
+    );
   }
   const ref = env.GITHUB_REF_NAME ?? "";
   if (env.GITHUB_REF_TYPE === "tag" || ref !== branch) {

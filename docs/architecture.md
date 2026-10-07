@@ -1053,7 +1053,9 @@ error annotation with a plain message:
    0.1), Linux or macOS runners, known input values; a warning if the
    workflow uses BoxOps by a tag or branch rather than a commit.
 2. In build mode, the run's ref must be the default branch (from the event
-   payload; no token).
+   payload; no token). A scheduled run's payload names no repository, but
+   GitHub starts schedules on the default branch only, so one passes. No
+   input turns this off (see `docs/decisions.md`).
 3. `path` must be inside the workspace (after resolving symlinks) with a
    `.git` folder of its own; `roadmap` a plain folder name.
 4. to 7. `roadmap/` from git objects at the checkout's `HEAD`, as above:
