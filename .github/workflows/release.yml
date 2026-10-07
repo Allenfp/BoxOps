@@ -227,6 +227,11 @@ jobs:
           parent=$(git ls-remote "$remote" refs/heads/releases | cut -f1)
           if [ -n "$parent" ]; then
             git fetch -q --depth 1 "$remote" "$parent"
+            # releases holds release commits alone: each has BUILD.json, and its message a Source-Commit: line.
+            if ! git cat-file -e "$parent:BUILD.json" 2>/dev/null || ! grep -q '^Source-Commit: [0-9a-f]\{40\}$' <<<"$(git cat-file commit "$parent")"; then
+              echo "::error title=releases isn't a release::releases is on $parent, which isn't a release commit: see docs/releasing.md, \"Checking the deploy key's bypass\"."
+              exit 1
+            fi
             commit=$(message | git commit-tree "$TREE" -p "$parent")
           else
             commit=$(message | git commit-tree "$TREE") # the first release: releases starts here

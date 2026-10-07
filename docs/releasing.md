@@ -242,8 +242,17 @@ token pasted into a browser or a stolen one.
   The first two must be refused, and the last two (the key) must work. The
   third is the one not yet tried anywhere: the owner making a tag through
   the REST API. Try making a release with a new tag on the web page too
-  (Releases → Draft a new release → a new tag, "Create new tag on publish"):
-  it must be refused when published. Delete the draft.
+  (Releases → Draft a new release → a new tag, `bypass-check-web`, never a
+  version, "Create new tag on publish"): it must be refused when published.
+  Delete the draft.
+
+  Whatever one of these makes, though it shouldn't, delete at once:
+  `git push origin :refs/heads/releases` and
+  `git push origin :refs/tags/bypass-check`. The `releases` branch above
+  all: publish makes the first release's commit a child of whatever
+  `releases` is on, which would put `main`'s history into every release (it
+  stops instead when that isn't a release commit, until the branch is
+  deleted).
 - **If the owner can make a tag** any of these ways, the rulesets don't hold
   for the owner, and releases move before 0.1.0 (the repository a roadmap
   pins can't change after): to a repository of their own, such as
