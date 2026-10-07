@@ -19,7 +19,8 @@
     "perf": "vite build && playwright test -c playwright.perf.config.ts",
     "report": "tsx scripts/report.ts",
     "gen-roadmap": "tsx scripts/gen-roadmap.ts",
-    "publish-starter": "tsx scripts/publish-starter.ts"
+    "publish-starter": "tsx scripts/publish-starter.ts",
+    "dry-run:starter": "vite build && vite build -c vite.cli.config.ts && tsx scripts/starter-dry-run.ts"
   },
   "dependencies": {
     "react": "^19.3.0",

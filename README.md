@@ -166,6 +166,7 @@ npm run perf       # a 2,000-box roadmap in WebKit: sizes and what's drawn check
 npm run validate   # check the roadmap files
 npm run report     # capacity and staffing summary
 npm run gen-roadmap -- 2000 2026-10-03 <folder>  # a synthetic roadmap (boxes, "today") for scale tests
+npm run dry-run:starter  # a roadmap repository made from the starter, end to end on this machine, offline (WebKit too)
 npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out <folder>  # the starter repository for a release (pushes nothing)
 ```
 

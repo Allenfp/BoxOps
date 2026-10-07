@@ -90,8 +90,9 @@ web/
                             argument names another roadmap folder),
                             gen-roadmap.ts (synthetic roadmaps of any size),
                             publish-starter.ts (the starter repository for
-                            a release), cutover.test.ts (what's staged in
-                            cutover/)
+                            a release), starter-dry-run.ts (the starter end
+                            to end, offline), cutover.test.ts (what's
+                            staged in cutover/)
   e2e/                      browser tests, fake GitHub, fixture roadmap
   index.html                early theme, boot watchdog (inline scripts)
   vite.config.ts            the app: build id, CSP, licences; roadmap.json
@@ -1184,6 +1185,22 @@ commit; it prints the commands to publish it and pushes nothing.
   that read a whole roadmap read fixed copies (the browser tests' fixture,
   and `roadmap/` as shipped, in `web/src/model/fixtures/shipped-roadmap/`),
   never the live `roadmap/`, which saves may write any valid way.
+- **The starter's dry run** (`npm run dry-run:starter`,
+  `web/scripts/starter-dry-run.ts`) builds the app and the tool, lays
+  `web/dist` out as a release commit (each file checked against
+  `BUILD.json`) on the `releases` branch of a stand-in for github.com (git is
+  told to fetch from it), and makes a roadmap repository with that release's
+  `init` (its calls to GitHub answered by the stand-in). It runs the
+  launcher with `BOXOPS_CLI` (`version`, `validate`, `report`, `guide`,
+  `sync --check`, `migrate --check`, `build`, `preview`), the action as
+  `uses:` runs it (`dist/action.mjs` with the runner's inputs, a push
+  event's payload and a releases file naming a newer security release; then
+  check mode) and Path B's step with bash, which must assemble the same
+  site; then it opens that site, served as Pages serves it, and the preview
+  in WebKit: the app shows the roadmap and the security notice with no
+  error or CSP violation and no request off the machine, and the preview a
+  file edited on disk. Every Node process in it has the network cut off,
+  and none may try it.
 - **Browser tests** (Playwright, `web/e2e/`) run the production build in
   WebKit, Safari's engine, and all of them again in Chromium (Chrome, Edge)
   and Firefox. GitHub is faked by a stateful stand-in
