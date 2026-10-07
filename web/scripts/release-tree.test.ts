@@ -3,15 +3,17 @@
 // right and broken every way they look for; and the real thing, built twice
 // from one commit (this checkout's files as git would commit them), each in
 // its own clone and folder: byte for byte the same, with git's tree id the
-// same as the one computed without git.
+// same as the one computed without git. CI's smoke scripts (scripts/smoke/)
+// run against it too, as the smoke jobs run them.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildJsonText, makeBuildJson, parseBuildJson } from "../cli/release";
-import { cleanUp, tempDir } from "../cli/test-release";
+import { cleanUp, readOutputs, tempDir } from "../cli/test-release";
 import { LIMITS, bundledPackages, checkReleaseTree, sha256sums, treeHash } from "./check-release-tree";
 import { gitTree, renderReadme } from "./release-tree";
 
@@ -250,50 +252,51 @@ function git(cwd: string, args: string[]): string {
   }).trim();
 }
 
-describe("two clean builds of one commit", () => {
-  it("are the same release tree, byte for byte, whose id git agrees with", { timeout: 180_000 }, async () => {
-    // One commit: this checkout's files as `git add -A` would commit them.
-    const work = tempDir();
-    const src = join(work, "src");
-    const listed = git(REPO, ["-c", "core.fsmonitor=false", "ls-files", "-z", "--cached", "--others", "--exclude-standard"]).split("\0").filter(Boolean);
-    for (const path of listed) {
-      const st = lstatSync(join(REPO, path), { throwIfNoEntry: false });
-      if (!st?.isFile()) continue; // deleted, and not committed yet
-      mkdirSync(dirname(join(src, path)), { recursive: true });
-      copyFileSync(join(REPO, path), join(src, path));
-    }
-    git(src, ["init", "-q", "-b", "main"]);
-    git(src, ["add", "-A"]);
-    git(src, ["commit", "-q", "-m", "The commit to build"]);
-    const commit = git(src, ["rev-parse", "HEAD"]);
+/** One commit (this checkout's files as `git add -A` would commit them) built twice, each in its own clone and folder. */
+interface Built {
+  work: string;
+  commit: string;
+  builds: { clone: string; out: string; tree: string }[];
+}
 
-    // Two clones, each with its own copy of the dependencies npm ci installed, built apart.
-    const built: { out: string; tree: string }[] = [];
-    for (const name of ["a", "b"]) {
-      const clone = join(work, name);
-      git(work, ["clone", "-q", "--no-hardlinks", src, clone]);
-      cpSync(join(WEB, "node_modules"), join(clone, "web", "node_modules"), { recursive: true, verbatimSymlinks: true });
-      const out = join(work, `${name}-out`);
-      const r = spawnSync(process.execPath, [join(clone, "web", "node_modules", "tsx", "dist", "cli.mjs"), "scripts/release-tree.ts", "--out", out, "--no-sbom"], {
-        cwd: join(clone, "web"),
-        encoding: "utf8",
-      });
-      expect(r.status, `${r.stdout}${r.stderr}`).toBe(0);
-      expect(r.stdout).toMatch(/^Built the release tree of BoxOps /);
-      built.push({ out, tree: readFileSync(join(out, "TREE"), "utf8").trim() });
+/** Makes the commit and builds it twice (see Built); each clone has its own copy of the dependencies npm ci installed. */
+function buildTwice(): Built {
+  const work = mkdtempSync(join(tmpdir(), "boxops-test-"));
+  const src = join(work, "src");
+  const listed = git(REPO, ["-c", "core.fsmonitor=false", "ls-files", "-z", "--cached", "--others", "--exclude-standard"]).split("\0").filter(Boolean);
+  for (const path of listed) {
+    const st = lstatSync(join(REPO, path), { throwIfNoEntry: false });
+    if (!st?.isFile()) continue; // deleted, and not committed yet
+    mkdirSync(dirname(join(src, path)), { recursive: true });
+    copyFileSync(join(REPO, path), join(src, path));
+  }
+  git(src, ["init", "-q", "-b", "main"]);
+  git(src, ["add", "-A"]);
+  git(src, ["commit", "-q", "-m", "The commit to build"]);
+  const builds = ["a", "b"].map((name) => {
+    const clone = join(work, name);
+    git(work, ["clone", "-q", "--no-hardlinks", src, clone]);
+    cpSync(join(WEB, "node_modules"), join(clone, "web", "node_modules"), { recursive: true, verbatimSymlinks: true });
+    const out = join(work, `${name}-out`);
+    const r = spawnSync(process.execPath, [join(clone, "web", "node_modules", "tsx", "dist", "cli.mjs"), "scripts/release-tree.ts", "--out", out, "--no-sbom"], {
+      cwd: join(clone, "web"),
+      encoding: "utf8",
+    });
+    if (r.status !== 0 || !r.stdout.startsWith("Built the release tree of BoxOps ")) throw new Error(`release:build in ${clone} exited ${r.status}:\n${r.stdout}${r.stderr}`);
+    return { clone, out, tree: readFileSync(join(out, "TREE"), "utf8").trim() };
+  });
+  return { work, commit: git(src, ["rev-parse", "HEAD"]), builds };
+}
 
-      // A file not committed stops a build.
-      writeFileSync(join(clone, "web", "scripts", "stray.ts"), "x\n");
-      const dirty = spawnSync(process.execPath, [join(clone, "web", "node_modules", "tsx", "dist", "cli.mjs"), "scripts/release-tree.ts", "--out", join(work, "dirty"), "--no-sbom"], {
-        cwd: join(clone, "web"),
-        encoding: "utf8",
-      });
-      expect(dirty.status).toBe(1);
-      expect(dirty.stderr).toContain("has uncommitted or untracked files (web/scripts/stray.ts): a release tree is built from a commit");
-      expect(existsSync(join(work, "dirty"))).toBe(false);
-    }
+describe("a release tree built from one commit", () => {
+  let built: Built;
+  beforeAll(() => {
+    built = buildTwice();
+  }, 180_000);
+  afterAll(() => rmSync(built.work, { recursive: true, force: true }));
 
-    const [a, b] = built;
+  it("is the same when built twice, byte for byte, and git agrees with its id", async () => {
+    const [a, b] = built.builds;
     expect(a.tree).toMatch(/^[0-9a-f]{40}$/);
     expect(b.tree).toBe(a.tree);
     const files = walk(join(a.out, "release"));
@@ -305,12 +308,76 @@ describe("two clean builds of one commit", () => {
     const check = await checkReleaseTree(join(a.out, "release"), { beside: a.out, webDir: WEB });
     expect(check.problems).toEqual([]);
     const build = parseBuildJson(readFileSync(join(a.out, "release", "BUILD.json"), "utf8"));
-    expect(build.source).toBe(commit);
+    expect(build.source).toBe(built.commit);
     const { version } = JSON.parse(readFileSync(join(WEB, "package.json"), "utf8")) as { version: string };
     expect(build.build).toMatch(new RegExp(`^${version.replaceAll(".", "\\.")}\\+[0-9a-f]{12}$`));
     expect(Object.keys(build.files)).toEqual(files.filter((p) => p !== "BUILD.json"));
     // Every chunk the app has is in the tree, and listed.
     expect(files.filter((p) => p.startsWith("dist/app/assets/") && p.endsWith(".js")).length).toBeGreaterThan(10);
-    rmSync(work, { recursive: true, force: true });
+  });
+
+  it("isn't built from a checkout with a file not committed", () => {
+    const { clone } = built.builds[0];
+    writeFileSync(join(clone, "web", "scripts", "stray.ts"), "x\n");
+    const out = join(built.work, "dirty");
+    const r = spawnSync(process.execPath, [join(clone, "web", "node_modules", "tsx", "dist", "cli.mjs"), "scripts/release-tree.ts", "--out", out, "--no-sbom"], {
+      cwd: join(clone, "web"),
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("has uncommitted or untracked files (web/scripts/stray.ts): a release tree is built from a commit");
+    expect(existsSync(out)).toBe(false);
+  });
+
+  it("passes CI's smoke scripts (scripts/smoke/): the starter's files, hostile, the bad repositories, no network", { timeout: 60_000 }, () => {
+    const release = join(built.builds[0].out, "release");
+    const smoke = join(WEB, "scripts", "smoke");
+    const run = (file: string, args: string[], env: Record<string, string> = {}) => {
+      const r = spawnSync(file.endsWith(".mjs") ? process.execPath : "bash", [join(smoke, file), ...args], { encoding: "utf8", env: { ...process.env, ...env } });
+      expect(r.status, `${file}: ${r.stdout}${r.stderr}`).toBe(0);
+      return r.stdout;
+    };
+    const ws = join(built.work, "ws");
+    const repo = join(ws, "starter-copy");
+    const sentinels = join(built.work, "sentinels");
+    run("starter-repo.sh", [repo]);
+    expect(run("plant-hostile.sh", [repo, sentinels])).toContain("hostile (plain git status set off: ");
+    expect(readdirSync(sentinels)).toEqual([]);
+    expect(run("no-net.sh", [release, repo])).toContain("ok: build mode, no network call (1 departments, 2 lanes, 2 boxes — OK)");
+    // The action as `uses:` runs it, then what it made, as the smoke job checks it.
+    const temp = join(built.work, "runner-temp");
+    mkdirSync(temp);
+    writeFileSync(join(built.work, "event.json"), JSON.stringify({ repository: { full_name: "acme/roadmap", default_branch: "main", private: true, visibility: "private" } }));
+    writeFileSync(join(built.work, "output"), "");
+    const action = spawnSync(process.execPath, [join(release, "dist", "action.mjs")], {
+      encoding: "utf8",
+      env: {
+        PATH: process.env.PATH,
+        GITHUB_ACTIONS: "true",
+        GITHUB_SERVER_URL: "https://github.com",
+        GITHUB_REPOSITORY: "acme/roadmap",
+        GITHUB_REF_NAME: "main",
+        GITHUB_REF_TYPE: "branch",
+        GITHUB_EVENT_NAME: "push",
+        GITHUB_EVENT_PATH: join(built.work, "event.json"),
+        GITHUB_WORKSPACE: ws,
+        GITHUB_OUTPUT: join(built.work, "output"),
+        GITHUB_STEP_SUMMARY: join(built.work, "summary"),
+        RUNNER_OS: "Linux",
+        RUNNER_TEMP: temp,
+        INPUT_PATH: "starter-copy",
+      },
+    });
+    expect(action.status, action.stdout).toBe(0);
+    const outputs = JSON.stringify(readOutputs(join(built.work, "output")));
+    const site = join(temp, "boxops-site");
+    expect(run("assert-site.mjs", ["--release", release, "--repo", repo, "--site", site, "--sentinels", sentinels], { BOXOPS_OUTPUTS: outputs })).toContain("ok: the site in ");
+    // …and it says so when something's wrong.
+    writeFileSync(join(sentinels, "vite.config.js"), "ran");
+    const failed = spawnSync(process.execPath, [join(smoke, "assert-site.mjs"), "--release", release, "--repo", repo, "--site", site, "--sentinels", sentinels], { encoding: "utf8", env: { ...process.env, BOXOPS_OUTPUTS: outputs.replace('"problems":"0"', '"problems":"2"') } });
+    expect(failed.status).toBe(1);
+    expect(failed.stderr).toContain("assert-site.mjs: the outputs version, build, format, commit and problems: ");
+    expect(failed.stderr).toContain('assert-site.mjs: sentinels left by planted files (something ran them): ["vite.config.js"], not []');
+    expect(run("bad-repos.sh", [release])).toMatch(/bad-repos\.sh: all \d+ cases failed as they should, or passed as they should/);
   });
 });
