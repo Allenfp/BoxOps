@@ -253,8 +253,10 @@ test("the box being dragged is drawn all the way as the timeline scrolls far und
   await page.mouse.move(Math.max(b.x, view.x + 300) + 20, b.y + b.height / 2);
   await page.mouse.down();
   // Into the bottom right corner, and held there: the timeline scrolls down and on in time,
-  // through departments and days that weren't drawn, carrying the box.
-  await page.mouse.move(view.x + view.width - 15, view.y + view.height - 15, { steps: 10 });
+  // through departments and days that weren't drawn, carrying the box. 30 pixels in from the
+  // edges, inside the band that scrolls (40) but off WebKit's overlay scrollbars (about 16):
+  // over those, the pointer is over no lane, so the box would stay in the last one it was over.
+  await page.mouse.move(view.x + view.width - 30, view.y + view.height - 30, { steps: 10 });
   for (const depth of [1, 2, 3]) {
     await expect.poll(() => timeline.evaluate((el) => el.scrollTop), { timeout: 15_000 }).toBeGreaterThan(depth * view.height);
     await expect(moved).toHaveCount(1);
