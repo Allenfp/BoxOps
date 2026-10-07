@@ -1,34 +1,56 @@
-# Checks pull requests and every branch except main (which pages.yml checks
-# before deploying): lint, types, unit tests (also in two far-apart time zones),
-# roadmap validation, a production build, the command-line tool on the
-# starter's files, the starter end to end, the browser tests (WebKit, then
-# Chromium and Firefox) and the performance checks; and lints the workflows,
-# this repository's, the starter's and Path B's.
+# CI, the check every change gets: on pull requests and every push to a
+# branch other than main (which pages.yml checks before deploying), by hand,
+# weekly (main, and the latest release), and for a release (release.yml calls
+# it on the commit it releases, with the version). Its jobs:
+#   test          lint, types, unit tests (also in two far-apart time zones),
+#                 the changelog's form, npm run validate
+#   release tree  the release tree (npm run release:build): the files a
+#                 release commit holds, built, checked and uploaded; every job
+#                 below tests those files, which a release ships byte for byte
+#   browser tests on that tree: its tool on the starter's files, the starter
+#                 end to end, the browser tests (WebKit first, then Chromium
+#                 and Firefox) and the performance checks
+#   smoke         its action, as `uses:` runs it, on three runners: the
+#                 starter's files made hostile, bad repositories, no network
+#   workflows     actionlint and shellcheck on every workflow (this
+#                 repository's, the starter's and Path B's) and
+#                 on the smoke scripts, and the Pages guard against a stand-in gh
+#   latest release  (weekly) the latest release's action, on three runners
 name: CI
 
 on:
   pull_request:
   push:
     branches-ignore: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: The version the release tree is built as (release.yml gives it); default web/package.json's
+        type: string
+        default: ""
+  schedule:
+    - cron: "23 6 * * 1" # Mondays 06:23 UTC: runner images and platforms change under pinned actions
 
 permissions: {}
 
 # A newer push to the same branch or pull request replaces a run still going.
+# A release's run, the weekly one and one by hand each have a group of their
+# own, and are never cancelled.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 jobs:
   test:
+    name: test
     # A pull request from a branch of this repo is already checked by the push
     # run on that branch, so only pull requests from forks run here.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     # Pinned on purpose: ubuntu-latest moves to Ubuntu 26.04 between 2026-10-19
     # and 2026-11-19. Move to ubuntu-26.04 in its own pull request.
     runs-on: ubuntu-24.04
-    # Generous: on a private repository's 2-CPU runner Playwright runs one test
-    # at a time, and the browser tests alone may take half an hour (estimated).
-    timeout-minutes: 60
+    timeout-minutes: 20
     permissions:
       contents: read # check out the repo
     defaults:
@@ -46,6 +68,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # They include a release tree built twice from one commit, in two
+      # clones, which must be the same byte for byte, and CI's smoke scripts
+      # run against it.
       - name: Unit tests
         run: npm test
       # Dates are calendar days, so nothing may depend on the runner's zone.
@@ -58,24 +83,97 @@ jobs:
         env:
           TZ: Pacific/Kiritimati
         run: npm test
+      - name: The changelog's form (CHANGELOG.md, docs/releasing.md)
+        run: node scripts/check-changelog.mjs
       - run: npm run validate
-      - run: npm run build
-      # The command-line tool and action (dist/boxops.mjs), run as a roadmap
-      # repository would: on the starter's files, then writing the demo's site.
-      - run: npm run build:cli
-      - name: The tool on the starter, and the demo's site
-        run: |
-          node dist/boxops.mjs validate --root ../starter
-          node dist/boxops.mjs sync --check --root ../starter
-          node dist/boxops.mjs migrate --check --root ../starter
-          node dist/boxops.mjs build --out "$RUNNER_TEMP/site"
 
+  release-tree:
+    name: release tree
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the repo
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # No package's install script runs where a release is built.
+      - run: npm ci --ignore-scripts
+      - name: Build the release tree (and beside it TREE, SHA256SUMS and an SBOM)
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$VERSION" ]; then
+            npm run release:build -- --version "$VERSION"
+          else
+            npm run release:build
+          fi
+      - name: Check it (only a release's files, each in BUILD.json; one build id; licences; sizes)
+        run: npm run check:release-tree
+      # The release's tool, as a roadmap repository's launcher runs it, on the
+      # starter's files; then the site it writes from the starter's roadmap at
+      # this commit, and from roadmap/ (the demo's, as pages.yml writes it,
+      # until the cutover moves it).
+      - name: The release's tool on the starter, and the sites it writes
+        run: |
+          node ../build/release/dist/boxops.mjs version
+          node ../build/release/dist/boxops.mjs validate --root ../starter
+          node ../build/release/dist/boxops.mjs sync --check --root ../starter
+          node ../build/release/dist/boxops.mjs migrate --check --root ../starter
+          node ../build/release/dist/boxops.mjs build --roadmap starter/roadmap --out "$RUNNER_TEMP/starter-site"
+          node ../build/release/dist/boxops.mjs build --out "$RUNNER_TEMP/demo-site"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-tree
+          path: build/
+          if-no-files-found: error
+          retention-days: 7
+
+  e2e:
+    name: browser tests
+    needs: release-tree
+    runs-on: ubuntu-24.04
+    # Generous: on a private repository's 2-CPU runner Playwright runs one test
+    # at a time, and the browser tests alone may take half an hour (estimated).
+    timeout-minutes: 60
+    permissions:
+      contents: read # check out the repo
+    defaults:
+      run:
+        working-directory: web
+    env:
+      # The app, the tool and the action under test: the release tree's
+      # (e2e/app-dir.ts, scripts/starter-dry-run.ts), not a build of their own.
+      BOXOPS_RELEASE_DIR: ../build/release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-tree
+          path: build
       # No browser cache: the downloads are a few seconds of this step, and a
       # cache keyed only on runner.os restores the wrong Ubuntu's build.
       - name: Install the browsers
         run: npx playwright install --with-deps webkit chromium firefox
       # A roadmap repository made from the starter, end to end and offline,
-      # with the build above as its release: the release's init, the
+      # with the release tree as its release: the release's init, the
       # launcher, the action (as uses: runs it, and Path B), and the site and
       # the preview in WebKit.
       - name: The starter, end to end
@@ -83,6 +181,8 @@ jobs:
       # WebKit (Safari's engine) first, with the specs about dates in two more
       # time zones: Safari is the browser BoxOps is made for. Then the whole
       # suite in Chromium (Chrome, Edge) and in Firefox, which must work too.
+      # e2e/release.spec.ts checks the roadmap.json the release's tool writes
+      # is the one the tests serve.
       - name: Browser tests (WebKit)
         timeout-minutes: 20
         run: npx playwright test --project='webkit*'
@@ -92,7 +192,7 @@ jobs:
       - name: Browser tests (Firefox)
         timeout-minutes: 20
         run: npx playwright test --project=firefox
-      # npm run perf, on the build above: the first load of a generated
+      # npm run perf, on the release tree's app: the first load of a generated
       # 2,000-box roadmap in WebKit. Blocking: its exact checks (the main
       # JavaScript file's size, no YAML parser before the timeline shows)
       # catch real regressions, and its timing fails only far above what a
@@ -110,27 +210,205 @@ jobs:
             web/test-results
           retention-days: 14
 
+  smoke:
+    name: smoke (${{ matrix.os }})
+    needs: release-tree
+    strategy:
+      fail-fast: false
+      matrix:
+        # The runner roadmap repositories use, the Arm one, and the next Ubuntu.
+        os: [ubuntu-24.04, ubuntu-24.04-arm, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the repo
+    steps:
+      # The starter's files and the smoke scripts only: nothing here is built or installed.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            starter
+            web/scripts/smoke
+      # For the scripts and the action run directly (uses: runs it on the runner's own node24).
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-tree
+          path: build
+      - name: A roadmap repository of the starter's files, made hostile
+        run: |
+          bash web/scripts/smoke/starter-repo.sh starter-copy
+          bash web/scripts/smoke/plant-hostile.sh starter-copy "$RUNNER_TEMP/sentinels"
+      # With GIT_* variables that would point git elsewhere or run a program:
+      # the action drops them.
+      - name: The release's action checks it (check mode)
+        id: check
+        uses: ./build/release
+        env:
+          GIT_DIR: /nonexistent
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: core.fsmonitor
+          GIT_CONFIG_VALUE_0: touch ${{ runner.temp }}/sentinels/env-fsmonitor
+        with:
+          path: starter-copy
+          mode: check
+      - name: Check mode's outputs are right, and nothing planted ran
+        env:
+          BOXOPS_OUTPUTS: ${{ toJSON(steps.check.outputs) }}
+        run: node web/scripts/smoke/assert-site.mjs --release build/release --repo starter-copy --sentinels "$RUNNER_TEMP/sentinels"
+      # Build mode publishes the default branch only (docs/decisions.md), so
+      # it runs through uses: where this run is on it (weekly, for a release,
+      # by hand on main); elsewhere the release's tool writes the site, with
+      # the same code.
+      - name: The release's action builds the site (build mode)
+        id: build
+        if: github.event_name == 'schedule' || github.ref_name == github.event.repository.default_branch
+        uses: ./build/release
+        with:
+          path: starter-copy
+          summary: "false"
+      - name: The site, from the release's tool (on a branch or pull request)
+        if: steps.build.outcome == 'skipped'
+        run: node build/release/dist/boxops.mjs build --root starter-copy --commit HEAD --out "$RUNNER_TEMP/site"
+      - name: The site is the release's app and the roadmap's roadmap.json; outputs right; nothing planted ran
+        env:
+          SITE: ${{ steps.build.outputs.site || format('{0}/site', runner.temp) }}
+          BOXOPS_OUTPUTS: ${{ steps.build.outcome == 'success' && toJSON(steps.build.outputs) || '' }}
+        run: node web/scripts/smoke/assert-site.mjs --release build/release --repo starter-copy --site "$SITE" --sentinels "$RUNNER_TEMP/sentinels"
+      - name: Bad repositories fail as they should, each with its error
+        run: bash web/scripts/smoke/bad-repos.sh build/release
+      - name: The action makes no network call
+        run: bash web/scripts/smoke/no-net.sh build/release starter-copy
+
   workflows:
-    # As the test job: pushes to branches, and pull requests from forks.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    name: workflows
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read # check out the repo
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # actionlint, the release checked against its published SHA-256; it
-      # runs shellcheck (on the runner image) on every run: script.
-      - name: Lint the workflows (this repository's, the starter's and Path B's)
+      # Each release checked against its SHA-256: actionlint's from its
+      # published checksums, shellcheck's from its GitHub release's.
+      - name: Get actionlint and shellcheck
         env:
-          V: 1.7.12
-          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          ACTIONLINT: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          SHELLCHECK: 0.11.0
+          SHELLCHECK_SHA256: b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6
         run: |
           set -euo pipefail
+          tools="$RUNNER_TEMP/tools"
+          mkdir -p "$tools"
+          curl -fsSLo "$tools/actionlint.tgz" "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT/actionlint_${ACTIONLINT}_linux_amd64.tar.gz"
+          echo "$ACTIONLINT_SHA256  $tools/actionlint.tgz" | sha256sum -c -
+          tar -xzf "$tools/actionlint.tgz" -C "$tools" actionlint
+          curl -fsSLo "$tools/shellcheck.tgz" "https://github.com/koalaman/shellcheck/releases/download/v$SHELLCHECK/shellcheck-v$SHELLCHECK.linux.x86_64.tar.gz"
+          echo "$SHELLCHECK_SHA256  $tools/shellcheck.tgz" | sha256sum -c -
+          tar -xzf "$tools/shellcheck.tgz" -C "$tools" --strip-components=1 "shellcheck-v$SHELLCHECK/shellcheck"
+          echo "$tools" >> "$GITHUB_PATH"
+      # actionlint runs shellcheck (the one above, first on the PATH) on every
+      # run: script; .github/actionlint.yaml names ubuntu-26.04, which it
+      # doesn't know yet.
+      - name: Lint the workflows (this repository's, the starter's and Path B's)
+        run: |
           shellcheck --version
-          curl -fsSLo "$RUNNER_TEMP/actionlint.tgz" "https://github.com/rhysd/actionlint/releases/download/v$V/actionlint_${V}_linux_amd64.tar.gz"
-          echo "$SHA256  $RUNNER_TEMP/actionlint.tgz" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/actionlint.tgz" -C "$RUNNER_TEMP" actionlint
-          "$RUNNER_TEMP/actionlint" .github/workflows/*.yml starter/.github/workflows/*.yml templates/path-b/*.yml
+          actionlint .github/workflows/*.yml starter/.github/workflows/*.yml templates/path-b/*.yml
+      - name: shellcheck on the smoke scripts
+        run: shellcheck web/scripts/smoke/*.sh
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install the tools for the guard's test
+        working-directory: web
+        run: npm ci
+      # The starter's deploy.yml step "Check the GitHub Pages settings", run
+      # with bash and the runner's jq, against a stand-in gh: Pages not set up
+      # (404), no access (401, 403), GitHub failing (500) or out of reach, a
+      # branch as the source, a public site for a repository that isn't.
+      - name: The Pages guard, against a stand-in gh
+        working-directory: web
+        run: npx vitest run cli/guard.test.ts
+
+  latest-release:
+    name: latest release (${{ matrix.os }})
+    if: github.event_name == 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    permissions:
+      contents: read # read the releases; check out the release and its source
+    steps:
+      - name: The latest release, if there's one
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>"$RUNNER_TEMP/error"); then
+            if grep -q 'HTTP 404' "$RUNNER_TEMP/error"; then
+              echo "::notice title=No release yet::$GITHUB_REPOSITORY has no release to test."
+              exit 0
+            fi
+            cat "$RUNNER_TEMP/error" >&2
+            exit 1
+          fi
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)
+          echo "Testing $tag, the release commit $sha."
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - if: steps.latest.outputs.sha
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.latest.outputs.sha }}
+          path: rel
+          persist-credentials: false
+      # The commit of main it was built from: the starter and the smoke scripts as they were then.
+      - if: steps.latest.outputs.sha
+        id: source
+        run: echo "sha=$(jq -r .source rel/BUILD.json)" >> "$GITHUB_OUTPUT"
+      - if: steps.latest.outputs.sha
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          path: src
+          persist-credentials: false
+          sparse-checkout: |
+            starter
+            web/scripts/smoke
+      - if: steps.latest.outputs.sha
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: src/.nvmrc
+          package-manager-cache: false
+      - if: steps.latest.outputs.sha
+        name: A roadmap repository of the release's starter files, made hostile
+        run: |
+          bash src/web/scripts/smoke/starter-repo.sh starter-copy src/starter
+          bash src/web/scripts/smoke/plant-hostile.sh starter-copy "$RUNNER_TEMP/sentinels"
+      - if: steps.latest.outputs.sha
+        id: build
+        uses: ./rel
+        with:
+          path: starter-copy
+          summary: "false"
+      - if: steps.latest.outputs.sha
+        name: The site is the release's app and the roadmap's roadmap.json; outputs right; nothing planted ran
+        env:
+          SITE: ${{ steps.build.outputs.site }}
+          BOXOPS_OUTPUTS: ${{ toJSON(steps.build.outputs) }}
+        run: node src/web/scripts/smoke/assert-site.mjs --release rel --repo starter-copy --site "$SITE" --sentinels "$RUNNER_TEMP/sentinels"
+      - if: steps.latest.outputs.sha
+        name: Bad repositories fail as they should, each with its error
+        run: bash src/web/scripts/smoke/bad-repos.sh rel src/starter

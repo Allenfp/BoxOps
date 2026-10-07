@@ -1,0 +1,7 @@
+# actionlint's settings (CI's workflows job). actionlint 1.7.12, the latest
+# release on 2026-10-07, doesn't know GitHub's ubuntu-26.04 runner, which
+# actions/runner-images lists; until a release does, it's named here as if it
+# were a runner of our own.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
