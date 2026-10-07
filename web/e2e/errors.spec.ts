@@ -23,7 +23,10 @@ test.describe("private repository, signed out", () => {
     await expect(dialog(page).locator(".callout.error")).toContainText("set Resource owner to acme (not your own account)");
     await expect(dialog(page).locator(".callout.error")).toContainText("an owner must approve it first");
     await expect(dialog(page).locator(".callout.error")).toContainText("classic token with the repo scope");
+    // Single sign-on asks members, not outside collaborators, to authorize a classic token.
+    await expect(dialog(page).locator(".callout.error")).not.toContainText("single sign-on");
     await expect(dialog(page).locator(".token-help")).toContainText("Resource owner shows acme");
+    await expect(dialog(page).locator(".token-help")).toContainText("a member of acme authorizes it for single sign-on if acme uses it");
     await expect(dialog(page).locator("details")).toContainText("GitHub said: “Not Found” · HTTP 404");
 
     await dialog(page).getByRole("button", { name: "Use a different token" }).click();

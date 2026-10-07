@@ -394,6 +394,10 @@ describe("failureMessage", () => {
     );
     expect(failureMessage(new GitHubFailure("no-access", "x"), where)).toContain("set Resource owner to acme");
     expect(failureMessage(new GitHubFailure("no-access", "x", { visible: false }), where)).toContain("set Resource owner to acme");
+    // An outside collaborator's classic token needs no authorizing for single sign-on: GitHub exempts them.
+    expect(failureMessage(new GitHubFailure("no-access", "x", { visible: false }), where)).toMatch(
+      /An outside collaborator can’t use a fine-grained token: use a classic token with the repo scope\.$/,
+    );
     expect(failureMessage(new GitHubFailure("no-access", "x", { visible: true, push: false }), where)).toBe("Your GitHub account can’t write to acme/roadmap. Ask an admin for Write access.");
     expect(failureMessage(new GitHubFailure("no-access", "x", { visible: true, push: true }), where)).toContain("This token can see acme/roadmap but can’t save to it.");
     expect(failureMessage(new GitHubFailure("rules", "Commits must have verified signatures."), where)).toContain("main only accepts signed commits");

@@ -47,7 +47,7 @@ export function failureMessage(f: GitHubFailure, { repo, branch }: FailurePlace,
         `This token can’t see ${repo}. When you create a fine-grained token, set Resource owner to ${owner} (not your own ` +
         `account) and give it this repository. If ${owner} approves tokens, an owner must approve it first; until then it ` +
         `can’t read private repositories. Your GitHub account also needs access to the repository. An outside collaborator ` +
-        `can’t use a fine-grained token: use a classic token with the repo scope (authorized for single sign-on if ${owner} uses it).`
+        `can’t use a fine-grained token: use a classic token with the repo scope.`
       );
     case "missing":
       return `${repo} has no branch “${branch}”.`;
