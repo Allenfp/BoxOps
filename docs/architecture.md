@@ -1053,8 +1053,9 @@ launcher, `AGENTS.md` block or Pages guard isn't this release's.
 
 **The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
 `path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;
-Path B passes the same as `--flags`) runs in this order, each failure an
-error annotation with a plain message:
+Path B passes the same as `--flags`, and only Path B can name the site's
+folder, with `--out DIR`: relative to the workspace, new or empty) runs in
+this order, each failure an error annotation with a plain message:
 
 1. github.com only (GitHub Enterprise Server and GHE.com aren't supported in
    0.1), Linux or macOS runners, known input values; a warning if the
