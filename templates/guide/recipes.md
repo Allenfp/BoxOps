@@ -49,9 +49,10 @@ the lane is a preference; the department and dates are what count for
 capacity.
 
 *Choosing engineers:* usually one per started FTE (one for 0.5–1, two for
-1.5–2), from the same department. Use the bookings in `node .boxops/boxops.mjs report` to find
-who's free over the box's dates; someone with PTO then isn't. If several are
-equally free, say who you picked and why, and offer the alternatives.
+1.5–2), from the same department. Use the bookings in
+`node .boxops/boxops.mjs report` to find who's free over the box's dates;
+someone with PTO then isn't. If several are equally free, say who you picked
+and why, and offer the alternatives.
 
 *When nobody is free:* if the only candidates would go over 1 FTE, and the user
 asked you to staff it ("sort out their work" counts), assign the least loaded
@@ -83,8 +84,8 @@ relations:
     box: M8T # the other box's code (example; use a real one)
 ```
 
-Check with `node .boxops/boxops.mjs report` whether the rule holds today; a broken rule is
-allowed but tell the user. The full table of rules is in
+Check with `node .boxops/boxops.mjs report` whether the rule holds today; a
+broken rule is allowed but tell the user. The full table of rules is in
 `node .boxops/boxops.mjs guide format` (Rules between boxes).
 
 **Move a box to another department.** Change its `lane`. Its code stays the
@@ -111,14 +112,16 @@ trip is `start` Friday, `end` Monday) and an optional short `note`:
 
 PTO shows in the engineer's department on the timeline and table. It doesn't
 reduce capacity, but an engineer on a box during PTO is a warning: tell the
-user about any boxes it overlaps (`node .boxops/boxops.mjs report` lists them under "Engineers
-booked during PTO"). Delete the `pto:` key when removing the last entry.
+user about any boxes it overlaps (`node .boxops/boxops.mjs report` lists them
+under "Engineers booked during PTO"). Delete the `pto:` key when removing the
+last entry.
 
 **A lane that comes or goes.** For a new hire, give a new lane `start:` (their
 first day); for a contractor or someone leaving, give their lane `end:` (the
-last day). Weekdays only; keys go after `fte`. Then check `node .boxops/boxops.mjs report`:
-boxes in the lane outside its dates count against the rest of the department
-and may push it over capacity, so tell the user.
+last day). Weekdays only; keys go after `fte`. Then check
+`node .boxops/boxops.mjs report`: boxes in the lane outside its dates count
+against the rest of the department and may push it over capacity, so tell the
+user.
 
 **Remove an engineer.** Delete their entry *and* remove their id from every
 box's `engineers` list (`grep -rl "<id>" roadmap/boxes`). Delete an emptied
@@ -146,12 +149,12 @@ user asks.
 without updating every box that uses it.
 
 **Add a lane or department.** A new department needs a unique `code` (2–4
-capital letters/digits, usually its initials). Lane ids must be unique across all departments;
-follow the department's pattern (`eng-1`, `eng-2` → `eng-3`), or use
-`<department id>-<n>` for a new department. A new department is a new file
-whose `id` matches its file name; give it an `order` after the others and a
-`color`. (People can do this in the app too, from **+ Add department** or the
-pencil on a department heading.)
+capital letters/digits, usually its initials). Lane ids must be unique across
+all departments; follow the department's pattern (`eng-1`, `eng-2` →
+`eng-3`), or use `<department id>-<n>` for a new department. A new department
+is a new file whose `id` matches its file name; give it an `order` after the
+others and a `color`. (People can do this in the app too, from
+**+ Add department** or the pencil on a department heading.)
 
 **Remove a lane or department.** First move its boxes: set each affected box's
 `lane` to a lane that stays. Then delete the lane entry, or the department
@@ -159,9 +162,10 @@ file. For a department, also delete `department:` from people who had it.
 Renumber the remaining departments' `order` 1, 2, 3… if you like; only the
 order matters.
 
-**Answer questions.** `node .boxops/boxops.mjs report` covers capacity, overloads, PTO clashes,
-unassigned boxes and each engineer's bookings and PTO by date. The files are
-small and greppable too: `grep -l "sam-lee" roadmap/boxes/*` finds Sam's boxes.
+**Answer questions.** `node .boxops/boxops.mjs report` covers capacity,
+overloads, PTO clashes, unassigned boxes and each engineer's bookings and PTO
+by date. The files are small and greppable too:
+`grep -l "sam-lee" roadmap/boxes/*` finds Sam's boxes.
 
 ## Rules
 

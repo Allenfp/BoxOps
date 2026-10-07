@@ -56,8 +56,9 @@ a commit on `main`. So:
    a box during their PTO, every engineer's bookings and PTO by date (use that
    to answer "who's free then?": nobody is free while on PTO), unassigned
    boxes and broken rules. It covers all dates, past ones too.
-3. **Edit the YAML files** (`node .boxops/boxops.mjs guide recipes`). Change only what you need: don't
-   reformat files, reorder fields, or rewrite unrelated lines, and keep comments.
+3. **Edit the YAML files** (`node .boxops/boxops.mjs guide recipes`). Change
+   only what you need: don't reformat files, reorder fields, or rewrite
+   unrelated lines, and keep comments.
 4. **Check your work:**
    - `node .boxops/boxops.mjs validate` must end in `— OK` (e.g.
      `3 departments, 9 lanes, 16 boxes — OK`). It lists any problem and exits

@@ -64,7 +64,9 @@ is read like any other, with a warning in the build's log.
 
 ## settings.yaml
 
-Edited by hand or in the app (gear menu, **Team settings**). A box type or flag that boxes still use can't be removed in the app; there is always at least one of each.
+Edited by hand or in the app (gear menu, **Team settings**). A box type or
+flag that boxes still use can't be removed in the app; there is always at
+least one of each.
 
 ```yaml
 format: 1 # BoxOps data format; don't change it by hand

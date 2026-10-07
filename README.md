@@ -178,12 +178,14 @@ too), runs CI: lint, type check, the unit tests (also in two time zones far
 apart), validation, a build, the command-line tool on the starter's files,
 the starter end to end (`npm run dry-run:starter`), the browser tests (in
 WebKit, then Chromium and Firefox) and the performance checks, and lints the
-workflows (actionlint and shellcheck), the starter's too. On `main`, the deploy lints, type-checks, validates, runs the unit
-tests and builds (the app, then the site with the command-line tool: the app
-plus `roadmap/` as its `roadmap.json`), and runs the browser tests in WebKit
-unless nothing outside `roadmap/` has changed since the version that is
-live. So a save from the app usually goes live within a minute (a few minutes if an app change is deploying at the same time), and
-anything else must pass the browser tests before it deploys.
+workflows with actionlint and shellcheck: this repository's, the starter's
+and Path B's. On `main`, the deploy lints, type-checks, validates, runs the
+unit tests and builds (the app, then the site with the command-line tool:
+the app plus `roadmap/` as its `roadmap.json`), and runs the browser tests
+in WebKit unless nothing outside `roadmap/` has changed since the version
+that is live. So a save from the app usually goes live within a minute (a
+few minutes if an app change is deploying at the same time), and anything
+else must pass the browser tests before it deploys.
 
 - [docs/architecture.md](docs/architecture.md): how loading, saving, conflicts,
   polling, layout, the command-line tool, the action and CI work.
