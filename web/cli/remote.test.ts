@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { main } from "./boxops";
 import { cacheRoot } from "./cache";
 import type { LaunchContext } from "./context";
-import { doctorCommand } from "./doctor";
+import { doctorCommand, ghAttest, uncheckedBecause } from "./doctor";
 import { starterFiles } from "./embedded";
 import { gitHub } from "./github";
 import { ensureApp, startPreview } from "./preview";
@@ -474,6 +474,57 @@ describe("doctor", () => {
     const io = capture();
     expect(await doctorCommand(repo.dir, {}, io, { attest: ok, cliFile: join(io.cliDir, "boxops.mjs") })).toBe(0);
     expect(io.stdout).toContain("  warning  Couldn’t ask GitHub about the pin: couldn’t reach GitHub (no network in this test)");
+    // gh offline (or signed out) checks nothing: a warning, as for the pin, not a problem with the tool.
+    const offline = capture();
+    const unchecked = () => ({ ok: false, output: "error creating Sigstore verifier: no valid Sigstore verifiers could be initialized", unchecked: "couldn’t reach GitHub or Sigstore" });
+    expect(await doctorCommand(repo.dir, {}, offline, { attest: unchecked, cliFile: join(offline.cliDir, "boxops.mjs") })).toBe(0);
+    expect(offline.stdout).toContain("  warning  Attestation: couldn’t check the tool: couldn’t reach GitHub or Sigstore");
+    expect(offline.stdout).toContain("             error creating Sigstore verifier: no valid Sigstore verifiers could be initialized");
+    expect(offline.stdout.at(-1)).toBe("No problems.");
+  });
+});
+
+describe("doctor's attestation check (gh attestation verify)", () => {
+  /** Runs ghAttest with a stand-in `gh` that runs `script` (sh), noting its arguments and GH_HOST; the result, and those. */
+  function withGh(script: string, timeout?: number) {
+    const bin = tempDir();
+    const log = join(bin, "gh.log");
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\nprintf '%s\\n' "GH_HOST=$GH_HOST $*" >> ${JSON.stringify(log)}\n${script}\n`, { mode: 0o755 });
+    const path = process.env.PATH;
+    const host = process.env.GH_HOST;
+    try {
+      process.env.PATH = `${bin}${delimiter}${path}`;
+      process.env.GH_HOST = "ghes.example.com";
+      return { result: ghAttest("/tmp/boxops.mjs", timeout), calls: readFileSync(log, "utf8").trim().split("\n") };
+    } finally {
+      process.env.PATH = path;
+      if (host === undefined) delete process.env.GH_HOST;
+      else process.env.GH_HOST = host;
+    }
+  }
+
+  it("asks about github.com, whatever host gh would choose, with the release workflow as signer", () => {
+    const { result, calls } = withGh("echo 'Loaded 1 attestation from GitHub API'; exit 0");
+    expect(result).toEqual({ ok: true, output: "Loaded 1 attestation from GitHub API" });
+    expect(calls).toEqual([
+      "GH_HOST=github.com attestation verify /tmp/boxops.mjs -R Allenfp/BoxOps --signer-workflow Allenfp/BoxOps/.github/workflows/release.yml",
+    ]);
+  });
+
+  it("tells a check that failed from one gh couldn't make: signed out, offline, too slow", () => {
+    const notFound = withGh("echo 'Error: HTTP 404: Not Found (https://api.github.com/repos/Allenfp/BoxOps/attestations/sha256:abc)' >&2; exit 1").result;
+    expect(notFound).toEqual({ ok: false, output: "Error: HTTP 404: Not Found (https://api.github.com/repos/Allenfp/BoxOps/attestations/sha256:abc)" });
+    const wrongSigner = withGh("echo '✗ Verification failed: expected SourceRepositoryURI to be https://github.com/Allenfp/BoxOps' >&2; exit 1").result;
+    expect(wrongSigner?.unchecked).toBeUndefined();
+    // gh's own sign-in prompt and exit code (4), a token GitHub refuses, and no network (gh 2.97's words for each).
+    const signedOut = withGh("echo 'To get started with GitHub CLI, please run:  gh auth login' >&2; exit 4").result;
+    expect(signedOut).toMatchObject({ ok: false, unchecked: "the GitHub CLI isn’t signed in to github.com, or its sign-in was refused (`gh auth login`)" });
+    expect(withGh("echo 'Error: HTTP 401: Bad credentials (https://api.github.com/repos/Allenfp/BoxOps/attestations/sha256:abc)' >&2; exit 1").result?.unchecked).toBe(signedOut?.unchecked);
+    for (const said of ["error creating Sigstore verifier: no valid Sigstore verifiers could be initialized", "error connecting to api.github.com", "Get \"https://api.github.com/\": dial tcp: lookup api.github.com: no such host", "HTTP 502: Bad Gateway", "API rate limit exceeded"]) {
+      expect([said, withGh(`echo ${JSON.stringify(said)} >&2; exit 1`).result?.unchecked]).toEqual([said, "couldn’t reach GitHub or Sigstore"]);
+    }
+    expect(withGh("exec sleep 5", 300).result).toMatchObject({ ok: false, unchecked: "gh didn’t finish in time" });
+    expect(uncheckedBecause({ status: 1 }, "")).toBeUndefined();
   });
 });
 

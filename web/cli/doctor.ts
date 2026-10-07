@@ -140,26 +140,57 @@ export function contractFindings(root: string, workflows: Record<string, string>
   return out;
 }
 
+/** What `gh attestation verify` made of the tool. */
+export interface Attested {
+  ok: boolean;
+  /** What gh printed. */
+  output: string;
+  /** Set when it checked nothing, saying why (no sign-in, no network, too slow): not a failed check. */
+  unchecked?: string;
+}
+
 export interface DoctorOptions {
-  /** Default: run `gh`. */
-  attest?(file: string): { ok: boolean; output: string } | null;
+  /** Default: run `gh` (ghAttest). */
+  attest?(file: string): Attested | null;
   /** The tool's own file, for the attestation; default: the running module. */
   cliFile?: string;
 }
 
-/** `gh attestation verify` of the tool, or null if the GitHub CLI isn't installed. */
-function ghAttest(file: string): { ok: boolean; output: string } | null {
+/**
+ * Why `gh attestation verify` checked nothing, from how it ended (killed, or
+ * its exit code) and what it printed; undefined if it did check and the file
+ * failed. gh exits 4 when it needs a sign-in, and checks nothing without
+ * GitHub's API and Sigstore's trust root, both online.
+ */
+export function uncheckedBecause(end: { status?: number | null; signal?: string | null; code?: string }, output: string): string | undefined {
+  if (end.signal || end.code === "ETIMEDOUT") return "gh didn’t finish in time";
+  if (end.status === 4 || /\bHTTP 401\b/.test(output)) return "the GitHub CLI isn’t signed in to github.com, or its sign-in was refused (`gh auth login`)";
+  if (/sigstore verifier|error connecting|could not connect|connection refused|no such host|dial tcp|network is unreachable|timeout|timed out|deadline exceeded|TLS handshake|\bHTTP (5\d\d|429)\b|rate limit/i.test(output)) {
+    return "couldn’t reach GitHub or Sigstore";
+  }
+  return undefined;
+}
+
+/**
+ * `gh attestation verify` of the tool, or null if the GitHub CLI isn't
+ * installed. Against github.com, where BoxOps' releases are, whichever host
+ * gh would choose by itself (GH_HOST, or the one it's signed in to: a GitHub
+ * Enterprise Server's, which gh attestation refuses).
+ */
+export function ghAttest(file: string, timeout = 60_000): Attested | null {
   try {
     const output = execFileSync(
       "gh",
       ["attestation", "verify", file, "-R", UPSTREAM, "--signer-workflow", `${UPSTREAM}/.github/workflows/release.yml`],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 },
+      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout, env: { ...process.env, GH_HOST: "github.com" } },
     );
     return { ok: true, output: output.trim() };
   } catch (e) {
-    const err = e as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
+    const err = e as NodeJS.ErrnoException & { stderr?: string; stdout?: string; status?: number | null; signal?: string | null };
     if (err.code === "ENOENT") return null;
-    return { ok: false, output: `${err.stderr ?? ""}${err.stdout ?? ""}`.trim() || err.message };
+    const output = `${err.stderr ?? ""}${err.stdout ?? ""}`.trim() || err.message;
+    const unchecked = uncheckedBecause(err, output);
+    return { ok: false, output, ...(unchecked !== undefined && { unchecked }) };
   }
 }
 
@@ -201,9 +232,11 @@ export async function doctor(root: string, ctx: LaunchContext, io: Io, o: Doctor
     findings.push({ level: "skipped", text: "Attestation: this tool isn’t a release’s boxops.mjs (run from source?)" });
   } else {
     const result = (o.attest ?? ghAttest)(cliFile);
+    const detail = result?.output.split("\n").slice(0, 10);
     if (result === null) findings.push({ level: "skipped", text: "Attestation: the GitHub CLI (gh) isn’t installed" });
     else if (result.ok) findings.push({ level: "ok", text: `Attestation: signed by ${UPSTREAM}/.github/workflows/release.yml` });
-    else findings.push({ level: "problem", text: `Attestation: gh attestation verify failed for ${cliFile}`, detail: result.output.split("\n").slice(0, 10) });
+    else if (result.unchecked !== undefined) findings.push({ level: "warning", text: `Attestation: couldn’t check the tool: ${result.unchecked}`, detail });
+    else findings.push({ level: "problem", text: `Attestation: gh attestation verify failed for ${cliFile}`, detail });
   }
   if (ctx.launcher !== undefined && ctx.launcher !== LAUNCHER) {
     findings.push({ level: "problem", text: `The launcher that ran is ${ctx.launcher}; this BoxOps’s is ${LAUNCHER} (run \`node .boxops/boxops.mjs sync\`)` });
