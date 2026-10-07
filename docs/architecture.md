@@ -1083,7 +1083,8 @@ error annotation with a plain message:
     `result`) go to `$GITHUB_OUTPUT` with random heredoc delimiters no value
     holds as a line, and the result and capacity headlines to the job summary,
     in code blocks (`cli/gha.ts`: nothing from the roadmap can end an
-    annotation early or start a workflow command).
+    annotation early or start a workflow command, in either form the runner
+    reads: `::` at a line's start, or the older `##[` anywhere in it).
 
 The only program it starts is git; nothing in the workspace is run, imported
 or read as configuration (`package.json`, `.npmrc`, `vite.config.*`,

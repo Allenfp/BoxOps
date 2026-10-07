@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Runner, annotation, codeBlock, escapeData, escapeProperty, getInput, logLine, outputBlock } from "./gha";
+import { runnerCommand } from "./test-release";
 
 const temps: string[] = [];
 afterEach(() => {
@@ -51,6 +52,31 @@ describe("escaping", () => {
 
   it("keeps a log line on one line", () => {
     expect(logLine("a\r\n::error::x\nb")).toBe("a ::error::x b");
+  });
+
+  it("keeps a log line from being read as either form of workflow command", () => {
+    const lines = [
+      "roadmap/zz ##[stop-commands]x.txt: unexpected file",
+      "roadmap/a.yaml: lane: \"##[set-output name=site]x\" does not exist",
+      "##[add-mask]secret",
+      "a ##[ADD-MATCHER]roadmap/matcher.json b ##[error]forged",
+      "###[warning]x",
+      "::error::forged",
+      " \t::set-output name=site::x",
+      "\u00a0\u3000\u2028::warning::x",
+      "\u0085::notice::x",
+      "\u200b::debug::x",
+    ];
+    // The runner (as runnerCommand reads it) would take each as a command…
+    for (const line of lines.slice(0, -1)) expect(runnerCommand(line), line).not.toBeNull();
+    // …and takes none once it's a log line.
+    for (const line of lines) expect(runnerCommand(logLine(line)), logLine(line)).toBeNull();
+    expect(logLine(lines[0])).toBe("roadmap/zz ## [stop-commands]x.txt: unexpected file");
+    expect(logLine("###[warning]x ##[##[y")).toBe("### [warning]x ## [## [y");
+    expect(logLine(" \t::set-output name=site::x")).toBe(" \t: :set-output name=site::x");
+    expect(logLine("\u200b::debug::x")).toBe("\u200b: :debug::x");
+    // Text that isn't a command stays as it is.
+    expect(logLine("roadmap/a.yaml:3: title: \"a::b #[1]\" ## [x]")).toBe("roadmap/a.yaml:3: title: \"a::b #[1]\" ## [x]");
   });
 
   it("fences a code block longer than any backticks in it", () => {
@@ -108,9 +134,10 @@ describe("outputs", () => {
     runner.summary("### BoxOps");
     runner.annotate("warning", "w\nx", { title: "BoxOps" });
     runner.log("plain\n::error::not a command");
+    runner.log("::warning::nor this ##[stop-commands]x");
     expect(parseOutputs(readFileSync(output, "utf8"))).toEqual({ earlier: "kept", site: "/tmp/site" });
     expect(readFileSync(summary, "utf8")).toBe("### BoxOps\n");
-    expect(lines).toEqual(["::warning title=BoxOps::w%0Ax", "plain ::error::not a command"]);
+    expect(lines).toEqual(["::warning title=BoxOps::w%0Ax", "plain ::error::not a command", ": :warning::nor this ## [stop-commands]x"]);
     expect(runner.counts).toEqual({ error: 0, warning: 1, notice: 0 });
 
     const bare: string[] = [];

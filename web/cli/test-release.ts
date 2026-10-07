@@ -122,6 +122,30 @@ export function readOutputs(file: string): Record<string, string> {
   return out;
 }
 
+/**
+ * The workflow command the runner would read `line` as, or null: what
+ * actions/runner's ActionCommand.TryParseV2 (`::name …::data` once leading
+ * white space is trimmed), then TryParse (the older `##[name …]data`,
+ * anywhere in the line), accept, matching ordinally. Any name counts, not
+ * only the runner's commands, to be strict.
+ */
+export function runnerCommand(line: string): string | null {
+  const name = (info: string) => {
+    const n = info.split(" ")[0];
+    return /^[A-Za-z][\w-]*$/.test(n) ? n : null;
+  };
+  // .NET's TrimStart(): JavaScript's white space, and U+0085.
+  const trimmed = line.replace(/^[\s\u0085]+/, "");
+  if (trimmed.startsWith("::")) {
+    const end = trimmed.indexOf("::", 2);
+    const n = end < 0 ? null : name(trimmed.slice(2, end));
+    if (n) return n;
+  }
+  const at = line.indexOf("##[");
+  const close = at < 0 ? -1 : line.indexOf("]", at);
+  return close < 0 ? null : name(line.slice(at + 3, close));
+}
+
 export interface Captured extends Io {
   stdout: string[];
   stderr: string[];

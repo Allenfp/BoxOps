@@ -7,7 +7,7 @@ import { readBundle } from "../src/model/bundle";
 import { readInputs, runAction } from "./action";
 import { LIMITS } from "./git";
 import { buildJsonText, makeBuildJson, parseBuildJson } from "./release";
-import { type ActionsEnv, APP_FILES, ID, SAMPLE, actionsEnv, cleanUp, makeRelease, readOutputs, sampleRepo, tempDir } from "./test-release";
+import { type ActionsEnv, APP_FILES, ID, SAMPLE, actionsEnv, cleanUp, makeRelease, readOutputs, runnerCommand, sampleRepo, tempDir } from "./test-release";
 import { type Entry, TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -409,6 +409,28 @@ describe("validation and on-problems (step 9)", () => {
     expect(errors(r)[50]).toBe("error: …and 10 more problems, listed in the log");
     expect(r.log).toContain("roadmap/extra-59.txt: unexpected file; roadmap files live in departments/ or boxes/");
     expect(r.outputs.problems).toBe("60");
+  });
+
+  it("keeps problems logged past the 50th from running workflow commands", async () => {
+    // 55 boxes on a lane that doesn't exist, the last naming one that's a command in the runner's older form,
+    // then a file whose name is one: both problems past the 50 annotated, so in the log.
+    const boxes = Object.fromEntries(
+      Array.from({ length: 55 }, (_, i) => {
+        const id = `bx-${i.toString(16).padStart(4, "0")}-x`;
+        const lane = i === 54 ? '"##[set-output name=site]x"' : "eng-9";
+        return [`roadmap/boxes/${id}.yaml`, `id: ${id}\ncode: Z${String(i).padStart(2, "0")}\ntitle: X\nlane: ${lane}\nstart: 2026-11-02\nend: 2026-11-06\ntype: project\n`];
+      }),
+    );
+    const r = await run({ repo: workspace(sampleRepo({ ...boxes, "roadmap/zz ##[stop-commands]tok123.txt": "x\n" })).repo, env: { GITHUB_ACTION_REF: "v0.1.0" } });
+    expect(r.outputs.problems).toBe("56");
+    expect(r.log).toContain('roadmap/boxes/bx-0036-x.yaml:4: lane: "## [set-output name=site]x" does not exist in any department, so the box is skipped');
+    expect(r.log).toContain("roadmap/zz ## [stop-commands]tok123.txt: unexpected file; roadmap files live in departments/ or boxes/");
+    // Every line the runner would read as a command is one of the action's own annotations.
+    expect(r.log.filter((l) => runnerCommand(l) !== null && !/^::(error|warning|notice) /.test(l))).toEqual([]);
+    // So the annotations after them still count: the "…and N more" error, and the warning about the tag.
+    expect(errors(r).slice(-1)).toEqual(["error: …and 6 more problems, listed in the log"]);
+    expect(warnings(r)).toEqual([expect.stringContaining("This workflow uses BoxOps at “v0.1.0”")]);
+    expect(r.outputs.site).toBe(join(r.env.RUNNER_TEMP, "boxops-site"));
   });
 
   it("keeps problems' text from breaking out of an annotation", async () => {

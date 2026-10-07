@@ -5,9 +5,10 @@
 // Everything here may carry roadmap text, which anyone who can push to the
 // roadmap controls, so none of it can end a command early or start one of
 // its own: a message's %, CR and LF are escaped (a property's : and , too),
-// a log line never holds a line break, an output's heredoc delimiter is one
-// its value doesn't hold, and the summary shows text in a code block whose
-// fence is longer than any run of backticks in it.
+// a log line never holds a line break nor either form of workflow command
+// (logLine), an output's heredoc delimiter is one its value doesn't hold,
+// and the summary shows text in a code block whose fence is longer than any
+// run of backticks in it.
 
 import { randomBytes } from "node:crypto";
 import { appendFileSync } from "node:fs";
@@ -18,8 +19,22 @@ export const escapeData = (text: string) => text.replace(/%/g, "%25").replace(/\
 /** A workflow command's property value (`file=…`, `title=…`): its : and , are escaped too. */
 export const escapeProperty = (text: string) => escapeData(text).replace(/:/g, "%3A").replace(/,/g, "%2C");
 
-/** One line for the log: line breaks become spaces, so no text can start a line of its own (a workflow command). */
-export const logLine = (text: string) => text.replace(/[\r\n]+/g, " ");
+/**
+ * One line for the log, which the runner reads as text, never as a workflow
+ * command. The runner reads a line as one in two forms (actions/runner's
+ * ActionCommand.cs): `::name …::` at its start once leading white space is
+ * trimmed, and the older `##[name …]` anywhere in it, tried when the first
+ * doesn't match (`##[stop-commands]` would stop every annotation after it).
+ * So line breaks become spaces, `##[` becomes `## [`, and a leading `::`
+ * becomes `: :`. A space, not a zero-width character: the runner matches
+ * culture-sensitively, which can skip those.
+ */
+export const logLine = (text: string) =>
+  text
+    .replace(/[\r\n]+/g, " ")
+    .replace(/##\[/g, "## [")
+    // Past more than the runner trims (.NET's white space), control and format characters too.
+    .replace(/^([\s\p{Cc}\p{Cf}]*):(?=:)/u, "$1: ");
 
 export type Level = "error" | "warning" | "notice";
 
