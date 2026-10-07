@@ -97,11 +97,27 @@ git clone -q https://github.com/actions/upload-pages-artifact.git && cd upload-p
 mirror keeps GitHub's commits, so only the owner changes:
 `uses: acme/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`.
 This is GitHub's limitation for any composite action under this policy,
-not BoxOps'. Dependabot can propose new versions of the mirrors once an
-organization owner gives it access to them (Settings → Advanced Security →
-Global settings → **Grant Dependabot access to private repositories**,
-which takes internal ones too); the edited one, you remake by hand for
-each version.
+not BoxOps'.
+
+Dependabot proposes new versions of the mirrors once an organization owner
+gives it access to them (Settings → Advanced Security → Global settings →
+**Grant Dependabot access to private repositories**, which takes internal
+ones too), but only versions that are in them: it reads a mirror's tags,
+which change only when you copy GitHub's in. To do that, now and then, from
+the same folder:
+
+```sh
+for a in checkout upload-artifact deploy-pages setup-node; do
+  git -C "$a.git" fetch -q "https://github.com/actions/$a.git" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*' &&
+    git -C "$a.git" push --mirror "https://github.com/acme/$a.git"
+done
+```
+
+(A bare clone has no fetch settings of its own, so the fetch names what to
+take: every branch and tag, moved ones too, since GitHub moves each
+action's major-version tag, such as `v7`, to its newest release.)
+The edited `upload-pages-artifact` has no tags: remake it by hand for each
+version you want, as above, and move its pin yourself.
 
 BoxOps itself: [a mirror](#a-mirror-of-boxops), or [Path B](#path-b-githubs-own-actions-only).
 
