@@ -72,6 +72,10 @@ of the work until then, so the cutover commit makes their changes itself
 3. Demo edits here stop: nothing more is saved to this `roadmap/`.
 4. Close the demo's open tabs: their code writes to `roadmap/` here and has
    no build-id check.
+5. Revoke the old token scoped to `Allenfp/BoxOps` (Settings → Developer
+   settings → Personal access tokens). Nothing needs it now, and it's what
+   makes the repository roadmap repositories pin writable from a browser:
+   revoking it, not the cutover commit, is what ends that.
 
 ## The cutover commit
 
@@ -102,9 +106,8 @@ On a branch, merged by pull request:
 
 ## After merging
 
-1. Revoke the old token scoped to `Allenfp/BoxOps`: that's what makes the
-   pinned repository unwritable from a browser. Then add the `main`
-   ruleset (`docs/releasing.md`, "At the cutover").
+1. Add the `main` ruleset (`docs/releasing.md`, "At the cutover"): nothing
+   writes to `main` here now but merged pull requests.
 2. The redirect keeps the query and hash: `allenfp.github.io/BoxOps/?view=table#x`
    opens `allenfp.github.io/boxops-demo/?view=table#x`, in the table.
 3. `allenfp.github.io/BoxOps/next/` shows the demo's roadmap, read-only, with
