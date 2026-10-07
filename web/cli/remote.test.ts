@@ -2,6 +2,7 @@
 // fake GitHub (a `fetch` that answers from a table). The launcher has its own
 // tests (launcher.test.ts).
 
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { join } from "node:path";
@@ -15,6 +16,7 @@ import { fetchRelease } from "./upgrade";
 import { openRelease, verifiedApp } from "./release";
 import { APP_FILES, ID, capture, cleanUp, fakeGitHub, releaseFiles, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
+import { SHELLS, block, paste, shellEnv, standIns } from "./test-shell";
 
 const repos: TestRepo[] = [];
 afterEach(() => {
@@ -48,7 +50,7 @@ describe("init", () => {
     expect(deploy).toContain(`        uses: Allenfp/BoxOps@${A} # v0.1.0\n`);
     expect(readFileSync(join(dir, ".github/workflows/check.yml"), "utf8")).toContain(`      - uses: Allenfp/BoxOps@${A} # v0.1.0\n`);
     expect(readdirSync(dir, { recursive: true, withFileTypes: true }).filter((d) => d.isFile())).toHaveLength(13);
-    expect(io.stdout[0]).toBe(`Wrote a BoxOps roadmap repository in acme-roadmap/ (13 files), pinned to Allenfp/BoxOps@${A.slice(0, 12)} # v0.1.0. Next:`);
+    expect(io.stdout[0]).toBe(`Wrote a BoxOps roadmap repository in acme-roadmap/ (13 files), pinned to Allenfp/BoxOps@${A.slice(0, 12)} # v0.1.0.`);
     expect(gh.calls).toEqual([
       "https://api.github.com/repos/Allenfp/BoxOps/git/ref/tags/v0.1.0",
       `https://raw.githubusercontent.com/Allenfp/BoxOps/${A}/BUILD.json`,
@@ -57,6 +59,48 @@ describe("init", () => {
     expect(await main(["validate"], {}, capture({ cwd: dir }))).toBe(0);
     expect(await main(["sync", "--check", "--root", dir], {}, capture())).toBe(0);
   });
+
+  // Its next steps, pasted into each shell as someone would (test-shell.ts), <org>/<name> filled in.
+  for (const shell of SHELLS) {
+    it(`prints its next steps as one command, the folder quoted, that stops at a step that fails: pasted into ${shell[0]}`, async () => {
+      const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.1.0": A } }, files: { [A]: releaseFiles(ID) } });
+      const io = capture({ fetch: gh.fetch });
+      expect(await main(["init", "acme's roadmap"], {}, io)).toBe(0);
+      expect(io.stdout).toEqual([
+        `Wrote a BoxOps roadmap repository in acme's roadmap/ (13 files), pinned to Allenfp/BoxOps@${A.slice(0, 12)} # v0.1.0.`,
+        "Next, one command (with your organization and the new repository’s name for <org>/<name>), which stops at the first step that fails:",
+        "  cd 'acme'\\''s roadmap' && git init -b main && git add -A && \\",
+        '    git commit -m "Start roadmap from BoxOps v0.1.0" && \\',
+        "    gh repo create <org>/<name> --private --source . --push",
+        "Pushing workflow files takes SSH, or a token with the workflow scope. Then follow README.md: Pages, rulesets, people.",
+      ]);
+      const command = block(io.stdout, "Next, one command").replace("<org>/<name>", "acme/roadmap");
+      const stand = standIns();
+      const env = shellEnv(stand);
+      const git = (dir: string, args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", env }).trim();
+      const ghCalls = () => readFileSync(join(stand, "gh.log"), "utf8").split("\n").filter(Boolean);
+
+      // Where init ran: the folder it wrote becomes a repository, which gh creates on GitHub from there.
+      const made = paste(shell, command, io.cwd, env);
+      expect(made.status, made.stderr).toBe(0);
+      expect(git(join(io.cwd, "acme's roadmap"), ["log", "--format=%s"])).toBe("Start roadmap from BoxOps v0.1.0");
+      expect(ghCalls()).toEqual(["repo create acme/roadmap --private --source . --push"]);
+
+      // Somewhere else, a repository of its own: the cd fails, and nothing after it runs.
+      const elsewhere = new TestRepo();
+      repos.push(elsewhere);
+      elsewhere.commit({ "README.md": "Another project\n" }, "Another project");
+      elsewhere.checkout();
+      elsewhere.write({ "notes.txt": "Not committed\n" });
+      const state = () => [git(elsewhere.dir, ["rev-parse", "HEAD"]), git(elsewhere.dir, ["status", "--porcelain"])];
+      const before = state();
+      const failed = paste(shell, command, elsewhere.dir, env);
+      expect(failed.status).not.toBe(0);
+      expect(failed.stderr).toMatch(/no such file or directory/i);
+      expect(state()).toEqual(before);
+      expect(ghCalls()).toHaveLength(1);
+    });
+  }
 
   it("pins a mirror with --action, and refuses a commit that's another build", async () => {
     const gh = fakeGitHub({ files: { [A]: releaseFiles(ID), [B]: releaseFiles({ ...ID, build: "0.1.0+ffffffffffff" }) } });

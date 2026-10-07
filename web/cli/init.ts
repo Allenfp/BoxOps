@@ -10,7 +10,7 @@
 
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { EXIT, type Io, UsageError } from "./context.ts";
+import { EXIT, type Io, UsageError, oneCommand, shellWord } from "./context.ts";
 import { starterFiles } from "./embedded.ts";
 import { fileAt, gitHub, tagCommit } from "./github.ts";
 import { parseVersion } from "./notices.ts";
@@ -54,9 +54,15 @@ export async function initCommand(dirArg: string | undefined, action: string | u
     writeFileSync(file, text, { flag: "wx" });
   }
   const shown = relative(io.cwd, dir) || ".";
-  io.out(`Wrote a BoxOps roadmap repository in ${shown}/ (${Object.keys(files).length} files), pinned to ${repo}@${sha.slice(0, 12)} # ${tag}. Next:`);
-  io.out(`  cd ${shown} && git init -b main && git add -A && git commit -m "Start roadmap from BoxOps ${tag}"`);
-  io.out("  gh repo create <org>/<name> --private --source . --push   (needs the workflow scope, or SSH)");
-  io.out("Then follow README.md: Pages, rulesets, people.");
+  // One command, the folder quoted: a failed `cd` runs nothing where it's pasted (`oneCommand`).
+  const next = oneCommand([
+    [`cd ${shellWord(shown)}`, "git init -b main", "git add -A"],
+    [`git commit -m "Start roadmap from BoxOps ${tag}"`],
+    ["gh repo create <org>/<name> --private --source . --push"],
+  ]);
+  io.out(`Wrote a BoxOps roadmap repository in ${shown}/ (${Object.keys(files).length} files), pinned to ${repo}@${sha.slice(0, 12)} # ${tag}.`);
+  io.out("Next, one command (with your organization and the new repository’s name for <org>/<name>), which stops at the first step that fails:");
+  for (const line of next) io.out(line);
+  io.out("Pushing workflow files takes SSH, or a token with the workflow scope. Then follow README.md: Pages, rulesets, people.");
   return EXIT.ok;
 }

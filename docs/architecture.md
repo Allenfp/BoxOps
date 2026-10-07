@@ -1050,7 +1050,7 @@ the roadmap is in another data format.
 | `sync [--check]` | Rewrites `AGENTS.md`'s managed block (`templates/agents-block.md`, between `<!-- boxops:begin block=N … -->` and `<!-- boxops:end -->`) and the launcher, and makes `CLAUDE.md` if there's none. Never the workflows; never through a symlink. |
 | `doctor` | Checks Node, that every pin names one commit and is a tag of the pinned repository (`git/matching-refs/tags`: a fork's commit seen through it isn't), the pins' comments, `gh attestation verify` with the release workflow as signer (if `gh` is installed), the launcher, guard and block numbers, the workflows' permissions against the starter's (with the change to make), and retired runner labels. |
 | `upgrade [vX.Y.Z]` | Resolves the tag (default: the latest release), fetches that release's tool and `BUILD.json` into the launcher's cache, as the launcher keeps them (outside the repository; the tool checked against the `BUILD.json`), rewrites every BoxOps `uses:` and Path B `BOXOPS_ACTION:` line with its `# vX.Y.Z` comment (line ends kept), then runs the new release's `migrate --check`, `sync` and `validate`. Commits nothing. |
-| `init <dir> [--action owner/repo@sha]` | Writes the starter's files made for a release (`cli/starter.ts`: every pin, and `README.md`'s links to BoxOps' docs at the commit of `main` the release was built from, since a release commit holds no docs), the release being the tool's own tag resolved to a commit, or the commit given, whose `BUILD.json` must name this build and that commit of `main`. |
+| `init <dir> [--action owner/repo@sha]` | Writes the starter's files made for a release (`cli/starter.ts`: every pin, and `README.md`'s links to BoxOps' docs at the commit of `main` the release was built from, since a release commit holds no docs), the release being the tool's own tag resolved to a commit, or the commit given, whose `BUILD.json` must name this build and that commit of `main`. The next steps it prints are one command, the folder quoted, that stops at the first step that fails. |
 | `version` | `BoxOps 0.1.0 (Allenfp/BoxOps@abc1234, build 0.1.0+…, data format 1)`. |
 
 Only `doctor`, `upgrade`, `init` and `preview`'s first fetch of the app use
@@ -1197,21 +1197,21 @@ a release must have none of.
   commands alone, `AGENTS.md` read only as a plain file, proxies and Node's
   options), the starter made for a release (what `init` writes, and `sync`
   for its files) and its links to BoxOps' docs (pages git tracks, but those
-  still to write), the commands `publish-starter` prints to publish it
-  (pasted into bash, and zsh where it's installed, without `-e`: from
-  another folder they publish it, against stand-ins for the starter
-  repository and `gh`, and after a failed clone or `cd` they change nothing
-  where they were pasted), Path B's workflows (the starter's but for one
-  step, which the README shows, and setup-node told to read nothing in the
-  workspace) and that step run with bash against a stand-in for
-  github.com, a hostile workspace (its files, git configuration and `GIT_*`
-  variables try to run code: sentinel files stay unwritten, git is the only
-  program started, and the site is a clean workspace's), and no network
-  call from the action or the offline commands (every way Node reaches the
-  network made to fail and noted), and that each file staged in `cutover/`
-  is the live one with only the cutover's changes made. Those that read a
-  whole roadmap read fixed copies (the browser tests' fixture, and
-  `roadmap/` as shipped, in `web/src/model/fixtures/shipped-roadmap/`),
+  still to write), the commands `publish-starter` prints to publish it and
+  those `init` prints to start a repository (pasted into bash, and zsh where
+  it's installed, without `-e`: from another folder they do so, against
+  stand-ins for GitHub's repositories and `gh`, and after a failed clone or
+  `cd` they change nothing where they were pasted), Path B's workflows (the
+  starter's but for one step, which the README shows, and setup-node told to
+  read nothing in the workspace) and that step run with bash against a
+  stand-in for github.com, a hostile workspace (its files, git configuration
+  and `GIT_*` variables try to run code: sentinel files stay unwritten, git
+  is the only program started, and the site is a clean workspace's), and no
+  network call from the action or the offline commands (every way Node
+  reaches the network made to fail and noted), and that each file staged in
+  `cutover/` is the live one with only the cutover's changes made. Those
+  that read a whole roadmap read fixed copies (the browser tests' fixture,
+  and `roadmap/` as shipped, in `web/src/model/fixtures/shipped-roadmap/`),
   never the live `roadmap/`, which saves may write any valid way.
 - **The starter's dry run** (`npm run dry-run:starter`,
   `web/scripts/starter-dry-run.ts`) builds the app and the tool, lays
