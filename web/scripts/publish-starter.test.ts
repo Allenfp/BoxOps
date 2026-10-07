@@ -165,6 +165,14 @@ describe("publish-starter", () => {
   // The printed commands, pasted into each shell as a maintainer would (cli/test-shell.ts), with
   // local repositories standing in for GitHub's.
   for (const shell of SHELLS) {
+    it(`pastes into ${shell[0]} with the stand-in for gh first on its PATH, and no GitHub sign-in`, () => {
+      const stand = standIns();
+      const env = shellEnv(stand);
+      expect(Object.keys(env).filter((k) => /TOKEN/.test(k))).toEqual([]);
+      const found = paste(shell, "command -v gh >&2\n", tempDir(), env);
+      expect([found.status, found.stderr.trim()]).toEqual([0, join(stand, "gh")]);
+    });
+
     it(`prints commands that publish the folder it wrote, pasted into ${shell[0]} wherever it's open: tried with git and rsync`, async () => {
       expect(which("rsync"), "rsync, which the printed commands use, is installed").toBeTruthy();
       const { repo, release } = upstream();

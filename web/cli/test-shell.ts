@@ -36,12 +36,18 @@ export function standIns(): string {
   return stand;
 }
 
-/** The environment commands are pasted in: the stand-ins first on PATH, this git configuration alone, a fixed identity, local repositories only. */
+/**
+ * The environment commands are pasted in: the stand-ins first on PATH, this
+ * git configuration alone, a fixed identity, local repositories only, and no
+ * GitHub sign-in (no token, and an empty gh configuration), so that even
+ * GitHub's own gh, were a command ever to reach it, could change nothing.
+ */
 export function shellEnv(stand: string, gitconfig = ""): NodeJS.ProcessEnv {
   writeFileSync(join(stand, "gitconfig"), gitconfig);
   return {
     PATH: `${stand}:${process.env.PATH}`,
     HOME: stand,
+    GH_CONFIG_DIR: join(stand, "gh-config"),
     TMPDIR: tempDir(),
     GIT_CONFIG_GLOBAL: join(stand, "gitconfig"),
     GIT_CONFIG_NOSYSTEM: "1",
