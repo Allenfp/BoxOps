@@ -83,7 +83,8 @@ up BoxOps' releases itself. When a newer release's title starts with
 "Security:", the deploy warns, and the site shows everyone a notice until it's
 upgraded. Upgrade straight away: merge Dependabot's pull request, or run
 `node .boxops/boxops.mjs upgrade` and push the result. A release titled
-"Withdrawn: …" shouldn't be used; the deploy says so too.
+"Withdrawn: …" shouldn't be used: a deploy running one says so, and none
+offers one.
 
 ## Going back
 

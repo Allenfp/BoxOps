@@ -625,6 +625,14 @@ describe("notices (step 11)", () => {
     expect(r.notices).toContainEqual({ level: "warning", text: "This site runs BoxOps v0.1.0, which was withdrawn. Ask a repository admin to upgrade it." });
   });
 
+  it("a newer release that was withdrawn: none, in the run or the app", async () => {
+    const r = await withReleases([
+      { tag_name: "v0.1.1", name: "Withdrawn: BoxOps 0.1.1", prerelease: false },
+      { tag_name: "v0.1.0", name: "BoxOps 0.1.0", prerelease: false },
+    ]);
+    expect([r.code, r.annotations, r.notices]).toEqual([0, [], []]);
+  });
+
   it("a missing or unreadable releases-file is ignored", async () => {
     const r = await withReleases("{ not json");
     expect([r.code, r.annotations, r.notices]).toEqual([0, [], []]);

@@ -1212,9 +1212,10 @@ this order, each failure an error annotation with a plain message:
     runner labels.
 11. Notices from the optional `releases-file` (`cli/notices.ts`): a newer
     release titled "Security: …" gives a warning and a `security` notice in
-    `roadmap.json`, any other newer one a notice and an `info` notice, and
-    this release titled "Withdrawn: …" a warning (in the app too).
-    Release candidates count only when running one.
+    `roadmap.json`, any other newer one a notice and an `info` notice (but
+    none for one titled "Withdrawn: …", nor a draft), and this release
+    titled "Withdrawn: …" a warning (in the app too). Release candidates
+    count only when running one.
 12. In build mode, `$RUNNER_TEMP/boxops-site` made afresh: the release's
     `dist/app` (each file checked against `BUILD.json`, and no other file)
     and `roadmap.json`. `repository` naming another repository makes the site

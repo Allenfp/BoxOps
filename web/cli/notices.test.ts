@@ -56,6 +56,34 @@ describe("releaseNotices", () => {
     const { notices, annotations } = releaseNotices("0.1.0", [rel("v0.1.0", "Withdrawn: BoxOps 0.1.0")]);
     expect(notices).toEqual([{ level: "warning", text: "This site runs BoxOps v0.1.0, which was withdrawn. Ask a repository admin to upgrade it." }]);
     expect(annotations).toEqual([{ level: "warning", message: "BoxOps v0.1.0 was withdrawn (“Withdrawn: BoxOps 0.1.0”): upgrade to a newer release." }]);
+    // A newer release that was withdrawn too isn't the one to move to.
+    const both = releaseNotices("0.1.0", [rel("v0.1.1", "Withdrawn: BoxOps 0.1.1"), rel("v0.1.0", "Withdrawn: BoxOps 0.1.0")]);
+    expect(both).toEqual({ notices, annotations });
+    const fixed = releaseNotices("0.1.0", [rel("v0.1.2"), rel("v0.1.1", "Withdrawn: BoxOps 0.1.1"), rel("v0.1.0", "Withdrawn: BoxOps 0.1.0")]);
+    expect(fixed.annotations).toContainEqual({ level: "warning", message: "BoxOps v0.1.0 was withdrawn (“Withdrawn: BoxOps 0.1.0”): upgrade to a newer release (v0.1.2)." });
+  });
+
+  it("never offers a withdrawn release, though it's the newest until the one that fixes it is out", () => {
+    // Withdrawn, and nothing newer yet: nothing to offer.
+    expect(releaseNotices("0.1.0", [rel("v0.1.1", "Withdrawn: BoxOps 0.1.1"), rel("v0.1.0")])).toEqual({ notices: [], annotations: [] });
+    expect(releaseNotices("0.1.0", [rel("v0.1.1", "withdrawn: Security: BoxOps 0.1.1")])).toEqual({ notices: [], annotations: [] });
+    // The fix is out: that one.
+    const fixed = releaseNotices("0.1.0", [rel("v0.1.2"), rel("v0.1.1", "Withdrawn: BoxOps 0.1.1")]);
+    expect(fixed.notices).toEqual([{ level: "info", text: "BoxOps v0.1.2 is available; this site runs v0.1.0." }]);
+    expect(fixed.annotations).toEqual([
+      { level: "notice", message: "BoxOps v0.1.2 is available; this run used v0.1.0: merge the BoxOps upgrade pull request, or run `node .boxops/boxops.mjs upgrade v0.1.2`." },
+    ]);
+    // A release before it that wasn't withdrawn, still newer than this one: that one.
+    const older = releaseNotices("0.1.0", [rel("v0.1.2", "Withdrawn: BoxOps 0.1.2"), rel("v0.1.1", "Security: BoxOps 0.1.1")]);
+    expect(older.notices).toEqual([
+      { level: "security", text: "BoxOps v0.1.1 fixes a security problem; this site runs v0.1.0. Ask a repository admin to merge the upgrade pull request." },
+    ]);
+    expect(older.annotations.map((a) => a.message)).toEqual([expect.stringMatching(/run `node \.boxops\/boxops\.mjs upgrade v0\.1\.1`\.$/)]);
+  });
+
+  it("leaves drafts out", () => {
+    expect(releaseNotices("0.1.0", [{ ...rel("v0.2.0", "Security: BoxOps 0.2.0"), draft: true }])).toEqual({ notices: [], annotations: [] });
+    expect(releaseNotices("0.1.0", [{ ...rel("v0.2.0"), draft: false }]).notices).toEqual([{ level: "info", text: "BoxOps v0.2.0 is available; this site runs v0.1.0." }]);
   });
 
   it("ignores what isn't a list of releases, and builds without a release version", () => {

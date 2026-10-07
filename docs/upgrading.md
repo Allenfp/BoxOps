@@ -157,7 +157,8 @@ A release found to be bad is **withdrawn**, not deleted (a published release
 can't change, and your pin names its commit): its title starts "Withdrawn:",
 each deploy still running it warns, and the site says "This site runs
 BoxOps v0.1.0, which was withdrawn. Ask a repository admin to upgrade it."
-Upgrade to the release that fixes it.
+Upgrade to the release that fixes it. No deploy offers a withdrawn release,
+though it may be the newest until that one's out.
 
 With a mirror, keep `BOXOPS_UPSTREAM` (in `deploy.yml`'s lookup step) on
 `Allenfp/BoxOps` if your runners can reach github.com: the notices come

@@ -9,11 +9,12 @@
 import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import type { Notice } from "../src/model/bundle.ts";
 
-/** One release as `gh api …/releases --jq '[.[] | {tag_name, name, prerelease}]'` lists it. */
+/** One release as `gh api …/releases --jq '[.[] | {tag_name, name, prerelease}]'` lists it (the API also says whether it's a draft). */
 export interface ReleaseEntry {
   tag_name: string;
   name: string | null;
   prerelease: boolean;
+  draft?: boolean;
 }
 
 /** major, minor, patch, and the release candidate's number (null for a release). */
@@ -56,12 +57,19 @@ const isEntry = (r: unknown): r is ReleaseEntry =>
 const title = (r: ReleaseEntry) => (r.name ?? "").trim();
 
 /**
+ * A release titled "Withdrawn: …": found bad after it was published
+ * (docs/releasing.md, "A bad release"), so never one to move to.
+ */
+export const isWithdrawn = (r: { name?: unknown }): boolean => typeof r.name === "string" && /^withdrawn:/i.test(r.name.trim());
+
+/**
  * The notices for a site running BoxOps `own` (its version, "0.1.0"), given
  * the releases list (anything that isn't one is ignored). Only tags vX.Y.Z
- * count, and release candidates (vX.Y.Z-rc.N, marked prerelease) only while
- * running one. A newer release titled "Security: …" gives a security notice
- * and a warning; any other newer one an info notice and a notice annotation.
- * If this release is titled "Withdrawn: …", a warning, in the app too.
+ * count, not drafts, and release candidates (vX.Y.Z-rc.N, marked
+ * prerelease) only while running one. A newer release titled "Security: …"
+ * gives a security notice and a warning; any other newer one an info notice
+ * and a notice annotation; a withdrawn one ("Withdrawn: …") none. If this
+ * release is titled "Withdrawn: …", a warning, in the app too.
  */
 export function releaseNotices(own: string, releases: unknown): Notices {
   const mine = parseVersion(own);
@@ -70,11 +78,13 @@ export function releaseNotices(own: string, releases: unknown): Notices {
   const candidate = mine[3] !== null;
   const known = releases
     .filter(isEntry)
+    .filter((r) => r.draft !== true)
     .map((r) => ({ r, v: parseVersion(r.tag_name) }))
     .filter((x): x is { r: ReleaseEntry; v: Version } => x.v !== null && x.r.tag_name.startsWith("v"))
     .filter((x) => candidate || (x.v[3] === null && !x.r.prerelease));
   const newest = (list: typeof known) => [...list].sort((a, b) => compareVersions(b.v, a.v))[0]?.r;
-  const newer = known.filter((x) => compareVersions(x.v, mine) > 0);
+  // Until the release that fixes it is out, a withdrawn one may well be the newest: never offered.
+  const newer = known.filter((x) => compareVersions(x.v, mine) > 0 && !isWithdrawn(x.r));
   const security = newest(newer.filter((x) => /^security:/i.test(title(x.r))));
   const latest = newest(newer);
   const upgrade = (tag: string) => `merge the BoxOps upgrade pull request, or run \`node .boxops/boxops.mjs upgrade ${tag}\``;
@@ -91,7 +101,7 @@ export function releaseNotices(own: string, releases: unknown): Notices {
     out.notices.push({ level: "info", text: `BoxOps ${latest.tag_name} is available; this site runs v${own}.` });
     out.annotations.push({ level: "notice", message: `BoxOps ${latest.tag_name} is available; this run used v${own}: ${upgrade(latest.tag_name)}.` });
   }
-  const self = known.find((x) => compareVersions(x.v, mine) === 0 && /^withdrawn:/i.test(title(x.r)));
+  const self = known.find((x) => compareVersions(x.v, mine) === 0 && isWithdrawn(x.r));
   if (self) {
     out.notices.push({ level: "warning", text: `This site runs BoxOps v${own}, which was withdrawn. Ask a repository admin to upgrade it.` });
     out.annotations.push({
