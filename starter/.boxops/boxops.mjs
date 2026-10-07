@@ -8,7 +8,7 @@
 // kept with it in a cache outside this repository (a file in the repository would run as code on
 // everyone's machine). Each command warns when this launcher, AGENTS.md's BoxOps block or
 // deploy.yml's Pages guard isn't the release's.
-// Env: BOXOPS_CLI=<a release's dist/boxops.mjs> (offline), BOXOPS_CACHE=<a folder outside this
+// Env: BOXOPS_CLI=<that release's dist/boxops.mjs> (offline), BOXOPS_CACHE=<a folder outside this
 // repository>, GH_TOKEN (private mirrors; else `gh auth token`), HTTPS_PROXY (a proxy).
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -65,7 +65,10 @@ const checked = build !== undefined && warn(build);
 const { main } = await import(pathToFileURL(cli).href);
 process.exitCode = await main(process.argv.slice(2), { root, repo, sha, tag, launcher: LAUNCHER, ...(checked && { checked }) });
 
-/** $BOXOPS_CLI: a release's dist/boxops.mjs, checked against the BUILD.json beside dist/ (or in its folder) if there is one. */
+/**
+ * $BOXOPS_CLI: a release's dist/boxops.mjs, checked against the BUILD.json beside dist/ (or in its
+ * folder) if there is one, which also says whether it's the release deploy.yml pins (`# vX.Y.Z`).
+ */
 function given(file) {
   if (!existsSync(file)) fail(`BOXOPS_CLI is ${file}, and there’s no such file`);
   const dir = dirname(file);
@@ -73,6 +76,7 @@ function given(file) {
   if (!json) return { cli: file };
   const build = parseBuild(read(json));
   if (build?.files["dist/boxops.mjs"] !== digest(readFileSync(file))) fail(`BOXOPS_CLI (${file}) isn’t the boxops.mjs its BUILD.json (${json}) describes`);
+  if (tag && tag !== `v${build.version}`) console.error(`boxops: BOXOPS_CLI (${file}) is BoxOps ${build.version}, but deploy.yml pins ${tag}: set it to that release’s dist/boxops.mjs`);
   return { cli: file, build };
 }
 

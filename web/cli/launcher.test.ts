@@ -233,6 +233,15 @@ describe("the launcher offline (BOXOPS_CLI)", () => {
     expect([bad.code, bad.stdout, bad.stderr]).toEqual([2, "", `boxops: BOXOPS_CLI (${tampered}) isn’t the boxops.mjs its BUILD.json (${join(tampered, "..", "..", "BUILD.json")}) describes`]);
   });
 
+  it("says when its BUILD.json is another release than deploy.yml's `# vX.Y.Z`, and runs it all the same", () => {
+    const tool = releaseTool();
+    const r = launch(launcherRepo(DEPLOY(`Allenfp/BoxOps@${A} # v0.2.0`)), ["version"], { env: { BOXOPS_CLI: tool } });
+    expect([r.code, r.ran?.ctx.tag, r.stderr]).toEqual([0, "v0.2.0", `boxops: BOXOPS_CLI (${tool}) is BoxOps 0.1.0, but deploy.yml pins v0.2.0: set it to that release’s dist/boxops.mjs`]);
+    // The release pinned, or no tag to compare with: nothing to say.
+    expect(launch(launcherRepo(), ["version"], { env: { BOXOPS_CLI: tool } }).stderr).toBe("");
+    expect(launch(launcherRepo(DEPLOY(`Allenfp/BoxOps@${A}`)), ["version"], { env: { BOXOPS_CLI: tool } }).stderr).toBe("");
+  });
+
   it("runs a tool alone, as given (the tool then warns of old files itself), and a web/dist build beside its BUILD.json", () => {
     const root = launcherRepo();
     const alone = join(tempDir(), "boxops.mjs");

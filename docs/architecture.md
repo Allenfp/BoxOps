@@ -1140,7 +1140,9 @@ then the temp folder; a folder others can write to is passed over, and one
 inside the repository is refused, since a file committed there would run as
 code), checking the tool against the `BUILD.json` again at each run. Offline
 it takes `$BOXOPS_CLI`, checked against its release's `BUILD.json` when there
-is one beside it. With `HTTPS_PROXY` set it restarts Node with
+is one beside it, and says so when that's another release than the pin's
+`# vX.Y.Z` (the tool would check the roadmap as that release does, and
+report its own version with the pin's commit). With `HTTPS_PROXY` set it restarts Node with
 `NODE_USE_ENV_PROXY=1`, without which Node's `fetch` ignores the proxy
 (Node.js 22.21+ or 24+ honours it), keeping the options Node was started
 with (`--use-system-ca`, for a proxy that re-signs TLS). It stops if the
