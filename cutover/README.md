@@ -12,66 +12,98 @@ The files staged here sit at the path of the file each replaces
 file with the cutover's changes made and nothing else:
 `web/scripts/cutover.test.ts` fails when a live file changes and its staged
 copy doesn't, so copying them over undoes no later change. (A file the
-cutover replaces whole, as it will `pages.yml`, is listed in that test
-without changes to check.)
+cutover replaces whole, or adds, is listed in that test without changes to
+check.)
 
 ## Staged
 
 | File | What the cutover changes |
 |---|---|
+| `.github/workflows/pages.yml` | Replaced whole. `allenfp.github.io/BoxOps/` becomes a redirect to `allenfp.github.io/boxops-demo/` (the next file), and `/next/` a read-only canary of `main`: this commit's release tree (`npm run release:build`, version `X.Y.Z-next`), its action assembling `Allenfp/boxops-demo`'s roadmap, as a release would. On every push to `main`, daily and by hand. |
+| `pages/redirect.html` | New: the redirect, published as the site's `index.html`. It goes on to `/boxops-demo/` with the address's query and hash (`?view=table`, a box's `#…`) on the same origin, so a tab's session storage goes along; its Content-Security-Policy allows its one script by hash. Without script, it links to the demo and the starter. |
+| `.github/workflows/ci.yml` | It runs on pushes to `main` too (`pages.yml` no longer tests what it deploys), writes no site from `roadmap/`, and lints no workflows in `cutover/`. |
 | `web/vite.config.ts` | `DEV_ROADMAP`, what `npm run dev` shows when `$BOXOPS_ROADMAP` isn't set, becomes the browser tests' roadmap, `web/e2e/fixtures/roadmap` (it's `../roadmap` now), and its doc comment with it. |
 | `web/scripts/roadmap-dir.ts` | The default folder of `npm run validate` and `npm run report` becomes `e2e/fixtures/roadmap` (it's `../roadmap` now), in its usage line and comment too. |
 
-## Not staged yet
-
-- `.github/workflows/pages.yml`: the redirect and the `/next/` canary (the
-  design's §2.8). It needs the release-tree build (`npm run release:build`,
-  whose action it runs on the demo's data) and `pages/redirect.html`, neither
-  of which exists yet. Stage it here once they do.
-- `.github/workflows/ci.yml`: it's to become the design's (the release tree,
-  smoke runs on three runners). Until it does, its step "The tool on the
-  starter, and the demo's site" writes a site from `roadmap/` with
-  `build --out "$RUNNER_TEMP/site"`; at the cutover, give that
-  `--roadmap starter/roadmap` (git objects of this repository at
-  `starter/roadmap`), or drop it if ci.yml no longer has it.
-- `AGENTS.md`, `README.md` and `docs/`: they change with the rest of the work
-  until then, so the cutover commit makes their changes itself (below).
+`AGENTS.md`, `README.md` and `docs/` aren't staged: they change with the rest
+of the work until then, so the cutover commit makes their changes itself
+(below).
 
 ## Before the cutover commit
 
-1. `Allenfp/boxops-demo` exists, made with `init` from a release candidate,
-   with the demo's history (`git filter-repo --path roadmap/`), migrated,
-   deploying, and saving with its own token. Demo edits here are frozen.
-2. Close the demo's open tabs (their code writes to `roadmap/` here and has
-   no build-id check).
+1. A release candidate, `v0.1.0-rc.1`, is out (`docs/releasing.md`), and the
+   starter repository, `Allenfp/boxops-starter`, published for it.
+2. `Allenfp/boxops-demo` holds the demo's roadmap with its history. From a
+   fresh clone (`git filter-repo` rewrites the clone it runs in, and needs
+   [git-filter-repo](https://github.com/newren/git-filter-repo)):
+
+   ```sh
+   git clone --no-local https://github.com/Allenfp/BoxOps.git boxops-demo && cd boxops-demo &&
+     git log --format='%ae%n%ce' -- roadmap/ | sort -u | grep -E '@(gmail\.com|veryboringdata\.co)$' |
+       sed 's/.*/<29790605+Allenfp@users.noreply.github.com> <&>/' > ../demo-mailmap &&
+     cat ../demo-mailmap &&
+     git filter-repo --path roadmap/ --mailmap ../demo-mailmap &&
+     git log --format='%ae%n%ce' | sort -u
+   ```
+
+   The mailmap has two lines, the maintainer's Gmail address and the
+   veryboringdata.co one, each mapped to
+   `29790605+Allenfp@users.noreply.github.com` (as authors and committers);
+   the last command must list no other personal address. Then, in that
+   clone, the starter's files as the release candidate's `init` writes them
+   (its pins on rc.1's commit), but for the starter's sample roadmap; the
+   demo's data stamped `format: 1`; and the demo's own repository (pushing
+   workflow files takes SSH, or a token with the workflow scope):
+
+   ```sh
+   curl -fsSLo ../boxops.mjs https://github.com/Allenfp/BoxOps/releases/download/v0.1.0-rc.1/boxops.mjs &&
+     gh attestation verify ../boxops.mjs -R Allenfp/BoxOps --signer-workflow Allenfp/BoxOps/.github/workflows/release.yml &&
+     node ../boxops.mjs init ../demo-starter &&
+     rsync -a --exclude=/roadmap/ ../demo-starter/ ./ &&
+     node .boxops/boxops.mjs migrate && node .boxops/boxops.mjs validate &&
+     git add -A && git commit -m "Run the demo from the BoxOps starter, pinned to v0.1.0-rc.1" &&
+     gh repo create Allenfp/boxops-demo --public --source . --push
+   ```
+
+   In its settings, Pages' source is GitHub Actions; its first deploy must
+   pass. Make a fine-grained token for `Allenfp/boxops-demo` alone
+   (Contents: read and write), and check a save from
+   `allenfp.github.io/boxops-demo/`.
+3. Demo edits here stop: nothing more is saved to this `roadmap/`.
+4. Close the demo's open tabs: their code writes to `roadmap/` here and has
+   no build-id check.
 
 ## The cutover commit
 
-1. Delete `roadmap/`.
+On a branch, merged by pull request:
+
+1. Delete `roadmap/`: `git rm -rq roadmap`.
 2. Copy the staged files (all of this folder but this README) over the live
    ones, then delete this folder and the test that checks it:
    `rsync -a --exclude=/README.md cutover/ ./ && git rm -rq cutover
-   web/scripts/cutover.test.ts`.
-3. Replace `.github/workflows/pages.yml` with the redirect and `/next/`
-   canary (step 2 does, once it's staged here). That drops the interim
-   "Assemble the site (the app, and roadmap.json from roadmap/)" step and its
-   `build:cli` step.
-4. `.github/workflows/ci.yml`, as above.
-5. `docs/data-format.md`'s "In this repository": `npm run validate` checks
+   web/scripts/cutover.test.ts`. That swaps the workflows: `pages.yml`
+   becomes the redirect and `/next/`, and `ci.yml` runs on `main` too.
+3. `docs/data-format.md`'s "In this repository": `npm run validate` checks
    `e2e/fixtures/roadmap` unless given another folder (it says `../roadmap`,
    the live demo's roadmap), and the bullet on how the demo deploys goes.
-6. `AGENTS.md` is already the guide for working on BoxOps itself (the
+4. `AGENTS.md` is already the guide for working on BoxOps itself (the
    roadmap-editing guide is `templates/`'s, which the demo's repository
    gets): drop its `roadmap/` bullet and its last section, "Editing the
    demo's roadmap".
-7. Docs: README's "Open it" link, its `npm run dev` line and its "Editing
+5. Docs: README's "Open it" link, its `npm run dev` line and its "Editing
    without the app" section (to the demo and the starter),
    `docs/architecture.md` (this repository's `roadmap/`, the dev server's
-   default and the Deploy bullet), and `docs/decisions.md` (rows for the
-   starter and prebuilt action, the demo repository and versioning).
+   default, the Deploy bullet, and CI on `main`), and `docs/decisions.md`
+   (rows for the starter and the prebuilt action, the demo's repository and
+   versioning).
+6. `npm run lint`, `npm run typecheck`, `npm test`, `npm run e2e` and
+   actionlint, as for any change.
 
 ## After merging
 
 1. Revoke the old token scoped to `Allenfp/BoxOps`: that's what makes the
    pinned repository unwritable from a browser.
-2. Check the redirect keeps its query and hash: `/BoxOps/?view=table#x`.
+2. The redirect keeps the query and hash: `allenfp.github.io/BoxOps/?view=table#x`
+   opens `allenfp.github.io/boxops-demo/?view=table#x`, in the table.
+3. `allenfp.github.io/BoxOps/next/` shows the demo's roadmap, read-only, with
+   this commit's build (`0.1.0-next+…`).

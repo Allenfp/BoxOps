@@ -1,0 +1,87 @@
+# allenfp.github.io/BoxOps/ since the demo moved to its own repository
+# (Allenfp/boxops-demo, which deploys itself): index.html, a redirect there
+# that keeps the address's query and hash (pages/redirect.html), and /next/,
+# a read-only canary of main: this commit's release tree, its action
+# assembling the demo's latest data, as a release would. Saves never happen
+# here; the maintainer clicks through /next/ in Safari before a release
+# (docs/releasing.md).
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 5 * * *" # daily: /next/ with the demo's latest data
+  workflow_dispatch:
+
+# Each job asks for only what it needs (see the jobs).
+permissions: {}
+
+# One run at a time, and a running deploy is never cancelled (GitHub's Pages
+# starter workflows do the same).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Pinned on purpose: ubuntu-latest moves to Ubuntu 26.04 between 2026-10-19
+    # and 2026-11-19. Move to ubuntu-26.04 in its own pull request.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out this repository, and the demo's
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # Not a release: its version says so (0.1.0-next), and gets no update notices.
+      - name: This commit's release tree
+        working-directory: web
+        run: |
+          npm ci --ignore-scripts
+          npm run release:build -- --version "$(node -p 'require("./package.json").version')-next" --no-sbom
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Allenfp/boxops-demo
+          path: demo
+          persist-credentials: false
+      # Another repository's roadmap: the site is read-only, and private to
+      # the app (it asks GitHub nothing without a token).
+      - id: canary
+        uses: ./build/release
+        with:
+          path: demo
+          repository: Allenfp/boxops-demo
+          read-only: "true"
+          summary: "false"
+      - name: The redirect, and /next/
+        env:
+          CANARY: ${{ steps.canary.outputs.site }}
+        run: |
+          set -euo pipefail
+          mkdir _site
+          cp pages/redirect.html _site/index.html
+          cp -R "$CANARY" _site/next
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15 # deploy-pages gives up by itself after 10 minutes
+    permissions:
+      pages: write # publish the site
+      id-token: write # prove the deploy comes from this workflow
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

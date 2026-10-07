@@ -1,6 +1,6 @@
-# CI, the check every change gets: on pull requests and every push to a
-# branch other than main (which pages.yml checks before deploying), by hand,
-# weekly (main, and the latest release), and for a release (release.yml calls
+# CI, the check every change gets: on pull requests and every push (pages.yml
+# deploys main untested since the demo moved), by hand, weekly (main, and the
+# latest release), and for a release (release.yml calls
 # it on the commit it releases, with the version). Its jobs:
 #   test          lint, types, unit tests (also in two far-apart time zones),
 #                 the changelog's form, npm run validate
@@ -13,7 +13,7 @@
 #   smoke         its action, as `uses:` runs it, on three runners: the
 #                 starter's files made hostile, bad repositories, no network
 #   workflows     actionlint and shellcheck on every workflow (this
-#                 repository's, the starter's, Path B's, the cutover's) and
+#                 repository's, the starter's and Path B's) and
 #                 on the smoke scripts, and the Pages guard against a stand-in gh
 #   latest release  (weekly) the latest release's action, on three runners
 name: CI
@@ -21,7 +21,6 @@ name: CI
 on:
   pull_request:
   push:
-    branches-ignore: [main]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -121,16 +120,14 @@ jobs:
         run: npm run check:release-tree
       # The release's tool, as a roadmap repository's launcher runs it, on the
       # starter's files; then the site it writes from the starter's roadmap at
-      # this commit, and from roadmap/ (the demo's, as pages.yml writes it,
-      # until the cutover moves it).
-      - name: The release's tool on the starter, and the sites it writes
+      # this commit.
+      - name: The release's tool on the starter, and the site it writes
         run: |
           node ../build/release/dist/boxops.mjs version
           node ../build/release/dist/boxops.mjs validate --root ../starter
           node ../build/release/dist/boxops.mjs sync --check --root ../starter
           node ../build/release/dist/boxops.mjs migrate --check --root ../starter
           node ../build/release/dist/boxops.mjs build --roadmap starter/roadmap --out "$RUNNER_TEMP/starter-site"
-          node ../build/release/dist/boxops.mjs build --out "$RUNNER_TEMP/demo-site"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-tree
@@ -317,10 +314,10 @@ jobs:
       # actionlint runs shellcheck (the one above, first on the PATH) on every
       # run: script; .github/actionlint.yaml names ubuntu-26.04, which it
       # doesn't know yet.
-      - name: Lint the workflows (this repository's, the starter's, Path B's, the cutover's)
+      - name: Lint the workflows (this repository's, the starter's and Path B's)
         run: |
           shellcheck --version
-          actionlint .github/workflows/*.yml starter/.github/workflows/*.yml templates/path-b/*.yml cutover/.github/workflows/*.yml
+          actionlint .github/workflows/*.yml starter/.github/workflows/*.yml templates/path-b/*.yml
       - name: shellcheck on the smoke scripts
         run: shellcheck web/scripts/smoke/*.sh
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

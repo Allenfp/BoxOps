@@ -1,0 +1,23 @@
+<!doctype html>
+<!--
+  allenfp.github.io/BoxOps/ since the demo moved to its own repository
+  (Allenfp/boxops-demo): straight on to it, with the address's query and hash
+  (?view=table, a box's #…), on the same origin, so a tab's session storage
+  goes with it. Its Content-Security-Policy allows its one script by hash.
+  pages.yml publishes it as index.html, beside /next/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-SRTq9DLN/7YrdYbgcqSU3sTPF1iC0rvIVzj3ooD652Y='; base-uri 'none'; form-action 'none'; object-src 'none'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>The BoxOps demo has moved</title>
+    <link rel="canonical" href="https://allenfp.github.io/boxops-demo/" />
+    <script>location.replace("/boxops-demo/" + location.search + location.hash);</script>
+  </head>
+  <body>
+    <p>The BoxOps demo is now at <a href="https://allenfp.github.io/boxops-demo/">allenfp.github.io/boxops-demo</a>.</p>
+    <p>For a roadmap of your own, start from <a href="https://github.com/Allenfp/boxops-starter">the BoxOps starter</a>.</p>
+  </body>
+</html>
