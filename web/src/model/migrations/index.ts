@@ -14,8 +14,10 @@
 //   locates, so comments, key order, quoting and line ends stay as they were
 //   (never a parse and re-stringify of a whole file).
 // - It's idempotent: given files it has already migrated, or that never
-//   needed it, it changes nothing. A migration branch that picked up saves
-//   made meanwhile is fixed by running `migrate` again.
+//   needed it, it changes nothing. (The chain starts from the format
+//   settings.yaml states, so a migrated branch that picked up saves made
+//   meanwhile takes main's roadmap again and migrates that: see
+//   docs/upgrading.md, "Migrations".)
 // - It never touches `format`: the chain sets that, last, once every step has
 //   run, so files are never stamped with a format they aren't in yet.
 

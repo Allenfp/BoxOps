@@ -52,6 +52,7 @@ The pull request's check runs the new release against this roadmap:
 
   ```sh
   gh pr checkout <number>                  # the launcher now runs the new release
+  git fetch origin && git merge --no-edit origin/main   # the saves made since
   node .boxops/boxops.mjs migrate
   node .boxops/boxops.mjs sync             # if the notes say the block or launcher changed
   node .boxops/boxops.mjs validate
@@ -62,8 +63,18 @@ The pull request's check runs the new release against this roadmap:
 
 If a migration is forgotten, the deploy's data format check fails, the old
 site stays live, and the run says what to do. Saves made in the app while a
-migration's pull request is open: if they conflict, update the branch and run
-`migrate` again (it changes only what still needs it).
+migration's pull request is open are in the old format, and `migrate` starts
+from the format `settings.yaml` states, which on the migrated branch is the
+new one: so right before merging, if anyone has saved since, take
+`roadmap/` from `main` again and migrate that, on the branch:
+
+```sh
+git fetch origin && git merge --no-edit origin/main
+git rm -rqf roadmap && git checkout origin/main -- roadmap   # main's side, conflicts and all
+node .boxops/boxops.mjs migrate
+git add roadmap && git commit -m "Migrate the saves made meanwhile"   # nothing to commit: nothing needed it
+git push
+```
 
 ## Security releases
 
