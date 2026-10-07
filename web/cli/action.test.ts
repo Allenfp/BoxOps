@@ -364,8 +364,13 @@ describe("format gate (step 8)", () => {
         "error: This roadmap is in data format 2; BoxOps 0.1.0 reads format 1: this roadmap needs BoxOps that reads format 2; upgrade the pin (`node .boxops/boxops.mjs upgrade`). The site wasn’t changed [roadmap/settings.yaml]",
       ]);
     }
+    // No settings.yaml at all: said so, not "migrate" (which would make one holding only the format).
     const missing = await run({ repo: workspace({ "roadmap/people.yaml": "people: []\n" }).repo });
-    expect(errors(missing)[0]).toMatch(/^error: This roadmap is in data format 0;/);
+    expect([missing.code, errors(missing), missing.outputs.site]).toEqual([
+      1,
+      ["error: roadmap/settings.yaml is missing: every roadmap needs one, with at least `format: 1`. Add it, commit and push. The site wasn’t changed [roadmap/settings.yaml]"],
+      undefined,
+    ]);
     const unreadable = await run({ repo: withSettings("format: one\n").repo });
     expect(errors(unreadable)).toEqual([
       "error: roadmap/settings.yaml can’t be read for its data format (`format:` must be a whole number): fix it, then push [roadmap/settings.yaml]",

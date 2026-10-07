@@ -1061,8 +1061,9 @@ error annotation with a plain message:
 4. to 7. `roadmap/` from git objects at the checkout's `HEAD`, as above:
    hardened plumbing git, plain files only, the limits, every blob's SHA,
    strict UTF-8.
-8. The data format: any other than this release's stops the build, older
-   with "run `node .boxops/boxops.mjs migrate`", newer with "upgrade the pin".
+8. The data format: a missing `settings.yaml`, or any format other than this
+   release's, stops the build: older with "run `node .boxops/boxops.mjs
+   migrate`", newer with "upgrade the pin".
 9. Validation: each problem an error annotation on its file and line (50 at
    most; the rest in the log), counted in the `problems` output. Check mode
    fails on any; build mode only with `on-problems: fail` (the default,

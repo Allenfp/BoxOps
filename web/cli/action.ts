@@ -15,7 +15,8 @@
 //      working tree: hardened plumbing git only (cli/git.ts); plain files
 //      only (a symlink or submodule is an error naming it), within the limits,
 //      every blob checked against its SHA and read as strict UTF-8.
-//   8. Format gate: a roadmap in another data format stops the build.
+//   8. Format gate: a roadmap without a settings.yaml, or in another data
+//      format, stops the build.
 //   9. Validation: each problem an error annotation on its file and line,
 //      counted in the `problems` output. Check mode fails on any; build mode
 //      only with `on-problems: fail` (`deploy`, the default, publishes the
@@ -206,10 +207,13 @@ export function locateRepository(env: Env, path: string, roadmap: string): strin
   return top;
 }
 
-/** Step 8: the roadmap must be in this BoxOps's data format. */
+/** Step 8: the roadmap must have a settings.yaml, in this BoxOps's data format. */
 export function checkFormat(files: Record<string, string>, roadmap: string, version: string): number {
-  const format = settingsFormat(files["settings.yaml"]);
   const file = `${roadmap}/settings.yaml`;
+  if (files["settings.yaml"] === undefined) {
+    throw new ActionError(`${file} is missing: every roadmap needs one, with at least \`format: ${FORMAT}\`. Add it, commit and push. The site wasn’t changed`, file);
+  }
+  const format = settingsFormat(files["settings.yaml"]);
   if (format === null) {
     throw new ActionError(`${file} can’t be read for its data format (\`format:\` must be a whole number): fix it, then push`, file);
   }

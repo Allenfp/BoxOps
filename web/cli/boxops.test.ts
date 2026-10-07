@@ -170,6 +170,10 @@ describe("build", () => {
     expect(f.code).toBe(3);
     expect(f.stderr.split("\n").pop()).toBe("This roadmap is in data format 0; BoxOps 0.1.0 reads format 1. Run `node .boxops/boxops.mjs migrate`, commit and push. Nothing was written");
     expect(() => readdirSync(none)).toThrow();
+    const { "roadmap/settings.yaml": _, ...noSettings } = sampleRepo();
+    const m = await run(["build", "--out", none], { cwd: checkout(noSettings).dir });
+    expect([m.code, m.stderr.split("\n").pop()]).toEqual([3, "roadmap/settings.yaml is missing: every roadmap needs one, with at least `format: 1`. Add it, commit and push. Nothing was written"]);
+    expect(() => readdirSync(none)).toThrow();
   });
 
   it("needs a release beside it, this build's", async () => {
