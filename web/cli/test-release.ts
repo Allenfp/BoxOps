@@ -6,6 +6,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import type { Io } from "./context";
 import { buildJsonText, type Identity, makeBuildJson } from "./release";
 import type { Entry } from "./test-repo";
 
@@ -119,4 +120,27 @@ export function readOutputs(file: string): Record<string, string> {
     out[m[1]] = value.join("\n");
   }
   return out;
+}
+
+export interface Captured extends Io {
+  stdout: string[];
+  stderr: string[];
+}
+
+/** An Io for the command-line tool that records what it prints, with a fresh fake release; no network unless `fetch` is given. */
+export function capture(o: Partial<Io> = {}): Captured {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  return {
+    stdout,
+    stderr,
+    out: (t) => stdout.push(...t.split("\n")),
+    err: (t) => stderr.push(...t.split("\n")),
+    cwd: tempDir(),
+    env: {},
+    fetch: () => Promise.reject(new Error("no network in this test")),
+    cliDir: makeRelease(),
+    identity: () => ID,
+    ...o,
+  };
 }
