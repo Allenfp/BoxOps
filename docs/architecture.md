@@ -1188,15 +1188,16 @@ git tracks, but for those listed as still to write (`TO_WRITE` in
   rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
   `init` and `preview`'s fetch against a fake GitHub, the launcher run with
   Node (its download against a `fetch` answering from a table, the cache's
-  order and refusals, `BUILD.json` checks, `BOXOPS_CLI` and a release other
-  than the pin's, mirrors and tokens, warnings on the tool's commands alone,
-  proxies and Node's options), the starter made for a release (what `init`
-  writes, and `sync` for its files) and its links to BoxOps' docs (pages git
-  tracks, but those still to write), the commands `publish-starter` prints
-  to publish it (run with bash from another folder, against stand-ins for
-  the starter repository and `gh`), Path B's workflows (the starter's but
-  for one step, which the README shows, and setup-node told to read nothing
-  in the workspace) and that step run with bash against a stand-in for
+  order and refusals, `BUILD.json` checks, `BOXOPS_CLI` (a release other
+  than the pin's, a folder), mirrors and tokens, warnings on the tool's
+  commands alone, `AGENTS.md` read only as a plain file, proxies and Node's
+  options), the starter made for a release (what `init` writes, and `sync`
+  for its files) and its links to BoxOps' docs (pages git tracks, but those
+  still to write), the commands `publish-starter` prints to publish it (run
+  with bash from another folder, against stand-ins for the starter
+  repository and `gh`), Path B's workflows (the starter's but for one step,
+  which the README shows, and setup-node told to read nothing in the
+  workspace) and that step run with bash against a stand-in for
   github.com, a hostile workspace (its files, git configuration and `GIT_*`
   variables try to run code: sentinel files stay unwritten, git is the only
   program started, and the site is a clean workspace's), and no network
