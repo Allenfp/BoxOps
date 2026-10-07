@@ -8,7 +8,7 @@
 // private repository and no token).
 
 import { execFileSync } from "node:child_process";
-import { lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,6 +32,7 @@ function walk(dir: string, rel = ""): string[] {
 }
 
 test("the tool writes the roadmap.json the tests serve, beside the app under test, which opens it", async ({ page, timezoneId }) => {
+  expect(existsSync(CLI), `${CLI}, the command-line tool beside the app under test (npm run e2e builds it; npm run build:cli does alone)`).toBe(true);
   const { files } = await readRoadmapDir(FIXTURE);
   const repo = new TestRepo();
   const work = mkdtempSync(join(tmpdir(), "boxops-e2e-"));
