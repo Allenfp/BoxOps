@@ -132,8 +132,10 @@ BoxOps gives roadmap repositories,
 and [file format](templates/guide/format.md) it points to, with two
 differences:
 
-- Where it says `node .boxops/boxops.mjs validate` or `report`, run
-  `npm run validate` or `npm run report --silent` from `web/`.
+- Where it says `node .boxops/boxops.mjs validate`, `report` or `preview`,
+  run `npm run validate`, `npm run report --silent` or `npm run dev` from
+  `web/` (there's no `.boxops/` here). `npm run dev` shows `roadmap/` in the
+  app at http://localhost:5173, read-only, reloading when a file changes.
 - Roadmap edits go straight to `main` as the app's saves do, `roadmap/`
   alone (`git add roadmap/`): no branch or pull request unless the user
   asks. App changes never ride along.
