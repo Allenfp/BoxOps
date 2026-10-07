@@ -6,7 +6,7 @@ import { readBundle } from "../src/model/bundle";
 import { parseFile } from "../src/model/parse";
 import { EXECUTABLE } from "../src/model/paths";
 import { RoadmapReadError } from "./git";
-import { appInfo, assembleBundle, buildBundle, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
+import { appInfo, assembleBundle, buildBundle, buildVersion, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
 import { TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -261,10 +261,25 @@ describe("buildBundle locally", () => {
 });
 
 describe("appInfo", () => {
-  it("is defined for the app: the package version plus web/'s tree", () => {
+  it("is defined for the app: the package version (or $BOXOPS_VERSION) plus web/'s tree", () => {
     const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
-    expect(__BOXOPS_BUILD__.startsWith(`${version}+`)).toBe(true);
-    expect(__BOXOPS_BUILD__).toMatch(/^\d+\.\d+\.\d+\+([0-9a-f]{12}|unknown)(\.dirty)?$/);
+    expect(__BOXOPS_BUILD__.startsWith(`${buildVersion(version, process.env.BOXOPS_VERSION)}+`)).toBe(true);
+    expect(__BOXOPS_BUILD__).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?\+([0-9a-f]{12}|unknown)(\.dirty)?$/);
+  });
+
+  it("takes a release's version, package.json's with a pre-release tag or without, and no other", () => {
+    expect(buildVersion("0.1.0", undefined)).toBe("0.1.0");
+    expect(buildVersion("0.1.0", "")).toBe("0.1.0");
+    for (const v of ["0.1.0", "0.1.0-rc.1", "0.1.0-next", "0.1.0-rc.12"]) expect(buildVersion("0.1.0", v)).toBe(v);
+    for (const v of ["0.1.1", "0.1.1-rc.1", "v0.1.0", "0.1", "0.1.0-", "0.1.0-rc..1", "0.1.0+build", "0.1.0 ", "0.1.0-rc/1"]) {
+      expect(() => buildVersion("0.1.0", v), v).toThrow(`BOXOPS_VERSION is “${v}”: it must be web/package.json’s version, 0.1.0, or that with a pre-release tag, such as 0.1.0-rc.1`);
+    }
+    const { repo: r } = repo();
+    r.commit({ ...ROADMAP, "web/package.json": JSON.stringify({ version: "1.2.3" }) });
+    r.checkout();
+    const tree = r.git(["rev-parse", "HEAD:web"]).slice(0, 12);
+    expect(appInfo(join(r.dir, "web"), r.dir, "1.2.3-rc.2")).toEqual({ version: "1.2.3-rc.2", build: `1.2.3-rc.2+${tree}`, time: "2026-10-01T00:03:00Z" });
+    expect(() => appInfo(join(r.dir, "web"), r.dir, "1.2.4")).toThrow("BOXOPS_VERSION is “1.2.4”");
   });
 
   it("is the version plus web/'s tree, '.dirty' with uncommitted changes there; the time is HEAD's committer date", () => {

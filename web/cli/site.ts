@@ -47,14 +47,31 @@ export function findRepo(dir: string): string | null {
 }
 
 /**
- * The app being built (AppInfo). For now BoxOps is one repository, so the
- * build id is the version plus the first 12 hex of web/'s tree at HEAD, which
- * roadmap-only saves leave alone; ".dirty" when web/ has uncommitted changes.
- * The time is HEAD's committer date, so rebuilding a commit gives the same id
- * and time. A `git worktree` checkout (whose .git is a file) is read too.
+ * The version a build is stamped with: web/package.json's, or `wanted` (from
+ * $BOXOPS_VERSION, which `npm run release:build -- --version` sets for the
+ * builds it runs) when given: that version itself, or it with a pre-release
+ * tag, such as 0.1.0-rc.1 or 0.1.0-next. Throws for any other.
  */
-export function appInfo(webDir: string, repoDir = resolve(webDir, "..")): AppInfo {
-  const { version } = JSON.parse(readFileSync(join(webDir, "package.json"), "utf8")) as { version: string };
+export function buildVersion(pkg: string, wanted: string | undefined): string {
+  if (!wanted) return pkg;
+  const m = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?$/.exec(wanted);
+  if (m?.[1] !== pkg) {
+    throw new Error(`BOXOPS_VERSION is “${wanted}”: it must be web/package.json’s version, ${pkg}, or that with a pre-release tag, such as ${pkg}-rc.1`);
+  }
+  return wanted;
+}
+
+/**
+ * The app being built (AppInfo). For now BoxOps is one repository, so the
+ * build id is the version (buildVersion: package.json's, or a release's)
+ * plus the first 12 hex of web/'s tree at HEAD, which roadmap-only saves
+ * leave alone; ".dirty" when web/ has uncommitted changes. The time is HEAD's
+ * committer date, so rebuilding a commit gives the same id and time. A
+ * `git worktree` checkout (whose .git is a file) is read too.
+ */
+export function appInfo(webDir: string, repoDir = resolve(webDir, ".."), wanted = process.env.BOXOPS_VERSION): AppInfo {
+  const pkg = (JSON.parse(readFileSync(join(webDir, "package.json"), "utf8")) as { version: string }).version;
+  const version = buildVersion(pkg, wanted);
   let tree = "unknown";
   let time = "";
   const checkout = { checkout: true };
