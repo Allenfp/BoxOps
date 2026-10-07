@@ -10,7 +10,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { cachedTool, keepTool, releaseCache } from "./cache.ts";
-import { EXIT, type Io, type LaunchContext, UsageError } from "./context.ts";
+import { EXIT, type Io, type LaunchContext, UsageError, shellWord } from "./context.ts";
 import { allPins, workflowFiles } from "./doctor.ts";
 import { fileAt, gitHub, releaseOfTag, releases, tagCommit } from "./github.ts";
 import { isWithdrawn, newestRelease } from "./notices.ts";
@@ -23,6 +23,8 @@ export type Main = (argv: string[], ctx: LaunchContext) => Promise<number>;
 export interface UpgradeOptions {
   /** Loads a release's tool; default: import its file. */
   load?(file: string): Promise<Main>;
+  /** The roadmap folder in the repository (--roadmap), for the new release's migrate --check and validate; default: roadmap. */
+  roadmap?: string;
 }
 
 /**
@@ -98,15 +100,20 @@ export async function upgradeCommand(root: string, wanted: string | undefined, c
   // warns of whatever isn't the new release's yet, such as the Pages guard.
   const { checked: _checked, launcher: _launcher, ...rest } = ctx;
   const next: LaunchContext = { ...rest, root, repo, sha, tag };
-  io.out(`\n${tag}: migrate --check`);
-  const migrate = await main(["migrate", "--check"], { ...next, checked: true });
-  io.out(`\n${tag}: sync`);
-  const sync = await main(["sync"], next);
-  io.out(`\n${tag}: validate`);
-  const validate = await main(["validate"], next);
+  const roadmap = o.roadmap === undefined ? [] : ["--roadmap", o.roadmap];
+  const run = (argv: string[], context: LaunchContext) => {
+    io.out(`\n${tag}: ${argv.join(" ")}`);
+    return main(argv, context);
+  };
+  const migrate = await run(["migrate", "--check", ...roadmap], { ...next, checked: true });
+  const sync = await run(["sync"], next);
+  const validate = await run(["validate", ...roadmap], next);
 
   io.out("");
-  if (migrate === EXIT.problems) io.out(`The data format changes in ${tag}: run \`node .boxops/boxops.mjs migrate\`, then validate again.`);
+  if (migrate === EXIT.problems) {
+    const folder = o.roadmap === undefined ? "" : ` --roadmap ${/^[\w./-]+$/.test(o.roadmap) ? o.roadmap : shellWord(o.roadmap)}`;
+    io.out(`The data format changes in ${tag}: run \`node .boxops/boxops.mjs migrate${folder}\`, then validate again.`);
+  }
   io.out(
     "Nothing is committed: review with `git diff`, then commit and push on a branch for a pull request. " +
       "Pushing workflow changes needs a repository admin (and SSH, the web UI or a token with the workflow permission); " +

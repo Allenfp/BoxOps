@@ -234,7 +234,7 @@ const COMMANDS: Record<string, { values?: string[]; switches?: string[]; run: Co
     },
   },
   doctor: { run: (args, ctx, io) => doctorCommand(rootOf(args, ctx, io), ctx, io) },
-  upgrade: { run: (args, ctx, io) => upgradeCommand(rootOf(args, ctx, io), args.positional[0], ctx, io) },
+  upgrade: { run: (args, ctx, io) => upgradeCommand(rootOf(args, ctx, io), args.positional[0], ctx, io, { roadmap: flag(args, "roadmap") }) },
   init: { values: ["action"], run: (args, _ctx, io) => initCommand(args.positional[0], flag(args, "action"), io) },
   guide: {
     run: async (args, _ctx, io) => {
