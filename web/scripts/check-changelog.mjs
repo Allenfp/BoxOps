@@ -7,10 +7,13 @@
 //     each version once, newer above older;
 //   - each section opens with the fixed lines, in order, each with something
 //     to say (FIXED), then "### Changes" and at least one item.
-// --release X.Y.Z: there's a section for X.Y.Z, and no newer version; with
+// --release X.Y.Z: there's a section for X.Y.Z, and it's the top one: no
+// newer version, and no Unreleased section above it (changes merged since
+// the release pull request would ship under notes that don't say so); with
 // --notes FILE, its text (all but the heading) is written there, for the
-// GitHub release. --build-json FILE: the top section's data format, AGENTS.md
-// block, launcher and guard are that build's (BUILD.json's numbers).
+// GitHub release. --build-json FILE: the top section's (with --release,
+// X.Y.Z's) data format, AGENTS.md block, launcher and guard are that
+// build's (BUILD.json's numbers).
 // Problems go to stderr as CHANGELOG.md:LINE: …, and as error annotations in
 // GitHub Actions. Exit 0 if it's right, 1 if not, 2 for a mistake in how it's
 // run. Plain JavaScript: the release workflow runs it before any npm install.
@@ -111,14 +114,24 @@ const number = (value) => (/^\d+\b/.test(value ?? "") ? Number(/^\d+/.exec(value
 export function checkChangelog(text, o = {}) {
   const { sections, problems } = readChangelog(text);
   let notes;
+  // The section whose numbers --build-json checks: the release's, or the top one.
+  let checked = sections[0];
+  let what = "the top section";
   if (o.release !== undefined) {
     const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(o.release);
     if (!m) throw new Error(`--release ${o.release}: give X.Y.Z (a release candidate's notes are its version's)`);
     const versions = sections.filter((s) => s.version);
     const s = versions.find((v) => v.version.join(".") === o.release);
+    checked = s;
+    what = `${o.release}’s section`;
     if (!s) problems.push({ line: 1, message: `no section for ${o.release} (“## ${o.release} — YYYY-MM-DD”): move Unreleased’s there in the release pull request` });
     else if (versions[0] !== s) problems.push({ line: s.line, message: `${o.release} isn’t the newest version here (${versions[0].version.join(".")} is)` });
-    else {
+    else if (sections[0] !== s) {
+      problems.push({
+        line: sections[0].line,
+        message: `“${sections[0].heading}” is above ${o.release}: move its changes into ${o.release}’s section in the release pull request, so ${o.release}’s notes say what it ships`,
+      });
+    } else {
       const body = [...s.body];
       while (body.length && body[0].trim() === "") body.shift();
       while (body.length && body.at(-1).trim() === "") body.pop();
@@ -126,14 +139,13 @@ export function checkChangelog(text, o = {}) {
     }
   }
   if (o.buildJson) {
-    const top = sections[0];
     const want = { "Data format": o.buildJson.format, "AGENTS.md block": o.buildJson.agentsBlock, Launcher: o.buildJson.launcher };
-    if (top && Object.keys(top.values).length === FIXED.length) {
+    if (checked && Object.keys(checked.values).length === FIXED.length) {
       for (const [key, value] of Object.entries(want)) {
-        if (number(top.values[key]) !== value) problems.push({ line: top.line, message: `${key}: the top section says “${top.values[key]}”, but this build’s is ${value} (BUILD.json)` });
+        if (number(checked.values[key]) !== value) problems.push({ line: checked.line, message: `${key}: ${what} says “${checked.values[key]}”, but this build’s is ${value} (BUILD.json)` });
       }
-      const guard = number(/ · Guard: (.*)$/.exec(top.values.Launcher)?.[1]);
-      if (guard !== o.buildJson.guard) problems.push({ line: top.line, message: `Guard: the top section says ${guard}, but this build’s is ${o.buildJson.guard} (BUILD.json)` });
+      const guard = number(/ · Guard: (.*)$/.exec(checked.values.Launcher)?.[1]);
+      if (guard !== o.buildJson.guard) problems.push({ line: checked.line, message: `Guard: ${what} says ${guard}, but this build’s is ${o.buildJson.guard} (BUILD.json)` });
     }
   }
   return { problems, notes };

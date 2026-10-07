@@ -1506,7 +1506,8 @@ a release must have none of.
   relative link and anchor in the Markdown git tracks, as GitHub resolves
   them: `scripts/check-doc-links.mjs`) and validation; **release
   tree**, `npm run release:build` (the version `release.yml` gives, else
-  `web/package.json`'s) and its check (the changelog's numbers too), the
+  `web/package.json`'s) and its check (the changelog's numbers too: a
+  release's own section's, which must be the top one), the
   release's tool on `starter/`'s files and the sites it writes,
   then the tree uploaded for the jobs after it; **browser tests**, on that
   tree (`BOXOPS_RELEASE_DIR`): the starter's dry run, the browser tests

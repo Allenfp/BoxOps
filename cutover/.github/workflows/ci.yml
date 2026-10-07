@@ -143,9 +143,18 @@ jobs:
       - name: Check it (only a release's files, each in BUILD.json; one build id; licences; sizes)
         run: npm run check:release-tree
       # The changelog's top section gives this build's data format, AGENTS.md
-      # block, launcher and guard (docs/releasing.md, "The changelog").
+      # block, launcher and guard (docs/releasing.md, "The changelog"): for a
+      # release, the section of the version released, which must be the top
+      # one, so the numbers its notes give are checked.
       - name: The changelog's numbers are the release tree's
-        run: node scripts/check-changelog.mjs --build-json ../build/release/BUILD.json
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$VERSION" ]; then
+            node scripts/check-changelog.mjs --release "${VERSION%%-rc.*}" --build-json ../build/release/BUILD.json
+          else
+            node scripts/check-changelog.mjs --build-json ../build/release/BUILD.json
+          fi
       - name: Its tree id, and SHA256SUMS' and the SBOM's SHA-256, as the job's outputs (for release.yml)
         id: tree
         run: |

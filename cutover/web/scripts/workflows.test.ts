@@ -129,6 +129,14 @@ describe("the release workflow", () => {
     expect(release.jobs.publish.needs).toEqual(["preflight", "verify", "reproduce"]);
   });
 
+  it("publishes the notes of the version's own section, on top, whose numbers CI checks against the tree it builds", () => {
+    const preflight = release.jobs.preflight.steps?.find((s) => s.run?.includes("check-changelog.mjs"));
+    expect(preflight?.run).toContain('node web/scripts/check-changelog.mjs --release "$base" --notes "$RUNNER_TEMP/notes/notes.md"');
+    const numbers = ci.jobs["release-tree"].steps?.find((s) => s.run?.includes("check-changelog.mjs"));
+    expect(numbers?.env).toEqual({ VERSION: "${{ inputs.version }}" });
+    expect(numbers?.run).toContain('node scripts/check-changelog.mjs --release "${VERSION%%-rc.*}" --build-json ../build/release/BUILD.json');
+  });
+
   it("checks what it ships against the tested tree's and the rebuild's job outputs, which no later job can change", () => {
     // Any job of the run could upload an artifact under a name already used:
     // the tree id and SHA256SUMS' digest come as outputs of the jobs that built them.

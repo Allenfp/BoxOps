@@ -3,7 +3,7 @@
 // whose release section becomes the release's notes; and each way out of it.
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -38,6 +38,9 @@ ${section("## Unreleased")}
 ${section("## 0.2.0 — 2026-11-02", { security: "a link in a box's notes could run script" })}
 ${section("## 0.1.0 — 2026-10-20")}`;
 
+/** As main's is when 0.2.0 is released: its release pull request made Unreleased its section. */
+const RELEASED = GOOD.replace(`${section("## Unreleased")}\n`, "");
+
 /** Runs the check on `text` with these arguments; its exit code and output. */
 function check(text: string, args: string[] = [], env: Record<string, string> = {}) {
   const dir = tempDir();
@@ -65,15 +68,25 @@ describe("the changelog's check", () => {
   it("passes a changelog in the form, and writes a release's notes: its section but the heading", () => {
     expect(check(GOOD)).toMatchObject({ code: 0, stderr: "" });
     const notes = join(tempDir(), "out", "notes.md");
-    const r = check(GOOD, ["--release", "0.2.0", "--notes", notes]);
+    const r = check(RELEASED, ["--release", "0.2.0", "--notes", notes]);
     expect(r).toMatchObject({ code: 0, stderr: "" });
     expect(r.stdout).toContain(`with 0.2.0’s section (its notes in ${notes})`);
     expect(readFileSync(notes, "utf8")).toBe(section("", { security: "a link in a box's notes could run script" }).trimStart());
   });
 
   it("wants the release's section, and it the newest", () => {
-    expect(problems(GOOD, ["--release", "0.3.0"])).toEqual(["1: no section for 0.3.0 (“## 0.3.0 — YYYY-MM-DD”): move Unreleased’s there in the release pull request"]);
-    expect(problems(GOOD, ["--release", "0.1.0"])).toEqual([`${GOOD.split("\n").indexOf("## 0.1.0 — 2026-10-20") + 1}: 0.1.0 isn’t the newest version here (0.2.0 is)`]);
+    expect(problems(RELEASED, ["--release", "0.3.0"])).toEqual(["1: no section for 0.3.0 (“## 0.3.0 — YYYY-MM-DD”): move Unreleased’s there in the release pull request"]);
+    expect(problems(RELEASED, ["--release", "0.1.0"])).toEqual([`${RELEASED.split("\n").indexOf("## 0.1.0 — 2026-10-20") + 1}: 0.1.0 isn’t the newest version here (0.2.0 is)`]);
+  });
+
+  it("wants the release's section on top: changes in an Unreleased section above it would ship under notes that don't say so", () => {
+    const notes = join(tempDir(), "notes.md");
+    const r = check(GOOD, ["--release", "0.2.0", "--notes", notes]);
+    expect(r.code).toBe(1);
+    expect(r.stderr.split("\n").filter(Boolean).map((line) => line.replace(/^.*CHANGELOG\.md:/, ""))).toEqual([
+      `${GOOD.split("\n").indexOf("## Unreleased") + 1}: “## Unreleased” is above 0.2.0: move its changes into 0.2.0’s section in the release pull request, so 0.2.0’s notes say what it ships`,
+    ]);
+    expect(existsSync(notes)).toBe(false);
   });
 
   it("checks the top section's numbers against a build's BUILD.json", () => {
@@ -85,6 +98,26 @@ describe("the changelog's check", () => {
     ]);
     writeFileSync(build, JSON.stringify({ format: 1, agentsBlock: 1, launcher: 1, guard: 1 }));
     expect(check(GOOD, ["--build-json", build])).toMatchObject({ code: 0, stderr: "" });
+  });
+
+  it("checks a release's own section's numbers, with --release, whatever is above it", () => {
+    // Unreleased says data format 2; 0.2.0, the release, 1.
+    const text = GOOD.replace("- Data format: 1 (unchanged)", "- Data format: 2 (was 1): run `node .boxops/boxops.mjs migrate`");
+    const at = (heading: string) => text.split("\n").indexOf(heading) + 1;
+    const build = join(tempDir(), "BUILD.json");
+    writeFileSync(build, JSON.stringify({ format: 2, agentsBlock: 1, launcher: 1, guard: 1 }));
+    expect(check(text, ["--build-json", build])).toMatchObject({ code: 0, stderr: "" });
+    expect(problems(text, ["--release", "0.2.0", "--build-json", build])).toEqual([
+      `${at("## Unreleased")}: “## Unreleased” is above 0.2.0: move its changes into 0.2.0’s section in the release pull request, so 0.2.0’s notes say what it ships`,
+      `${at("## 0.2.0 — 2026-11-02")}: Data format: 0.2.0’s section says “1 (unchanged)”, but this build’s is 2 (BUILD.json)`,
+    ]);
+    // Released, 0.2.0's section on top: its numbers are checked.
+    const released = text.replace(/## Unreleased\n[\s\S]*?(?=## 0\.2\.0)/, "");
+    expect(problems(released, ["--release", "0.2.0", "--build-json", build])).toEqual([
+      `${released.split("\n").indexOf("## 0.2.0 — 2026-11-02") + 1}: Data format: 0.2.0’s section says “1 (unchanged)”, but this build’s is 2 (BUILD.json)`,
+    ]);
+    writeFileSync(build, JSON.stringify({ format: 1, agentsBlock: 1, launcher: 1, guard: 1 }));
+    expect(check(released, ["--release", "0.2.0", "--build-json", build])).toMatchObject({ code: 0, stderr: "" });
   });
 
   it("finds headings and dates out of form, versions out of order or twice, Unreleased not first", () => {

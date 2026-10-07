@@ -59,11 +59,12 @@ Actions → Release → Run workflow, from `main`, with the version. Its jobs:
 
 1. **preflight**: the run is on `main`; the version is `X.Y.Z` or
    `X.Y.Z-rc.N`; `web/package.json` says `X.Y.Z`; `CHANGELOG.md` is in form
-   and has a section for `X.Y.Z`, the newest
-   (`web/scripts/check-changelog.mjs --release`), which becomes the notes;
-   the tag isn't there yet.
+   and its top section is `X.Y.Z`'s, with no Unreleased section above it
+   (`web/scripts/check-changelog.mjs --release`): that section becomes the
+   notes, so they cover all the release ships; the tag isn't there yet.
 2. **verify**: all of `ci.yml` on this commit, the release tree built as
-   this version.
+   this version, and the numbers in `X.Y.Z`'s section (data format,
+   AGENTS.md block, launcher, guard) checked against its `BUILD.json`.
 3. **reproduce**: the release tree built again, apart.
 4. **publish**, in the `release` environment, so it waits for the
    maintainer's approval (the run's page: Review deployments → `release` →
@@ -290,9 +291,12 @@ About 30 to 45 minutes of attention, most of it waiting for CI.
    `0.2.0-rc.1`). `CHANGELOG.md`'s Unreleased section becomes
    `## X.Y.Z — YYYY-MM-DD` with its fixed lines filled in (below; its date
    moves to the final release's day in that release's own pull request).
-   CI must be green, the browser tests and the smoke runs included. Click
-   through `allenfp.github.io/BoxOps/next/` in Safari (before the cutover,
-   the demo). Merge.
+   What's merged after it, until `X.Y.Z` is out (between a release
+   candidate and the release, say), goes in that section, not in a new
+   Unreleased one: the release workflow won't release `X.Y.Z` with an
+   Unreleased section above it. CI must be green, the browser tests and
+   the smoke runs included. Click through `allenfp.github.io/BoxOps/next/`
+   in Safari (before the cutover, the demo). Merge.
 2. **A data format change (a minor release) goes out as a release candidate
    first**: Actions → Release → Run workflow, from `main`, version
    `X.Y.Z-rc.1`. When preflight, verify and reproduce have passed, approve
@@ -320,7 +324,7 @@ canary checks.
 
 `CHANGELOG.md` holds one section per version, newest first, under
 `# Changelog` (and an `## Unreleased` section on top while there are
-unreleased changes). A version's section is its GitHub release's notes, as
+unreleased changes, but not above a version about to be released). A version's section is its GitHub release's notes, as
 a roadmap repository's admin sees them in Dependabot's upgrade pull
 request, so it opens with the same lines, in this order, each saying
 something (`web/scripts/check-changelog.mjs` checks the form; CI runs it):
@@ -349,8 +353,9 @@ something (`web/scripts/check-changelog.mjs` checks the form; CI runs it):
   release's number (`BUILD.json`'s `format`, `agentsBlock`, `launcher`,
   `guard`), then say whether it changed and what to do if it did;
   `check-changelog.mjs --build-json` compares them with a build's, and CI
-  runs it on the release tree it builds, so a release's notes give its
-  numbers.
+  runs it on the release tree it builds (in a release's run, with
+  `--release`: the released version's own section), so a release's notes
+  give its numbers.
 - The heading's dash is an em dash with a space each side, and the date is
   `YYYY-MM-DD`.
 

@@ -148,7 +148,9 @@ Tests catch most of these; change the files together anyway.
   Unreleased section, and its fixed lines say what an upgrade asks of one
   (a data format, workflow, action input or output, AGENTS.md block,
   launcher or guard change). The release pull request makes it the
-  version's section ([docs/releasing.md](docs/releasing.md)).
+  version's section ([docs/releasing.md](docs/releasing.md)); until that
+  version is out, changes go in its section, since the release workflow
+  won't release it with an Unreleased section above it.
 
 ## House rules
 
