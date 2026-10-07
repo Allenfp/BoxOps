@@ -9,7 +9,7 @@
 // everyone's machine). The commands validate, report, build, preview, migrate, upgrade and guide
 // warn when this launcher, AGENTS.md's BoxOps block or deploy.yml's Pages guard isn't the release's.
 // Env: BOXOPS_CLI=<that release's dist/boxops.mjs> (offline), BOXOPS_CACHE=<a folder outside this
-// repository>, GH_TOKEN (private mirrors; else `gh auth token`), HTTPS_PROXY (a proxy).
+// repository>, GH_TOKEN (private mirrors; else gh's for github.com), HTTPS_PROXY (a proxy).
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
@@ -205,10 +205,11 @@ function realish(path) {
   return join(realpathSync.native(at), ...rest);
 }
 
+/** GH_TOKEN, GITHUB_TOKEN, else the GitHub CLI's for github.com: never another host's (GH_HOST's, or the only one it's signed in to). */
 function githubToken() {
   if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) return process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
   try {
-    return execFileSync("gh", ["auth", "token"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 10_000 }).trim() || undefined;
+    return execFileSync("gh", ["auth", "token", "--hostname", "github.com"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 10_000 }).trim() || undefined;
   } catch {
     return undefined;
   }

@@ -1,16 +1,18 @@
 // The commands that ask GitHub (doctor, upgrade, init) and preview, against a
-// fake GitHub (a `fetch` that answers from a table). The launcher has its own
-// tests (launcher.test.ts).
+// fake GitHub (a `fetch` that answers from a table), and the token they'd
+// send (from a stand-in `gh`). The launcher has its own tests
+// (launcher.test.ts).
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { main } from "./boxops";
 import type { Io } from "./context";
 import { doctorCommand } from "./doctor";
 import { starterFiles } from "./embedded";
+import { gitHub } from "./github";
 import { ensureApp, startPreview } from "./preview";
 import { fetchRelease } from "./upgrade";
 import { openRelease, verifiedApp } from "./release";
@@ -417,5 +419,32 @@ describe("preview", () => {
     );
     expect(gh.calls).toEqual([`https://raw.githubusercontent.com/Allenfp/BoxOps/${B}/BUILD.json`]);
     expect(readdirSync(cliDir)).toEqual(["boxops.mjs"]);
+  });
+});
+
+describe("the token", () => {
+  /**
+   * A folder holding a stand-in `gh` signed in to a GitHub Enterprise Server
+   * (`gh auth token` with no host prints that server's token, as gh does when
+   * it's the only host or GH_HOST's), and to github.com if `github` is given.
+   */
+  function standInGh(github?: string): string {
+    const bin = tempDir();
+    const answer = github === undefined ? "exit 1" : `{ echo ${github}; exit 0; }`;
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n[ "$*" = "auth token --hostname github.com" ] && ${answer}\n[ "$*" = "auth token" ] && { echo ghes-token; exit 0; }\nexit 1\n`, { mode: 0o755 });
+    return bin;
+  }
+
+  it("is GH_TOKEN, else GITHUB_TOKEN, else the GitHub CLI's for github.com, never another host's", () => {
+    const path = process.env.PATH;
+    try {
+      process.env.PATH = `${standInGh("gh-token")}${delimiter}${path}`;
+      expect([gitHub({ GH_TOKEN: "a", GITHUB_TOKEN: "b" }).token(), gitHub({ GITHUB_TOKEN: "b" }).token(), gitHub({}).token()]).toEqual(["a", "b", "gh-token"]);
+      // Signed in to a GitHub Enterprise Server alone: no token, rather than that server's sent to api.github.com.
+      process.env.PATH = `${standInGh()}${delimiter}${path}`;
+      expect(gitHub({}).token()).toBeUndefined();
+    } finally {
+      process.env.PATH = path;
+    }
   });
 });

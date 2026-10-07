@@ -88,7 +88,12 @@ interface LaunchOptions {
   env?: Record<string, string>;
   /** What GitHub serves. */
   github?: Record<string, string | Uint8Array>;
-  /** What `gh auth token` prints (default: it fails, as when signed out). */
+  /**
+   * What `gh auth token --hostname github.com` prints (default: it fails, as
+   * when signed out of github.com). `gh auth token` with no host prints a
+   * GitHub Enterprise Server's token, as when gh is signed in to that alone:
+   * never one to send to GitHub.
+   */
   ghToken?: string;
   /** Node's options, after the --import of the stand-in fetch. */
   nodeArgs?: string[];
@@ -101,7 +106,13 @@ function launch(root: string, args: string[], o: LaunchOptions = {}): Launched {
   const dir = tempDir();
   const bin = join(dir, "bin");
   mkdirSync(bin);
-  writeFileSync(join(bin, "gh"), o.ghToken === undefined ? "#!/bin/sh\nexit 1\n" : `#!/bin/sh\n[ "$1 $2" = "auth token" ] && echo ${o.ghToken}\n`, { mode: 0o755 });
+  const gh = [
+    "#!/bin/sh",
+    `[ "$*" = "auth token --hostname github.com" ] && ${o.ghToken === undefined ? "exit 1" : `{ echo ${o.ghToken}; exit 0; }`}`,
+    '[ "$*" = "auth token" ] && { echo ghes-token; exit 0; }',
+    "exit 1",
+  ];
+  writeFileSync(join(bin, "gh"), `${gh.join("\n")}\n`, { mode: 0o755 });
   writeFileSync(join(dir, "fetch.mjs"), FAKE_FETCH);
   const table = Object.fromEntries(Object.entries(o.github ?? {}).map(([url, body]) => [url, Buffer.from(body).toString("base64")]));
   writeFileSync(join(dir, "github.json"), JSON.stringify(table));
@@ -203,7 +214,7 @@ describe("the launcher's download", () => {
     expect(readFileSync(join(cache, "Allenfp__BoxOps", A, "boxops.mjs"), "utf8")).toBe(TOOL);
   });
 
-  it("reads a private mirror through the contents API with GH_TOKEN, else `gh auth token`, and sends the token nowhere else", () => {
+  it("reads a private mirror through the contents API with GH_TOKEN, else gh's for github.com (never another host's), and sends the token nowhere else", () => {
     const root = launcherRepo(DEPLOY(`acme/boxops-mirror@${A} # v0.1.0`));
     const api = (path: string) => `https://api.github.com/repos/acme/boxops-mirror/contents/${path}?ref=${A}`;
     const github = { [api("BUILD.json")]: buildJson(), [api("dist/boxops.mjs")]: TOOL };
@@ -216,6 +227,7 @@ describe("the launcher's download", () => {
     ]);
     const withGh = launch(root, ["version"], { github, ghToken: "gh-token" });
     expect([withGh.code, withGh.calls.filter((c) => c.auth).map((c) => c.auth)]).toEqual([0, ["Bearer gh-token", "Bearer gh-token"]]);
+    // gh signed in to another host alone (its token is gh's default): none is sent.
     const none = launch(root, ["version"], { github: {} });
     expect([none.code, none.stderr]).toEqual([
       2,

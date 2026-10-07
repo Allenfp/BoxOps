@@ -1158,12 +1158,14 @@ the roadmap is in another data format.
 
 Only `doctor`, `upgrade`, `init` and `preview`'s first fetch of the app use
 the network (read-only; a token from `GH_TOKEN`, `GITHUB_TOKEN` or
-`gh auth token` if there is one). `validate`, `report`, `build`, `preview`,
-`migrate`, `upgrade` and `guide` (`WARNING_COMMANDS`; not `sync`, `doctor`,
-`init`, `version` or `help`) warn when the repository's launcher,
-`AGENTS.md` block or Pages guard isn't this release's, unless the launcher
-has (below). They, and `doctor`, read those files only when they're plain
-files, never through a symlink (to `/dev/zero`, say, whose read never ends).
+`gh auth token --hostname github.com` if there is one: never the token of
+another host gh is signed in to, such as a GitHub Enterprise Server's).
+`validate`, `report`, `build`, `preview`, `migrate`, `upgrade` and `guide`
+(`WARNING_COMMANDS`; not `sync`, `doctor`, `init`, `version` or `help`) warn
+when the repository's launcher, `AGENTS.md` block or Pages guard isn't this
+release's, unless the launcher has (below). They, and `doctor`, read those
+files only when they're plain files, never through a symlink (to
+`/dev/zero`, say, whose read never ends).
 
 **The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
 `path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;
@@ -1242,8 +1244,9 @@ in `deploy.yml` by the repository's name (the first `<owner>/<repo with
 CRLF, quotes and mirrors included). It downloads that commit's `BUILD.json`
 and `dist/boxops.mjs` once (from raw.githubusercontent.com, else, for a
 private mirror, the contents API with `GH_TOKEN`, `GITHUB_TOKEN` or
-`gh auth token`), runs the tool only if it's the file that `BUILD.json`
-describes, and keeps both in a per-user cache outside the repository
+`gh auth token --hostname github.com`), runs the tool only if it's the file
+that `BUILD.json` describes, and keeps both in a per-user cache outside the
+repository
 (`$BOXOPS_CACHE`, an absolute `$XDG_CACHE_HOME/boxops`, `~/.cache/boxops`,
 then the temp folder; a folder others can write to is passed over, and one
 inside the repository is refused, since a file committed there would run as

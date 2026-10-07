@@ -1,8 +1,8 @@
 // The little of GitHub the command-line tool asks, and only where it must:
 // doctor (is the pin a release?), upgrade and init (which commit is a tag?
 // fetch a release's files) and preview (the app's files, once). Reads only;
-// a token is used if there is one (GH_TOKEN, GITHUB_TOKEN or `gh auth token`),
-// for private mirrors and the API's rate limit. Node-only.
+// a token is used if there is one (GH_TOKEN, GITHUB_TOKEN or the GitHub CLI's
+// for github.com), for private mirrors and the API's rate limit. Node-only.
 
 import { execFileSync } from "node:child_process";
 import type { Env } from "./gha.ts";
@@ -40,9 +40,14 @@ export function gitHub(env: Env, fetchImpl: typeof fetch = fetch): GitHub {
   };
 }
 
+/**
+ * The GitHub CLI's token for github.com, the one host BoxOps asks. Never the
+ * host gh would choose by itself (GH_HOST, or the only one it's signed in
+ * to): a GitHub Enterprise Server's token isn't sent to api.github.com.
+ */
 function ghToken(): string | undefined {
   try {
-    return execFileSync("gh", ["auth", "token"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 10_000 }).trim() || undefined;
+    return execFileSync("gh", ["auth", "token", "--hostname", "github.com"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 10_000 }).trim() || undefined;
   } catch {
     return undefined;
   }

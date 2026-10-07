@@ -103,7 +103,8 @@ check one, in its [docs/security.md](https://github.com/Allenfp/BoxOps/blob/<SOU
   `BOXOPS_UPSTREAM` on `Allenfp/BoxOps` if the deploy can read it: the
   update and security notices come from its GitHub releases, which a mirror
   doesn't have. The launcher reads a private mirror with `GH_TOKEN`, or
-  `gh auth token`.
+  the GitHub CLI's sign-in to github.com
+  (`gh auth token --hostname github.com`).
 - **IP allow lists:** GitHub's standard runners can't be allow-listed. Use
   larger runners with static addresses or self-hosted runners (`runs-on` in
   both workflows); editors' browsers need allowed networks too.

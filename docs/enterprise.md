@@ -136,7 +136,8 @@ copied. Then:
 - A private or internal mirror: Settings → Actions → General → **Access**,
   as above. The launcher on laptops downloads the tool from a private
   mirror through the API, with `GH_TOKEN`, `GITHUB_TOKEN` or the GitHub
-  CLI's sign-in (`gh auth login`).
+  CLI's sign-in to github.com (`gh auth login`; it never takes gh's token
+  for another host, such as your GitHub Enterprise Server).
 - Dependabot follows the mirror's tags once it has access to it (above).
 - Update and security notices come from `Allenfp/BoxOps`'s GitHub releases,
   which a mirror of its commits doesn't have: keep `BOXOPS_UPSTREAM` in
