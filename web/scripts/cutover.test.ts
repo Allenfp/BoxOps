@@ -41,6 +41,22 @@ const STAGED: Record<string, [string, string][] | null> = {
         "    branches: [main]\n",
     ],
     [
+      "# A newer push to the same branch or pull request replaces a run still going.\n" +
+        "# A release's run, the weekly one and one by hand each have a group of their\n" +
+        "# own, and are never cancelled.\n" +
+        "concurrency:\n" +
+        "  group: ci-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && github.ref || github.run_id }}\n" +
+        "  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}\n",
+      "# A newer push to a pull request replaces its run still going. A push to\n" +
+        "# main, a release's run, the weekly one and one by hand each have a group of\n" +
+        "# their own, and are never cancelled: a run on main may be the only test of\n" +
+        "# what a merge made (the main ruleset doesn't make a pull request test main's\n" +
+        "# latest commit first).\n" +
+        "concurrency:\n" +
+        "  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}\n" +
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n",
+    ],
+    [
       "    # A pull request from a branch of this repo is already checked by the push\n" +
         "    # run on that branch, so only pull requests from forks run here.\n" +
         "    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository\n",

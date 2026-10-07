@@ -44,12 +44,14 @@ on:
 
 permissions: {}
 
-# A newer push to the same branch or pull request replaces a run still going.
-# A release's run, the weekly one and one by hand each have a group of their
-# own, and are never cancelled.
+# A newer push to a pull request replaces its run still going. A push to
+# main, a release's run, the weekly one and one by hand each have a group of
+# their own, and are never cancelled: a run on main may be the only test of
+# what a merge made (the main ruleset doesn't make a pull request test main's
+# latest commit first).
 concurrency:
-  group: ci-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && github.ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
