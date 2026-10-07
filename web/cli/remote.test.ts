@@ -4,7 +4,7 @@
 // (launcher.test.ts).
 
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -495,7 +495,9 @@ describe("doctor's attestation check (gh attestation verify)", () => {
     try {
       process.env.PATH = `${bin}${delimiter}${path}`;
       process.env.GH_HOST = "ghes.example.com";
-      return { result: ghAttest("/tmp/boxops.mjs", timeout), calls: readFileSync(log, "utf8").trim().split("\n") };
+      const result = ghAttest("/tmp/boxops.mjs", timeout);
+      // None, if a timeout stopped it before its first line.
+      return { result, calls: existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : [] };
     } finally {
       process.env.PATH = path;
       if (host === undefined) delete process.env.GH_HOST;
@@ -511,12 +513,14 @@ describe("doctor's attestation check (gh attestation verify)", () => {
     ]);
   });
 
-  it("tells a check that failed from one gh couldn't make: signed out, offline, too slow", () => {
+  // A dozen programs started one after another: more than vitest's 5 seconds with other tests running alongside.
+  it("tells a check that failed from one gh couldn't make: signed out, offline, too slow", { timeout: 30_000 }, () => {
     const notFound = withGh("echo 'Error: HTTP 404: Not Found (https://api.github.com/repos/Allenfp/BoxOps/attestations/sha256:abc)' >&2; exit 1").result;
     expect(notFound).toEqual({ ok: false, output: "Error: HTTP 404: Not Found (https://api.github.com/repos/Allenfp/BoxOps/attestations/sha256:abc)" });
     const wrongSigner = withGh("echo '✗ Verification failed: expected SourceRepositoryURI to be https://github.com/Allenfp/BoxOps' >&2; exit 1").result;
     expect(wrongSigner?.unchecked).toBeUndefined();
-    // gh's own sign-in prompt and exit code (4), a token GitHub refuses, and no network (gh 2.97's words for each).
+    // gh's sign-in prompt and exit code (4), and a token GitHub refuses, as gh 2.97 put them when tried; then ways
+    // of not reaching GitHub or Sigstore, the first as gh 2.97 put it with no network.
     const signedOut = withGh("echo 'To get started with GitHub CLI, please run:  gh auth login' >&2; exit 4").result;
     expect(signedOut).toMatchObject({ ok: false, unchecked: "the GitHub CLI isn’t signed in to github.com, or its sign-in was refused (`gh auth login`)" });
     expect(withGh("echo 'Error: HTTP 401: Bad credentials (https://api.github.com/repos/Allenfp/BoxOps/attestations/sha256:abc)' >&2; exit 1").result?.unchecked).toBe(signedOut?.unchecked);
