@@ -89,6 +89,20 @@ describe("guide", () => {
     expect(guideTopic("format")).toMatch(/^# BoxOps guide: the file format\n/);
   });
 
+  it("gives examples of a new box that the starter's roadmap takes as they are", () => {
+    const roadmap = Object.fromEntries(
+      Object.entries(starterFiles())
+        .filter(([p]) => p.startsWith("roadmap/"))
+        .map(([p, t]) => [p.slice("roadmap/".length), t]),
+    );
+    for (const text of [guideTopic("recipes"), carried("templates/agents-block.md")]) {
+      const example = /```yaml\n((?:\s*\w+: .*\n)+?)\s*```/.exec(text.slice(text.indexOf("Add a box")))?.[1].replace(/^ {2}/gm, "");
+      const id = /^id: (.+)$/m.exec(example ?? "")?.[1];
+      const loaded = loadRoadmap({ ...roadmap, [`boxes/${id}.yaml`]: example ?? "" });
+      expect([id, loaded.issues, loaded.roadmap.boxes.length]).toEqual(["bx-3f9c-q3-planning", [], 3]);
+    }
+  });
+
   it("carries the files git tracks, as on disk, and nothing untracked", () => {
     const dir = tempDir();
     const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" }, stdio: "pipe" });

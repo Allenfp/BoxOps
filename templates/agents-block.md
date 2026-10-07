@@ -50,7 +50,7 @@ capacity rules) and `node .boxops/boxops.mjs guide format` (every file and field
 
   ```yaml
   id: bx-3f9c-q3-planning
-  code: K7P
+  code: Q3P
   title: Q3 planning
   lane: eng-1
   start: 2027-06-07

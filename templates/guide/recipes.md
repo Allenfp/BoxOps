@@ -29,15 +29,17 @@ code (`grep -h "^code:" roadmap/boxes/*`), and create
 
 ```yaml
 id: bx-3f9c-q3-planning
-code: K7P
+code: Q3P
 title: Q3 planning
-lane: ml-1
+lane: eng-1
 start: 2027-06-07
 end: 2027-06-18
-type: research
+type: project
 ```
 
 Add `fte:` only if it isn't 1, and `engineers:` with ids from `people.yaml`.
+`lane` is one of the departments' lane ids and `type` one of the `types` in
+`settings.yaml` (those above are the starter's).
 
 *Choosing a lane:* use the department the work belongs to, and a lane that's
 free for those dates (check the other boxes' `lane`, `start` and `end`). A box
@@ -145,7 +147,7 @@ without updating every box that uses it.
 
 **Add a lane or department.** A new department needs a unique `code` (2–4
 capital letters/digits, usually its initials). Lane ids must be unique across all departments;
-follow the department's pattern (`de-1`, `de-2` → `de-3`), or use
+follow the department's pattern (`eng-1`, `eng-2` → `eng-3`), or use
 `<department id>-<n>` for a new department. A new department is a new file
 whose `id` matches its file name; give it an `order` after the others and a
 `color`. (People can do this in the app too, from **+ Add department** or the
