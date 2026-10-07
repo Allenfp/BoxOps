@@ -324,7 +324,12 @@ starter's sample roadmap (`roadmap.json` grows with the roadmap: about
 ## Not supported
 
 - **GitHub Enterprise Server** and **GHE.com** (GitHub Enterprise Cloud
-  with data residency): the action stops at once, saying "GitHub Enterprise
-  Server and GHE.com aren't supported in BoxOps 0.1 (this runs on …): use
-  github.com", and the app talks only to `api.github.com`.
+  with data residency): wherever the BoxOps step runs, it stops at once,
+  saying "GitHub Enterprise Server and GHE.com aren't supported in BoxOps
+  0.1 (this runs on …): use github.com", and the app talks only to
+  `api.github.com`. On GHE.com, that's what a deploy says. On an Enterprise
+  Server the step may never run: the starter's jobs ask for `ubuntu-24.04`,
+  one of GitHub's hosted runners, which an Enterprise Server doesn't have,
+  so they wait for a runner; and the actions they use come from github.com,
+  which an Enterprise Server reaches only through GitHub Connect.
 - **Windows runners**: refused. **Container jobs**: untested.

@@ -24,8 +24,14 @@ Elsewhere:
   the code your site runs, and how to check a release:
   [security.md](security.md).
 - GitHub Enterprise Server and GHE.com (GitHub Enterprise Cloud with data
-  residency, on `*.ghe.com`) aren't supported: the deploy stops with
-  "GitHub Enterprise Server and GHE.com aren't supported in BoxOps 0.1".
+  residency, on `*.ghe.com`) aren't supported. On GHE.com the deploy stops
+  with "GitHub Enterprise Server and GHE.com aren't supported in BoxOps
+  0.1". On GitHub Enterprise Server the starter's jobs usually never get
+  that far: they ask for `ubuntu-24.04`, one of GitHub's hosted runners,
+  which an Enterprise Server doesn't have, so they wait for a runner; and
+  the actions they use come from github.com, which an Enterprise Server
+  reaches only through GitHub Connect. Where they do run, on runners of
+  your own, they stop with the same message.
 
 ## Words used here
 
