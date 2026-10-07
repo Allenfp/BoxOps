@@ -279,6 +279,64 @@ jobs:
           SITE: ${{ steps.build.outputs.site || format('{0}/site', runner.temp) }}
           BOXOPS_OUTPUTS: ${{ steps.build.outcome == 'success' && toJSON(steps.build.outputs) || '' }}
         run: node web/scripts/smoke/assert-site.mjs --release build/release --repo starter-copy --site "$SITE" --sentinels "$RUNNER_TEMP/sentinels"
+      # What uses: makes of a refusal: the step fails, and its result output
+      # says why. Build mode where this run isn't on main, and two
+      # repositories it must refuse; bad-repos.sh below tries every refusal,
+      # and their annotations.
+      - name: The release's action refuses build mode here (on a branch or pull request)
+        id: off-main
+        if: steps.build.outcome == 'skipped'
+        continue-on-error: true
+        uses: ./build/release
+        with:
+          path: starter-copy
+          summary: "false"
+      - name: Two repositories to refuse, a symlink in the roadmap and data format 2
+        env:
+          GIT_CONFIG_GLOBAL: /dev/null
+          GIT_AUTHOR_NAME: BoxOps smoke test
+          GIT_AUTHOR_EMAIL: smoke@example.com
+          GIT_COMMITTER_NAME: BoxOps smoke test
+          GIT_COMMITTER_EMAIL: smoke@example.com
+        run: |
+          bash web/scripts/smoke/starter-repo.sh bad-symlink
+          ln -s ../people.yaml bad-symlink/roadmap/boxes/link.yaml
+          git -C bad-symlink add -A
+          git -C bad-symlink commit -q -m "A symlink"
+          bash web/scripts/smoke/starter-repo.sh bad-format
+          sed -i 's/^format: 1/format: 2/' bad-format/roadmap/settings.yaml
+          git -C bad-format commit -q -a -m "Data format 2"
+      - id: symlink
+        continue-on-error: true
+        uses: ./build/release
+        with:
+          path: bad-symlink
+          mode: check
+      - id: format
+        continue-on-error: true
+        uses: ./build/release
+        with:
+          path: bad-format
+          mode: check
+      - name: Each refusal failed its step, and its result says why
+        env:
+          OFF_MAIN: ${{ steps.off-main.outcome }} ${{ steps.off-main.outputs.result }}
+          SYMLINK: ${{ steps.symlink.outcome }} ${{ steps.symlink.outputs.result }}
+          FORMAT: ${{ steps.format.outcome }} ${{ steps.format.outputs.result }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          refused() {
+            case "$2" in
+              "failure failed: $3"*) echo "ok: $1" ;;
+              *) echo "::error title=Not refused as it should be::$1: $2"; exit 1 ;;
+            esac
+          }
+          if [ "${OFF_MAIN%% *}" != skipped ]; then
+            refused "build mode on $REF" "$OFF_MAIN" "BoxOps builds the site from the default branch (main) only, and this run is for $REF:"
+          fi
+          refused "a symlink in the roadmap" "$SYMLINK" "roadmap/ can"
+          refused "data format 2" "$FORMAT" "This roadmap is in data format 2;"
       - name: Bad repositories fail as they should, each with its error
         run: bash web/scripts/smoke/bad-repos.sh build/release
       - name: The action makes no network call

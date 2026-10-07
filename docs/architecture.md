@@ -1411,7 +1411,10 @@ a release must have none of.
   sentinel file if anything runs it), in check mode and, where the run is on
   `main` (weekly, for a release), build mode, its outputs and site checked
   (elsewhere the tree's tool writes the site: build mode publishes the
-  default branch only); then bad repositories, each refused with its error
+  default branch only, and the action through `uses:` must refuse it there,
+  as it must a symlink in the roadmap and data format 2, each failing its
+  step with a `result` output saying why); then bad repositories, each
+  refused with its error annotation
   (symlinks, submodules, a `.git` file, data formats 0 and 2, no
   `settings.yaml`, a branch that isn't the default, bytes that aren't
   UTF-8, inputs out of bounds, GitHub Enterprise Server, problems in check
