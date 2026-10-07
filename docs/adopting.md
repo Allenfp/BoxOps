@@ -509,6 +509,7 @@ Each deploy is a run of **Deploy roadmap** (Actions tab): its jobs are
 | "Couldn't read the Pages settings (HTTP 403)" | An IP allow list keeps the runner out (or the job lost `pages: write`). | A runner with an allowed address: [enterprise.md](enterprise.md). |
 | "The roadmap has N problem(s)" | Files with mistakes, made by hand. The site was published without the broken entries. | Fix the files the annotations on **Check and assemble** name, and push. |
 | "This roadmap is in data format N; BoxOps X reads format M" | An upgrade needs a migration, or the pin is older than the data. | [upgrading.md](upgrading.md). The site stays as it was. |
+| "roadmap/settings.yaml:N: … The data format can't be read until that's fixed" | A mistake in `settings.yaml` (a YAML syntax error, say) keeps its `format:` from being read. | Fix the line it names, and push. The site stays as it was. |
 | "BoxOps builds the site from the default branch (main) only" | The run is for another branch. | Run it from `main`. |
 | "BoxOps builds the site from the commit this run is for" | The workflow checks out another commit (a `ref:` on `actions/checkout`). | Check out the run's commit: `actions/checkout` with no `ref:`, as the starter's does. |
 | The run fails before its first step: an action isn't allowed, or isn't pinned to a full commit SHA | The organization's Actions policy. | [Allow the actions](#3-allow-the-actions). |

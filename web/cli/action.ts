@@ -18,8 +18,8 @@
 //      every blob checked against its SHA and read as strict UTF-8. In build
 //      mode HEAD must be the run's commit (GITHUB_SHA), unless `repository`
 //      names another repository.
-//   8. Format gate: a roadmap without a settings.yaml, or in another data
-//      format, stops the build.
+//   8. Format gate: a roadmap without a settings.yaml, in another data
+//      format, or whose format can't be read, stops the build.
 //   9. Validation: each problem an error annotation on its file and line,
 //      counted in the `problems` output. Check mode fails on any; build mode
 //      only with `on-problems: fail` (`deploy`, the default, publishes the
@@ -41,7 +41,8 @@ import { lstatSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { Bundle } from "../src/model/bundle.ts";
 import { FORMAT } from "../src/model/format.ts";
-import { loadRoadmap, settingsFormat } from "../src/model/parse.ts";
+import { statedFormat } from "../src/model/migrations/index.ts";
+import { loadRoadmap, parseFile, settingsFormat } from "../src/model/parse.ts";
 import { buildReport } from "../src/model/report.ts";
 import { type Env, Runner, clip, codeBlock, getInput } from "./gha.ts";
 import { RoadmapReadError, listCommitFolder, readCommitFiles, resolveCommit } from "./git.ts";
@@ -57,11 +58,12 @@ const ROADMAP_DIR = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
 /** At most this many problems become annotations (GitHub shows 10 per step anyway); the rest are in the log. */
 const MAX_ANNOTATIONS = 50;
 
-/** Stops the action: an error annotation (on a file, if it's about one), and the step fails. */
+/** Stops the action: an error annotation (on a file and line, if it's about one), and the step fails. */
 export class ActionError extends Error {
   constructor(
     message: string,
     readonly file?: string,
+    readonly line?: number,
   ) {
     super(message);
     this.name = "ActionError";
@@ -229,15 +231,38 @@ export function checkCommit(env: Env, repository: string, commit: string): void 
   }
 }
 
-/** Step 8: the roadmap must have a settings.yaml, in this BoxOps's data format. */
+/** The format `migrate` takes settings.yaml's text to be in (statedFormat), or null if it can't tell. */
+function migratesFrom(text: string): number | null {
+  try {
+    return statedFormat({ "settings.yaml": text });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Step 8: the roadmap must have a settings.yaml, in this BoxOps's data
+ * format. `format: 0` is format 0, as `migrate` takes it (the loader calls it
+ * unsupported). A format that can't be read stops on the loader's problem
+ * with the file, on its line: a YAML syntax error, say.
+ */
 export function checkFormat(files: Record<string, string>, roadmap: string, version: string): number {
   const file = `${roadmap}/settings.yaml`;
-  if (files["settings.yaml"] === undefined) {
+  const text = files["settings.yaml"];
+  if (text === undefined) {
     throw new ActionError(`${file} is missing: every roadmap needs one, with at least \`format: ${FORMAT}\`. Add it, commit and push. The site wasn’t changed`, file);
   }
-  const format = settingsFormat(files["settings.yaml"]);
+  const format = settingsFormat(text) ?? (migratesFrom(text) === 0 ? 0 : null);
   if (format === null) {
-    throw new ActionError(`${file} can’t be read for its data format (\`format:\` must be a whole number): fix it, then push`, file);
+    const issues = parseFile("settings.yaml", text).issues;
+    const issue = issues.find((i) => i.message.startsWith("format:")) ?? issues[0];
+    const line = issue?.line;
+    throw new ActionError(
+      `${file}${line === undefined ? "" : `:${line}`}: ${issue?.message ?? `format: expected a whole number, like "format: ${FORMAT}"`}. ` +
+        "The data format can’t be read until that’s fixed: fix it, then push. The site wasn’t changed",
+      file,
+      line,
+    );
   }
   if (format < FORMAT) {
     throw new ActionError(
@@ -332,8 +357,9 @@ export async function runAction(o: ActionOptions = {}): Promise<number> {
     return await steps(runner, env, o);
   } catch (e) {
     const file = e instanceof ActionError ? e.file : undefined;
+    const line = e instanceof ActionError ? e.line : undefined;
     const message = e instanceof Error ? e.message : String(e);
-    runner.annotate("error", message, { title: TITLE, ...(file !== undefined && { file }) });
+    runner.annotate("error", message, { title: TITLE, ...(file !== undefined && { file }), ...(line !== undefined && { line }) });
     runner.setOutput("result", `failed: ${message}`);
     return 1;
   }

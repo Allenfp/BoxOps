@@ -90,7 +90,8 @@ were in it:
   format with "This roadmap is in data format 0; BoxOps 0.1.0 reads format
   1. Run `node .boxops/boxops.mjs migrate`, commit and push", a newer one
   with "upgrade the pin". A roadmap with no `settings.yaml` is told to add
-  one.
+  one, and one whose `settings.yaml` can't be read for its format (a YAML
+  syntax error, say) what's wrong with it, on its line.
 - **`node .boxops/boxops.mjs validate`** fails with exit code 3.
 
 `node .boxops/boxops.mjs migrate` brings the roadmap to the release's

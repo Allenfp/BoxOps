@@ -397,7 +397,34 @@ describe("format gate (step 8)", () => {
     ]);
     const unreadable = await run({ repo: withSettings("format: one\n").repo });
     expect(errors(unreadable)).toEqual([
-      "error: roadmap/settings.yaml can’t be read for its data format (`format:` must be a whole number): fix it, then push [roadmap/settings.yaml]",
+      'error: roadmap/settings.yaml:1: format: expected a whole number, like "format: 1". The data format can’t be read until that’s fixed: fix it, then push. The site wasn’t changed [roadmap/settings.yaml:1]',
+    ]);
+  });
+
+  it("names the problem that keeps the format from being read, on its line: a YAML syntax error, say", async () => {
+    const yaml = await run({ repo: withSettings("format: 1\ntitle: [unclosed\n").repo });
+    expect([yaml.code, errors(yaml), yaml.outputs.site]).toEqual([
+      1,
+      [
+        "error: roadmap/settings.yaml:3: YAML syntax error: Flow sequence in block collection must be sufficiently indented and end with a ] at line 3, column 1. The data format can’t be read until that’s fixed: fix it, then push. The site wasn’t changed [roadmap/settings.yaml:3]",
+      ],
+      undefined,
+    ]);
+    const quoted = await run({ repo: withSettings('# Team settings\ntitle: Ours\nformat: "1"\n').repo });
+    expect(errors(quoted)).toEqual([
+      'error: roadmap/settings.yaml:3: format: expected a whole number, like "format: 1". The data format can’t be read until that’s fixed: fix it, then push. The site wasn’t changed [roadmap/settings.yaml:3]',
+    ]);
+    const list = await run({ repo: withSettings("- format: 1\n").repo });
+    expect(errors(list)).toEqual([
+      "error: roadmap/settings.yaml: expected a YAML mapping (key: value lines) at the top level. The data format can’t be read until that’s fixed: fix it, then push. The site wasn’t changed [roadmap/settings.yaml]",
+    ]);
+  });
+
+  it("takes format: 0 to be format 0, as migrate does, and says to migrate", async () => {
+    const r = await run({ repo: withSettings("format: 0 # old\ntitle: Old\n").repo });
+    expect([r.code, errors(r)]).toEqual([
+      1,
+      ["error: This roadmap is in data format 0; BoxOps 0.1.0 reads format 1. Run `node .boxops/boxops.mjs migrate`, commit and push. The site wasn’t changed [roadmap/settings.yaml]"],
     ]);
   });
 

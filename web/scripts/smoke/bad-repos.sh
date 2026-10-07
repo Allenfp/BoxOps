@@ -3,13 +3,14 @@
 # and a GitHub Actions environment, as `uses:` runs it) against roadmap
 # repositories it must refuse, each failing with the error that says why: a
 # symlink in the roadmap and as it, a submodule in it and as it, a .git file,
-# data format 0 and 2, no settings.yaml, a branch that isn't the default, a
-# checkout that isn't the run's commit (unless the roadmap is another
-# repository's), a file that isn't UTF-8, a roadmap input with "..", a path
-# outside the workspace, GitHub Enterprise Server. And a roadmap with
-# problems, which check mode fails, build mode publishes without the broken
-# entries (on-problems: deploy, the count in the `problems` output) or
-# refuses (on-problems: fail); and a scheduled run, which builds.
+# data format 0 and 2, no settings.yaml, a settings.yaml that isn't YAML
+# (said on its line), a branch that isn't the default, a checkout that isn't
+# the run's commit (unless the roadmap is another repository's), a file that
+# isn't UTF-8, a roadmap input with "..", a path outside the workspace,
+# GitHub Enterprise Server. And a roadmap with problems, which check mode
+# fails, build mode publishes without the broken entries (on-problems:
+# deploy, the count in the `problems` output) or refuses (on-problems:
+# fail); and a scheduled run, which builds.
 #
 # Usage: bad-repos.sh RELEASE_DIR [STARTER]   (RELEASE_DIR: a release tree,
 # npm run release:build's build/release; STARTER: default this checkout's starter/)
@@ -129,6 +130,12 @@ git -C "$repo" rm -q roadmap/settings.yaml
 git -C "$repo" commit -q -m "No settings"
 run
 expect "no settings.yaml" 1 "roadmap/settings.yaml is missing: every roadmap needs one"
+
+new_repo bad-yaml
+printf 'format: 1\ntitle: [unclosed\n' >"$repo/roadmap/settings.yaml"
+commit "Settings that aren't YAML"
+run
+expect "a settings.yaml that isn't YAML, on its line" 1 "::error file=roadmap/settings.yaml,line=3,title=BoxOps::roadmap/settings.yaml:3: YAML syntax error: "
 
 new_repo branch
 run GITHUB_REF_NAME=feature

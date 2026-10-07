@@ -176,6 +176,18 @@ describe("build", () => {
     expect(() => readdirSync(none)).toThrow();
   });
 
+  it("names what keeps settings.yaml's format from being read, on its line, and takes format: 0 as migrate does", async () => {
+    const none = join(tempDir(), "none");
+    const yaml = await run(["build", "--out", none], { cwd: checkout(sampleRepo({ "roadmap/settings.yaml": "format: 1\ntitle: [unclosed\n" })).dir });
+    expect([yaml.code, yaml.stderr.split("\n").pop()]).toEqual([
+      3,
+      "roadmap/settings.yaml:3: YAML syntax error: Flow sequence in block collection must be sufficiently indented and end with a ] at line 3, column 1. The data format can’t be read until that’s fixed: fix it, then push. Nothing was written",
+    ]);
+    const zero = await run(["build", "--out", none], { cwd: checkout(sampleRepo({ "roadmap/settings.yaml": "format: 0\n" })).dir });
+    expect([zero.code, zero.stderr.split("\n").pop()]).toEqual([3, "This roadmap is in data format 0; BoxOps 0.1.0 reads format 1. Run `node .boxops/boxops.mjs migrate`, commit and push. Nothing was written"]);
+    expect(() => readdirSync(none)).toThrow();
+  });
+
   it("needs a release beside it, this build's", async () => {
     const repo = checkout();
     const r = await run(["build", "--out", join(tempDir(), "s")], { cwd: repo.dir, cliDir: tempDir() });

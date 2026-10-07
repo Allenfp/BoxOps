@@ -1199,9 +1199,12 @@ this order, each failure an error annotation with a plain message:
    checkout is built as it is, read-only): a workflow on the default branch
    that checks out another commit, such as a pull request's head under
    `pull_request_target` or `workflow_run`, can't publish it.
-8. The data format: a missing `settings.yaml`, or any format other than this
-   release's, stops the build: older with "run `node .boxops/boxops.mjs
-   migrate`", newer with "upgrade the pin".
+8. The data format: a missing `settings.yaml`, any format other than this
+   release's, or one that can't be read, stops the build: older (`format: 0`
+   too, as `migrate` takes it) with "run `node .boxops/boxops.mjs
+   migrate`", newer with "upgrade the pin", and one that can't be read with
+   the loader's problem with the file, on its line (a YAML syntax error,
+   say).
 9. Validation: each problem an error annotation on its file and line (50 at
    most; the rest in the log), counted in the `problems` output. Check mode
    fails on any; build mode only with `on-problems: fail` (the default,
