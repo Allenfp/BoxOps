@@ -4,14 +4,19 @@
 // no change made since. When a live file changes, this fails until its staged
 // copy is made again: copy the live file over it, then make the changes below.
 
-import { readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /** A file's text, by its path from the repository's top level. */
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
-/** Each staged file, by the path it replaces, and the cutover's changes to the live one: [before, after]. */
-const STAGED: Record<string, [string, string][]> = {
+/**
+ * Each staged file, by the path it replaces, and the cutover's changes to the
+ * live one: [before, after]. null for a file the cutover replaces whole (as
+ * pages.yml will be), which has no live version to follow.
+ */
+const STAGED: Record<string, [string, string][] | null> = {
   "web/vite.config.ts": [
     ["else this repo's roadmap/. */", "else the browser tests' roadmap (e2e/fixtures/roadmap). */"],
     ['  : resolve(REPO_DIR, "roadmap");', '  : resolve(WEB_DIR, "e2e/fixtures/roadmap");'],
@@ -32,16 +37,19 @@ const STAGED: Record<string, [string, string][]> = {
   ],
 };
 
-/** Every file under cutover/ but its README, by the path it replaces. */
-function stagedFiles(dir = new URL("../../cutover/", import.meta.url), rel = ""): string[] {
-  return readdirSync(new URL(rel, dir), { withFileTypes: true })
-    .flatMap((entry) => (entry.isDirectory() ? stagedFiles(dir, `${rel}${entry.name}/`) : [`${rel}${entry.name}`]))
-    .filter((path) => path !== "README.md")
+/** Every file git tracks under cutover/ but its README (not a .DS_Store Finder left), by the path it replaces. */
+function stagedFiles(): string[] {
+  const listed = execFileSync("git", ["ls-files", "-z", "--", "cutover"], { cwd: new URL("../..", import.meta.url), encoding: "utf8" });
+  return listed
+    .split("\0")
+    .filter((path) => path && path !== "cutover/README.md")
+    .map((path) => path.slice("cutover/".length))
     .sort();
 }
 
 describe("the files staged for the cutover (cutover/)", () => {
   for (const [path, changes] of Object.entries(STAGED)) {
+    if (changes === null) continue;
     it(`stages ${path}: the live file with the cutover's changes, and nothing else`, () => {
       let expected = read(path);
       for (const [before, after] of changes) {
@@ -53,7 +61,7 @@ describe("the files staged for the cutover (cutover/)", () => {
   }
 
   it("stages only those, and its README names each", () => {
-    expect(stagedFiles()).toEqual(Object.keys(STAGED).sort());
+    expect(stagedFiles(), "the files git tracks in cutover/ (git add a new one)").toEqual(Object.keys(STAGED).sort());
     const readme = read("cutover/README.md");
     for (const path of Object.keys(STAGED)) expect(readme).toContain(`\`${path}\``);
   });

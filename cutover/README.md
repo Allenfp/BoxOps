@@ -11,7 +11,9 @@ The files staged here sit at the path of the file each replaces
 (`cutover/web/vite.config.ts` replaces `web/vite.config.ts`). Each is the live
 file with the cutover's changes made and nothing else:
 `web/scripts/cutover.test.ts` fails when a live file changes and its staged
-copy doesn't, so copying them over undoes no later change.
+copy doesn't, so copying them over undoes no later change. (A file the
+cutover replaces whole, as it will `pages.yml`, is listed in that test
+without changes to check.)
 
 ## Staged
 
@@ -46,12 +48,14 @@ copy doesn't, so copying them over undoes no later change.
 ## The cutover commit
 
 1. Delete `roadmap/`.
-2. Copy the staged files over the live ones, then delete this folder and the
-   test that checks it: `cp -R cutover/web/. web/ && git rm -rq cutover
+2. Copy the staged files (all of this folder but this README) over the live
+   ones, then delete this folder and the test that checks it:
+   `rsync -a --exclude=/README.md cutover/ ./ && git rm -rq cutover
    web/scripts/cutover.test.ts`.
 3. Replace `.github/workflows/pages.yml` with the redirect and `/next/`
-   canary, staged here by then. That drops the interim "Assemble the site
-   (the app, and roadmap.json from roadmap/)" step and its `build:cli` step.
+   canary (step 2 does, once it's staged here). That drops the interim
+   "Assemble the site (the app, and roadmap.json from roadmap/)" step and its
+   `build:cli` step.
 4. `.github/workflows/ci.yml`, as above.
 5. `docs/data-format.md`: `npm run validate -- <folder>` checks a folder other
    than `e2e/fixtures/roadmap` (it says `../roadmap`).
@@ -61,9 +65,10 @@ copy doesn't, so copying them over undoes no later change.
    which the tool carries for roadmap repositories; drop it here.
 7. Docs: README's "Open it" link, its `npm run dev` line and its "Editing
    without the app" section (to the demo and the starter),
-   `docs/architecture.md` (this repository's `roadmap/` and the Deploy
-   bullet), and `docs/decisions.md` (rows for the starter and prebuilt
-   action, the demo repository, the release identity and versioning).
+   `docs/architecture.md` (this repository's `roadmap/`, the dev server's
+   default and the Deploy bullet), and `docs/decisions.md` (rows for the
+   starter and prebuilt action, the demo repository, the release identity
+   and versioning).
 
 ## After merging
 
