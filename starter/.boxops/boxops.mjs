@@ -66,12 +66,12 @@ process.exitCode = await main(process.argv.slice(2), { root, repo, sha, tag, lau
 
 /** $BOXOPS_CLI: a release's dist/boxops.mjs, checked against the BUILD.json beside dist/ (or in its folder) if there is one. */
 function given(file) {
-  if (!existsSync(file)) fail(`BOXOPS_CLI is ${file}, and there's no such file`);
+  if (!existsSync(file)) fail(`BOXOPS_CLI is ${file}, and there’s no such file`);
   const dir = dirname(file);
   const json = [basename(dir) === "dist" ? join(dir, "..", "BUILD.json") : "", join(dir, "BUILD.json")].find((f) => f && existsSync(f));
   if (!json) return { cli: file };
   const build = parseBuild(read(json));
-  if (build?.files["dist/boxops.mjs"] !== digest(readFileSync(file))) fail(`BOXOPS_CLI (${file}) isn't the boxops.mjs its BUILD.json (${json}) describes`);
+  if (build?.files["dist/boxops.mjs"] !== digest(readFileSync(file))) fail(`BOXOPS_CLI (${file}) isn’t the boxops.mjs its BUILD.json (${json}) describes`);
   return { cli: file, build };
 }
 
@@ -112,7 +112,7 @@ async function download(dir) {
     const bytes = build && (await get(...at("dist/boxops.mjs")));
     if (!bytes) continue;
     if (digest(bytes) !== build.files["dist/boxops.mjs"]) {
-      fail(`dist/boxops.mjs as downloaded from ${repo}@${sha.slice(0, 12)} isn't the file its BUILD.json describes, so it wasn't run: try again (a proxy may have changed it), or set BOXOPS_CLI`);
+      fail(`dist/boxops.mjs as downloaded from ${repo}@${sha.slice(0, 12)} isn’t the file its BUILD.json describes, so it wasn’t run: try again (a proxy may have changed it), or set BOXOPS_CLI`);
     }
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     keep(join(dir, "boxops.mjs"), bytes);
@@ -120,8 +120,8 @@ async function download(dir) {
     return build;
   }
   fail(
-    `couldn't download BoxOps ${tag ?? sha.slice(0, 7)} from ${repo}. Check the network; for a private ` +
-      "mirror set GH_TOKEN or run `gh auth login`; offline, set BOXOPS_CLI to a release's dist/boxops.mjs.",
+    `couldn’t download BoxOps ${tag ?? sha.slice(0, 7)} from ${repo}. Check the network; for a private ` +
+      "mirror set GH_TOKEN or run `gh auth login`; offline, set BOXOPS_CLI to a release’s dist/boxops.mjs.",
   );
 }
 

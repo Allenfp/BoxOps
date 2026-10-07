@@ -186,7 +186,7 @@ describe("the launcher's download", () => {
     expect([r.code, r.stdout, r.stderr]).toEqual([
       2,
       "",
-      `boxops: dist/boxops.mjs as downloaded from Allenfp/BoxOps@${A.slice(0, 12)} isn't the file its BUILD.json describes, so it wasn't run: try again (a proxy may have changed it), or set BOXOPS_CLI`,
+      `boxops: dist/boxops.mjs as downloaded from Allenfp/BoxOps@${A.slice(0, 12)} isn’t the file its BUILD.json describes, so it wasn’t run: try again (a proxy may have changed it), or set BOXOPS_CLI`,
     ]);
     expect(existsSync(join(cache, "Allenfp__BoxOps", A, "boxops.mjs"))).toBe(false);
 
@@ -213,7 +213,7 @@ describe("the launcher's download", () => {
     const none = launch(root, ["version"], { github: {} });
     expect([none.code, none.stderr]).toEqual([
       2,
-      "boxops: couldn't download BoxOps v0.1.0 from acme/boxops-mirror. Check the network; for a private mirror set GH_TOKEN or run `gh auth login`; offline, set BOXOPS_CLI to a release's dist/boxops.mjs.",
+      "boxops: couldn’t download BoxOps v0.1.0 from acme/boxops-mirror. Check the network; for a private mirror set GH_TOKEN or run `gh auth login`; offline, set BOXOPS_CLI to a release’s dist/boxops.mjs.",
     ]);
     expect(none.calls.every((c) => c.auth === null)).toBe(true);
   });
@@ -227,7 +227,7 @@ describe("the launcher offline (BOXOPS_CLI)", () => {
     const tampered = releaseTool();
     writeFileSync(tampered, `${TOOL}// changed\n`);
     const bad = launch(root, ["report"], { env: { BOXOPS_CLI: tampered } });
-    expect([bad.code, bad.stdout, bad.stderr]).toEqual([2, "", `boxops: BOXOPS_CLI (${tampered}) isn't the boxops.mjs its BUILD.json (${join(tampered, "..", "..", "BUILD.json")}) describes`]);
+    expect([bad.code, bad.stdout, bad.stderr]).toEqual([2, "", `boxops: BOXOPS_CLI (${tampered}) isn’t the boxops.mjs its BUILD.json (${join(tampered, "..", "..", "BUILD.json")}) describes`]);
   });
 
   it("runs a tool alone, as given (the tool then warns of old files itself), and a web/dist build beside its BUILD.json", () => {
@@ -245,7 +245,7 @@ describe("the launcher offline (BOXOPS_CLI)", () => {
 
   it("says so when there's no such file, or the release needs a newer Node.js", () => {
     const missing = join(tempDir(), "boxops.mjs");
-    expect(launch(launcherRepo(), ["version"], { env: { BOXOPS_CLI: missing } })).toMatchObject({ code: 2, stderr: `boxops: BOXOPS_CLI is ${missing}, and there's no such file` });
+    expect(launch(launcherRepo(), ["version"], { env: { BOXOPS_CLI: missing } })).toMatchObject({ code: 2, stderr: `boxops: BOXOPS_CLI is ${missing}, and there’s no such file` });
     const r = launch(launcherRepo(), ["version"], { env: { BOXOPS_CLI: releaseTool(TOOL, buildJson(TOOL, { node: ">=99.0" })) } });
     expect([r.code, r.stderr]).toEqual([2, `boxops: BoxOps 0.1.0 needs Node.js 99.0 or newer (this is ${process.versions.node})`]);
   });
