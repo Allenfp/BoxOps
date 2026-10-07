@@ -34,7 +34,16 @@ of the work until then, so the cutover commit makes their changes itself
 
 1. A release candidate, `v0.1.0-rc.1`, is out (`docs/releasing.md`), and the
    starter repository, `Allenfp/boxops-starter`, published for it.
-2. `Allenfp/boxops-demo` holds the demo's roadmap with its history, its
+2. Demo edits here stop, before its roadmap is copied (step 3), so that the
+   copy has every save: close the demo's open tabs (their code writes to
+   `roadmap/` here and has no build-id check), then revoke the old token
+   scoped to `Allenfp/BoxOps` (Settings → Developer settings → Personal
+   access tokens), and edit nothing in `roadmap/` by hand. The demo saves
+   again once its own repository has a token of its own (step 3). That old
+   token is also what makes the repository roadmap repositories pin
+   writable from a browser: revoking it, not the cutover commit, is what
+   ends that.
+3. `Allenfp/boxops-demo` holds the demo's roadmap with its history, its
    authors' and committers' personal addresses replaced. From a fresh clone
    (`git filter-repo` rewrites the clone it runs in, and needs
    [git-filter-repo](https://github.com/newren/git-filter-repo)):
@@ -83,13 +92,6 @@ of the work until then, so the cutover commit makes their changes itself
    pass. Make a fine-grained token for `Allenfp/boxops-demo` alone
    (Contents: read and write), and check a save from
    `allenfp.github.io/boxops-demo/`.
-3. Demo edits here stop: nothing more is saved to this `roadmap/`.
-4. Close the demo's open tabs: their code writes to `roadmap/` here and has
-   no build-id check.
-5. Revoke the old token scoped to `Allenfp/BoxOps` (Settings → Developer
-   settings → Personal access tokens). Nothing needs it now, and it's what
-   makes the repository roadmap repositories pin writable from a browser:
-   revoking it, not the cutover commit, is what ends that.
 
 ## The cutover commit
 
