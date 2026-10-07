@@ -239,6 +239,8 @@ export function firstParents(repo: string, sha: string, max = 50): string[] {
 }
 
 const DIR = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
+/** A path in the repository BoxOps names: DIR's characters, and no "." or ".." part. */
+const isPlainPath = (path: string) => DIR.test(path) && !path.split("/").some((p) => p === "." || p === "..");
 
 /** Splits `ls-tree -z` output into records. */
 function records(out: Buffer): Buffer[] {
@@ -257,7 +259,7 @@ function records(out: Buffer): Buffer[] {
  * objects. Throws RoadmapReadError if the folder breaks the policy above.
  */
 export async function readRoadmapGit(repo: string, commit: string, dir = "roadmap"): Promise<RoadmapFolder> {
-  if (!DIR.test(dir) || dir.split("/").some((p) => p === "." || p === "..")) {
+  if (!isPlainPath(dir)) {
     throw new Error(`"${dir}" isn’t a folder BoxOps reads: letters, digits, ".", "_" and "-", in parts separated by "/"`);
   }
   if (!SHA.test(commit)) throw new Error(`"${commit}" isn’t a full commit SHA`);
@@ -267,7 +269,10 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
   try {
     type = gitPlumbing(repo, "cat-file", ["-t", at]).toString().trim();
   } catch {
-    throw new RoadmapReadError(dir, [{ path: "", message: `isn’t in commit ${commit.slice(0, 12)}` }]);
+    // A submodule's commit is in its own repository, not this one: only the tree says what's there.
+    const entry = gitPlumbing(repo, "ls-tree", [commit, "--", dir]).toString("latin1");
+    const message = entry.startsWith("160000 ") ? "is a submodule, not a folder" : `isn’t in commit ${commit.slice(0, 12)}`;
+    throw new RoadmapReadError(dir, [{ path: "", message }]);
   }
   if (type !== "tree") {
     // A symlinked folder is a blob; a submodule is a commit.
@@ -340,6 +345,67 @@ export async function readRoadmapGit(repo: string, commit: string, dir = "roadma
   }
   triage.check();
   return { files, blobs, ignored: triage.ignored, tree, ...(warnings.length && { warnings }) };
+}
+
+/**
+ * The plain files directly in folder `dir` (a path from the repository's top
+ * level) at `commit`, by path from the top level; [] if there's no such
+ * folder. A symlink, submodule or subfolder is left out.
+ */
+export function listCommitFolder(repo: string, commit: string, dir: string): string[] {
+  if (!SHA.test(commit) || !isPlainPath(dir)) throw new Error(`can’t list "${dir}" at "${commit}"`);
+  const out = gitPlumbing(repo, "ls-tree", ["-z", commit, "--", `${dir}/`], { maxBuffer: 4 * 1024 * 1024 });
+  const paths: string[] = [];
+  for (const record of records(out)) {
+    const tab = record.indexOf(9);
+    const [mode, kind] = record.subarray(0, tab).toString("latin1").split(" ");
+    const path = record.subarray(tab + 1).toString("utf8");
+    if (kind === "blob" && (mode === "100644" || mode === "100755")) paths.push(path);
+  }
+  return paths.sort();
+}
+
+/**
+ * Small text files at `commit`, by path from the repository's top level: what
+ * the action reads besides the roadmap (workflows, the launcher, AGENTS.md),
+ * only to warn. A path that isn't there or isn't a plain file (a symlink, a
+ * submodule, a folder), a file over `maxBytes`, or one that isn't UTF-8 is
+ * left out. Each blob is checked against its SHA.
+ */
+export async function readCommitFiles(repo: string, commit: string, paths: string[], maxBytes = 1024 * 1024): Promise<Record<string, string>> {
+  if (!SHA.test(commit)) throw new Error(`"${commit}" isn’t a full commit SHA`);
+  const wanted = new Set(paths.filter(isPlainPath));
+  if (!wanted.size) return {};
+  const listing = gitPlumbing(repo, "ls-tree", ["-z", "-l", commit, "--", ...wanted], { maxBuffer: 4 * 1024 * 1024 });
+  const blobs: { path: string; sha: string; size: number }[] = [];
+  for (const record of records(listing)) {
+    const tab = record.indexOf(9);
+    const [mode, kind, sha, size] = record.subarray(0, tab).toString("latin1").trim().split(/ +/);
+    const path = record.subarray(tab + 1).toString("utf8");
+    if (wanted.has(path) && kind === "blob" && (mode === "100644" || mode === "100755") && /^\d+$/.test(size) && Number(size) <= maxBytes) {
+      blobs.push({ path, sha, size: Number(size) });
+    }
+  }
+  const files: Record<string, string> = {};
+  if (!blobs.length) return files;
+  const out = gitPlumbing(repo, "cat-file", ["--batch"], {
+    input: blobs.map((b) => b.sha).join("\n") + "\n",
+    maxBuffer: blobs.reduce((n, b) => n + b.size + 64, 1024),
+  });
+  let pos = 0;
+  for (const b of blobs) {
+    const nl = out.indexOf(10, pos);
+    if (nl < 0 || out.subarray(pos, nl).toString("latin1") !== `${b.sha} blob ${b.size}`) break;
+    const bytes = out.subarray(nl + 1, nl + 1 + b.size);
+    pos = nl + 1 + b.size + 1;
+    if ((await gitBlobSha(bytes)) !== b.sha) continue;
+    try {
+      files[b.path] = strictUtf8.decode(bytes);
+    } catch {
+      // Not text: nothing to read in it.
+    }
+  }
+  return files;
 }
 
 // --- Disk --------------------------------------------------------------------

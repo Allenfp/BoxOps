@@ -1,0 +1,122 @@
+// Fixtures for the command-line tool's and the action's unit tests: a fake
+// release (BUILD.json and a tiny app) in the system's temp folder, a GitHub
+// Actions environment around a TestRepo, the starter's sample roadmap, and a
+// reader for $GITHUB_OUTPUT.
+
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { buildJsonText, type Identity, makeBuildJson } from "./release";
+import type { Entry } from "./test-repo";
+
+export const ID: Identity = { version: "0.1.0", build: "0.1.0+0123456789ab", time: "2026-10-01T00:00:00Z", source: "0123456789ab".padEnd(40, "c") };
+
+/** The app files of the fake release (path in dist/app → text). */
+export const APP_FILES: Record<string, string> = {
+  "index.html": '<!doctype html><meta charset="UTF-8"><meta name="boxops-build" content="0.1.0+0123456789ab"><script type="module" src="./assets/index-A1.js"></script>\n',
+  "assets/index-A1.js": "console.log('app');\n",
+  "assets/parse-B2.js": "console.log('parser');\n",
+  "favicon.svg": "<svg xmlns='http://www.w3.org/2000/svg'/>\n",
+};
+
+/** Temp folders made here, removed by cleanUp(). */
+const temps: string[] = [];
+
+export function tempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "boxops-test-"));
+  temps.push(dir);
+  return dir;
+}
+
+export function cleanUp(): void {
+  for (const t of temps.splice(0)) rmSync(t, { recursive: true, force: true });
+}
+
+/**
+ * A release laid out as a release commit is (BUILD.json, dist/boxops.mjs,
+ * dist/action.mjs, dist/app/**) for `id`; returns the dist/ folder, where the
+ * CLI would be.
+ */
+export function makeRelease(id: Identity = ID, app: Record<string, string> = APP_FILES): string {
+  const root = tempDir();
+  const files: Record<string, Uint8Array> = {
+    "dist/boxops.mjs": Buffer.from("export async function main() { return 0; }\n"),
+    "dist/action.mjs": Buffer.from('import { runAction } from "./boxops.mjs";\n'),
+  };
+  for (const [path, text] of Object.entries(app)) files[`dist/app/${path}`] = Buffer.from(text);
+  for (const [path, bytes] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), bytes);
+  }
+  writeFileSync(join(root, "BUILD.json"), buildJsonText(makeBuildJson(id, files)));
+  return join(root, "dist");
+}
+
+/** The starter's sample roadmap (the starter repo's roadmap/), by path in the folder. */
+export const SAMPLE: Record<string, string> = {
+  "settings.yaml":
+    "# Team settings for this roadmap.\nformat: 1 # BoxOps data format\ntitle: Our roadmap\nfiscal_year_start_month: 1\ndefault_zoom: months\n" +
+    'types:\n  - id: project\n    name: Project\n    color: "#4f7cff"\n  - id: maintenance\n    name: Maintenance\n    color: "#8a94a6"\n' +
+    "statuses:\n  - id: at_risk\n    name: At risk\n",
+  "people.yaml": "people:\n  - id: example-ada\n    name: Ada Example\n    department: engineering\n",
+  "departments/engineering.yaml": 'id: engineering\ncode: ENG\nname: Engineering\ncolor: "#4f7cff"\norder: 1\nlanes:\n  - id: eng-1\n  - id: eng-2\n',
+  "boxes/bx-1a2b-example-project.yaml":
+    "id: bx-1a2b-example-project\ncode: K7P\ntitle: Example project (delete me)\nlane: eng-1\nstart: 2026-11-02\nend: 2026-11-13\ntype: project\nengineers:\n  - example-ada\n",
+};
+
+/** SAMPLE under roadmap/, plus `extra` (paths from the repository's top level). */
+export const sampleRepo = (extra: Record<string, Entry> = {}): Record<string, Entry> => ({
+  ...Object.fromEntries(Object.entries(SAMPLE).map(([p, t]) => [`roadmap/${p}`, t])),
+  ...extra,
+});
+
+export interface ActionsEnv extends Record<string, string> {
+  GITHUB_OUTPUT: string;
+  GITHUB_STEP_SUMMARY: string;
+  RUNNER_TEMP: string;
+}
+
+/**
+ * GitHub Actions' environment for a run on acme/roadmap's main, with the
+ * workspace at `workspace` and this event payload's repository fields.
+ */
+export function actionsEnv(workspace: string, repository: Record<string, unknown> = {}, extra: Record<string, string> = {}): ActionsEnv {
+  const dir = tempDir();
+  const event = join(dir, "event.json");
+  writeFileSync(event, JSON.stringify({ repository: { full_name: "acme/roadmap", default_branch: "main", private: true, visibility: "private", ...repository } }));
+  writeFileSync(join(dir, "output"), "");
+  writeFileSync(join(dir, "summary"), "");
+  mkdirSync(join(dir, "temp"));
+  return {
+    GITHUB_ACTIONS: "true",
+    GITHUB_SERVER_URL: "https://github.com",
+    GITHUB_REPOSITORY: "acme/roadmap",
+    GITHUB_REF_NAME: "main",
+    GITHUB_REF_TYPE: "branch",
+    GITHUB_RUN_ID: "123",
+    GITHUB_WORKSPACE: workspace,
+    GITHUB_EVENT_PATH: event,
+    GITHUB_OUTPUT: join(dir, "output"),
+    GITHUB_STEP_SUMMARY: join(dir, "summary"),
+    RUNNER_OS: "Linux",
+    RUNNER_TEMP: join(dir, "temp"),
+    ...extra,
+  };
+}
+
+/** What the runner makes of $GITHUB_OUTPUT (heredoc form only, which is all the action writes). */
+export function readOutputs(file: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const lines = readFileSync(file, "utf8").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^([^<]+)<<(.+)$/.exec(lines[i]);
+    if (!m) continue;
+    const value: string[] = [];
+    for (i++; lines[i] !== m[2]; i++) {
+      if (i >= lines.length) throw new Error(`unterminated output ${m[1]}`);
+      value.push(lines[i]);
+    }
+    out[m[1]] = value.join("\n");
+  }
+  return out;
+}

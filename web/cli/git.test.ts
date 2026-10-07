@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
-import { LIMITS, RoadmapReadError, firstParents, readCommit, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git";
+import { LIMITS, RoadmapReadError, firstParents, listCommitFolder, readCommit, readCommitFiles, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git";
 import { EXECUTABLE } from "../src/model/paths";
 import { type Entry, TestRepo } from "./test-repo";
 
@@ -94,6 +94,9 @@ describe("readRoadmapGit", () => {
     expect(await problems(readRoadmapGit(repo.dir, link))).toEqual([": is a file or a symlink, not a folder"]);
     const sub = repo.commit({ roadmap: { mode: "160000", sha: link } });
     expect(await problems(readRoadmapGit(repo.dir, sub))).toEqual([": is a submodule, not a folder"]);
+    // As usual, the submodule's commit isn't in this repository.
+    const elsewhere = repo.commit({ roadmap: { mode: "160000", sha: "5".repeat(40) } });
+    expect(await problems(readRoadmapGit(repo.dir, elsewhere))).toEqual([": is a submodule, not a folder"]);
     const none = repo.commit({ "other/settings.yaml": "x\n" });
     expect(await problems(readRoadmapGit(repo.dir, none))).toEqual([`: isn’t in commit ${none.slice(0, 12)}`]);
     await expect(readRoadmapGit(repo.dir, none, "../roadmap")).rejects.toThrow("isn’t a folder BoxOps reads");
@@ -194,6 +197,29 @@ describe("readRoadmapGit", () => {
     chmodSync(object, 0o644);
     writeFileSync(object, deflateSync(Buffer.from("blob 7\0id: b9\n")));
     expect(await problems(read(r))).toEqual([`boxes/b1.yaml: doesn’t match its git object id ${sha} (a damaged repository?)`]);
+  });
+});
+
+describe("readCommitFiles and listCommitFolder", () => {
+  it("read small plain files at a commit, leaving out links, submodules, folders, big files and non-text", async () => {
+    const repo = new TestRepo();
+    repos.push(repo);
+    const commit = repo.commit({
+      ".github/workflows/deploy.yml": "name: Deploy\n",
+      ".github/workflows/old.yaml": { mode: "100755", content: "name: Old\r\n" },
+      ".github/workflows/linked.yml": { mode: "120000", content: "/etc/passwd" },
+      ".github/workflows/sub": { mode: "160000", sha: "a".repeat(40) },
+      ".github/workflows/nested/x.yml": "x\n",
+      "AGENTS.md": NOT_UTF8,
+      "big.md": "x".repeat(2000),
+    });
+    expect(listCommitFolder(repo.dir, commit, ".github/workflows")).toEqual([".github/workflows/deploy.yml", ".github/workflows/old.yaml"]);
+    expect(listCommitFolder(repo.dir, commit, "nowhere")).toEqual([]);
+    const paths = [".github/workflows/deploy.yml", ".github/workflows/old.yaml", ".github/workflows/linked.yml", ".github/workflows/sub", ".github/workflows", "AGENTS.md", "big.md", "missing.md", "../x"];
+    expect(await readCommitFiles(repo.dir, commit, paths, 1000)).toEqual({
+      ".github/workflows/deploy.yml": "name: Deploy\n",
+      ".github/workflows/old.yaml": "name: Old\r\n",
+    });
   });
 });
 
