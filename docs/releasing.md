@@ -279,7 +279,13 @@ token pasted into a browser or a stolen one.
   the REST API. Try making a release with a new tag on the web page too
   (Releases → Draft a new release → a new tag, `bypass-check-web`, never a
   version, "Create new tag on publish"): it must be refused when published.
-  Delete the draft.
+  Delete the draft. If it's published instead, delete that release at once
+  (`gh release delete bypass-check-web -R Allenfp/BoxOps --yes`): until
+  then it's GitHub's latest release, which CI's weekly run tests (and
+  fails on, since its commit is `main`'s, not a release's). Leave its tag:
+  as for any immutable release's, the name can't be used again even once
+  the tag is gone, and a tag that isn't a version breaks nothing
+  (Dependabot, `upgrade` and the deploys' lookup look only at versions).
 
   Whatever one of these makes, though it shouldn't, delete at once:
   `git push origin :refs/heads/releases` and
