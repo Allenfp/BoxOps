@@ -68,8 +68,7 @@ without changes to check.)
    without the app" section (to the demo and the starter),
    `docs/architecture.md` (this repository's `roadmap/`, the dev server's
    default and the Deploy bullet), and `docs/decisions.md` (rows for the
-   starter and prebuilt action, the demo repository, the release identity
-   and versioning).
+   starter and prebuilt action, the demo repository and versioning).
 
 ## After merging
 
