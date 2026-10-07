@@ -203,7 +203,8 @@ jobs:
           curl -fsSL https://api.github.com/meta | jq -r '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts"
           export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_DIR="$RUNNER_TEMP/release.git"
-          export GIT_AUTHOR_NAME="BoxOps release" GIT_AUTHOR_EMAIL="boxops-release@users.noreply.github.com"
+          # GitHub's own identity for what a workflow commits, which no account can take.
+          export GIT_AUTHOR_NAME="github-actions[bot]" GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com"
           export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
           remote="git@github.com:$GITHUB_REPOSITORY.git"
           run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
