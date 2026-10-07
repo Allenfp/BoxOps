@@ -546,10 +546,17 @@ these differences:
 ## From a copy of BoxOps itself
 
 Before 0.1.0, a team could run BoxOps from a copy of `Allenfp/BoxOps` itself:
-the app in `web/` and the data in `roadmap/`, in one repository. To move
-such a roadmap onto the starter, create a repository from the starter as
-above (with its Pages settings, rulesets and people), then, in a folder
-holding a clone of the old copy (`old-copy` here), bring its roadmap over:
+the app in `web/` and the data in `roadmap/`, in one repository. Such a
+roadmap moves onto the starter one of two ways: into a new repository made
+from the starter, which starts with the starter's settings, or in place,
+which keeps the repository: the roadmap's history, and the tokens editors
+have (approved, where the organization approves them).
+
+### Into a new repository
+
+Create a repository from the starter as above (with its Pages settings,
+rulesets and people), then, in a folder holding a clone of the old copy
+(`old-copy` here), bring its roadmap over:
 
 ```sh
 git clone https://github.com/<org>/<name>.git && cd <name>
@@ -566,3 +573,47 @@ old repository: take its site down (Settings → Pages → the menu beside "Your
 site is live at" → **Unpublish site**), then archive it (Settings → General
 → Danger Zone → **Archive this repository**). Editors make new tokens, for
 the new repository, and reload tabs they had open.
+
+### In place
+
+A repository admin does it, since it replaces the workflows (pushing
+`.github/workflows/` takes SSH, or a token with the `workflow` scope), with
+Node.js 22.12 or later and the GitHub CLI. In a fresh clone of the old copy,
+with the release to move to (v0.1.0 here):
+
+```sh
+git clone https://github.com/<org>/<name>.git && cd <name>
+curl -fsSLo ../boxops.mjs https://github.com/Allenfp/BoxOps/releases/download/v0.1.0/boxops.mjs
+gh attestation verify ../boxops.mjs -R Allenfp/BoxOps --signer-workflow Allenfp/BoxOps/.github/workflows/release.yml
+node ../boxops.mjs init ../starter-files
+git rm -rq --ignore-unmatch web docs LICENSE .github/workflows/pages.yml .github/workflows/validate.yml
+rsync -a --exclude=/roadmap/ ../starter-files/ ./
+node .boxops/boxops.mjs migrate
+node .boxops/boxops.mjs validate
+git add -A && git status
+```
+
+`init` writes the starter's files, pinned to that release, into
+`../starter-files` (a folder that isn't there yet), and `rsync` copies them
+all but the example roadmap over the old copy: the starter's workflows,
+launcher, Dependabot file, `AGENTS.md`, `CLAUDE.md`, `README.md` and
+`.gitignore` take the place of BoxOps' own, and `git rm` takes away its
+app, docs, licence and old workflows (take anything else of BoxOps' away
+the same way). Look over what `git status` lists: files of your own stay,
+but changes you made to `README.md` or `AGENTS.md` are replaced, so put
+back what you want (in `AGENTS.md`, below its BoxOps block). `migrate` and
+`validate` are as above. Then:
+
+```sh
+git commit -m "Run the roadmap from the BoxOps starter, pinned to v0.1.0" && git push
+```
+
+The push runs **Deploy roadmap**. Then go through the
+[Repository admin](#repository-admin) steps from 2 on, as for a new
+repository, since the old copy has none of the starter's rules: Pages
+([2](#2-turn-on-pages-private-before-the-first-deploy-that-passes)), the
+`github-pages` environment ([3](#3-let-only-main-deploy-then-deploy)), the
+rulesets, the push ruleset above all ([4](#4-rulesets)), and Dependabot
+([5](#5-dependabot)). Editors keep their access and their tokens; have
+them reload tabs they have open before they save again, since an open tab
+runs the old app until it's reloaded.
