@@ -134,8 +134,11 @@ pushed to `main`; every push is validated before it deploys.
   field, and what the validator checks (and
   [docs/data-format.md](docs/data-format.md): the commands in this
   repository, and how the format may change).
-- [AGENTS.md](AGENTS.md): step-by-step instructions for AI assistants, with
-  recipes.
+- [templates/guide/](templates/guide/overview.md): step-by-step
+  instructions for people and AI assistants, with recipes and the commit
+  messages the app writes: the guide every roadmap repository gets
+  (`AGENTS.md`'s last section says how it applies to this repository's
+  `roadmap/`).
 - From `web/`: `npm run validate` checks the files; `npm run report` lists
   over-capacity and full departments, overloaded engineers, engineers booked
   during their PTO, everyone's bookings and PTO by date, unassigned boxes and
@@ -185,3 +188,5 @@ anything else must pass the browser tests before it deploys.
 - [docs/architecture.md](docs/architecture.md): how loading, saving, conflicts,
   polling, layout, the command-line tool, the action and CI work.
 - [docs/decisions.md](docs/decisions.md): what was decided, when and why.
+- [AGENTS.md](AGENTS.md): for AI assistants working on BoxOps: branches,
+  the checks to run, the files that change together and the release rules.

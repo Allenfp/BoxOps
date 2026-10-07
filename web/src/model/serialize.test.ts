@@ -126,9 +126,9 @@ describe("commitMessage", () => {
     );
   });
 
-  it("reads as the example in AGENTS.md has it, engineers first", () => {
-    const agents = readFileSync(new URL("../../../AGENTS.md", import.meta.url), "utf8");
-    const example = /For example:\n\n```\n([^]*?)\n```/.exec(agents)![1];
+  it("reads as the example in the guide's commit messages has it, engineers first", () => {
+    const guide = readFileSync(new URL("../../../templates/guide/commits.md", import.meta.url), "utf8");
+    const example = /For example:\n\n```\n([^]*?)\n```/.exec(guide)![1];
     const dept = { id: "data-eng", code: "DE", name: "Data Engineering", color: "#4f7cff", order: 1, collapsed: false, lanes: [{ id: "de-1", fte: 1 }, { id: "de-2", fte: 1 }] };
     const before: DraftState = { boxes: [], departments: [dept], people: [{ id: "jordan-diaz", name: "Jordan Diaz" }], settings: DEFAULT_SETTINGS };
     const box = { id: "bx-3f9c-data-quality-checks", code: "K7P", title: "Data quality checks", lane: "de-2", start: parseDay("2027-03-01")!, end: parseDay("2027-03-19")!, type: "project", fte: 1 };

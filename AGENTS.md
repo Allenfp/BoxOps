@@ -1,323 +1,129 @@
-# Working on the BoxOps roadmap (for AI assistants)
+# Working on BoxOps (for AI assistants)
 
-This repo is a team roadmap. The data is plain YAML in `roadmap/`; a web app in
-`web/` (published at https://allenfp.github.io/BoxOps/) displays and edits it.
-You can do everything the app does by editing the YAML files and pushing to
-`main`. This file explains how.
+This repository is BoxOps itself, not a team's roadmap:
 
-Read [templates/guide/format.md](templates/guide/format.md) for the full file format. The
-essentials are below.
+- `web/`: the app (Vite, React, TypeScript), and in `web/cli/` its
+  command-line tool and GitHub Action, bundled into `dist/boxops.mjs`.
+- `starter/`: the files of the starter repository, a roadmap repository
+  that runs a BoxOps release pinned by commit and holds no app.
+- `templates/`: what the tool gives roadmap repositories: the managed block
+  of their `AGENTS.md`, the guide (`guide/*.md`) and Path B's workflows.
+- `release/action.yml`: the root of every release commit.
+- `roadmap/`: the live demo's roadmap, until the cutover (`cutover/`) moves
+  it to `Allenfp/boxops-demo`. To edit it, see the last section.
 
-## How the roadmap works
+How it all works is in [docs/architecture.md](docs/architecture.md), and why
+in [docs/decisions.md](docs/decisions.md). The data format is
+[templates/guide/format.md](templates/guide/format.md), and how it may change
+[docs/data-format.md](docs/data-format.md).
 
-- **Departments** (`roadmap/departments/<id>.yaml`) contain **lanes**. A lane is
-  anonymous capacity of 1 or 0.5 FTE, not a person. A lane can have `start`
-  and `end` dates when it only exists for a while (a new hire, a contractor).
-- **Boxes** (`roadmap/boxes/<id>.yaml`) are pieces of planned work. Each sits in
-  a lane, runs from `start` to `end` (inclusive weekdays), needs 0.5–2 FTE, and
-  can name the **engineers** working on it.
-- **Engineers** are listed in `roadmap/people.yaml`, with any **PTO** (time
-  off) they've booked as a `pto:` list of `start`/`end` dates and an optional
-  `note`.
-- **Codes.** People refer to boxes by code, like `DE-A1F`: the department's
-  `code` plus the box's own 3-character `code`. To find the file for `DE-A1F`,
-  `grep -lE '^code: "?A1F"?$' roadmap/boxes/*` (a code YAML would read as a
-  number, like `"234"`, is quoted). The prefix follows the box's current
-  department.
-- **Rules** (`relations` on a box) say how boxes sit in time relative to each
-  other: finishes before, starts after, happens during, starts when, ends
-  when, runs at the same time as, doesn't overlap. Broken rules are warnings.
-- A department is **over capacity** when, on some day, its boxes need more FTE
-  than its lanes hold. An engineer is **overloaded** when their share of their
-  boxes is over 1 FTE (a box's FTE is split evenly across its engineers). Both
-  are warnings, not errors.
-- There are **no weekends**: dates must be Monday–Friday and durations are
-  counted in working days. "Two weeks" means 10 working days. Holidays aren't
-  modelled: treat every weekday as a working day unless the user says
-  otherwise, but point it out when work (especially on-call or a deadline)
-  lands in a usual holiday period such as late December.
+## Branches and commits
 
-## Workflow
+- Work on a branch, never on `main`: every push to `main` deploys the demo
+  (`pages.yml`). Merge, push or open a pull request only when the user says
+  to.
+- Never force-push, and never rewrite commits that are pushed.
+- Never create a tag, a commit on `releases` or a GitHub release, and never
+  change the repository's settings, rulesets or deploy keys: releases are
+  made by the release workflow, with its deploy key, once the maintainer
+  approves.
+- Commit in small, logical steps, each leaving the unit tests passing. The
+  subject is a plain sentence of at most 72 characters, saying what is now
+  true (`git log` shows the style; `Docs: …` and `Tests: …` for those
+  alone). If you add a trailer such as `Co-Authored-By:`, put it after a
+  blank line at the end.
 
-People edit the roadmap in the web app at the same time, and every app save is
-a commit on `main`. So:
+## Checks
 
-1. **Start from the latest `main`:** `git checkout main && git pull --ff-only`.
-2. **Look before you change.** From `web/` (run `npm ci` once first), save the
-   report to a fresh file and note its path, since shell variables may not
-   last between your commands:
-   `B=$(mktemp) && npm run report --silent > "$B" && echo "$B"`.
-   The report shows over-capacity and fully booked departments, engineers over
-   1 FTE (one line per stretch, at that stretch's level), engineers booked on
-   a box during their PTO, every engineer's bookings and PTO by date (use that
-   to answer "who's free then?": nobody is free while on PTO), unassigned
-   boxes and broken rules. It covers all dates, past ones too.
-3. **Edit the YAML files** (recipes below). Change only what you need: don't
-   reformat files, reorder fields, or rewrite unrelated lines, and keep comments.
-4. **Check your work** from `web/`:
-   - `npm run validate` must end in `— OK` (e.g. `3 departments, 9 lanes,
-     16 boxes — OK`). It lists any problem and exits non-zero.
-   - `npm run report --silent | diff <before file> -` compares with step 2.
-     Tell the user about anything your change made worse: a department newly
-     over capacity or full, someone newly over 1 FTE or at a higher level,
-     someone newly booked during their PTO, a rule now broken.
-5. **Commit to `main`.** Always `git pull --ff-only` right before committing
-   (validate again if anything came in). Stage only the roadmap
-   (`git add roadmap/`), never `git add -A`. Write the message the way the app
-   does (see [Commit messages](#commit-messages)). Commits use the local git
-   identity. If you normally add a trailer such as `Co-Authored-By:`, add it
-   after a blank line at the end.
-6. **Push:** `git push origin main`. Changes to `roadmap/` usually deploy
-   within a minute, and open browser tabs pick them up within a few minutes.
-7. **If the push is rejected** because someone saved meanwhile:
-   `git pull --rebase`, then validate again and push. If the rebase conflicts
-   in a file someone else also changed, stop and ask the user whose version to
-   keep. Never force-push.
+From `web/` (`npm ci` once, and `npx playwright install webkit chromium
+firefox` for the browser tests):
 
-Don't open pull requests or create branches for roadmap edits unless asked:
-the team's convention is that saves go straight to `main`. Changes to the app
-itself (`web/`) are different: do those on a branch, run `npm run lint`,
-`npm run typecheck`, `npm test`, `npm run validate` and `npm run e2e`, and
-merge only when the user says to (merging deploys).
-
-## Commit messages
-
-Match the app, so history reads the same whichever way a change was made. The
-body has one bullet per line below, in this order: engineers (those added,
-then changed, then removed, in roster order, each followed by its PTO lines),
-new boxes in the order they were added, edited and then deleted boxes by file
-name, departments added or changed in the order they're shown (by `order`,
-then name), deleted departments, `Reordered departments`, team settings. All
-of one box's changes go on its one bullet; a department gets a bullet per
-change (each lane's too), and an engineer one per PTO entry. With exactly one
-bullet, the subject is that bullet (without its "(was …)" parts, at most 72
-characters); otherwise it's `Roadmap: <n> changes`, where `<n>` is the
-number of bullets, with a thousands separator (`Roadmap: 1,200 changes`;
-the app's Save button counts the same way). Word them
-like this (`<range>` is like `2026-03-02 – 2026-03-20`: dates are always
-`YYYY-MM-DD`, as everywhere in the app; a lane is `<Department> / <lane
-label>`; `<code>` is always the full code with its prefix, like `DE-K7P`;
-quotes and apostrophes are curly: “ ” ’):
-
-| Change | Line |
+| After changing | Run |
 |---|---|
-| New box | `Added <title> (<code>) to <lane>, <range>` |
-| Deleted box | `Deleted <title> (<code>, <lane>, <range>)` |
-| Edited box | `<title> (<code>): ` then the parts that changed, joined by `; ` |
-| … renamed | `renamed from “<old title>”` |
-| … new lane | `moved from <old lane> to <new lane>` |
-| … same number of working days, new dates | `rescheduled to <range> (was <old range>)` |
-| … other date change | `dates now <range> (was <old range>)` |
-| … flag, type or FTE | `flag On track → Blocked`, `flag At risk → On track`, `type <old> → <new>`, `FTE 1 → 1.5` (names, not ids; no flag is "On track") |
-| … engineers | `engineers now Sam Lee, Alex Kim` (or `engineers now nobody`) |
-| … epic, description, tags, links | `epic link updated` / `epic link removed`, `description edited`, `tags edited`, `links edited` |
-| … rule added or removed | `now <rule>` or `no longer <rule>`, where `<rule>` is one of `finishes before <other title> (<code>) starts`, `starts after <other title> (<code>) finishes`, `happens during <other title> (<code>)`, `starts when <other title> (<code>) starts`, `ends when <other title> (<code>) ends`, `runs at the same time as <other title> (<code>)`, `doesn’t overlap <other title> (<code>)` |
-| … anything else | `edited` |
-| Department code changed | `<Department>’s code is now <NEW> (was <OLD>): its boxes are <NEW>-…` |
-| Department added | `Added department <name> (<n> lanes, <fte> FTE)` (`1 lane` for one) |
-| Department renamed, recoloured, deleted | `Renamed department <old> to <new>`, `Changed the colour of <name>`, `Deleted department <name>` |
-| Departments reordered | `Reordered departments` (once, however many moved; only when their order changed, not their numbers) |
-| Department changed some other way | `Updated department <name>` |
-| Lane added, removed, resized, reordered | `Added lane <label> (<fte> FTE) to <Department>`, `Removed lane <label> from <Department>`, `Lane <label> in <Department> is now 0.5 FTE (was 1)`, `Reordered the lanes in <Department>` |
-| Team settings (settings.yaml) | One line for all of it: `Team settings: ` then the parts joined by `; `, e.g. `fiscal year starts in February (was January)`, `default zoom Quarters (was Months)`, `title now “X” (was “Y”)`, `added type <name>`, `renamed type <old> to <new>`, `changed the colour of type <name>`, `removed type <name>`, `reordered types` (the same for `flag`) |
-| Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
-| Lane dates changed | `Lane <label> in <Department> now runs until 2027-03-31 (was always open)`; the dates read `from <day>`, `until <day>` or `<day> – <day>`; cleared: `… is now always open (was …)`. A new dated lane: `Added lane <label> (1 FTE, from <day>) to <Department>` |
-| Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` (a PTO-only change has just its PTO lines; one with no words of its own, like reordered PTO, is `Updated engineer <name>`) |
-| PTO added, changed, removed | `PTO for <name>: <range> (<note>)` (no `(<note>)` without one), `Removed PTO for <name>: <range>`; one entry in place of another (one added and one removed) is `PTO for <name>: <range> (<note>) (was <old range>)`; a single day is just that day |
+| anything | `npm run lint`, `npm run typecheck`, `npm test` |
+| the app (`src/`, `index.html`, styles) | `npm run build`, `npm run e2e` (WebKit first, then Chromium and Firefox; about 11 minutes) and `npm run perf` |
+| the command-line tool or the action (`cli/`), `starter/`, `templates/` or `release/` | `npm run build`, `npm run build:cli`, and `npm run dry-run:starter` (a roadmap repository made from the starter, end to end, offline, in WebKit too) |
+| a workflow (`.github/workflows/`, `starter/.github/workflows/`, `templates/path-b/`) | actionlint, with shellcheck installed (CI's `workflows` job runs both) |
+| `roadmap/` | `npm run validate` |
 
-For example:
+Before `npm run e2e` or `npm run perf`, make sure nothing listens on port
+4173 (`lsof -nP -iTCP:4173 -sTCP:LISTEN`): outside CI, Playwright uses a
+server it finds there, which would serve an old build.
 
-```
-Roadmap: 2 changes
+## Files that change together
 
-- Updated engineer Jordan Diaz
-- Added Data quality checks (DE-K7P) to Data Engineering / FTE 2, 2027-03-01 – 2027-03-19
-```
+Tests catch most of these; change the files together anyway.
 
-The app ends its messages with "Saved from the BoxOps web app."; don't add that
-to hand-made commits.
+- `templates/agents-block.md` (the block, its number in its front matter),
+  `AGENTS_BLOCK` in `web/cli/release.ts` and `starter/AGENTS.md` (that
+  block, a heading and the team's notes: what `sync` writes).
+- `starter/.boxops/boxops.mjs` (the launcher) and `LAUNCHER`; how it finds
+  the pin and `web/cli/pins.ts`; its cache (where, in what order, what it
+  refuses, what a release's folder holds) and `web/cli/cache.ts`,
+  `upgrade.ts` and `preview.ts`. What it passes the tool,
+  `main(argv, ctx) → Promise<number>`, is fixed across 0.x: add to `ctx`,
+  never change what's there.
+- The Pages guard step in `starter/.github/workflows/deploy.yml`
+  (`# boxops-guard: N`), `GUARD`, and its copy in
+  `templates/path-b/deploy.yml`.
+- `templates/path-b/*.yml` and the starter's two workflows: only the BoxOps
+  step differs, and the starter's `README.md` shows that step.
+- The placeholders in `starter/` (`<RELEASE_COMMIT_SHA>` on pin lines,
+  `<SOURCE_COMMIT_SHA>` in links to the docs) and `web/cli/starter.ts`,
+  which fills them in for `init` and `npm run publish-starter`.
+- `release/action.yml`'s inputs and outputs, and `web/cli/action.ts`.
+- `web/src/model/summary.ts` (commit messages) and
+  `templates/guide/commits.md`.
+- The validator (`web/src/model/parse.ts`, `load.ts`),
+  `templates/guide/format.md` ("What the validator checks") and
+  `web/src/model/load.test.ts`.
+- `FORMAT`, the migrations (`web/src/model/migrations/`) and
+  `docs/data-format.md` ("Changing the format").
+- An action used in several workflows: the same commit and `# vX.Y.Z`
+  comment everywhere (check a new one with `git ls-remote`).
+- A file staged in `cutover/` and the live file it replaces
+  (`web/scripts/cutover.test.ts`).
+- `README.md`, `docs/` and `templates/` describe what the code does: change
+  them with it.
 
-## Lane labels
+## Releases
 
-A lane without a `name` is labelled by its position in its department: the
-second lane is `FTE 2`. That's a position, not a size, so a 1.5-FTE box in the
-second lane is still "Data Engineering / FTE 2".
+- Versions are `X.Y.Z`, release candidates `X.Y.Z-rc.N`; roadmap
+  repositories pin a release by commit, so there are no floating tags.
+- A patch release never changes the data format, the workflows' shape,
+  permissions or Pages guard, or the action's outputs; it may add optional
+  inputs. The data format goes up only in a minor release, by one, with a
+  migration.
+- The contract numbers in `BUILD.json` (`bundle`, `launcher`, `guard`,
+  `agentsBlock`) count released versions: raise one when what it numbers
+  changes after a release has shipped it (before that, edit freely). The
+  action, `doctor` and the launcher tell roadmap repositories whose copy
+  differs.
+- After a release, `npm run publish-starter` writes the starter repository
+  for it; it pushes nothing.
 
-## Recipes
+## House rules
 
-Working-day arithmetic comes up often. In Python:
+- Dates are `YYYY-MM-DD` everywhere: the app, the tools, messages and docs.
+- Safari (WebKit) first; Chrome, Edge and Firefox must work too.
+- No new runtime dependency for the app; anything the tool or the action
+  needs is bundled into `dist/boxops.mjs`, so roadmap repositories install
+  nothing. A new devDependency needs a reason.
+- Match the code and the prose around you. Text BoxOps shows has curly
+  quotes and apostrophes (“ ” ’).
 
-```python
-from datetime import date, timedelta
+## Editing the demo's roadmap (until the cutover)
 
-def add_workdays(d: date, n: int) -> date:
-    """Move d by n working days (n may be negative)."""
-    step = 1 if n >= 0 else -1
-    while n:
-        d += timedelta(days=step)
-        if d.weekday() < 5:
-            n -= step
-    return d
+`roadmap/` is the live demo's data (https://allenfp.github.io/BoxOps/),
+saved from the app like any roadmap. To change it by hand, follow the guide
+BoxOps gives roadmap repositories,
+[templates/guide/overview.md](templates/guide/overview.md) and the
+[recipes](templates/guide/recipes.md), [commit messages](templates/guide/commits.md)
+and [file format](templates/guide/format.md) it points to, with two
+differences:
 
-def workdays(start: date, end: date) -> int:
-    """Working days from start to end, inclusive."""
-    return sum((start + timedelta(i)).weekday() < 5 for i in range((end - start).days + 1))
-```
-
-**Add a box.** Pick an id `bx-<4 random hex digits>-<slug>` (the slug is the
-title in lowercase, non-letters/digits replaced by `-`, at most 40 characters)
-and a new 3-character `code` from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no 0, O,
-1 or I), not all digits and not digit-E-digit like `2E5` (YAML would read
-those as numbers). Check that no file has that id (`ls roadmap/boxes`) or that
-code (`grep -h "^code:" roadmap/boxes/*`), and create
-`roadmap/boxes/<id>.yaml`:
-
-```yaml
-id: bx-3f9c-q3-planning
-code: K7P
-title: Q3 planning
-lane: ml-1
-start: 2027-06-07
-end: 2027-06-18
-type: research
-```
-
-Add `fte:` only if it isn't 1, and `engineers:` with ids from `people.yaml`.
-
-*Choosing a lane:* use the department the work belongs to, and a lane that's
-free for those dates (check the other boxes' `lane`, `start` and `end`). A box
-over 1 FTE also covers the lane(s) below its own, so pick one whose next lane
-is free too. The app redraws boxes into any free space in the department, so
-the lane is a preference; the department and dates are what count for
-capacity.
-
-*Choosing engineers:* usually one per started FTE (one for 0.5–1, two for
-1.5–2), from the same department. Use the bookings in `npm run report` to find
-who's free over the box's dates; someone with PTO then isn't. If several are
-equally free, say who you picked and why, and offer the alternatives.
-
-*When nobody is free:* if the only candidates would go over 1 FTE, and the user
-asked you to staff it ("sort out their work" counts), assign the least loaded
-one and say so plainly, with their resulting load and dates. Offer
-alternatives: leave it unassigned, move the dates, or someone from another
-department. If the user didn't ask for staffing, leave `engineers` out rather
-than overloading someone. Keeping people who are already on a box isn't a new
-assignment.
-
-**Move or reschedule a box.** Change `start` and `end`. To keep its length,
-shift both by the same number of working days. To move it to another lane or
-department, change `lane`.
-
-**Resize, re-staff or update a box.** Edit `end`, `fte`, `engineers`,
-`description` and so on in place. Progress (not started, under way, finished)
-comes from the dates, so there's nothing to update when work starts or ends.
-
-**Flag a problem.** Set `status:` to `at_risk`, `late` or `blocked` (after
-`type`); delete the line once it's resolved. Most boxes have no `status`.
-
-**Delete a box.** Delete its file, and remove any `relations` entries on other
-boxes that point at its code (`grep -l "box: <code>" roadmap/boxes/*`).
-
-**Relate two boxes.** Add to the box the rule is about:
-
-```yaml
-relations:
-  - type: before # before, after, during, starts_with, ends_with, overlaps, apart
-    box: M8T # the other box's code (example; use a real one)
-```
-
-Check with `npm run report` whether the rule holds today; a broken rule is
-allowed but tell the user. The full table of rules is in
-[templates/guide/format.md](templates/guide/format.md#rules-between-boxes).
-
-**Move a box to another department.** Change its `lane`. Its code stays the
-same; only the prefix people see changes (DE-A1F becomes AN-A1F).
-
-**Add an engineer.** Append to `people:` in `roadmap/people.yaml` with a new
-id (a slug of their name, unique), `name`, and ideally `department`. Fields go
-in this order: `id`, `name`, `department`, `role`, `email`, `manager`, `notes`,
-`pto`.
-
-**Edit an engineer.** Change or add fields on their entry in the order above.
-Never change their `id`: boxes refer to it.
-
-**Book PTO.** Add an entry to the engineer's `pto:` list (create it after
-`notes` if missing), with weekday `start` and `end` (inclusive; a Friday–Monday
-trip is `start` Friday, `end` Monday) and an optional short `note`:
-
-```yaml
-    pto:
-      - start: 2026-12-14
-        end: 2026-12-25
-        note: Holiday
-```
-
-PTO shows in the engineer's department on the timeline and table. It doesn't
-reduce capacity, but an engineer on a box during PTO is a warning: tell the
-user about any boxes it overlaps (`npm run report` lists them under "Engineers
-booked during PTO"). Delete the `pto:` key when removing the last entry.
-
-**A lane that comes or goes.** For a new hire, give a new lane `start:` (their
-first day); for a contractor or someone leaving, give their lane `end:` (the
-last day). Weekdays only; keys go after `fte`. Then check `npm run report`:
-boxes in the lane outside its dates count against the rest of the department
-and may push it over capacity, so tell the user.
-
-**Remove an engineer.** Delete their entry *and* remove their id from every
-box's `engineers` list (`grep -rl "<id>" roadmap/boxes`). Delete an emptied
-`engineers:` key rather than leaving an empty list.
-
-**Someone leaving on a future date.** Keep them on the roster until then (they
-still own their earlier boxes) and note the date in their `notes`. Then, for
-each of their boxes:
-
-- *Ends on or before their last day:* leave it.
-- *Starts after their last day:* take them off it, and staff it as above.
-- *Spans their last day (flagged or not):* ask the user unless they
-  said. Either hand the whole box to someone else, or split it: end the box on
-  their last day, and add a box from the next working day titled
-  `<title> (part 2)` with the rest of the work, a description pointing back to
-  the original's code, and the new engineer. When a box several people share
-  is split, the FTE is split evenly across whoever's left, so lower part 2's
-  `fte` by the leaver's share (to an allowed value) unless someone replaces
-  them.
-
-Remove them from the roster only once none of their boxes are left, or if the
-user asks.
-
-**Rename a lane.** Set or change the lane's `name`. Never change a lane `id`
-without updating every box that uses it.
-
-**Add a lane or department.** A new department needs a unique `code` (2–4
-capital letters/digits, usually its initials). Lane ids must be unique across all departments;
-follow the department's pattern (`de-1`, `de-2` → `de-3`), or use
-`<department id>-<n>` for a new department. A new department is a new file
-whose `id` matches its file name; give it an `order` after the others and a
-`color`. (People can do this in the app too, from **+ Add department** or the
-pencil on a department heading.)
-
-**Remove a lane or department.** First move its boxes: set each affected box's
-`lane` to a lane that stays. Then delete the lane entry, or the department
-file. For a department, also delete `department:` from people who had it.
-Renumber the remaining departments' `order` 1, 2, 3… if you like; only the
-order matters.
-
-**Answer questions.** `npm run report` covers capacity, overloads, PTO clashes,
-unassigned boxes and each engineer's bookings and PTO by date. The files are
-small and greppable too: `grep -l "sam-lee" roadmap/boxes/*` finds Sam's boxes.
-
-## Rules
-
-- IDs and file names never change once saved. `id` must equal the file name:
-  a copied file whose `id` wasn't changed is skipped (and fails validation).
-- Dates are weekdays, inclusive, `YYYY-MM-DD`, and `end` is not before `start`.
-- `fte` on a box is 0.5, 1, 1.5 or 2; on a lane, 0.5 or 1.
-- Colours are `"#rrggbb"` (quoted); `epic` and `links` are `http(s)://` links.
-  Quote text YAML would read as a number or `true`/`false` (`title: "1.10"`).
-- Leave `format: 1` in `settings.yaml` alone: it's the data format version.
-- Everything a box refers to must exist: `lane`, `type`, `status` if set (in
-  `settings.yaml`) and each `engineers` id.
-- Always run `npm run validate` before pushing; never push a failing roadmap.
-- Stage only `roadmap/` for roadmap changes.
-- Pull before editing and never force-push: people save from the app all the
-  time.
+- Where it says `node .boxops/boxops.mjs validate` or `report`, run
+  `npm run validate` or `npm run report --silent` from `web/`.
+- Roadmap edits go straight to `main` as the app's saves do, `roadmap/`
+  alone (`git add roadmap/`): no branch or pull request unless the user
+  asks. App changes never ride along.

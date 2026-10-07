@@ -60,10 +60,10 @@ without changes to check.)
 5. `docs/data-format.md`'s "In this repository": `npm run validate` checks
    `e2e/fixtures/roadmap` unless given another folder (it says `../roadmap`,
    the live demo's roadmap), and the bullet on how the demo deploys goes.
-6. Split `AGENTS.md`: this repository's becomes the guide for working on
-   BoxOps itself (branches, `npm test`, `npm run e2e`). Its roadmap-editing
-   guide already lives in `templates/` (`agents-block.md` and `guide/*.md`),
-   which the tool carries for roadmap repositories; drop it here.
+6. `AGENTS.md` is already the guide for working on BoxOps itself (the
+   roadmap-editing guide is `templates/`'s, which the demo's repository
+   gets): drop its `roadmap/` bullet and its last section, "Editing the
+   demo's roadmap".
 7. Docs: README's "Open it" link, its `npm run dev` line and its "Editing
    without the app" section (to the demo and the starter),
    `docs/architecture.md` (this repository's `roadmap/`, the dev server's
