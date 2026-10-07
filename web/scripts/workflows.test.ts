@@ -169,6 +169,31 @@ describe("the release workflow", () => {
     expect(check?.run).toContain('if [ "$tree" != "$TESTED_TREE" ]; then');
   });
 
+  it("tests the tree publish ships: the browser tests and smoke runs check what they download against the same job outputs", () => {
+    const shipped = (release.jobs.publish.steps ?? []).find((s) => s.env?.TESTED_TREE)?.run ?? "";
+    for (const [id, build] of [
+      ["e2e", "../build"],
+      ["smoke", "build"],
+    ]) {
+      const steps = ci.jobs[id].steps ?? [];
+      const at = steps.findIndex((s) => s.uses?.startsWith("actions/download-artifact@"));
+      expect(steps[at]?.with, id).toEqual({ name: "release-tree", path: "build" });
+      // Right after the download, before anything uses it.
+      const check = steps[at + 1];
+      expect(check?.env, id).toEqual({ SUMS: "${{ needs.release-tree.outputs.sums }}", TREE: "${{ needs.release-tree.outputs.tree }}" });
+      expect(check?.run, id).toContain(`[ "$(cat ${build}/TREE)" != "$TREE" ]`);
+      // publish's own checks, of this job's copy.
+      for (const line of [
+        `echo "$SUMS  ${build}/SHA256SUMS" | sha256sum --check --quiet --strict -`,
+        `(cd ${build}/release && sha256sum --check --quiet --strict ../SHA256SUMS)`,
+        `[ "$(find ${build}/release -type f | wc -l)" -eq "$(wc -l <${build}/SHA256SUMS)" ]`,
+      ]) {
+        expect(check?.run, id).toContain(line);
+        expect(shipped).toContain(line.replaceAll(`${build}/`, "built/").replace("$SUMS", "$TESTED_SUMS"));
+      }
+    }
+  });
+
   it("holds the deploy key in its publish job alone, in the release environment, which runs nothing from this repository", () => {
     const text = read(".github/workflows/release.yml");
     expect(text.match(/secrets\.RELEASE_DEPLOY_KEY/g)).toHaveLength(1);

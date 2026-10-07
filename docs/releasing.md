@@ -45,13 +45,14 @@ release, and what to do when a release goes wrong.
 
 How it's built so that a release ships what was tested: CI (`ci.yml`) builds
 the release tree, checks it, and runs the browser tests on its app and its
-tool, the smoke tests on its action (three runners) and the starter's dry run
-on all of it. The release workflow runs all of CI on the commit it releases,
-builds the tree a second time in a job of its own (a fresh install, no
-cache), and publishes only if git's tree id of what CI tested, of the second
-build, and of the files it's about to commit are one. Two builds of a commit
-are the same byte for byte, which a unit test checks on every change
-(`web/scripts/release-tree.test.ts`).
+tool, the smoke tests on its action (three runners) and the starter's dry
+run on all of it, each test job checking the tree it downloads against the
+release tree job's outputs first. The release workflow runs all of CI on the
+commit it releases, builds the tree a second time in a job of its own (a
+fresh install, no cache), and publishes only if git's tree id of what CI
+tested, of the second build, and of the files it's about to commit are one.
+Two builds of a commit are the same byte for byte, which a unit test checks
+on every change (`web/scripts/release-tree.test.ts`).
 
 ## The release workflow
 

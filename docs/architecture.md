@@ -1507,11 +1507,13 @@ a release must have none of.
   them: `scripts/check-doc-links.mjs`) and validation; **release
   tree**, `npm run release:build` (the version `release.yml` gives, else
   `web/package.json`'s) and its check (the changelog's numbers too: a
-  release's own section's, which must be the top one), the
-  release's tool on `starter/`'s files and the sites it writes,
-  then the tree uploaded for the jobs after it; **browser tests**, on that
-  tree (`BOXOPS_RELEASE_DIR`): the starter's dry run, the browser tests
-  (WebKit first, then Chromium, then Firefox) and the performance checks;
+  release's own section's, which must be the top one), the release's tool
+  on `starter/`'s files and the sites it writes, then the tree uploaded for
+  the jobs after it, which check what they download against this job's
+  outputs (the tree's id and `SHA256SUMS`' SHA-256, which no other job can
+  change) before testing it; **browser tests**, on that tree
+  (`BOXOPS_RELEASE_DIR`): the starter's dry run, the browser tests (WebKit
+  first, then Chromium, then Firefox) and the performance checks;
   **smoke**, on `ubuntu-24.04`, `ubuntu-24.04-arm` and `ubuntu-26.04`,
   where nothing is built or installed: the tree's action, as `uses:` runs
   it, on a repository of the starter's files made hostile

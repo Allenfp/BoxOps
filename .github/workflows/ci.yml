@@ -214,6 +214,23 @@ jobs:
         with:
           name: release-tree
           path: build
+      # The tree the release tree job built and checked, not one another job
+      # of the run uploaded under its name: its SHA256SUMS' SHA-256 and its
+      # id are that job's outputs, which no other job can change (publish, in
+      # release.yml, checks the tree it ships against them the same way).
+      - name: The tree downloaded is the release tree job's
+        env:
+          SUMS: ${{ needs.release-tree.outputs.sums }}
+          TREE: ${{ needs.release-tree.outputs.tree }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$SUMS" =~ ^[0-9a-f]{64}$ && "$TREE" =~ ^[0-9a-f]{40}$ ]] || [ "$(cat ../build/TREE)" != "$TREE" ]; then
+            echo "::error title=Not the release tree job's tree::It gave tree ${TREE:-(none)}, SHA256SUMS ${SUMS:-(none)}; the download's TREE says $(cat ../build/TREE)."
+            exit 1
+          fi
+          echo "$SUMS  ../build/SHA256SUMS" | sha256sum --check --quiet --strict -
+          (cd ../build/release && sha256sum --check --quiet --strict ../SHA256SUMS)
+          [ "$(find ../build/release -type f | wc -l)" -eq "$(wc -l <../build/SHA256SUMS)" ]
       # No browser cache: the downloads are a few seconds of this step, and a
       # cache keyed only on runner.os restores the wrong Ubuntu's build.
       - name: Install the browsers
@@ -285,6 +302,20 @@ jobs:
         with:
           name: release-tree
           path: build
+      # As the browser tests check it: the release tree job's tree.
+      - name: The tree downloaded is the release tree job's
+        env:
+          SUMS: ${{ needs.release-tree.outputs.sums }}
+          TREE: ${{ needs.release-tree.outputs.tree }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$SUMS" =~ ^[0-9a-f]{64}$ && "$TREE" =~ ^[0-9a-f]{40}$ ]] || [ "$(cat build/TREE)" != "$TREE" ]; then
+            echo "::error title=Not the release tree job's tree::It gave tree ${TREE:-(none)}, SHA256SUMS ${SUMS:-(none)}; the download's TREE says $(cat build/TREE)."
+            exit 1
+          fi
+          echo "$SUMS  build/SHA256SUMS" | sha256sum --check --quiet --strict -
+          (cd build/release && sha256sum --check --quiet --strict ../SHA256SUMS)
+          [ "$(find build/release -type f | wc -l)" -eq "$(wc -l <build/SHA256SUMS)" ]
       - name: A roadmap repository of the starter's files, made hostile
         run: |
           bash web/scripts/smoke/starter-repo.sh starter-copy

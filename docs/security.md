@@ -69,7 +69,10 @@ can't change after.
   files: the browser tests on the app, the starter end to end, and the
   action on three runners (Ubuntu 24.04, its Arm build, and 26.04),
   including a workspace whose files try to run code, and with the network
-  cut off.
+  cut off. Each job that tests them first checks the copy it downloaded
+  against the SHA-256s and tree id the building job gave as its outputs,
+  which no other job can change, as the release workflow checks what it
+  publishes.
 - **Built twice, the same.** The release workflow runs all of CI on the
   commit, builds the files again in a job of its own (a fresh install, no
   cache), and publishes only if git's id for the tree is the same all three
