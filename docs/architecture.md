@@ -84,16 +84,24 @@ web/
                             release), github.ts (the few GitHub calls they
                             make), embedded.ts (what the tool carries),
                             cache.ts (the launcher's cache), csp.ts (the
-                            built page's Content-Security-Policy)
+                            built page's Content-Security-Policy),
+                            licenses.ts (the licence files a release ships)
   scripts/                  validate.ts, report.ts (`npm run validate` and
                             `report`: the tool's commands; an optional
                             argument names another roadmap folder),
                             gen-roadmap.ts (synthetic roadmaps of any size),
                             publish-starter.ts (the starter repository for
                             a release), starter-dry-run.ts (the starter end
-                            to end, offline), cutover.test.ts (what's
-                            staged in cutover/)
-  e2e/                      browser tests, fake GitHub, fixture roadmap
+                            to end, offline), release-tree.ts and
+                            check-release-tree.ts (a release commit's
+                            tree, built and checked), check-changelog.mjs
+                            (CHANGELOG.md's form), smoke/ (CI's smoke
+                            runs of a release's action), cutover.test.ts
+                            (what's staged in cutover/), workflows.test.ts
+                            (the rules every workflow keeps)
+  e2e/                      browser tests, fake GitHub, fixture roadmap;
+                            app-dir.ts (the build under test: web/dist, or
+                            a release tree's)
   index.html                early theme, boot watchdog (inline scripts)
   vite.config.ts            the app: build id, CSP, licences; roadmap.json
                             in dev only
@@ -105,6 +113,8 @@ templates/                  what the tool writes into a roadmap repository's
                             GitHub's own actions
 starter/                    the starter repository's files (a roadmap
                             repository: workflows, launcher, sample roadmap)
+release/                    action.yml and README.md.tmpl, the top of
+                            every release commit
 cutover/                    the files staged for the commit that moves the
                             demo to its own repository, and its steps
 ```
@@ -1033,6 +1043,39 @@ rest of what a release's `dist/` holds:
   and every file's SHA-256 (`sha256-<base64>`). Deterministic: no clocks or
   run ids. A release keeps it beside `dist/` (`cli/release.ts` looks in both
   places, and reads a path `dist/X` in it as the file `X` beside the tool).
+- `dist/THIRD_PARTY_LICENSES.txt`: the licences of what `boxops.mjs`
+  bundles (Vite's list: `yaml`). The app's `dist/app/licenses.txt` is
+  Vite's list of what it bundles (React, react-dom, scheduler, `yaml`), and
+  then the licences of its icons, Lucide's (ISC) and, for some, Feather's
+  (MIT), which no package brings in (`cli/licenses.ts`).
+
+**The release tree** is what a release commit holds, built by
+`npm run release:build` (`scripts/release-tree.ts`) into `build/release` at
+the repository's top level: `action.yml` (`release/action.yml`),
+`README.md` (`release/README.md.tmpl` filled in), `LICENSE`,
+`THIRD_PARTY_LICENSES.txt`, `BUILD.json`, `dist/action.mjs`,
+`dist/boxops.mjs` and `dist/app/**`, every chunk of the app included. It
+builds the app and the tool afresh (`NODE_ENV=production`, and
+`BOXOPS_VERSION` for `--version`: a release candidate's, or `X.Y.Z-next`
+for the canary), and only from a checkout with nothing uncommitted or
+untracked (`--allow-dirty` to try one anyway, its build id ending in
+`.dirty`), since a release is a commit's. This `BUILD.json` lists every
+other file of the tree, the top-level ones too, and every file is written
+0644, so git's id for the tree is the same wherever it's built. Beside the
+tree: `TREE` (that id: the release commit's tree), `SHA256SUMS` and
+`sbom.spdx.json` (`npm sbom`: a release file, not in the tree, since it
+carries a time and a random id). Two builds of one commit are the same, byte
+for byte. `npm run check:release-tree` (`scripts/check-release-tree.ts`)
+checks a tree: only a release's files, none hidden, executable, a symlink,
+source, `node_modules`, a workflow or a source map; each in `BUILD.json`
+with its SHA-256, and no other; `action.yml` running `dist/action.mjs` on
+node24 and using no other action; one build id in `BUILD.json`,
+`index.html`, the app's JavaScript, the tool and `README.md`; the files
+`index.html` names; the licences of every package the tool bundles (its
+`//#region node_modules/…` comments) and the app depends on, and the icons';
+sizes (a file 1 MiB at most, 3 MiB and 200 files in all); and `TREE` and
+`SHA256SUMS`, with git's tree id computed without git. Releasing it is
+[docs/releasing.md](releasing.md)'s.
 
 **Commands** (`node dist/boxops.mjs <command>` here; in a roadmap repository
 `node .boxops/boxops.mjs <command>`, the launcher, which runs the release its
@@ -1211,16 +1254,29 @@ a release must have none of.
   `GIT_*` variables try to run code: sentinel files stay unwritten, git is
   the only program started, and the site is a clean workspace's), and no
   network call from the action or the offline commands (every way Node
-  reaches the network made to fail and noted), and that each file staged in
-  `cutover/` is the live one with only the cutover's changes made. Those
+  reaches the network made to fail and noted), that each file staged in
+  `cutover/` is the live one with only the cutover's changes made (and the
+  redirect it stages keeps the address's query and hash, its one script
+  allowed by hash), the release tree (built twice from one commit, this
+  checkout's files committed in a scratch repository and cloned twice, each
+  clone with its own copy of the dependencies: the two the same byte for
+  byte, git's tree id the one computed without git, and CI's smoke scripts
+  passing against it; its checks against a small tree made right and broken
+  every way they look for), the changelog's check, the licence files, and
+  the rules every workflow keeps (`scripts/workflows.test.ts`: no
+  permissions but each job's own, a time limit on each, checkouts that keep
+  no credentials, each action pinned to one commit with its version beside
+  it, and the release workflow's deploy key held only by its publish job,
+  which runs nothing from this repository). Those
   that read a whole roadmap read fixed copies (the browser tests' fixture,
   and `roadmap/` as shipped, in `web/src/model/fixtures/shipped-roadmap/`),
   never the live `roadmap/`, which saves may write any valid way.
 - **The starter's dry run** (`npm run dry-run:starter`,
   `web/scripts/starter-dry-run.ts`) builds the app and the tool, lays
   `web/dist` out as a release commit (each file checked against
-  `BUILD.json`) on the `releases` branch of a stand-in for github.com (git is
-  told to fetch from it), and makes a roadmap repository with that release's
+  `BUILD.json`), or takes the release tree in `$BOXOPS_RELEASE_DIR` as CI
+  does, commits it to the `releases` branch of a stand-in for github.com
+  (git is told to fetch from it), and makes a roadmap repository with that release's
   `init` (its calls to GitHub answered by the stand-in). It runs the
   launcher with `BOXOPS_CLI` (`version`, `validate`, `report`, `guide`,
   `sync --check`, `migrate --check`, `build`, `preview`), the action as
@@ -1230,11 +1286,17 @@ a release must have none of.
   site; then it opens that site, served as Pages serves it, and the preview
   in WebKit: the app shows the roadmap and the security notice with no
   error or CSP violation and no request off the machine, and the preview a
-  file edited on disk. Every Node process in it has the network cut off,
-  and none may try it.
+  file edited on disk. Every Node process in it has the network cut off
+  (`scripts/smoke/no-net.mjs`, given to `--import`), and none may try it.
 - **Browser tests** (Playwright, `web/e2e/`) run the production build in
   WebKit, Safari's engine, and all of them again in Chromium (Chrome, Edge)
-  and Firefox. GitHub is faked by a stateful stand-in
+  and Firefox: `web/dist/app`, or with `$BOXOPS_RELEASE_DIR` (as CI runs
+  them) a release tree's `dist/app`, the files a release ships
+  (`e2e/app-dir.ts`). `e2e/release.spec.ts` runs that build's command-line
+  tool on a real repository holding the tests' roadmap: its `roadmap.json`
+  is the stand-in's (the same files, blob and tree SHAs and parsed files),
+  the site it writes is the app under test byte for byte, and the app opens
+  it asking GitHub nothing. GitHub is faked by a stateful stand-in
   (`web/e2e/fake-github.ts`: commits with real git trees and blobs, GraphQL
   saves that check the expected head, a private mode, injected failures) and
   the roadmap is a fixed copy in `web/e2e/fixtures/roadmap/`. The save and
@@ -1300,7 +1362,8 @@ a release must have none of.
   it on. WebKit's Tab skips buttons, as Safari's does by default, so those
   tests focus a control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
-  config) serves the production build with a generated 2,000-box roadmap
+  config) serves the production build (a release tree's, with
+  `$BOXOPS_RELEASE_DIR`) with a generated 2,000-box roadmap
   (`scripts/gen-roadmap.ts`; and a 500-box one) as its `roadmap.json`,
   gzipped, and opens it in WebKit without a token. It checks exactly that the
   main JavaScript file stays under 400 kB, that no file with the `yaml`
@@ -1326,17 +1389,47 @@ a release must have none of.
   doesn't support TypeScript 7 yet.) A deliberate exception is a
   `// eslint-disable-next-line <rule> -- <reason>` comment, which oxlint
   honours; one that no longer hides anything is an error.
-- **CI.** `CI` (`ci.yml`) runs lint, the type check, the unit tests (again
-  with `TZ=America/Los_Angeles` and with `TZ=Pacific/Kiritimati`, UTC−8/−7
-  and UTC+14, so nothing depends on the runner's time zone), validation, the
-  build, the command-line tool (built, then run on `starter/`'s files, and
-  writing this repo's site), the starter's dry run, the browser tests
-  (WebKit first, then Chromium, then Firefox) and the performance checks on
-  every pull request and every push to a branch other than `main`, whatever
-  it changes; and actionlint (its release checked against its SHA-256, with
-  the runner's shellcheck) on every workflow, this repo's, the starter's and
-  Path B's. A pull request from a branch of this repo is covered by that
-  branch's push run, so only pull requests from forks run it again.
+- **CI.** `CI` (`ci.yml`) runs on every pull request and every push to a
+  branch other than `main`, whatever it changes (a pull request from a
+  branch of this repo is covered by that branch's push run, so only pull
+  requests from forks run it again), by hand, weekly, and for a release
+  (`release.yml` calls it). Its jobs: **test**, lint, the type check, the
+  unit tests (again with `TZ=America/Los_Angeles` and with
+  `TZ=Pacific/Kiritimati`, UTC−8/−7 and UTC+14, so nothing depends on the
+  runner's time zone), the changelog's form and validation; **release
+  tree**, `npm run release:build` (the version `release.yml` gives, else
+  `web/package.json`'s; no package's install script runs there) and its
+  check, the release's tool on `starter/`'s files and the sites it writes,
+  then the tree uploaded for the jobs after it; **browser tests**, on that
+  tree (`BOXOPS_RELEASE_DIR`): the starter's dry run, the browser tests
+  (WebKit first, then Chromium, then Firefox) and the performance checks;
+  **smoke**, on `ubuntu-24.04`, `ubuntu-24.04-arm` and `ubuntu-26.04`,
+  where nothing is built or installed: the tree's action, as `uses:` runs
+  it, on a repository of the starter's files made hostile
+  (`scripts/smoke/`: npm scripts, `vite.config.*`, `.npmrc`, `.env`, git
+  hooks, filters and fsmonitor, and `GIT_*` variables, each leaving a
+  sentinel file if anything runs it), in check mode and, where the run is on
+  `main` (weekly, for a release), build mode, its outputs and site checked
+  (elsewhere the tree's tool writes the site: build mode publishes the
+  default branch only); then bad repositories, each refused with its error
+  (symlinks, submodules, a `.git` file, data formats 0 and 2, no
+  `settings.yaml`, a branch that isn't the default, bytes that aren't
+  UTF-8, inputs out of bounds, GitHub Enterprise Server, problems in check
+  and build modes), and the action with the network cut off; **workflows**,
+  actionlint and shellcheck (each release checked against its SHA-256) on
+  every workflow (this repo's, the starter's, Path B's and the cutover's),
+  shellcheck on the smoke scripts, and the Pages guard's test against a
+  stand-in `gh`; and weekly, **latest release**, the latest release's action
+  on the three runners, on the starter's files as they were when it was
+  built.
+- **Releases.** `release.yml`, run by hand from `main` with a version:
+  preflight (the version, `web/package.json` and `CHANGELOG.md` agree, and
+  the tag is new), all of CI on the commit, the release tree built again
+  apart, and, once the maintainer approves the `release` environment, the
+  tested tree committed to `releases` and tagged in one push with the
+  release deploy key (if git's id for it is CI's and the rebuild's),
+  attested and published as an immutable GitHub release. See
+  [releasing.md](releasing.md).
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
   validation and the build on every push to `main`, then builds the
   command-line tool and writes the site with it (`build`: the app, and

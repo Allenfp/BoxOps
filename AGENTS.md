@@ -8,7 +8,10 @@ This repository is BoxOps itself, not a team's roadmap:
   that runs a BoxOps release pinned by commit and holds no app.
 - `templates/`: what the tool gives roadmap repositories: the managed block
   of their `AGENTS.md`, the guide (`guide/*.md`) and Path B's workflows.
-- `release/action.yml`: the root of every release commit.
+- `release/`: `action.yml` and `README.md.tmpl`, the top of every release
+  commit, whose tree `npm run release:build` builds
+  ([docs/releasing.md](docs/releasing.md); the changelog,
+  [CHANGELOG.md](CHANGELOG.md), gives each release its notes).
 - `roadmap/`: the live demo's roadmap, until the cutover (`cutover/`) moves
   it to `Allenfp/boxops-demo`. To edit it, see the last section.
 
@@ -49,12 +52,16 @@ firefox` for the browser tests):
 | anything | `npm run lint`, `npm run typecheck`, `npm test` |
 | the app (`src/`, `index.html`, styles) | `npm run build`, `npm run e2e` (WebKit first, then Chromium and Firefox; about 11 minutes) and `npm run perf` |
 | the command-line tool or the action (`cli/`), `starter/`, `templates/` or `release/` | `npm run build`, `npm run build:cli`, and `npm run dry-run:starter` (a roadmap repository made from the starter, end to end, offline, in WebKit too) |
-| a workflow (`.github/workflows/`, `starter/.github/workflows/`, `templates/path-b/`) | actionlint, with shellcheck installed (CI's `workflows` job runs both) |
+| what a release holds or how it's built (`release/`, `scripts/release-tree.ts`, `scripts/check-release-tree.ts`, the Vite configs) | from a checkout with everything committed, `npm run release:build` and `npm run check:release-tree` (`--allow-dirty` builds an uncommitted one to try); then `BOXOPS_RELEASE_DIR=../build/release npm run e2e` and `npm run dry-run:starter` with it, as CI runs them |
+| a workflow (`.github/workflows/`, `starter/.github/workflows/`, `templates/path-b/`, `cutover/.github/workflows/`) or a smoke script (`scripts/smoke/`) | actionlint, with shellcheck installed (CI's `workflows` job runs both, and shellcheck on the smoke scripts; `.github/actionlint.yaml` names runners it doesn't know yet) |
+| `CHANGELOG.md` | `node scripts/check-changelog.mjs` |
 | `roadmap/` | `npm run validate` |
 
 `npm test` also runs git, bash, `jq` and `rsync`, which macOS and GitHub's
 Ubuntu runners have (elsewhere, `jq` and `rsync` may need installing), and
-zsh where it's installed.
+zsh where it's installed. It builds a release tree twice, in clones of this
+checkout's files (`scripts/release-tree.test.ts`): they must be the same,
+byte for byte.
 
 Before `npm run e2e` or `npm run perf`, make sure nothing listens on port
 4173 (`lsof -nP -iTCP:4173 -sTCP:LISTEN`): outside CI, Playwright uses a
@@ -82,6 +89,15 @@ Tests catch most of these; change the files together anyway.
   `<SOURCE_COMMIT_SHA>` in links to the docs) and `web/cli/starter.ts`,
   which fills them in for `init` and `npm run publish-starter`.
 - `release/action.yml`'s inputs and outputs, and `web/cli/action.ts`.
+- `release/README.md.tmpl`'s placeholders and `renderReadme`'s values in
+  `web/scripts/release-tree.ts`; what a release holds,
+  `web/scripts/release-tree.ts` and `check-release-tree.ts`, and
+  `docs/releasing.md`.
+- The icons in `web/src/components/Icon.tsx` and the notice for them in
+  `web/cli/licenses.ts` (`licenses.test.ts` checks it names each).
+- `CHANGELOG.md`'s form, `web/scripts/check-changelog.mjs` and
+  `docs/releasing.md` ("The changelog"); the release workflow's jobs and
+  checks and `docs/releasing.md`.
 - `web/src/model/summary.ts` (commit messages) and
   `templates/guide/commits.md`.
 - The validator (`web/src/model/parse.ts`, `load.ts`),
@@ -91,6 +107,10 @@ Tests catch most of these; change the files together anyway.
   `docs/data-format.md` ("Changing the format").
 - An action used in several workflows: the same commit and `# vX.Y.Z`
   comment everywhere (check a new one with `git ls-remote`).
+  `web/scripts/workflows.test.ts` checks that, and that every job asks for
+  its permissions and has a time limit, every checkout keeps no
+  credentials, and the release workflow's publish job alone holds the
+  deploy key and runs nothing from this repository.
 - A file staged in `cutover/` and the live file it replaces
   (`web/scripts/cutover.test.ts`).
 - `README.md`, `docs/` and `templates/` describe what the code does: change
@@ -115,6 +135,11 @@ Tests catch most of these; change the files together anyway.
   unchecked; `npm run publish-starter` refuses them.)
 - After a release, `npm run publish-starter` writes the starter repository
   for it; it pushes nothing.
+- A change a roadmap repository would notice goes in `CHANGELOG.md`'s
+  Unreleased section, and its fixed lines say what an upgrade asks of one
+  (a data format, workflow, action input or output, AGENTS.md block,
+  launcher or guard change). The release pull request makes it the
+  version's section ([docs/releasing.md](docs/releasing.md)).
 
 ## House rules
 

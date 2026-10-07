@@ -158,7 +158,7 @@ cd web
 npm ci
 npm run dev        # http://localhost:5173; shows ../roadmap (or $BOXOPS_ROADMAP) read-only, reloading on change
 npm run build      # the app, in dist/app (no roadmap: the site's roadmap.json is written beside it)
-npm run build:cli  # after build: the command-line tool and action (dist/boxops.mjs, dist/action.mjs, dist/BUILD.json)
+npm run build:cli  # after build: the command-line tool and action (dist/boxops.mjs, dist/action.mjs, dist/BUILD.json, their licences)
 node dist/boxops.mjs build --out <folder>   # the site: the app and roadmap.json from ../roadmap at HEAD
 npm run lint       # oxlint, including the React hooks rules; a warning fails it
 npm run typecheck  # TypeScript, browser and Node code apart (npm run build checks types too)
@@ -170,16 +170,23 @@ npm run validate   # check the roadmap files
 npm run report     # capacity and staffing summary
 npm run gen-roadmap -- 2000 2026-10-03 <folder>  # a synthetic roadmap (boxes, "today") for scale tests
 npm run dry-run:starter  # a roadmap repository made from the starter, end to end on this machine, offline (WebKit too)
+npm run release:build    # from a clean checkout: the release tree in ../build/release (TREE, SHA256SUMS, an SBOM beside it)
+npm run check:release-tree   # what a release holds, and nothing else: every file in BUILD.json, one build id, licences, sizes
+BOXOPS_RELEASE_DIR=../build/release npm run e2e   # the browser tests on the release tree's app and tool, as CI runs them
 npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out <folder>  # the starter repository for a release (pushes nothing)
 ```
 
 Every pull request, and every push to a branch other than `main` (docs-only
 too), runs CI: lint, type check, the unit tests (also in two time zones far
-apart), validation, a build, the command-line tool on the starter's files,
-the starter end to end (`npm run dry-run:starter`), the browser tests (in
-WebKit, then Chromium and Firefox) and the performance checks, and lints the
-workflows with actionlint and shellcheck: this repository's, the starter's
-and Path B's. On `main`, the deploy lints, type-checks, validates, runs the
+apart), the changelog's form and validation; then the release tree, built
+and checked as a release would ship it, and tested as built: its tool on the
+starter's files, the starter end to end, the browser tests on its app (in
+WebKit, then Chromium and Firefox), the performance checks, and its action
+on three runners (Ubuntu 24.04, its Arm build, and 26.04: the starter's
+files made hostile, bad repositories, no network); and it lints the
+workflows with actionlint and shellcheck: this repository's, the starter's,
+Path B's and the cutover's. It runs weekly too, on `main` and the latest
+release. On `main`, the deploy lints, type-checks, validates, runs the
 unit tests and builds (the app, then the site with the command-line tool:
 the app plus `roadmap/` as its `roadmap.json`), and runs the browser tests
 in WebKit unless nothing outside `roadmap/` has changed since the version
@@ -192,3 +199,6 @@ else must pass the browser tests before it deploys.
 - [docs/decisions.md](docs/decisions.md): what was decided, when and why.
 - [AGENTS.md](AGENTS.md): for AI assistants working on BoxOps: branches,
   the checks to run, the files that change together and the release rules.
+- [docs/releasing.md](docs/releasing.md): how a release is made (the release
+  workflow), its one-off settings, and what to do when one goes wrong;
+  [CHANGELOG.md](CHANGELOG.md): what each release changed.
