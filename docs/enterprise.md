@@ -73,10 +73,16 @@ done
 ```
 
 (Create the empty, internal or private repositories `acme/checkout` and so
-on first. `setup-node` is for Path B only.) For each private mirror,
-Settings → Actions → General → **Access**: **Accessible from repositories
-in the 'acme' organization** → **Save**; an internal one can be shared with
-the whole enterprise the same way.
+on first. `setup-node` is for Path B only.) These repositories hold
+workflows of their own (in `.github/workflows/`), and pushing those over
+HTTPS takes a token with the `workflow` scope (a fine-grained one, with
+Workflows: Read and write); over SSH (`git@github.com:acme/$a.git`) it
+doesn't. If GitHub refuses a push for that reason, run
+`gh auth refresh --scopes workflow`, then the update below, which pushes
+them again. For each private mirror, Settings → Actions → General →
+**Access**: **Accessible from repositories in the 'acme' organization** →
+**Save**; an internal one can be shared with the whole enterprise the same
+way.
 
 `actions/upload-pages-artifact` can't be mirrored unchanged: it names
 `actions/upload-artifact` inside it, by commit, and the policy refuses that
@@ -92,6 +98,7 @@ git clone -q https://github.com/actions/upload-pages-artifact.git && cd upload-p
   git rev-parse HEAD
 ```
 
+Its push takes the `workflow` scope, or SSH, too.
 `git rev-parse HEAD` prints the commit to pin:
 `uses: acme/upload-pages-artifact@<that commit> # v5.0.0`. Every other
 mirror keeps GitHub's commits, so only the owner changes:
