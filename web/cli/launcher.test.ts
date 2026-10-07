@@ -258,9 +258,14 @@ describe("the launcher offline (BOXOPS_CLI)", () => {
     expect(launch(root, ["report"], { env: { BOXOPS_CLI: join(dist, "boxops.mjs") } }).ran?.ctx.checked).toBe(true);
   });
 
-  it("says so when there's no such file, or the release needs a newer Node.js", () => {
+  it("says so when there's no such file, or it's a folder, or the release needs a newer Node.js", () => {
     const missing = join(tempDir(), "boxops.mjs");
     expect(launch(launcherRepo(), ["version"], { env: { BOXOPS_CLI: missing } })).toMatchObject({ code: 2, stderr: `boxops: BOXOPS_CLI is ${missing}, and there’s no such file` });
+    const folder = join(releaseTool(), "..");
+    expect(launch(launcherRepo(), ["version"], { env: { BOXOPS_CLI: folder } })).toMatchObject({
+      code: 2,
+      stderr: `boxops: BOXOPS_CLI is ${folder}, which isn’t a file: set it to the dist/boxops.mjs of a copy of the pinned release`,
+    });
     const r = launch(launcherRepo(), ["version"], { env: { BOXOPS_CLI: releaseTool(TOOL, buildJson(TOOL, { node: ">=99.0" })) } });
     expect([r.code, r.stderr]).toEqual([2, `boxops: BoxOps 0.1.0 needs Node.js 99.0 or newer (this is ${process.versions.node})`]);
   });

@@ -80,6 +80,7 @@ process.exitCode = await main(process.argv.slice(2), { root, repo, sha, tag, lau
  */
 function given(file) {
   if (!existsSync(file)) fail(`BOXOPS_CLI is ${file}, and there’s no such file`);
+  if (!statSync(file).isFile()) fail(`BOXOPS_CLI is ${file}, which isn’t a file: set it to the dist/boxops.mjs of a copy of the pinned release`);
   const dir = dirname(file);
   const json = [basename(dir) === "dist" ? join(dir, "..", "BUILD.json") : "", join(dir, "BUILD.json")].find((f) => f && existsSync(f));
   if (!json) return { cli: file };
