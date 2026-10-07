@@ -196,13 +196,14 @@ The demo moves to a repository of its own at the cutover (`cutover/`), and
   repository's deploy and `node dist/boxops.mjs build` in this repo's
   (see [The command-line tool and the action](#the-command-line-tool-and-the-action)).
   It reads `roadmap/` from git objects at the commit being built
-  (`GITHUB_SHA` in Actions, where the action reads the checkout's `HEAD`
-  and, in build mode, refuses one that isn't it; else HEAD), never from the
-  checkout, with git hardened and plumbing only (`cli/git.ts`). Only plain
-  files are allowed: a symlink or submodule anywhere under `roadmap/`
-  (outside hidden paths) stops the build, as does text that isn't UTF-8 or
-  more than 20,000 files, 1 MiB in one roadmap file or 64 MiB in all. Each
-  blob is checked against its SHA, and a BOM is kept. The bundle holds:
+  (`GITHUB_SHA` in Actions: the action reads the checkout's `HEAD`, which in
+  build mode must be that commit unless the roadmap is another repository's;
+  else HEAD), never from the checkout, with git hardened and plumbing only
+  (`cli/git.ts`). Only plain files are allowed: a symlink or submodule
+  anywhere under `roadmap/` (outside hidden paths) stops the build, as does
+  text that isn't UTF-8 or more than 20,000 files, 1 MiB in one roadmap file
+  or 64 MiB in all. Each blob is checked against its SHA, and a BOM is kept.
+  The bundle holds:
   - `files` (the roadmap files, `model/paths.ts`), their git `blobs`, and
     `ignored` (other files there, which the validator and the app report as
     unexpected);
