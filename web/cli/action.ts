@@ -41,7 +41,7 @@ import type { Bundle } from "../src/model/bundle.ts";
 import { FORMAT } from "../src/model/format.ts";
 import { loadRoadmap, settingsFormat } from "../src/model/parse.ts";
 import { buildReport } from "../src/model/report.ts";
-import { type Env, Runner, codeBlock, getInput } from "./gha.ts";
+import { type Env, Runner, clip, codeBlock, getInput } from "./gha.ts";
 import { RoadmapReadError, listCommitFolder, readCommitFiles, resolveCommit } from "./git.ts";
 import { readReleasesFile, releaseNotices } from "./notices.ts";
 import { COMMIT_SHA, contractNumber, findPins } from "./pins.ts";
@@ -394,14 +394,16 @@ async function steps(runner: Runner, env: Env, o: ActionOptions): Promise<number
   for (const a of notices.annotations) runner.annotate(a.level, a.message, { title: TITLE });
   bundle.notices = notices.notices;
 
+  // Each line clipped (gha.ts): a problem quotes the value, and a name can be long.
   const summary = () => {
     if (!inputs.summary) return runner.summary(`### ${TITLE} ${id.version}\n\n${codeBlock(result)}`);
-    const shown = loaded.issues.slice(0, 100).map((i) => `${inputs.roadmap}/${i.path}${i.line ? `:${i.line}` : ""}: ${i.message}`);
+    const shown = loaded.issues.slice(0, 100).map((i) => clip(`${inputs.roadmap}/${i.path}${i.line ? `:${i.line}` : ""}: ${i.message}`));
     const more = problems > shown.length ? [`…and ${problems - shown.length} more`] : [];
+    const capacity = headlines(buildReport(loaded.roadmap)).split("\n").map((line) => clip(line));
     runner.summary(
       `### ${TITLE} ${id.version}\n\n${codeBlock(result)}` +
         (problems ? `\n**Problems**\n\n${codeBlock([...shown, ...more].join("\n"))}` : "") +
-        `\n**Capacity**\n\n${codeBlock(headlines(buildReport(loaded.roadmap)))}`,
+        `\n**Capacity**\n\n${codeBlock(capacity.join("\n"))}`,
     );
   };
 

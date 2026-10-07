@@ -1209,8 +1209,10 @@ this order, each failure an error annotation with a plain message:
     read-only.
 13. The outputs (`site`, `version`, `build`, `format`, `commit`, `problems`,
     `result`) go to `$GITHUB_OUTPUT` with random heredoc delimiters no value
-    holds as a line, and the result and capacity headlines to the job summary,
-    in code blocks (`cli/gha.ts`: nothing from the roadmap can end an
+    holds as a line, and the result, the first 100 problems and the capacity
+    headlines to the job summary, in code blocks, each line cut at 1,000
+    characters, since a problem quotes its value whole and a step's summary
+    can be 1 MiB at most (`cli/gha.ts`: nothing from the roadmap can end an
     annotation early or start a workflow command, in either form the runner
     reads: `::` at a line's start, or the older `##[` anywhere in it).
 

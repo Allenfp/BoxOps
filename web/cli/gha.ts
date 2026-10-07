@@ -79,9 +79,21 @@ export function outputBlock(name: string, value: string, delimiter = () => `ghad
  * read as Markdown or HTML, whatever the roadmap's names hold.
  */
 export function codeBlock(text: string): string {
-  const longest = Math.max(2, ...[...text.matchAll(/`+/g)].map((m) => m[0].length));
+  // A loop: one value can hold more runs of backticks than a call takes arguments (Math.max(...runs)).
+  let longest = 2;
+  for (const m of text.matchAll(/`+/g)) longest = Math.max(longest, m[0].length);
   const fence = "`".repeat(longest + 1);
   return `${fence}text\n${text}\n${fence}\n`;
+}
+
+/** The most of a line the job summary shows: problems quote values whole, and a step's summary can be 1 MiB at most. */
+export const SUMMARY_LINE = 1000;
+
+/** `line` cut to `max` characters, ending in "…" if it was longer (never half of a character). */
+export function clip(line: string, max = SUMMARY_LINE): string {
+  if (line.length <= max) return line;
+  const cut = line.slice(0, max - 1);
+  return `${/[\uD800-\uDBFF]$/.test(cut) ? cut.slice(0, -1) : cut}…`;
 }
 
 export type Env = Record<string, string | undefined>;

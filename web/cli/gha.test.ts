@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { Runner, annotation, codeBlock, escapeData, escapeProperty, getInput, logLine, outputBlock } from "./gha";
+import { Runner, annotation, clip, codeBlock, escapeData, escapeProperty, getInput, logLine, outputBlock } from "./gha";
 import { runnerCommand } from "./test-release";
 
 const temps: string[] = [];
@@ -82,6 +82,17 @@ describe("escaping", () => {
   it("fences a code block longer than any backticks in it", () => {
     expect(codeBlock("plain")).toBe("```text\nplain\n```\n");
     expect(codeBlock("a ```` b")).toBe("`````text\na ```` b\n`````\n");
+    // More runs of backticks than a call takes arguments, as one value under the 1 MiB a file may be can hold.
+    const many = `${"`a".repeat(200_000)} \`\`\`\`\``;
+    expect(codeBlock(many)).toBe(`\`\`\`\`\`\`text\n${many}\n\`\`\`\`\`\`\n`);
+  });
+
+  it("clips a line of the summary to 1,000 characters, never inside one", () => {
+    expect(clip("short")).toBe("short");
+    expect(clip("x".repeat(1000))).toBe("x".repeat(1000));
+    expect(clip("x".repeat(400_000))).toBe(`${"x".repeat(999)}…`);
+    // An emoji, two UTF-16 code units, where the cut falls: left out whole.
+    expect(clip(`${"x".repeat(998)}😀yz`)).toBe(`${"x".repeat(998)}…`);
   });
 
   it("reads inputs as the runner names them", () => {

@@ -426,6 +426,17 @@ describe("validation and on-problems (step 9)", () => {
     expect([clean.code, clean.outputs.site, clean.outputs.problems]).toEqual([0, undefined, "0"]);
   });
 
+  it("publishes all the same when a value is huge, its line in the summary clipped", async () => {
+    // 200,000 runs of backticks in one value (400 KB, under the 1 MiB a file may be), which its problem quotes whole.
+    const value = "`a".repeat(200_000);
+    const box = SAMPLE["boxes/bx-1a2b-example-project.yaml"].replace("type: project", `type: "${value}"`);
+    const r = await run({ repo: workspace(sampleRepo({ "roadmap/boxes/bx-1a2b-example-project.yaml": box })).repo });
+    expect([r.code, r.outputs.problems, r.outputs.site]).toEqual([0, "1", join(r.env.RUNNER_TEMP, "boxops-site")]);
+    expect(errors(r)).toEqual([`error: type: "${value}" is not defined in settings.yaml [roadmap/boxes/bx-1a2b-example-project.yaml:7]`]);
+    const line = r.summary.split("\n").find((l) => l.startsWith("roadmap/boxes/bx-1a2b-example-project.yaml:7: "));
+    expect([line?.length, line?.endsWith("`a…")]).toEqual([1000, true]);
+  });
+
   it("annotates at most 50 problems; the rest are in the log", async () => {
     const extra = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`roadmap/extra-${String(i).padStart(2, "0")}.txt`, "x\n"]));
     const r = await run({ repo: workspace(sampleRepo(extra)).repo });
