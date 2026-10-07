@@ -19,15 +19,17 @@ as of the release this repository was made with. In short:
 2. **Create this repository** from the template, as **Private**. Its first
    run stops at "GitHub Pages isn't set up": expected, nothing is published.
 3. **Settings → Pages:** Source **GitHub Actions**, Visibility **Private**.
-   Then Actions → Deploy roadmap → **Re-run all jobs**.
-4. **Settings → Rules:** a branch ruleset on `main` that restricts deletions
-   and blocks force pushes (no required pull requests or checks: saves go
-   straight to `main`), and a push ruleset that restricts `.github/**`,
-   `.boxops/**`, `AGENTS.md` and `CLAUDE.md`, with **Repository admin** and
-   **Dependabot** allowed to bypass it.
-5. **Dependabot** brings each BoxOps upgrade as a pull request: check that
-   **Settings → Code security** leaves its version updates on and, with a
-   mirror, give Dependabot access to it (an organization setting).
+   **Settings → Environments → github-pages:** deployments from `main`
+   only. Then Actions → Deploy roadmap → **Re-run all jobs**.
+4. **Settings → Rulesets:** a branch ruleset on `main` that restricts
+   deletions and blocks force pushes (no required pull requests or checks:
+   saves go straight to `main`), and a push ruleset that restricts
+   `.github/**/*`, `.boxops/**/*`, `AGENTS.md` and `CLAUDE.md`, with
+   **Repository admin** and **Dependabot** allowed to bypass it. A new
+   ruleset starts Disabled: make each Active.
+5. **Dependabot** brings each BoxOps upgrade as a pull request, as
+   `.github/dependabot.yml` asks (keep it); with a private mirror of BoxOps,
+   an organization owner gives Dependabot access to the mirror.
 6. **Make it yours:** set `title` in `roadmap/settings.yaml` and replace the
    example department, people and boxes, here or in the app.
 

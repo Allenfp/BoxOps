@@ -137,7 +137,8 @@ them; use it for this and nothing else.
 
    (29790605 is Allenfp's user id: `gh api users/Allenfp --jq .id`.)
 4. **The rulesets `releases` and `tags`**, whose only bypass is "Deploy
-   keys", and no admin bypass. Settings → Rules → Rulesets:
+   keys", and no admin bypass. Settings → Rulesets (Rules → Rulesets in
+   GitHub's older layout):
    - New branch ruleset `releases`: Enforcement Active; Bypass list: Add
      bypass → Deploy keys; Target branches: Include by pattern, `releases`;
      Restrict creations, Restrict updates, Restrict deletions, Require
@@ -397,8 +398,9 @@ a GitHub Enterprise Cloud organization with private Pages:
 - `GET /pages` works with the deploy job's token.
 - A fine-grained token's approval by the organization, and a save with it.
 - A signed-commit ruleset, and a save from the app.
-- The push ruleset (`.github/**`, `.boxops/**`, `AGENTS.md`, `CLAUDE.md`)
-  refuses an editor's workflow and launcher edits, and lets Dependabot push.
+- The push ruleset (`.github/**/*`, `.boxops/**/*`, `AGENTS.md`,
+  `CLAUDE.md`) refuses an editor's workflow and launcher edits, and lets
+  Dependabot push.
 - Reading newer saves by blob SHA, and `?ref=` previews, on the private
   repository.
 - An open tab reloading across the upgrade.
