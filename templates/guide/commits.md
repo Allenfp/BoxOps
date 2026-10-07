@@ -41,7 +41,7 @@ quotes and apostrophes are curly: “ ” ’):
 | Lane renamed | `Renamed lane <old label> to <new label> in <Department>` |
 | Lane dates changed | `Lane <label> in <Department> now runs until 2027-03-31 (was always open)`; the dates read `from <day>`, `until <day>` or `<day> – <day>`; cleared: `… is now always open (was …)`. A new dated lane: `Added lane <label> (1 FTE, from <day>) to <Department>` |
 | Person added, edited or removed | `Added engineer <name>`, `Updated engineer <name>`, `Removed engineer <name>` (a PTO-only change has just its PTO lines; one with no words of its own, like reordered PTO, is `Updated engineer <name>`) |
-| PTO added, changed, removed | `PTO for <name>: <range> (<note>)` (no `(<note>)` without one), `Removed PTO for <name>: <range>`; one entry in place of another (one added and one removed) is `PTO for <name>: <range> (<note>) (was <old range>)`; a single day is just that day |
+| PTO added, changed, removed | `PTO for <name>: <range> (<note>)`, or `PTO for <name>: <range>` without a note; `Removed PTO for <name>: <range>`; one entry in place of another (one added and one removed) is `PTO for <name>: <range> (<note>) (was <old range>)`; a single day is just that day |
 
 For example:
 
