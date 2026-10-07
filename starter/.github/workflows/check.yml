@@ -1,0 +1,29 @@
+# Checks pull requests (hand edits and Dependabot's BoxOps upgrades) with the
+# pinned BoxOps release. Keep its `uses: Allenfp/BoxOps@…` line identical to
+# deploy.yml's; Dependabot updates both in one pull request.
+name: Check roadmap
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: false # checks take ~15 s; a cancelled check shows as a confusing grey mark on upgrade PRs
+
+jobs:
+  check:
+    name: Check roadmap
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Allenfp/BoxOps@<RELEASE_COMMIT_SHA> # v0.1.0
+        with:
+          mode: check

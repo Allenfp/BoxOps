@@ -1,0 +1,170 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { loadRoadmap } from "../src/model/parse";
+import { carried, embedded, starterFiles } from "./embedded";
+import { TOPICS, formatGuide, guideTopic, wholeGuide } from "./guide";
+import { contractNumber, findPins } from "./pins";
+import { AGENTS_BLOCK, GUARD, LAUNCHER } from "./release";
+import { agentsBlock, applySync, launcherText, planSync, withAgentsBlock } from "./sync";
+import { cleanUp, tempDir } from "./test-release";
+
+afterEach(cleanUp);
+
+const BLOCK = agentsBlock().text;
+
+describe("the starter (starter/)", () => {
+  it("has the 13 files of a roadmap repository", () => {
+    expect(Object.keys(starterFiles()).sort()).toEqual([
+      ".boxops/boxops.mjs",
+      ".github/dependabot.yml",
+      ".github/workflows/check.yml",
+      ".github/workflows/deploy.yml",
+      ".gitignore",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "README.md",
+      "roadmap/boxes/bx-1a2b-example-project.yaml",
+      "roadmap/boxes/bx-3c4d-example-maintenance.yaml",
+      "roadmap/departments/engineering.yaml",
+      "roadmap/people.yaml",
+      "roadmap/settings.yaml",
+    ]);
+  });
+
+  it("is what sync writes: its AGENTS.md block, launcher and CLAUDE.md are this release's", () => {
+    const files = starterFiles();
+    expect(withAgentsBlock(files["AGENTS.md"])).toBe(files["AGENTS.md"]);
+    expect(files["AGENTS.md"]).toContain(BLOCK);
+    expect(files[".boxops/boxops.mjs"]).toBe(launcherText());
+    expect(files["CLAUDE.md"]).toBe("@AGENTS.md\n");
+  });
+
+  it("carries this release's contract numbers: launcher, guard, block", () => {
+    const files = starterFiles();
+    expect(contractNumber(files[".boxops/boxops.mjs"], "launcher")).toBe(LAUNCHER);
+    expect(files[".boxops/boxops.mjs"]).toContain(`const LAUNCHER = ${LAUNCHER};`);
+    expect(contractNumber(files[".github/workflows/deploy.yml"], "guard")).toBe(GUARD);
+    expect(contractNumber(files["AGENTS.md"], "block")).toBe(AGENTS_BLOCK);
+  });
+
+  it("pins BoxOps on one line in each workflow, to a placeholder init and publishing fill in", () => {
+    const files = starterFiles();
+    for (const wf of [".github/workflows/deploy.yml", ".github/workflows/check.yml"]) {
+      expect(findPins(files[wf])).toEqual([expect.objectContaining({ repo: "Allenfp/BoxOps", ref: "<RELEASE_COMMIT_SHA>", tag: "v0.1.0", pathB: false })]);
+    }
+  });
+
+  it("has a sample roadmap that validates in this BoxOps's format, on weekdays", () => {
+    const roadmap = Object.fromEntries(
+      Object.entries(starterFiles())
+        .filter(([p]) => p.startsWith("roadmap/"))
+        .map(([p, t]) => [p.slice("roadmap/".length), t]),
+    );
+    const loaded = loadRoadmap(roadmap);
+    expect([loaded.issues, loaded.formatStatus, loaded.roadmap.boxes.length, loaded.roadmap.people.length]).toEqual([[], "current", 2, 2]);
+    expect(loaded.roadmap.boxes.every((b) => b.title.endsWith("(delete me)"))).toBe(true);
+  });
+
+  it("has a launcher that runs: its syntax is Node's", () => {
+    const dir = tempDir();
+    writeFileSync(join(dir, "launcher.mjs"), launcherText());
+    execFileSync(process.execPath, ["--check", join(dir, "launcher.mjs")]);
+  });
+});
+
+describe("guide", () => {
+  it("has every topic, and with no topic all but the file format", () => {
+    for (const t of TOPICS) expect(guideTopic(t).length).toBeGreaterThan(500);
+    const whole = wholeGuide("0.1.0");
+    expect(whole).toMatch(/^BoxOps 0\.1\.0: the guide for this release\. Topics: overview, recipes, commits, format, upgrading/);
+    for (const t of ["overview", "recipes", "commits", "upgrading"] as const) expect(whole).toContain(guideTopic(t).trimEnd());
+    expect(whole).not.toContain("## settings.yaml");
+  });
+
+  it("tells a roadmap repository's reader to use the launcher, never npm or web/", () => {
+    for (const t of TOPICS) expect(guideTopic(t)).not.toMatch(/\bnpm\b|cd web|\bweb\//);
+    expect(guideTopic("format")).toContain("`node .boxops/boxops.mjs validate`");
+    expect(formatGuide("Run `cd web && npm run report` and `npm run validate`.")).toBe("Run `node .boxops/boxops.mjs report` and `node .boxops/boxops.mjs validate`.");
+  });
+
+  it("carries the files it needs, and only plain text", () => {
+    const paths = Object.keys(embedded());
+    expect(paths).toContain("templates/agents-block.md");
+    expect(paths).toContain("docs/data-format.md");
+    expect(carried("starter/CLAUDE.md")).toBe("@AGENTS.md\n");
+    expect(() => carried("web/package.json")).toThrow("BoxOps doesn’t carry web/package.json");
+  });
+});
+
+describe("withAgentsBlock", () => {
+  it("replaces the block between the markers, keeping everything around it", () => {
+    const old = "# Notes\n\nIntro.\n<!-- boxops:begin block=0 — old -->\nold text\n<!-- boxops:end -->\n\n## Team notes\nKeep me.\n";
+    expect(withAgentsBlock(old)).toBe(`# Notes\n\nIntro.\n${BLOCK}\n\n## Team notes\nKeep me.\n`);
+    expect(withAgentsBlock(withAgentsBlock(old))).toBe(withAgentsBlock(old));
+  });
+
+  it("puts it after the first heading of a file without one, or at the top", () => {
+    expect(withAgentsBlock("# Ours\n\nRules.\n")).toBe(`# Ours\n\n${BLOCK}\n\nRules.\n`);
+    expect(withAgentsBlock("Rules.\n")).toBe(`${BLOCK}\n\nRules.\n`);
+  });
+
+  it("keeps CRLF line ends", () => {
+    const old = "# Ours\r\n<!-- boxops:begin block=0 -->\r\nx\r\n<!-- boxops:end -->\r\nNotes\r\n";
+    const out = withAgentsBlock(old);
+    expect(out).toBe(`# Ours\r\n${BLOCK.replace(/\n/g, "\r\n")}\r\nNotes\r\n`);
+    expect(/[^\r]\n/.test(out)).toBe(false);
+  });
+
+  it("refuses one marker without the other", () => {
+    expect(() => withAgentsBlock("<!-- boxops:begin block=1 -->\nno end\n")).toThrow("AGENTS.md has one BoxOps marker without the other");
+    expect(() => withAgentsBlock("<!-- boxops:end -->\n<!-- boxops:begin block=1 -->\n")).toThrow("one BoxOps marker without the other");
+  });
+});
+
+describe("planSync and applySync", () => {
+  it("writes AGENTS.md, the launcher and CLAUDE.md into a bare repository, then has nothing to do", () => {
+    const root = tempDir();
+    const changes = planSync(root);
+    expect(changes.map((c) => [c.path, c.created])).toEqual([
+      ["AGENTS.md", true],
+      [".boxops/boxops.mjs", true],
+      ["CLAUDE.md", true],
+    ]);
+    applySync(root, changes);
+    expect(readFileSync(join(root, "AGENTS.md"), "utf8")).toBe(carried("starter/AGENTS.md"));
+    expect(readFileSync(join(root, ".boxops/boxops.mjs"), "utf8")).toBe(launcherText());
+    expect(planSync(root)).toEqual([]);
+  });
+
+  it("updates an old block and launcher, keeps the team's notes, and never touches CLAUDE.md or the workflows", () => {
+    const root = tempDir();
+    mkdirSync(join(root, ".boxops"));
+    mkdirSync(join(root, ".github/workflows"), { recursive: true });
+    writeFileSync(join(root, "AGENTS.md"), "# Ours\n<!-- boxops:begin block=0 -->\nold\n<!-- boxops:end -->\n## Team notes\nBe kind.\n");
+    writeFileSync(join(root, ".boxops/boxops.mjs"), "// BoxOps launcher (launcher: 0)\n");
+    writeFileSync(join(root, "CLAUDE.md"), "Our own CLAUDE.md\n");
+    writeFileSync(join(root, ".github/workflows/deploy.yml"), "name: Ours\n");
+    const changes = planSync(root);
+    expect(changes.map((c) => [c.path, c.created])).toEqual([
+      ["AGENTS.md", false],
+      [".boxops/boxops.mjs", false],
+    ]);
+    applySync(root, changes);
+    expect(readFileSync(join(root, "AGENTS.md"), "utf8")).toBe(`# Ours\n${BLOCK}\n## Team notes\nBe kind.\n`);
+    expect(readFileSync(join(root, "CLAUDE.md"), "utf8")).toBe("Our own CLAUDE.md\n");
+    expect(readFileSync(join(root, ".github/workflows/deploy.yml"), "utf8")).toBe("name: Ours\n");
+  });
+
+  it("won't write through a symlink", () => {
+    const root = tempDir();
+    const elsewhere = tempDir();
+    writeFileSync(join(elsewhere, "AGENTS.md"), "# x\n");
+    symlinkSync(join(elsewhere, "AGENTS.md"), join(root, "AGENTS.md"));
+    expect(() => planSync(root)).toThrow("AGENTS.md isn’t a plain file (it’s a symlink); sync won’t write through it");
+    const other = tempDir();
+    symlinkSync(elsewhere, join(other, ".boxops"));
+    expect(() => planSync(other)).toThrow(".boxops isn’t a folder; sync won’t write through it");
+  });
+});

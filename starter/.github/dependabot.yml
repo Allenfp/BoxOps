@@ -1,0 +1,16 @@
+# Proposes upgrades of BoxOps and of GitHub's own actions. Read the BoxOps
+# release notes in the pull request: some upgrades ask you to run
+# `node .boxops/boxops.mjs migrate` or `sync` on the PR's branch (README → Upgrading).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 3 # Dependabot's default, stated so nobody raises it; github-actions supports only default-days
+    groups:
+      github-actions:
+        patterns: ["actions/*"] # GitHub's actions in one PR; BoxOps stays in its own PR with its notes
+    commit-message:
+      prefix: "Upgrade"

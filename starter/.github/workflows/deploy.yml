@@ -1,0 +1,106 @@
+# Publishes roadmap/ to GitHub Pages with the BoxOps app.
+# The app is not in this repository: it is the BoxOps release pinned on the
+# `uses: Allenfp/BoxOps@<commit> # vX.Y.Z` line below (keep check.yml's line
+# identical). Dependabot proposes upgrades; nothing else here names a version.
+name: Deploy roadmap
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "roadmap/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+# One deploy at a time, never cancelled mid-deploy (GitHub's Pages guidance).
+# A burst of saves deploys at most twice: the running one, then the newest.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Check and assemble
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 in Oct–Nov 2026
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the roadmap
+    outputs:
+      problems: ${{ steps.boxops.outputs.problems }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Look up BoxOps releases (optional; for update and security notices)
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BOXOPS_UPSTREAM: Allenfp/BoxOps # your mirror, if you use one
+        run: gh api "repos/$BOXOPS_UPSTREAM/releases?per_page=30" --jq '[.[] | {tag_name, name, prerelease}]' > "$RUNNER_TEMP/boxops-releases.json"
+      - id: boxops
+        uses: Allenfp/BoxOps@<RELEASE_COMMIT_SHA> # v0.1.0
+        with:
+          releases-file: ${{ runner.temp }}/boxops-releases.json
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ steps.boxops.outputs.site }}
+
+  deploy:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write # publish the site (also lets the guard read Pages settings)
+      id-token: write # prove to Pages that this run may publish
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check the GitHub Pages settings # boxops-guard: 1
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VISIBILITY: ${{ github.event.repository.visibility }}
+          ALLOW_PUBLIC_SITE: "false" # "true" only to publish a private roadmap publicly on purpose
+        run: |
+          set -euo pipefail
+          err="$RUNNER_TEMP/pages-error.txt"
+          if ! pages=$(gh api "repos/$GITHUB_REPOSITORY/pages" 2>"$err"); then
+            status=$(grep -oE 'HTTP [0-9]{3}' "$err" | tail -n1 | cut -d' ' -f2 || true)
+            case "${status:-none}" in
+              404) echo "::error title=GitHub Pages isn't set up::Settings → Pages → Source: GitHub Actions, then Visibility: Private. Re-run this workflow afterwards. Nothing was published." ;;
+              401|403) echo "::error title=Couldn't read the Pages settings (HTTP $status)::If your organization uses an IP allow list, run this workflow on a runner with an allowed IP address (README → Enterprise). Otherwise check this job still has pages: write. Nothing was published." ;;
+              *) echo "::error title=GitHub API problem (${status:-no response})::Couldn't read the Pages settings: $(head -c 300 "$err" | tr '\n' ' '). Re-run later. Nothing was published." ;;
+            esac
+            exit 1
+          fi
+          build_type=$(jq -r '.build_type // ""' <<<"$pages")
+          public=$(jq -r '.public' <<<"$pages")
+          if [ "$build_type" != "workflow" ]; then
+            echo "::error title=Pages source isn't GitHub Actions::Settings → Pages → Source: GitHub Actions (it is '$build_type'). Nothing was published."
+            exit 1
+          fi
+          if [ "$VISIBILITY" != "public" ] && [ "$public" != "false" ] && [ "$ALLOW_PUBLIC_SITE" != "true" ]; then
+            echo "::error title=Refusing to publish a $VISIBILITY roadmap to a public site::Settings → Pages → Visibility: Private, then re-run. Nothing was published."
+            exit 1
+          fi
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  problems:
+    name: Roadmap problems
+    needs: build
+    if: needs.build.outputs.problems != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - env:
+          N: ${{ needs.build.outputs.problems }}
+        run: |
+          echo "::error title=The roadmap has $N problem(s)::The site was published without the broken entries. See the annotations on 'Check and assemble', fix those files and push."
+          exit 1

@@ -1,0 +1,9 @@
+id: bx-1a2b-example-project
+code: K7P
+title: Example project (delete me)
+lane: eng-1
+start: 2026-11-02
+end: 2026-11-13
+type: project
+engineers:
+  - example-ada

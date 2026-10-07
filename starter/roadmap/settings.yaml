@@ -1,0 +1,22 @@
+# Team settings for this roadmap. Edit here or in the app (gear menu → Team settings).
+format: 1 # BoxOps data format; only `node .boxops/boxops.mjs migrate` changes it
+title: Our roadmap
+fiscal_year_start_month: 1 # 1 = calendar quarters; 2 = FY starts in February, etc.
+default_zoom: months # weeks | months | quarters
+types:
+  - id: project
+    name: Project
+    color: "#4f7cff"
+  - id: maintenance
+    name: Maintenance
+    color: "#8a94a6"
+  - id: support
+    name: Support / On-call
+    color: "#e8913a"
+statuses: # flags for boxes that need attention; most boxes have none
+  - id: at_risk
+    name: At risk
+  - id: late
+    name: Late
+  - id: blocked
+    name: Blocked

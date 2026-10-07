@@ -1,0 +1,8 @@
+# Engineers who can be assigned to boxes. Replace these examples (here or in the app).
+people:
+  - id: example-ada
+    name: Ada Example
+    department: engineering
+  - id: example-ben
+    name: Ben Example
+    department: engineering

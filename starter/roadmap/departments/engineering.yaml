@@ -1,0 +1,10 @@
+id: engineering
+code: ENG
+name: Engineering
+color: "#4f7cff"
+order: 1
+lanes:
+  - id: eng-1
+    fte: 1
+  - id: eng-2
+    fte: 1
