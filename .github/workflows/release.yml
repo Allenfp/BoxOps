@@ -1,0 +1,238 @@
+# Releases BoxOps (docs/releasing.md), run by hand from main with a version:
+# X.Y.Z, or X.Y.Z-rc.N for a release candidate (a prerelease).
+#   preflight  the version, web/package.json and CHANGELOG.md agree; the tag is new
+#   verify     all of CI on this commit (ci.yml), which builds the release
+#              tree, checks it and tests it as built
+#   reproduce  the release tree built again, apart: a fresh install, no cache
+#   publish    once the maintainer approves the `release` environment: the
+#              tested tree, if the rebuild matches it, committed to the
+#              `releases` branch and tagged vX.Y.Z in one push with the
+#              release deploy key; attested (provenance, and an SBOM); and
+#              published as an immutable GitHub release, its notes the
+#              changelog's section. It runs no code from this repository:
+#              only git, curl, jq, tar, gh and GitHub's own actions.
+# It can't run until the repository has its release settings (the `release`
+# environment with the RELEASE_DEPLOY_KEY secret, the rulesets: see
+# docs/releasing.md, "One-off settings").
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "X.Y.Z, or X.Y.Z-rc.N (web/package.json says X.Y.Z, and CHANGELOG.md has its section)"
+        required: true
+        type: string
+
+permissions: {}
+
+# One release at a time, never cancelled midway.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # check out the repo, and look for the tag
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: From main; the version, web/package.json and CHANGELOG.md agree; the tag is new
+        env:
+          V: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error title=Releases come from main::This run is for $GITHUB_REF. Run the workflow from main."
+            exit 1
+          fi
+          if ! [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+            echo "::error title=Not a version::The version given, $V, isn’t X.Y.Z or X.Y.Z-rc.N."
+            exit 1
+          fi
+          base=${V%%-rc.*}
+          pkg=$(jq -r .version web/package.json)
+          if [ "$pkg" != "$base" ]; then
+            echo "::error title=web/package.json says $pkg::Releasing $V needs web/package.json at $base: bump it in the release pull request."
+            exit 1
+          fi
+          node web/scripts/check-changelog.mjs --release "$base" --notes "$RUNNER_TEMP/notes/notes.md"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$V" --silent 2>"$RUNNER_TEMP/tag-error"; then
+            echo "::error title=v$V exists::The tag v$V is there already, and a release is for good: release the next version."
+            exit 1
+          elif ! grep -q 'HTTP 404' "$RUNNER_TEMP/tag-error"; then
+            echo "::error title=Couldn't look for the tag v$V::$(tr '\n' ' ' <"$RUNNER_TEMP/tag-error")"
+            exit 1
+          fi
+          echo "Releasing BoxOps $V from main@${GITHUB_SHA:0:12}."
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes/notes.md
+          if-no-files-found: error
+          retention-days: 7
+
+  verify:
+    name: verify
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+    with:
+      version: ${{ inputs.version }}
+    permissions:
+      contents: read # what ci.yml's jobs ask for
+
+  reproduce:
+    name: reproduce
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the repo
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # No npm cache: an install of its own, from the registry.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Build the release tree again
+        env:
+          V: ${{ inputs.version }}
+        run: npm run release:build -- --version "$V" --no-sbom
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reproduce
+          path: |
+            build/TREE
+            build/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: publish
+    needs: [verify, reproduce]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The maintainer approves this job; the environment holds the release
+    # deploy key and lets only main use it.
+    environment: release
+    permissions:
+      contents: write # make the GitHub release (the commit and tag go with the deploy key)
+      id-token: write # sign the attestations
+      attestations: write # keep them
+    env:
+      V: ${{ inputs.version }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-tree
+          path: built
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: reproduce
+          path: repro
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notes
+          path: notes
+      # git's own id for the tree the tests ran on, made again here from the
+      # downloaded files: the release commit is that tree, byte for byte.
+      - name: The tree to ship is the tested tree, and the rebuild's
+        run: |
+          set -euo pipefail
+          cmp built/TREE repro/TREE
+          cmp built/SHA256SUMS repro/SHA256SUMS
+          (cd built/release && sha256sum --check --quiet --strict ../SHA256SUMS)
+          [ "$(find built/release -type f | wc -l)" -eq "$(wc -l <built/SHA256SUMS)" ]
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_DIR="$RUNNER_TEMP/release.git" GIT_INDEX_FILE="$RUNNER_TEMP/release.index"
+          git init -q --bare "$GIT_DIR"
+          git -C built/release --work-tree=. -c core.autocrlf=false -c core.fileMode=true add --all --force .
+          tree=$(git write-tree)
+          if [ "$tree" != "$(cat built/TREE)" ]; then
+            echo "::error title=Not the tested tree::The downloaded files make tree $tree; the tests ran on $(cat built/TREE)."
+            exit 1
+          fi
+          echo "TREE=$tree" >> "$GITHUB_ENV"
+      - name: Commit the tree to releases and tag it, in one push, with the release deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/release_key"
+          printf '%s\n' "$DEPLOY_KEY" >"$key"
+          trap 'rm -f "$key"' EXIT
+          # github.com's SSH host keys, from its API over HTTPS.
+          curl -fsSL https://api.github.com/meta | jq -r '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts"
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_DIR="$RUNNER_TEMP/release.git"
+          export GIT_AUTHOR_NAME="BoxOps release" GIT_AUTHOR_EMAIL="boxops-release@users.noreply.github.com"
+          export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+          remote="git@github.com:$GITHUB_REPOSITORY.git"
+          message() { printf 'BoxOps %s\n\nSource-Commit: %s\nRun: %s\n' "$V" "$GITHUB_SHA" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; }
+          parent=$(git ls-remote "$remote" refs/heads/releases | cut -f1)
+          if [ -n "$parent" ]; then
+            git fetch -q --depth 1 "$remote" "$parent"
+            commit=$(message | git commit-tree "$TREE" -p "$parent")
+          else
+            commit=$(message | git commit-tree "$TREE") # the first release: releases starts here
+          fi
+          git push --atomic "$remote" "$commit:refs/heads/releases" "$commit:refs/tags/v$V"
+          echo "COMMIT=$commit" >> "$GITHUB_ENV"
+          echo "Pushed $commit to releases, tagged v$V."
+      - name: The release's files
+        run: |
+          set -euo pipefail
+          mkdir assets
+          tar -C built/release --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -czf "assets/boxops-$V.tar.gz" .
+          cp built/release/dist/boxops.mjs built/SHA256SUMS built/sbom.spdx.json assets/
+          # What the provenance attestation vouches for: every file of the
+          # tree (named by its path in it), and the tarball.
+          { cat built/SHA256SUMS; (cd assets && sha256sum "boxops-$V.tar.gz"); } >"$RUNNER_TEMP/subjects"
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: ${{ runner.temp }}/subjects
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: assets/boxops-${{ inputs.version }}.tar.gz
+          sbom-path: assets/sbom.spdx.json
+      # A draft until its files are on it: once published, an immutable
+      # release's files and tag can't change.
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="BoxOps $V"
+          grep -qx -- '- Security: none' notes/notes.md || title="Security: BoxOps $V"
+          {
+            echo "    uses: $GITHUB_REPOSITORY@$COMMIT # v$V"
+            echo
+            echo "The release commit \`$COMMIT\` (branch \`releases\`), built from main at \`$GITHUB_SHA\` by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+            echo "What runs in a roadmap repository's workflow: \`dist/action.mjs\`, \`dist/boxops.mjs\` (unminified) and git. No network, no token, no npm, no build."
+            echo "Check a file came from this workflow: \`gh attestation verify <file> -R $GITHUB_REPOSITORY --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml\`"
+            echo
+            cat notes/notes.md
+          } >"$RUNNER_TEMP/body.md"
+          pre=()
+          if [[ "$V" == *-rc.* ]]; then pre=(--prerelease); fi
+          gh release create "v$V" --verify-tag --draft "${pre[@]}" --title "$title" --notes-file "$RUNNER_TEMP/body.md" assets/*
+          gh release edit "v$V" --draft=false
+          echo "Published $title: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$V"
