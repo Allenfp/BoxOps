@@ -6,9 +6,9 @@ repositories (not for working on BoxOps itself):
 - `agents-block.md`: the managed block `node .boxops/boxops.mjs sync` writes
   into a roadmap repository's `AGENTS.md`, between its `<!-- boxops:begin
   block=N … -->` and `<!-- boxops:end -->` markers. `block` in its front
-  matter is that N; raise it whenever the text changes (and `AGENTS_BLOCK` in
-  `web/cli/release.ts` with it), so the action and `doctor` can tell a copy
-  is old.
+  matter is that N; raise it when the text changes after a release has
+  shipped it (and `AGENTS_BLOCK` in `web/cli/release.ts` with it), so the
+  action, `doctor` and the launcher can tell a copy is old.
 - `guide/*.md`: `node .boxops/boxops.mjs guide [topic]`, the full reference
   for assistants and people editing a roadmap by hand: `overview`, `recipes`,
   `commits` (the commit messages the app writes, which a unit test checks
