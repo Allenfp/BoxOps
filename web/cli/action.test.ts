@@ -195,6 +195,10 @@ describe("platform and inputs (step 1)", () => {
       "error: Unknown option --token for `boxops action` (it takes --mode, --roadmap, --path, --on-problems, --releases-file, --read-only, --repository, --summary, --out)",
     ]);
     expect(errors(await run({ repo, argv: ["--mode"] }))).toEqual(["error: --mode needs a value"]);
+    // `out` isn't an input of action.yml's: only Path B's flag sets it.
+    expect(readInputs({ INPUT_OUT: "/tmp/elsewhere" }, []).out).toBe("");
+    const ignored = await run({ repo, env: { INPUT_OUT: join(tempDir(), "elsewhere") } });
+    expect(ignored.outputs.site).toBe(join(ignored.env.RUNNER_TEMP, "boxops-site"));
   });
 
   it("warns when the workflow uses BoxOps by a tag or branch", async () => {

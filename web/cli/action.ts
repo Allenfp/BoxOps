@@ -89,7 +89,8 @@ const FLAGS: Record<string, keyof Inputs> = {
   "--summary": "summary",
   "--out": "out",
 };
-const INPUT_NAMES: Record<keyof Inputs, string> = {
+/** action.yml's inputs. Not `out`: only Path B chooses where the site goes. */
+const INPUT_NAMES: Record<Exclude<keyof Inputs, "out">, string> = {
   mode: "mode",
   roadmap: "roadmap",
   path: "path",
@@ -98,7 +99,6 @@ const INPUT_NAMES: Record<keyof Inputs, string> = {
   readOnly: "read-only",
   repository: "repository",
   summary: "summary",
-  out: "out",
 };
 
 const oneOf = <T extends string>(name: string, value: string, allowed: readonly T[]): T => {
@@ -106,10 +106,10 @@ const oneOf = <T extends string>(name: string, value: string, allowed: readonly 
   throw new ActionError(`Input ${name} is "${value}"; it must be ${allowed.map((a) => `"${a}"`).join(" or ")}`);
 };
 
-/** The inputs: the runner's INPUT_* variables, or Path B's flags (`--mode check`), with action.yml's defaults. */
+/** The inputs: the runner's INPUT_* variables (action.yml's), or Path B's flags (`--mode check`, and `--out`), with action.yml's defaults. */
 export function readInputs(env: Env, argv: string[]): Inputs {
   const raw: Partial<Record<keyof Inputs, string>> = {};
-  for (const key of Object.keys(INPUT_NAMES) as (keyof Inputs)[]) {
+  for (const key of Object.keys(INPUT_NAMES) as (keyof typeof INPUT_NAMES)[]) {
     const value = getInput(env, INPUT_NAMES[key]);
     if (value !== "") raw[key] = value;
   }
