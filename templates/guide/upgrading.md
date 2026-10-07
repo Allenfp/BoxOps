@@ -26,8 +26,9 @@ Commands for upgrades (a repository admin's, or an assistant's when asked):
   workflow), the launcher, the Pages guard and the AGENTS.md block, the
   workflows' permissions and their runners.
 - `node .boxops/boxops.mjs upgrade [vX.Y.Z]`: moves every pin (and its
-  `# vX.Y.Z` comment) to that release, or the latest, then runs the new
-  release's `migrate --check`, `sync` and `validate`. It commits nothing.
+  `# vX.Y.Z` comment) to that release, or the newest, then runs the new
+  release's `migrate --check`, `sync` and `validate`. It commits nothing,
+  and never moves to a release that was withdrawn.
 - `node .boxops/boxops.mjs migrate [--check]`: brings `roadmap/` to the data
   format this release reads.
 - `node .boxops/boxops.mjs sync [--check]`: rewrites the managed block in
@@ -83,8 +84,9 @@ up BoxOps' releases itself. When a newer release's title starts with
 "Security:", the deploy warns, and the site shows everyone a notice until it's
 upgraded. Upgrade straight away: merge Dependabot's pull request, or run
 `node .boxops/boxops.mjs upgrade` and push the result. A release titled
-"Withdrawn: …" shouldn't be used: a deploy running one says so, and none
-offers one.
+"Withdrawn: …" shouldn't be used: a deploy running one says so, none
+offers one, `upgrade` won't move to one, and a Dependabot pull request
+proposing one shouldn't be merged.
 
 ## Going back
 

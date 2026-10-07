@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Io } from "./context";
+import type { ReleaseEntry } from "./notices";
 import { buildJsonText, type Identity, makeBuildJson } from "./release";
 import type { Entry } from "./test-repo";
 
@@ -56,8 +57,8 @@ export function makeRelease(id: Identity = ID, app: Record<string, string> = APP
   return join(root, "dist");
 }
 
-/** A fake GitHub: tags per repository (tag → commit), and files per commit. Every call is listed in `calls`. */
-export function fakeGitHub(o: { tags?: Record<string, Record<string, string>>; files?: Record<string, Record<string, string | Uint8Array>>; latest?: Record<string, string> }) {
+/** A fake GitHub: tags per repository (tag → commit), releases per repository, and files per commit. Every call is listed in `calls`. */
+export function fakeGitHub(o: { tags?: Record<string, Record<string, string>>; files?: Record<string, Record<string, string | Uint8Array>>; releases?: Record<string, ReleaseEntry[]> }) {
   const calls: string[] = [];
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const fetch = async (input: RequestInfo | URL): Promise<Response> => {
@@ -70,8 +71,14 @@ export function fakeGitHub(o: { tags?: Record<string, Record<string, string>>; f
     }
     m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/git\/matching-refs\/tags\?per_page=100&page=1$/.exec(url);
     if (m) return json(Object.entries(o.tags?.[m[1]] ?? {}).map(([tag, sha]) => ({ ref: `refs/tags/${tag}`, object: { type: "commit", sha } })));
-    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\/latest$/.exec(url);
-    if (m) return o.latest?.[m[1]] ? json({ tag_name: o.latest[m[1]] }) : json({ message: "Not Found" }, 404);
+    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\?per_page=30$/.exec(url);
+    if (m) return json(o.releases?.[m[1]] ?? []);
+    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\/tags\/(.+)$/.exec(url);
+    if (m) {
+      const tag = m[2];
+      const release = o.releases?.[m[1]]?.find((r) => r.tag_name === tag && r.draft !== true);
+      return release ? json(release) : json({ message: "Not Found" }, 404);
+    }
     m = /^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([0-9a-f]{40})\/(.+)$/.exec(url);
     if (m) {
       const file = o.files?.[m[2]]?.[m[3]];

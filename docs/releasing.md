@@ -378,9 +378,15 @@ be used again (GitHub keeps it for immutable releases), and the title below
 needs the release. Instead:
 
 1. Edit its title to `Withdrawn: BoxOps X.Y.Z` (titles stay editable).
-   Every deploy still running it then warns, in its run and in the app.
-2. Release `X.Y.Z+1` with the fix, its notes saying what was wrong.
-3. If it's a security problem, as above.
+   Every deploy still running it then warns, in its run and in the app; no
+   deploy offers it any more, and `upgrade` won't move to it.
+2. Mark the good release before it as the latest (its **Edit** page, "Set
+   as the latest release"; `gh release edit vX.Y.W --latest`), so GitHub's
+   "latest" (the releases page, and CI's weekly test of the latest release)
+   isn't the withdrawn one until the fix is out.
+3. Release `X.Y.Z+1` with the fix, its notes saying what was wrong; it
+   becomes the latest.
+4. If it's a security problem, as above.
 
 Never delete a tag or force `releases` back: the rulesets refuse it, and
 roadmap repositories pin the commit.

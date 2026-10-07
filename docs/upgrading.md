@@ -82,11 +82,12 @@ release, and propose one once it's been out 3 days (its cooldown):
 ## By hand: `upgrade`
 
 `node .boxops/boxops.mjs upgrade [vX.Y.Z]` moves every pin (and its
-comment) to that release, or to the latest when none is given; downloads
-the new release's tool, checked against its `BUILD.json`; then runs the new
-release's `migrate --check`, `sync` and `validate`, which warns of what
-`sync` doesn't change, such as a new Pages guard (`doctor` shows the
-change). It commits nothing. On a branch:
+comment) to that release, or to the newest when none is given (never one
+that was withdrawn, nor a release candidate); downloads the new release's
+tool, checked against its `BUILD.json`; then runs the new release's
+`migrate --check`, `sync` and `validate`, which warns of what `sync`
+doesn't change, such as a new Pages guard (`doctor` shows the change). It
+commits nothing. On a branch:
 
 ```sh
 git switch -c upgrade-boxops
@@ -158,7 +159,9 @@ can't change, and your pin names its commit): its title starts "Withdrawn:",
 each deploy still running it warns, and the site says "This site runs
 BoxOps v0.1.0, which was withdrawn. Ask a repository admin to upgrade it."
 Upgrade to the release that fixes it. No deploy offers a withdrawn release,
-though it may be the newest until that one's out.
+though it may be the newest until that one's out, and `upgrade` won't move
+to one. Dependabot doesn't read titles, so it may still propose one: don't
+merge that pull request.
 
 With a mirror, keep `BOXOPS_UPSTREAM` (in `deploy.yml`'s lookup step) on
 `Allenfp/BoxOps` if your runners can reach github.com: the notices come

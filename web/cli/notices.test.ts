@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { compareVersions, parseVersion, readReleasesFile, releaseNotices } from "./notices";
+import { compareVersions, newestRelease, parseVersion, readReleasesFile, releaseNotices } from "./notices";
 import { cleanUp, tempDir } from "./test-release";
 
 afterEach(cleanUp);
@@ -93,6 +93,24 @@ describe("releaseNotices", () => {
     expect(releaseNotices("0.1.0-next", [rel("v9.0.0", "Security: x")])).toEqual({ notices: [], annotations: [] });
     // A release without a title (name: null) still counts.
     expect(releaseNotices("0.1.0", [rel("v0.1.1", null)]).notices).toEqual([{ level: "info", text: "BoxOps v0.1.1 is available; this site runs v0.1.0." }]);
+  });
+});
+
+describe("newestRelease", () => {
+  it("is the newest vX.Y.Z, by version, that isn't a release candidate, a draft or withdrawn: what upgrade moves to", () => {
+    const list = [
+      rel("v0.1.9"),
+      rel("v0.1.10"),
+      rel("v0.2.0-rc.1"),
+      { ...rel("v0.3.0"), draft: true },
+      rel("v0.2.0", "Withdrawn: BoxOps 0.2.0"),
+      rel("v1.0.0", "BoxOps 1.0.0", true),
+      rel("0.9.0"),
+      rel("v0.4.0-beta"),
+    ];
+    expect(newestRelease(list)).toBe("v0.1.10");
+    expect(newestRelease([rel("v0.2.0", null), rel("v0.1.0")])).toBe("v0.2.0");
+    for (const none of [[], [rel("v0.2.0", "Withdrawn: x")], { message: "Not Found" }, null]) expect(newestRelease(none)).toBeUndefined();
   });
 });
 

@@ -1,5 +1,6 @@
 // `upgrade [vX.Y.Z]`: moves a roadmap repository to another BoxOps release.
-// Resolves the tag (default: the latest release) to its commit, fetches that
+// Resolves the tag (default: the newest release that wasn't withdrawn; a
+// withdrawn one is refused by name too) to its commit, fetches that
 // release's tool (checked against its BUILD.json) into the launcher's cache,
 // rewrites every BoxOps pin in the workflows (and its `# vX.Y.Z` comment),
 // then runs the NEW release's `migrate --check`, `sync` and `validate`.
@@ -11,7 +12,8 @@ import { pathToFileURL } from "node:url";
 import { cachedTool, keepTool, releaseCache } from "./cache.ts";
 import { EXIT, type Io, type LaunchContext, UsageError } from "./context.ts";
 import { allPins, workflowFiles } from "./doctor.ts";
-import { fileAt, gitHub, latestTag, tagCommit } from "./github.ts";
+import { fileAt, gitHub, releaseOfTag, releases, tagCommit } from "./github.ts";
+import { isWithdrawn, newestRelease } from "./notices.ts";
 import { rewritePins } from "./pins.ts";
 import { type BuildJson, digest, parseBuildJson } from "./release.ts";
 
@@ -58,7 +60,18 @@ export async function upgradeCommand(root: string, wanted: string | undefined, c
   if (wanted !== undefined && !/^v\d+\.\d+\.\d+(-rc\.\d+)?$/.test(wanted)) throw new UsageError(`"${wanted}" isn’t a release tag: give one like v0.2.0`);
 
   const gh = gitHub(io.env, io.fetch);
-  const tag = wanted ?? (await latestTag(gh, repo));
+  const tag = wanted ?? newestRelease(await releases(gh, repo));
+  if (tag === undefined) {
+    throw new UsageError(
+      `${repo} has no release to move to (a vX.Y.Z, not a release candidate, a draft or withdrawn, among its newest; a mirror of BoxOps’ commits has none): give the tag, as in upgrade v0.2.0`,
+    );
+  }
+  if (wanted !== undefined) {
+    const release = (await releaseOfTag(gh, repo, wanted)) as { name?: unknown } | null;
+    if (release && isWithdrawn(release)) {
+      throw new UsageError(`${wanted} of ${repo} was withdrawn (“${String(release.name).trim()}”): give another release, or none for the newest that wasn’t`);
+    }
+  }
   const sha = await tagCommit(gh, repo, tag);
   if (pins.every((p) => p.ref === sha && p.tag === tag)) {
     io.out(`Already on ${repo}@${sha.slice(0, 12)} (${tag}).`);

@@ -132,7 +132,17 @@ export async function tags(gh: GitHub, repo: string): Promise<{ tag: string; com
   return out;
 }
 
-/** The latest release's tag (GitHub's "latest": not a pre-release or a draft). */
-export async function latestTag(gh: GitHub, repo: string): Promise<string> {
-  return String(((await api(gh, `repos/${repo}/releases/latest`)) as { tag_name?: unknown }).tag_name ?? "");
+/** `repo`'s 30 newest releases, as the API lists them (its drafts too, to those who may see them). */
+export async function releases(gh: GitHub, repo: string): Promise<unknown> {
+  return api(gh, `repos/${repo}/releases?per_page=30`);
+}
+
+/** The release of `tag` in `repo`, as the API gives it; null if the tag has none (a mirror's tags have none). */
+export async function releaseOfTag(gh: GitHub, repo: string, tag: string): Promise<unknown> {
+  try {
+    return await api(gh, `repos/${repo}/releases/tags/${tag}`);
+  } catch (e) {
+    if (e instanceof GitHubError && e.status === 404) return null;
+    throw e;
+  }
 }

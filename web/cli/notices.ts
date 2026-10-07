@@ -63,6 +63,22 @@ const title = (r: ReleaseEntry) => (r.name ?? "").trim();
 export const isWithdrawn = (r: { name?: unknown }): boolean => typeof r.name === "string" && /^withdrawn:/i.test(r.name.trim());
 
 /**
+ * The tag of the newest release (by version) in a list of them as GitHub's
+ * API gives it, to move to when none is named: a vX.Y.Z that isn't a release
+ * candidate, a draft or withdrawn. Not GitHub's "latest", which a withdrawn
+ * release stays until another is published. Undefined if there's none.
+ */
+export function newestRelease(releases: unknown): string | undefined {
+  if (!Array.isArray(releases)) return undefined;
+  return releases
+    .filter(isEntry)
+    .filter((r) => r.draft !== true && !r.prerelease && !isWithdrawn(r))
+    .map((r) => ({ tag: r.tag_name, v: parseVersion(r.tag_name) }))
+    .filter((x): x is { tag: string; v: Version } => x.v !== null && x.v[3] === null && x.tag.startsWith("v"))
+    .sort((a, b) => compareVersions(b.v, a.v))[0]?.tag;
+}
+
+/**
  * The notices for a site running BoxOps `own` (its version, "0.1.0"), given
  * the releases list (anything that isn't one is ignored). Only tags vX.Y.Z
  * count, not drafts, and release candidates (vX.Y.Z-rc.N, marked

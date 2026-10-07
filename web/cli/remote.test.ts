@@ -30,6 +30,9 @@ afterEach(() => {
 const A = "a".repeat(40);
 const B = "b".repeat(40);
 
+/** A release as GitHub's API lists it. */
+const rel = (tag_name: string, name: string | null = `BoxOps ${tag_name.slice(1)}`, prerelease = false) => ({ tag_name, name, prerelease });
+
 /** A roadmap repository made from the starter, pinned to `repo@sha # tag`, checked out. */
 function adopter(sha: string, tag = "v0.1.0", o: { crlf?: boolean; pathB?: boolean } = {}): TestRepo {
   const files: Record<string, string> = { ...starterFiles() };
@@ -143,7 +146,7 @@ describe("upgrade", () => {
     const repo = adopter(A, "v0.1.0", { crlf: true, pathB: true });
     const head = repo.git(["rev-parse", "HEAD"]);
     const log = join(tempDir(), "calls.jsonl");
-    const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.1.0": A, "v0.2.0": B } }, latest: { "Allenfp/BoxOps": "v0.2.0" }, files: { [B]: newRelease(log) } });
+    const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.1.0": A, "v0.2.0": B } }, releases: { "Allenfp/BoxOps": [rel("v0.2.0"), rel("v0.1.0")] }, files: { [B]: newRelease(log) } });
     const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
     // As launcher 1 runs it: with its number, and its word that it checked the BoxOps files (against the old release).
     expect(await main(["upgrade"], { root: repo.dir, repo: "Allenfp/BoxOps", sha: A, tag: "v0.1.0", launcher: 1, checked: true }, io)).toBe(0);
@@ -171,6 +174,42 @@ describe("upgrade", () => {
     const again = capture({ fetch: gh.fetch, cwd: repo.dir, env: io.env });
     expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, again)).toBe(0);
     expect(again.stdout).toEqual([`Already on Allenfp/BoxOps@${B.slice(0, 12)} (v0.2.0).`]);
+  });
+
+  it("moves to the newest release that wasn't withdrawn (nor a draft or release candidate), and refuses a withdrawn one by name", async () => {
+    const C = "c".repeat(40);
+    const list = [
+      { ...rel("v0.3.0"), draft: true },
+      rel("v0.3.0-rc.1", "BoxOps 0.3.0-rc.1", true),
+      rel("v0.2.1", "Withdrawn: BoxOps 0.2.1"),
+      rel("v0.2.0"),
+      rel("v0.1.0"),
+    ];
+    const gh = fakeGitHub({
+      tags: { "Allenfp/BoxOps": { "v0.1.0": A, "v0.2.0": B, "v0.2.1": C } },
+      releases: { "Allenfp/BoxOps": list },
+      files: { [B]: newRelease(join(tempDir(), "calls.jsonl")), [C]: newRelease(join(tempDir(), "never.jsonl")) },
+    });
+    const repo = adopter(A);
+    const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
+    expect(await main(["upgrade"], { root: repo.dir }, io)).toBe(0);
+    expect(io.stdout[0]).toBe(`Moved the BoxOps pins in .github/workflows/check.yml, .github/workflows/deploy.yml from v0.1.0 to v0.2.0 (Allenfp/BoxOps@${B.slice(0, 12)}).`);
+    // By name: refused, before anything is fetched or changed.
+    const other = adopter(A);
+    const named = capture({ fetch: gh.fetch, cwd: other.dir, env: { BOXOPS_CACHE: tempDir() } });
+    const before = gh.calls.length;
+    expect(await main(["upgrade", "v0.2.1"], { root: other.dir }, named)).toBe(2);
+    expect(named.stderr).toEqual(["boxops upgrade: v0.2.1 of Allenfp/BoxOps was withdrawn (“Withdrawn: BoxOps 0.2.1”): give another release, or none for the newest that wasn’t"]);
+    expect(gh.calls.slice(before)).toEqual(["https://api.github.com/repos/Allenfp/BoxOps/releases/tags/v0.2.1"]);
+    expect(other.git(["status", "--porcelain"])).toBe("");
+    // A repository with no release to move to (a mirror of the commits alone): give the tag.
+    const mirror = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: newRelease(join(tempDir(), "x")) } });
+    const bare = capture({ fetch: mirror.fetch, cwd: other.dir, env: { BOXOPS_CACHE: tempDir() } });
+    expect(await main(["upgrade"], { root: other.dir }, bare)).toBe(2);
+    expect(bare.stderr).toEqual([
+      "boxops upgrade: Allenfp/BoxOps has no release to move to (a vX.Y.Z, not a release candidate, a draft or withdrawn, among its newest; a mirror of BoxOps’ commits has none): give the tag, as in upgrade v0.2.0",
+    ]);
+    expect(await main(["upgrade", "v0.2.0"], { root: other.dir }, bare)).toBe(0);
   });
 
   it("lets the new release's validate warn of the files its sync didn't make its own, such as the Pages guard", async () => {
@@ -245,8 +284,8 @@ describe("upgrade", () => {
       expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, io)).toBe(2);
       expect([cache, io.stderr]).toEqual([cache, ["boxops upgrade: BOXOPS_CACHE must be outside this repository"]]);
     }
-    // The tag looked up, nothing downloaded, and nothing made in the repository.
-    expect(gh.calls.filter((url) => !url.endsWith("/git/ref/tags/v0.2.0"))).toEqual([]);
+    // The tag and its release looked up, nothing downloaded, and nothing made in the repository.
+    expect(gh.calls.filter((url) => !/\/(git\/ref|releases)\/tags\/v0\.2\.0$/.test(url))).toEqual([]);
     expect(repo.git(["status", "--porcelain", "--ignored"])).toBe("");
   });
 });
