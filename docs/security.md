@@ -253,7 +253,9 @@ free of workflows that restore caches. The starter's use none.
    and the release's own tool, run directly: download the `boxops.mjs` of
    the release your workflows pin, check it
    ([Checking a release](#checking-a-release)), and run
-   `node <that file> sync --check` in the repository.
+   `node <that file> sync --check` in the repository; then
+   `node <that file> sync` puts the release's text back, again without
+   running the repository's launcher.
 5. **Sites that share an origin.** Every public Pages site of one account,
    `<owner>.github.io/<repository>/`, is on the same origin, so their pages
    share browser storage: the scripts of any of them can read another's
