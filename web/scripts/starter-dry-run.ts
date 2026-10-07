@@ -1,11 +1,14 @@
 // `npm run dry-run:starter`: a roadmap repository made from the starter, end
 // to end on this machine and without the network, against a release built
-// from this checkout (the npm script builds the app and the tool first):
+// from this checkout (the npm script builds the app and the tool first), or
+// the release tree in $BOXOPS_RELEASE_DIR (npm run release:build's, relative
+// to web/), as CI runs it:
 //
-//   1. The release: web/dist laid out as a release commit is (action.yml,
-//      BUILD.json, dist/boxops.mjs, dist/action.mjs, dist/app/**, each file
-//      checked against BUILD.json), committed to the `releases` branch of a
-//      stand-in for github.com, which git is told to fetch from.
+//   1. The release: that release tree, or web/dist laid out as a release
+//      commit is (action.yml, BUILD.json, dist/boxops.mjs, dist/action.mjs,
+//      dist/app/**), each file checked against BUILD.json, committed to the
+//      `releases` branch of a stand-in for github.com, which git is told to
+//      fetch from.
 //   2. The starter, written by the release's own `init` (its two calls to
 //      GitHub answered from the stand-in) and the same as cli/starter.ts
 //      makes it; then `git init` and a first commit.
@@ -45,6 +48,8 @@ import { renderStarter } from "../cli/starter.ts";
 const WEB = fileURLToPath(new URL("..", import.meta.url));
 const REPO = resolve(WEB, "..");
 const DIST = join(WEB, "dist");
+/** A release tree to use in place of web/dist laid out as one. */
+const RELEASE_DIR = process.env.BOXOPS_RELEASE_DIR ? resolve(WEB, process.env.BOXOPS_RELEASE_DIR) : null;
 const UPSTREAM = "Allenfp/BoxOps";
 
 /** Cuts a Node process off the network, noting each try in $DRY_RUN_NET_LOG; fetch answers from $DRY_RUN_GITHUB (URL → file), if set. */
@@ -189,21 +194,28 @@ async function main(): Promise<number> {
   const servers: Server[] = [];
 
   try {
-    const release = join(work, "release");
+    const release = RELEASE_DIR ?? join(work, "release");
     let build: BuildJson | undefined;
     let sha = "";
     const tag = () => `v${build?.version}`;
 
-    await step("The release: web/dist laid out as a release commit, every file as BUILD.json says", () => {
-      build = parseBuildJson(readFileSync(join(DIST, "BUILD.json"), "utf8"));
-      for (const [path, want] of Object.entries(build.files)) {
-        const to = join(release, path);
-        mkdirSync(dirname(to), { recursive: true });
-        copyFileSync(join(DIST, path.slice("dist/".length)), to);
-        check(digest(readFileSync(to)) === want, `${path} isn't the file BUILD.json describes: run npm run build and npm run build:cli again`);
+    const what = RELEASE_DIR ? `the release tree in ${relative(process.cwd(), RELEASE_DIR) || "."}` : "web/dist laid out as a release commit";
+    await step(`The release: ${what}, every file as BUILD.json says`, () => {
+      if (RELEASE_DIR) {
+        build = parseBuildJson(readFileSync(join(release, "BUILD.json"), "utf8"));
+        for (const [path, want] of Object.entries(build.files)) check(digest(readFileSync(join(release, path))) === want, `${path} isn't the file BUILD.json describes`);
+        same(walk(release).filter((p) => p !== "BUILD.json").sort(), Object.keys(build.files).sort(), "the release's files");
+      } else {
+        build = parseBuildJson(readFileSync(join(DIST, "BUILD.json"), "utf8"));
+        for (const [path, want] of Object.entries(build.files)) {
+          const to = join(release, path);
+          mkdirSync(dirname(to), { recursive: true });
+          copyFileSync(join(DIST, path.slice("dist/".length)), to);
+          check(digest(readFileSync(to)) === want, `${path} isn't the file BUILD.json describes: run npm run build and npm run build:cli again`);
+        }
+        copyFileSync(join(DIST, "BUILD.json"), join(release, "BUILD.json"));
+        copyFileSync(join(REPO, "release", "action.yml"), join(release, "action.yml"));
       }
-      copyFileSync(join(DIST, "BUILD.json"), join(release, "BUILD.json"));
-      copyFileSync(join(REPO, "release", "action.yml"), join(release, "action.yml"));
       check(readFileSync(join(release, "dist", "app", "index.html"), "utf8").includes(`<meta name="boxops-build" content="${build.build}"`), "dist/app is another build than BUILD.json's");
       const app = walk(join(release, "dist", "app")).map((p) => `dist/app/${p}`);
       same(app, Object.keys(build.files).filter((p) => p.startsWith("dist/app/")), "the app's files");
@@ -427,7 +439,7 @@ async function main(): Promise<number> {
       same(readFileSync(netLog, "utf8").split("\n").filter(Boolean), [], "network tries");
       same(readFileSync(githubLog, "utf8").split("\n").filter(Boolean), [`https://api.github.com/repos/${UPSTREAM}/git/ref/tags/${tag()}`, `https://raw.githubusercontent.com/${UPSTREAM}/${sha}/BUILD.json`], "init's calls");
     });
-    console.log(`\nThe starter's dry run passed: BoxOps ${build?.build} (${relative(REPO, DIST)}), release commit ${sha.slice(0, 12)}.`);
+    console.log(`\nThe starter's dry run passed: BoxOps ${build?.build} (${relative(REPO, RELEASE_DIR ?? DIST)}), release commit ${sha.slice(0, 12)}.`);
   } catch (e) {
     failed = true;
     console.log("FAILED");
