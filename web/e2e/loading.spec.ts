@@ -265,6 +265,7 @@ test("a copy built from files on disk shows a saved file within a second, and no
   expect(await looseBannerText(page)).toEqual([]);
   // Unchanged files on the next look: nothing redrawn, still nothing asked of GitHub.
   await page.clock.runFor(1000);
+  await page.waitForTimeout(300); // time for the look to land, and a call to GitHub that shouldn't come
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
   expect(github.calls()).toBe(calls);
 });
@@ -285,6 +286,7 @@ test("a copy built from files on disk and hosted as files looks once, then stops
   github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v3", "Revenue mart v4") });
   github.deploy();
   await page.clock.runFor(10_000);
+  await page.waitForTimeout(300); // time for a look that shouldn't come
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
   expect(github.siteFetches).toBe(fetches + 1);
 });
