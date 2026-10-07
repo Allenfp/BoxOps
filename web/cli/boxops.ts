@@ -8,7 +8,7 @@
 // and preview the first time it needs the app's files. The `action` command is
 // the GitHub Action's entry (action.ts), for Path B; it isn't for people.
 
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatDay } from "../src/model/dates.ts";
@@ -27,7 +27,7 @@ import { previewCommand } from "./preview.ts";
 import { AGENTS_BLOCK, GUARD, LAUNCHER, openRelease, verifiedApp, writeSite } from "./release.ts";
 import { issueLine, loadDir, resultLine } from "./roadmap.ts";
 import { buildBundle, findRepo } from "./site.ts";
-import { applySync, planSync } from "./sync.ts";
+import { applySync, planSync, plainText } from "./sync.ts";
 import { upgradeCommand } from "./upgrade.ts";
 
 export { runAction };
@@ -171,17 +171,12 @@ async function build(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
 /**
  * Warnings, on the commands that warn (WARNING_COMMANDS), when the
  * repository's BoxOps files aren't this release's: here unless the launcher
- * has given them (`ctx.checked`).
+ * has given them (`ctx.checked`). Plain files only: none is read through a
+ * symlink.
  */
 function staleWarnings(root: string, ctx: LaunchContext, io: Io): void {
   if (ctx.checked) return;
-  const read = (path: string) => {
-    try {
-      return readFileSync(join(root, path), "utf8");
-    } catch {
-      return undefined;
-    }
-  };
+  const read = (path: string) => plainText(join(root, path));
   const fix = "run `node .boxops/boxops.mjs sync`";
   const launcher = ctx.launcher ?? contractNumber(read(".boxops/boxops.mjs") ?? "", "launcher");
   if (launcher !== null && launcher !== LAUNCHER) io.err(`boxops: the launcher is ${launcher}; this BoxOps writes ${LAUNCHER}: ${fix}`);

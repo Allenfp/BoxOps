@@ -57,6 +57,19 @@ export interface SyncChange {
   created: boolean;
 }
 
+/**
+ * A file's text if it's a plain file; undefined if it's missing, or a
+ * symlink, folder, device or pipe. For the BoxOps files the tool only reads
+ * for their numbers: a read through a symlink to /dev/zero, say, never ends.
+ */
+export function plainText(file: string): string | undefined {
+  try {
+    return lstatSync(file).isFile() ? readFileSync(file, "utf8") : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** A file's text, or undefined if there's none; refuses one that isn't a plain file (sync follows no symlink). */
 function readPlain(file: string, path: string): string | undefined {
   const st = lstatSync(file, { throwIfNoEntry: false });

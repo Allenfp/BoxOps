@@ -5,8 +5,8 @@
 // loaded with --import), every call noted; `gh` is a stand-in, so no test can
 // read a real token.
 
-import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -92,6 +92,8 @@ interface LaunchOptions {
   ghToken?: string;
   /** Node's options, after the --import of the stand-in fetch. */
   nodeArgs?: string[];
+  /** Milliseconds before the launcher is stopped (exit code null): for a run that could hang. */
+  timeout?: number;
 }
 
 /** Runs the launcher in `root` with Node. */
@@ -117,7 +119,7 @@ function launch(root: string, args: string[], o: LaunchOptions = {}): Launched {
     ...o.env,
   };
   const node = ["--import", pathToFileURL(join(dir, "fetch.mjs")).href, ...(o.nodeArgs ?? [])];
-  const r = spawnSync(process.execPath, [...node, join(root, ".boxops", "boxops.mjs"), ...args], { encoding: "utf8", env });
+  const r = spawnSync(process.execPath, [...node, join(root, ".boxops", "boxops.mjs"), ...args], { encoding: "utf8", env, timeout: o.timeout });
   const stdout = r.stdout.trim();
   const calls = readFileSync(join(dir, "calls.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as Call);
   let ran: Launched["ran"];
@@ -334,6 +336,28 @@ describe("the launcher's warnings", () => {
     // The release's own numbers: nothing to say. No block in AGENTS.md: nothing either.
     expect(launch(root, ["validate"], { env: { BOXOPS_CLI: releaseTool() } }).stderr).toBe("");
     expect(launch(launcherRepo(DEPLOY(), { "AGENTS.md": "# Ours\n" }), ["validate"], { env: { BOXOPS_CLI: releaseTool(TOOL, buildJson(TOOL, { agentsBlock: 3 })) } }).stderr).toBe("");
+  });
+
+  it("reads AGENTS.md only as a plain file, never through a symlink: to /dev/zero, say, a read would never end", () => {
+    // A block of the wrong number elsewhere, and a pipe no one writes to, as never-ending as /dev/zero.
+    const block = join(tempDir(), "AGENTS.md");
+    writeFileSync(block, "<!-- boxops:begin block=1 -->\n<!-- boxops:end -->\n");
+    const pipe = join(tempDir(), "pipe");
+    execFileSync("mkfifo", [pipe]);
+    for (const target of [block, pipe]) {
+      const root = launcherRepo();
+      symlinkSync(target, join(root, "AGENTS.md"));
+      const r = launch(root, ["validate"], { env: { BOXOPS_CLI: releaseTool(TOOL, old) }, timeout: 20_000 });
+      expect([target, r.code, r.ran?.ctx.checked, r.stderr.split("\n")]).toEqual([
+        target,
+        0,
+        true,
+        [
+          "boxops: the launcher is 1; this BoxOps writes 2: run `node .boxops/boxops.mjs sync`",
+          "boxops: the Pages guard in deploy.yml is 1; this BoxOps expects 4: run `node .boxops/boxops.mjs doctor`",
+        ],
+      ]);
+    }
   });
 });
 

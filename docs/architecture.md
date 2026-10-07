@@ -1059,7 +1059,8 @@ the network (read-only; a token from `GH_TOKEN`, `GITHUB_TOKEN` or
 `migrate`, `upgrade` and `guide` (`WARNING_COMMANDS`; not `sync`, `doctor`,
 `init`, `version` or `help`) warn when the repository's launcher,
 `AGENTS.md` block or Pages guard isn't this release's, unless the launcher
-has (below).
+has (below). They, and `doctor`, read those files only when they're plain
+files, never through a symlink (to `/dev/zero`, say, whose read never ends).
 
 **The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
 `path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;
@@ -1149,9 +1150,9 @@ restarts Node with `NODE_USE_ENV_PROXY=1`, without which Node's `fetch`
 ignores the proxy (Node.js 22.21+ or 24+ honours it), keeping the options
 Node was started with (`--use-system-ca`, for a proxy that re-signs TLS).
 It stops if the release needs a newer Node.js. On the commands the tool
-warns on, it gives the tool's warnings (when it, `AGENTS.md`'s block or
-`deploy.yml`'s Pages guard isn't what the `BUILD.json` names) and tells the
-tool it has. It calls the tool's
+warns on, it gives the tool's warnings (when it, `AGENTS.md`'s block, read
+only from a plain file, or `deploy.yml`'s Pages guard isn't what the
+`BUILD.json` names) and tells the tool it has. It calls the tool's
 `main(argv, { root, repo, sha, tag, launcher, checked })`, a contract that
 stays the same across 0.x.
 

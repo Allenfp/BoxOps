@@ -12,7 +12,7 @@
 // repository>, GH_TOKEN (private mirrors; else `gh auth token`), HTTPS_PROXY (a proxy).
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -43,6 +43,15 @@ const inRepo = (path) => path === root || path.startsWith(root + sep);
 const read = (file) => {
   try {
     return readFileSync(file, "utf8");
+  } catch {
+    return undefined;
+  }
+};
+// A plain file's text, else undefined: none is read through a symlink, nor a device or pipe (a read
+// of /dev/zero never ends). For AGENTS.md: without a push rule, anyone who saves can change it.
+const plain = (file) => {
+  try {
+    return lstatSync(file).isFile() ? readFileSync(file, "utf8") : undefined;
   } catch {
     return undefined;
   }
@@ -218,7 +227,7 @@ function warn(build) {
     if (n !== null && Number.isInteger(want) && n !== want) console.error(`boxops: ${what} is ${n}; this BoxOps ${verb} ${want}: run \`node .boxops/boxops.mjs ${fix}\``);
   };
   say("the launcher", LAUNCHER, build.launcher, "writes", "sync");
-  say("AGENTS.md’s BoxOps block", number(read(join(root, "AGENTS.md")), /<!--\s*boxops:begin block=(\d+)/), build.agentsBlock, "writes", "sync");
+  say("AGENTS.md’s BoxOps block", number(plain(join(root, "AGENTS.md")), /<!--\s*boxops:begin block=(\d+)/), build.agentsBlock, "writes", "sync");
   say("the Pages guard in deploy.yml", number(workflow, /#\s*boxops-guard:\s*(\d+)/), build.guard, "expects", "doctor");
   return true;
 }

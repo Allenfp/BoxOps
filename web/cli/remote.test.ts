@@ -2,7 +2,7 @@
 // fake GitHub (a `fetch` that answers from a table). The launcher has its own
 // tests (launcher.test.ts).
 
-import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -226,6 +226,15 @@ describe("doctor", () => {
     await doctorCommand(repo.dir, {}, io2, { attest: () => ({ ok: false, output: "no attestations found" }), cliFile: join(io2.cliDir, "boxops.mjs") });
     expect(io2.stdout).toContain(`  problem  ${A.slice(0, 12)} isn’t the commit of any tag in Allenfp/BoxOps: it may be a fork’s commit seen through Allenfp/BoxOps. Pin a release (\`node .boxops/boxops.mjs upgrade\`)`);
     expect(io2.stdout).toContain("  problem  Attestation: gh attestation verify failed for " + join(io2.cliDir, "boxops.mjs"));
+
+    // AGENTS.md is read only as a plain file, never through a symlink (to /dev/zero, say, a read would never end).
+    const elsewhere = join(tempDir(), "AGENTS.md");
+    writeFileSync(elsewhere, "<!-- boxops:begin block=1 -->\n<!-- boxops:end -->\n");
+    rmSync(join(repo.dir, "AGENTS.md"));
+    symlinkSync(elsewhere, join(repo.dir, "AGENTS.md"));
+    const io3 = capture({ fetch: tagged.fetch });
+    await doctorCommand(repo.dir, {}, io3, { attest: () => null, cliFile: join(io3.cliDir, "boxops.mjs") });
+    expect(io3.stdout).toContain("  warning  AGENTS.md’s BoxOps block: not found (run `node .boxops/boxops.mjs sync`)");
   });
 
   it("offline, says it couldn't ask GitHub, and checks the rest", async () => {

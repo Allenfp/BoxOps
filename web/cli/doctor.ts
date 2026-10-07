@@ -13,6 +13,7 @@ import { GitHubError, gitHub, tags } from "./github.ts";
 import { COMMIT_SHA, contractNumber, findPins, type Pin } from "./pins.ts";
 import { AGENTS_BLOCK, GUARD, LAUNCHER, UPSTREAM } from "./release.ts";
 import { retiredRunners } from "./runners.ts";
+import { plainText } from "./sync.ts";
 
 type Level = "ok" | "warning" | "problem" | "skipped";
 
@@ -95,7 +96,7 @@ export function nodeFinding(version = process.versions.node): Finding {
 
 /** The launcher's, the guard's and AGENTS.md's block numbers against this release's. */
 export function contractFindings(root: string, workflows: Record<string, string>): Finding[] {
-  const read = (path: string) => (existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : undefined);
+  const read = (path: string) => plainText(join(root, path));
   const out: Finding[] = [];
   const check = (what: string, n: number | null, want: number, fix: string) => {
     if (n === null) out.push({ level: "warning", text: `${what}: not found (${fix})` });

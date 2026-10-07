@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildReport, formatReport } from "../src/model/report";
@@ -229,7 +229,7 @@ describe("sync, guide, version, help", () => {
     expect(await run(["sync", "--check", "--root", root])).toMatchObject({ code: 0, stdout: "AGENTS.md’s BoxOps block (1), the launcher (1) and CLAUDE.md are this release’s." });
   });
 
-  it("the commands that warn do when the repository's BoxOps files are older", async () => {
+  it("the commands that warn do when the repository's BoxOps files are older, reading only plain files", async () => {
     const repo = checkout(sampleRepo({ "AGENTS.md": "<!-- boxops:begin block=0 -->\n<!-- boxops:end -->\n", ".github/workflows/deploy.yml": "# boxops-guard: 0\n" }));
     const r = await run(["validate"], { cwd: repo.dir }, { root: repo.dir, launcher: 0 });
     expect(r.code).toBe(0);
@@ -240,6 +240,15 @@ describe("sync, guide, version, help", () => {
     ]);
     // Not again when the launcher has said so (it checks against the release's BUILD.json).
     expect(await run(["validate"], { cwd: repo.dir }, { root: repo.dir, launcher: 0, checked: true })).toMatchObject({ code: 0, stderr: "" });
+    // Never through a symlink (to /dev/zero, say, a read would never end): the same files, linked to, aren't read.
+    for (const path of ["AGENTS.md", ".github/workflows/deploy.yml"]) {
+      const elsewhere = join(tempDir(), "file");
+      writeFileSync(elsewhere, readFileSync(join(repo.dir, path)));
+      rmSync(join(repo.dir, path));
+      symlinkSync(elsewhere, join(repo.dir, path));
+    }
+    const linked = await run(["validate"], { cwd: repo.dir }, { root: repo.dir });
+    expect([linked.code, linked.stderr]).toEqual([0, ""]);
   });
 
   it("guide prints a topic, or all of them; an unknown topic is a usage error", async () => {
