@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A roadmap repository made from the starter's files, for the smoke tests
-# (CI's smoke jobs; scripts/smoke/smoke.test.ts): DIR gets the files of
+# (CI's smoke jobs; scripts/release-tree.test.ts): DIR gets the files of
 # STARTER (default: this checkout's starter/) as a git repository whose one
 # commit is on main, with every BoxOps pin moved to a stand-in release commit,
 # as a release's starter has its own. git runs with no configuration but a
