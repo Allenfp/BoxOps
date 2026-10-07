@@ -143,7 +143,7 @@ Save ─GraphQL createCommitOnBranch─► main: roadmap/*.yaml
                                      ▼
             Deploy roadmap (.github/workflows/deploy.yml)
             ├ Check and assemble                              [contents: read]
-            │   actions/checkout (keeps no credentials)
+            │   actions/checkout (keeps no credentials; the last 50 commits)
             │   Look up BoxOps releases: gh api → releases file (optional)
             │   Allenfp/BoxOps@<pinned commit>: roadmap/ from git objects,
             │     checked → the release's dist/app + roadmap.json
@@ -209,8 +209,10 @@ The demo moves to a repository of its own at the cutover (`cutover/`), and
     unexpected);
   - `source`: repo, branch, commit, `dir`, the folder's `tree` SHA, the
     commit's author, subject and date, `history` (its last 50 first-parent
-    commits), and in Actions the run's link. `visibility` and `private` come
-    from the Actions event; when unknown the site counts as private. The
+    commits: the starter's deploy checks out 50, `fetch-depth: 50`, where a
+    shallow clone would give the commit and its parent alone), and in
+    Actions the run's link. `visibility` and `private` come from the
+    Actions event; when unknown the site counts as private. The
     repo is `GITHUB_REPOSITORY` in Actions, else the origin remote's, and
     only on github.com, the one GitHub the app talks to: a build in Actions
     elsewhere (GitHub Enterprise Server, GHE.com) stops, and another

@@ -421,7 +421,7 @@ describe("doctor", () => {
     const io = capture({ fetch: tagged.fetch });
     expect(await doctorCommand(repo.dir, {}, io, { attest: () => null, cliFile: join(io.cliDir, "boxops.mjs") })).toBe(1);
     const text = io.stdout.join("\n");
-    expect(text).toContain("  warning  The comment says v0.0.9 (.github/workflows/check.yml:27), v0.0.9 (.github/workflows/deploy.yml:44), but the pin is v0.1.0");
+    expect(text).toContain("  warning  The comment says v0.0.9 (.github/workflows/check.yml:27), v0.0.9 (.github/workflows/deploy.yml:45), but the pin is v0.1.0");
     expect(text).toContain("  skipped  Attestation: the GitHub CLI (gh) isn’t installed");
     expect(text).toContain("  problem  AGENTS.md’s BoxOps block is 0; this BoxOps’s is 1 (run `node .boxops/boxops.mjs sync`)");
     expect(text).toContain("  problem  .github/workflows/deploy.yml jobs.build: permissions differ from the starter’s\n             - contents: write\n             + contents: read");

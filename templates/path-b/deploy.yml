@@ -35,6 +35,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 50 # roadmap.json lists the last 50 commits (its history), which open tabs go by
       - name: Look up BoxOps releases (optional; for update and security notices)
         continue-on-error: true
         timeout-minutes: 1

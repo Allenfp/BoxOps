@@ -111,6 +111,24 @@ describe("build mode", () => {
     expect(r.log).toContain(`Site assembled in ${site}: BoxOps 0.1.0+0123456789ab, acme/roadmap@${commit.slice(0, 12)}`);
   });
 
+  // Over 50 git processes, one after another, and a clone: more than vitest's 5 seconds with other tests running alongside.
+  it("lists the last 50 commits in roadmap.json's history, from a checkout as deep as the starter's deploy makes", { timeout: 30_000 }, async () => {
+    // Open tabs go by it (github/read.ts, site.ts): a shallow clone would give the commit and its parent alone.
+    const steps = (parse(starterFiles()[".github/workflows/deploy.yml"]) as { jobs: { build: { steps: { uses?: string; with?: Record<string, unknown> }[] } } }).jobs.build.steps;
+    const depth = Number(steps.find((s) => s.uses?.startsWith("actions/checkout@"))?.with?.["fetch-depth"] ?? 1); // actions/checkout's default: 1
+    const { repo, commit } = workspace();
+    // 50 more commits of the same tree, quickly: 51 in all, one more than the history holds.
+    let head = commit;
+    for (let i = 1; i <= 50; i++) head = repo.git(["commit-tree", `${commit}^{tree}`, "-p", head, "-m", `Save ${i}`]);
+    repo.git(["update-ref", "refs/heads/main", head]);
+    const clone = tempDir();
+    repo.git(["clone", "-q", "--depth", String(depth), `file://${repo.dir}`, clone]);
+    const r = await run({ repo: { dir: clone } as TestRepo });
+    expect(r.code).toBe(0);
+    const history = JSON.parse(readFileSync(join(r.outputs.site, "roadmap.json"), "utf8")).source.history;
+    expect(history).toEqual(repo.git(["rev-list", "--first-parent", "--max-count=50", "HEAD"]).split("\n"));
+  });
+
   it("reads git objects at HEAD, never the working tree", async () => {
     const { repo } = workspace();
     repo.checkout();
