@@ -28,6 +28,7 @@ import { AGENTS_BLOCK, GUARD, LAUNCHER, openRelease, verifiedApp, writeSite } fr
 import { issueLine, loadDir, resultLine } from "./roadmap.ts";
 import { buildBundle, findRepo } from "./site.ts";
 import { applySync, planSync, plainText } from "./sync.ts";
+import { visible } from "./terminal.ts";
 import { upgradeCommand } from "./upgrade.ts";
 
 export { runAction };
@@ -256,8 +257,11 @@ export const WARNING_COMMANDS = Object.keys(COMMANDS).filter((name) => !["sync",
 /**
  * Runs a command; returns its exit code (0 OK, 1 problems, 2 usage or
  * environment, 3 data format mismatch). The launcher's contract: frozen.
+ * What it prints shows the control characters in it as escapes
+ * (terminal.ts): a roadmap's values and file names are anyone's who can save.
  */
-export async function main(argv: string[], ctx: LaunchContext = {}, io: Io = defaultIo()): Promise<number> {
+export async function main(argv: string[], ctx: LaunchContext = {}, given: Io = defaultIo()): Promise<number> {
+  const io: Io = { ...given, out: (text) => given.out(visible(text, true)), err: (text) => given.err(visible(text, true)) };
   const [name, ...rest] = argv;
   if (name === "action") return runAction({ argv: rest, env: io.env, out: io.out, cliDir: io.cliDir, identity: io.identity() });
   if (name === undefined || name === "help" || name === "--help" || name === "-h") {

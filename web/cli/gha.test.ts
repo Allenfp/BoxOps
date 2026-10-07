@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Runner, annotation, clip, codeBlock, escapeData, escapeProperty, getInput, logLine, outputBlock } from "./gha";
-import { runnerCommand } from "./test-release";
+import { NASTY, NASTY_SHOWN, obeyed, runnerCommand } from "./test-release";
 
 const temps: string[] = [];
 afterEach(() => {
@@ -77,6 +77,25 @@ describe("escaping", () => {
     expect(logLine("\u200b::debug::x")).toBe("\u200b: :debug::x");
     // Text that isn't a command stays as it is.
     expect(logLine("roadmap/a.yaml:3: title: \"a::b #[1]\" ## [x]")).toBe("roadmap/a.yaml:3: title: \"a::b #[1]\" ## [x]");
+  });
+
+  it("shows control characters as escapes in a log line, an annotation and a code block: the log viewer obeys ESC", () => {
+    const lines = [
+      logLine(`a ${NASTY}\r\nb`),
+      annotation("error", `x ${NASTY}\ny`, { file: `roadmap/${NASTY}.txt`, title: `t ${NASTY}` }),
+      ...codeBlock(`one ${NASTY}\ntwo`).split("\n"),
+    ];
+    expect(lines.flatMap(obeyed)).toEqual([]);
+    expect(lines).toEqual([
+      // CR, and line breaks, a space in a log line; in an annotation, line breaks stay (%0A).
+      `a ${NASTY_SHOWN.replace("\\r", " ")} b`,
+      `::error file=roadmap/${NASTY_SHOWN}.txt,title=t ${NASTY_SHOWN}::x ${NASTY_SHOWN}%0Ay`,
+      "```text",
+      `one ${NASTY_SHOWN}`,
+      "two",
+      "```",
+      "",
+    ]);
   });
 
   it("fences a code block longer than any backticks in it", () => {

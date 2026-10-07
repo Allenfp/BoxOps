@@ -5,7 +5,7 @@ import { buildReport, formatReport } from "../src/model/report";
 import { loadRoadmap } from "../src/model/parse";
 import { main } from "./boxops";
 import type { Io, LaunchContext } from "./context";
-import { ID, SAMPLE, capture, cleanUp, sampleRepo, tempDir } from "./test-release";
+import { ID, NASTY, NASTY_SHOWN, NASTY_YAML, SAMPLE, capture, cleanUp, obeyed, sampleRepo, tempDir } from "./test-release";
 import { type Entry, TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -215,6 +215,32 @@ describe("migrate", () => {
       code: 3,
       stderr: "This roadmap is in data format 2, newer than this BoxOps reads (1): upgrade BoxOps rather than migrating",
     });
+  });
+});
+
+describe("roadmap text in the terminal", () => {
+  it("shows the control characters in values and file names as escapes, never sends them: validate, report, migrate, build", async () => {
+    const box = SAMPLE["boxes/bx-1a2b-example-project.yaml"]
+      .replace("type: project", `type: "${NASTY_YAML}"`)
+      .replace("title: Example project (delete me)", `title: "${NASTY_YAML}"`);
+    const repo = checkout(sampleRepo({ "roadmap/boxes/bx-1a2b-example-project.yaml": box }));
+    // A file whose name holds ESC (text hidden) and a right-to-left override, on disk.
+    writeFileSync(join(repo.dir, "roadmap", "boxes", "bx-ffff-\u001b[8mhidden\u202e.yaml"), "id: bx-ffff-x\n");
+    const runs = {
+      validate: await run(["validate"], { cwd: repo.dir }),
+      report: await run(["report"], { cwd: repo.dir }),
+      json: await run(["report", "--json"], { cwd: repo.dir }),
+      migrate: await run(["migrate"], { cwd: repo.dir }),
+      build: await run(["build", "--out", join(tempDir(), "site"), "--commit", "HEAD"], { cwd: repo.dir }),
+    };
+    for (const [name, r] of Object.entries(runs)) expect([name, obeyed(r.stdout + r.stderr)]).toEqual([name, []]);
+    const problem = `roadmap/boxes/bx-1a2b-example-project.yaml:7: type: "${NASTY_SHOWN}" is not defined in settings.yaml`;
+    expect(runs.validate.stderr.split("\n")).toContain(problem);
+    expect(runs.validate.stderr).toContain("roadmap/boxes/bx-ffff-\\u001b[8mhidden\\u202e.yaml:1: ");
+    expect([runs.migrate.stderr.split("\n"), runs.build.stderr.split("\n")]).toEqual([expect.arrayContaining([problem]), expect.arrayContaining([problem])]);
+    // The title, in the report as text, and as itself in its JSON, which stays JSON.
+    expect(runs.report.stdout).toContain(`FTE  ${NASTY_SHOWN} (ENG-K7P)`);
+    expect(JSON.parse(runs.json.stdout).people[0].bookings[0].box.title).toBe(NASTY);
   });
 });
 

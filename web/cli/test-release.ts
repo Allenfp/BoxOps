@@ -182,6 +182,19 @@ export function runnerCommand(line: string): string | null {
   return close < 0 ? null : name(line.slice(at + 3, close));
 }
 
+/** The characters in `text` a terminal or GitHub's log viewer would obey: control characters but tab and line feed, and bidirectional controls. */
+export const obeyed = (text: string): string[] => [...text].filter((c) => c !== "\t" && c !== "\n" && /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u.test(c));
+
+/**
+ * A value holding what a terminal would obey: ESC (a window's title set, a
+ * line erased), BEL, CR (back to the line's start), a C1 control (CSI, to
+ * some terminals) and a right-to-left override. NASTY_YAML is it in YAML's
+ * double-quoted escapes, and NASTY_SHOWN as BoxOps prints it.
+ */
+export const NASTY = "\u001b]0;owned\u0007\u001b[2K\rfake OK\u009b31m\u202e";
+export const NASTY_YAML = "\\e]0;owned\\a\\e[2K\\rfake OK\\x9b31m\\u202e";
+export const NASTY_SHOWN = "\\u001b]0;owned\\u0007\\u001b[2K\\rfake OK\\u009b31m\\u202e";
+
 export interface Captured extends Io {
   stdout: string[];
   stderr: string[];

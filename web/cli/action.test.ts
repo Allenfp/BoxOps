@@ -7,7 +7,7 @@ import { readBundle } from "../src/model/bundle";
 import { readInputs, runAction } from "./action";
 import { LIMITS } from "./git";
 import { buildJsonText, makeBuildJson, parseBuildJson } from "./release";
-import { type ActionsEnv, APP_FILES, ID, SAMPLE, actionsEnv, cleanUp, makeRelease, readOutputs, runnerCommand, sampleRepo, tempDir } from "./test-release";
+import { type ActionsEnv, APP_FILES, ID, NASTY_SHOWN, NASTY_YAML, SAMPLE, actionsEnv, cleanUp, makeRelease, obeyed, readOutputs, runnerCommand, sampleRepo, tempDir } from "./test-release";
 import { type Entry, TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -466,6 +466,32 @@ describe("validation and on-problems (step 9)", () => {
     expect(errors(r).slice(-1)).toEqual(["error: …and 6 more problems, listed in the log"]);
     expect(warnings(r)).toEqual([expect.stringContaining("This workflow uses BoxOps at “v0.1.0”")]);
     expect(r.outputs.site).toBe(join(r.env.RUNNER_TEMP, "boxops-site"));
+  });
+
+  it("shows the control characters in values and file names as escapes: annotations, the log past the 50th, the summary", async () => {
+    // 52 boxes on a lane that doesn't exist, the first and the last two naming one that holds ESC, BEL, CR, a C1
+    // control and a right-to-left override; then a file whose name holds ESC: problems 1, 51 to 53.
+    const boxes = Object.fromEntries(
+      Array.from({ length: 52 }, (_, i) => {
+        const id = `bx-${i.toString(16).padStart(4, "0")}-x`;
+        const lane = i === 0 || i >= 50 ? `"${NASTY_YAML}"` : "eng-9";
+        return [`roadmap/boxes/${id}.yaml`, `id: ${id}\ncode: Z${String(i).padStart(2, "0")}\ntitle: X\nlane: ${lane}\nstart: 2026-11-02\nend: 2026-11-06\ntype: project\n`];
+      }),
+    );
+    const r = await run({ repo: workspace(sampleRepo({ ...boxes, "roadmap/zz-\u001b[8mhidden.txt": "x\n" })).repo });
+    expect([r.code, r.outputs.problems]).toEqual([0, "53"]);
+    expect([r.log.flatMap(obeyed), obeyed(r.summary)]).toEqual([[], []]);
+    const lane = `lane: "${NASTY_SHOWN}" does not exist in any department, so the box is skipped`;
+    expect(errors(r)[0]).toBe(`error: ${lane} [roadmap/boxes/bx-0000-x.yaml:4]`);
+    // A log line has a space for a line break or CR.
+    expect(r.log).toEqual(
+      expect.arrayContaining([
+        `roadmap/boxes/bx-0032-x.yaml:4: ${lane.replace("\\r", " ")}`,
+        `roadmap/boxes/bx-0033-x.yaml:4: ${lane.replace("\\r", " ")}`,
+        "roadmap/zz-\\u001b[8mhidden.txt: unexpected file; roadmap files live in departments/ or boxes/",
+      ]),
+    );
+    expect(r.summary).toContain(`roadmap/boxes/bx-0033-x.yaml:4: ${lane}\n`);
   });
 
   it("keeps problems' text from breaking out of an annotation", async () => {

@@ -1165,7 +1165,13 @@ another host gh is signed in to, such as a GitHub Enterprise Server's).
 when the repository's launcher, `AGENTS.md` block or Pages guard isn't this
 release's, unless the launcher has (below). They, and `doctor`, read those
 files only when they're plain files, never through a symlink (to
-`/dev/zero`, say, whose read never ends).
+`/dev/zero`, say, whose read never ends). Everything a command prints
+shows its control characters as escapes, as JSON writes them (`\r`,
+`\u001b`: `cli/terminal.ts`), and a problem's line its line feeds too: a
+roadmap's values and file names are anyone's who can save, and a terminal
+obeys ESC's sequences (a line erased, the window's title, in some terminals
+the clipboard), CR and a right-to-left override. JSON output stays JSON,
+meaning the same.
 
 **The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
 `path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;
@@ -1214,7 +1220,10 @@ this order, each failure an error annotation with a plain message:
     characters, since a problem quotes its value whole and a step's summary
     can be 1 MiB at most (`cli/gha.ts`: nothing from the roadmap can end an
     annotation early or start a workflow command, in either form the runner
-    reads: `::` at a line's start, or the older `##[` anywhere in it).
+    reads: `::` at a line's start, or the older `##[` anywhere in it; nor
+    bring the log, an annotation or the summary a control character the log
+    viewer obeys, such as ESC's colours: each is an escape, as the tool
+    prints it).
 
 The only program it starts is git, the one in PATH's absolute folders, run
 in the `.git` folder (a relative folder on PATH, such as `node_modules/.bin`,
@@ -1302,7 +1311,9 @@ a release must have none of.
   fake GitHub, the roadmap readers, git SHAs and `roadmap.json` against real
   git repositories made in the temp folder, and the command-line tool and the
   action against such repositories and a fake release: every command, each of
-  the action's checks with its message, outputs and summary, migrations
+  the action's checks with its message, outputs and summary (a huge value,
+  and values and file names holding ESC, CR or a right-to-left override,
+  printed as escapes by every command and in the log), migrations
   (comments and line ends kept, idempotent), `sync`, `upgrade` and `init`
   rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
   `init` and `preview`'s fetch against a fake GitHub, the launcher run with

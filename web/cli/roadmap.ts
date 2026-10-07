@@ -10,6 +10,7 @@ import { loadRoadmap } from "../src/model/parse.ts";
 import { type Report, formatReport } from "../src/model/report.ts";
 import type { Issue, Roadmap } from "../src/model/types.ts";
 import { type ReadProblem, RoadmapReadError, readRoadmapDir } from "./git.ts";
+import { visible } from "./terminal.ts";
 
 /** `3 departments, 9 lanes, 16 boxes — OK` (or `— 2 issue(s)`): what `validate` ends with, and the action's `result`. */
 export function resultLine(roadmap: Roadmap, problems: number): string {
@@ -36,12 +37,14 @@ export function headlines(report: Report): string {
 
 /**
  * `roadmap/people.yaml:12: …`: a path editors and terminals can open, relative
- * to `here` (where the command was typed) unless that's longer.
+ * to `here` (where the command was typed) unless that's longer. One line,
+ * whatever the file's name and the values its message quotes hold: their
+ * control characters, line breaks too, shown as escapes (terminal.ts).
  */
 export function issueLine(dir: string, issue: Pick<Issue, "path" | "message" | "line">, here: string): string {
   const full = join(dir, issue.path);
   const near = relative(here, full);
-  return `${near.length < full.length ? near : full}${issue.line ? `:${issue.line}` : ""}: ${issue.message}`;
+  return visible(`${near.length < full.length ? near : full}${issue.line ? `:${issue.line}` : ""}: ${issue.message}`);
 }
 
 /**

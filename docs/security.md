@@ -179,7 +179,10 @@ free of workflows that restore caches. The starter's use none.
   app itself drops values it can't use, makes links only of `http:` and
   `https:` addresses, takes colours only as `#rrggbb`, shows every name and
   the title as text, and takes its icons and styles from its own files,
-  never HTML, CSS or SVG from the data.
+  never HTML, CSS or SVG from the data. The command-line tool and the
+  action print a value's or file name's control characters as escapes
+  (`\u001b`), so none can erase or fake a line in a terminal or the
+  Actions log, set a window's title, or reorder text.
 - **The Content-Security-Policy** lets the page run only its own scripts
   (and its two small inline ones, by hash), load only its own styles and
   images, and connect only to its own site, `api.github.com` and
