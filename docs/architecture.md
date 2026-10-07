@@ -1413,8 +1413,9 @@ a release must have none of.
   `main` (weekly, for a release), build mode, its outputs and site checked
   (elsewhere the tree's tool writes the site: build mode publishes the
   default branch only, and the action through `uses:` must refuse it there,
-  as it must a symlink in the roadmap and data format 2, each failing its
-  step with a `result` output saying why); then bad repositories, each
+  as it must a symlink or a submodule in the roadmap, data format 2 and a
+  roadmap without `settings.yaml`, each failing its step with a `result`
+  output saying why); then bad repositories, each
   refused with its error annotation
   (symlinks, submodules, a `.git` file, data formats 0 and 2, no
   `settings.yaml`, a branch that isn't the default, bytes that aren't

@@ -278,7 +278,7 @@ jobs:
           BOXOPS_OUTPUTS: ${{ steps.build.outcome == 'success' && toJSON(steps.build.outputs) || '' }}
         run: node web/scripts/smoke/assert-site.mjs --release build/release --repo starter-copy --site "$SITE" --sentinels "$RUNNER_TEMP/sentinels"
       # What uses: makes of a refusal: the step fails, and its result output
-      # says why. Build mode where this run isn't on main, and two
+      # says why. Build mode where this run isn't on main, and four
       # repositories it must refuse; bad-repos.sh below tries every refusal,
       # and their annotations.
       - name: The release's action refuses build mode here (on a branch or pull request)
@@ -289,7 +289,7 @@ jobs:
         with:
           path: starter-copy
           summary: "false"
-      - name: Two repositories to refuse, a symlink in the roadmap and data format 2
+      - name: Four repositories to refuse, a symlink, a submodule, data format 2 and no settings.yaml
         env:
           GIT_CONFIG_GLOBAL: /dev/null
           GIT_AUTHOR_NAME: BoxOps smoke test
@@ -301,14 +301,26 @@ jobs:
           ln -s ../people.yaml bad-symlink/roadmap/boxes/link.yaml
           git -C bad-symlink add -A
           git -C bad-symlink commit -q -m "A symlink"
+          bash web/scripts/smoke/starter-repo.sh bad-submodule
+          git -C bad-submodule update-index --add --cacheinfo "160000,$(git -C bad-submodule rev-parse HEAD),roadmap/boxes/sub"
+          git -C bad-submodule commit -q -m "A submodule"
           bash web/scripts/smoke/starter-repo.sh bad-format
           sed -i 's/^format: 1/format: 2/' bad-format/roadmap/settings.yaml
           git -C bad-format commit -q -a -m "Data format 2"
+          bash web/scripts/smoke/starter-repo.sh no-settings
+          git -C no-settings rm -q roadmap/settings.yaml
+          git -C no-settings commit -q -m "No settings"
       - id: symlink
         continue-on-error: true
         uses: ./build/release
         with:
           path: bad-symlink
+          mode: check
+      - id: submodule
+        continue-on-error: true
+        uses: ./build/release
+        with:
+          path: bad-submodule
           mode: check
       - id: format
         continue-on-error: true
@@ -316,11 +328,19 @@ jobs:
         with:
           path: bad-format
           mode: check
+      - id: no-settings
+        continue-on-error: true
+        uses: ./build/release
+        with:
+          path: no-settings
+          mode: check
       - name: Each refusal failed its step, and its result says why
         env:
           OFF_MAIN: ${{ steps.off-main.outcome }} ${{ steps.off-main.outputs.result }}
           SYMLINK: ${{ steps.symlink.outcome }} ${{ steps.symlink.outputs.result }}
+          SUBMODULE: ${{ steps.submodule.outcome }} ${{ steps.submodule.outputs.result }}
           FORMAT: ${{ steps.format.outcome }} ${{ steps.format.outputs.result }}
+          NO_SETTINGS: ${{ steps.no-settings.outcome }} ${{ steps.no-settings.outputs.result }}
           REF: ${{ github.ref_name }}
         run: |
           set -euo pipefail
@@ -334,7 +354,9 @@ jobs:
             refused "build mode on $REF" "$OFF_MAIN" "BoxOps builds the site from the default branch (main) only, and this run is for $REF:"
           fi
           refused "a symlink in the roadmap" "$SYMLINK" "roadmap/ can"
+          refused "a submodule in the roadmap" "$SUBMODULE" "roadmap/ can"
           refused "data format 2" "$FORMAT" "This roadmap is in data format 2;"
+          refused "no settings.yaml" "$NO_SETTINGS" "roadmap/settings.yaml is missing:"
       - name: Bad repositories fail as they should, each with its error
         run: bash web/scripts/smoke/bad-repos.sh build/release
       - name: The action makes no network call
