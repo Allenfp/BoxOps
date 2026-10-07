@@ -3,7 +3,7 @@
 // GitHub serving releases, a GitHub Actions environment around a TestRepo,
 // the starter's sample roadmap, and a reader for $GITHUB_OUTPUT.
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Io } from "./context";
@@ -19,6 +19,9 @@ export const APP_FILES: Record<string, string> = {
   "assets/parse-B2.js": "console.log('parser');\n",
   "favicon.svg": "<svg xmlns='http://www.w3.org/2000/svg'/>\n",
 };
+
+/** Whether the temp folder's disk ignores case, as macOS's and Windows' do by default. */
+export const IGNORES_CASE = existsSync(tmpdir().toUpperCase()) && existsSync(tmpdir().toLowerCase());
 
 /** Temp folders made here, removed by cleanUp(). */
 const temps: string[] = [];

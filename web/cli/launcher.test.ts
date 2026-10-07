@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { WARNING_COMMANDS } from "./boxops";
 import { type BuildJson, buildJsonText, makeBuildJson } from "./release";
 import { launcherText } from "./sync";
-import { ID, cleanUp, tempDir } from "./test-release";
+import { ID, IGNORES_CASE, cleanUp, tempDir } from "./test-release";
 
 afterEach(cleanUp);
 
@@ -314,6 +314,24 @@ describe("the launcher's cache", () => {
     const xdg = launch(root, ["version"], { env: { XDG_CACHE_HOME: join(root, "cache") }, github: raw("Allenfp/BoxOps", A) });
     expect([xdg.code, xdg.ran?.argv]).toEqual([0, ["version"]]);
     expect(readdirSync(root).sort()).toEqual([".boxops", ".github"]);
+  });
+
+  it.skipIf(!IGNORES_CASE)("is never inside the repository, whatever case names it, on a disk that ignores case: a tool planted there never runs", () => {
+    const root = launcherRepo();
+    // A tool in the repository where a cache there would keep it, with a BUILD.json that describes it.
+    const planted = "export async function main() { console.log('PLANTED TOOL RAN'); return 0; }\n";
+    const dir = join(root, ".cache", "Allenfp__BoxOps", A);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "boxops.mjs"), planted);
+    writeFileSync(join(dir, "BUILD.json"), buildJson(planted));
+    for (const cache of [join(root.toUpperCase(), ".cache"), join(root, ".CACHE"), join(root.toUpperCase(), "new", "cache")]) {
+      const r = launch(root, ["version"], { env: { BOXOPS_CACHE: cache }, github: raw("Allenfp/BoxOps", A) });
+      expect([cache, r.code, r.stdout, r.stderr, r.calls]).toEqual([cache, 2, "", "boxops: BOXOPS_CACHE must be outside this repository", []]);
+    }
+    // XDG_CACHE_HOME there: passed over for ~/.cache/boxops.
+    const xdg = launch(root, ["version"], { env: { XDG_CACHE_HOME: join(root.toUpperCase(), "cache") }, github: raw("Allenfp/BoxOps", A) });
+    expect([xdg.code, xdg.ran?.argv, xdg.calls.length]).toEqual([0, ["version"], 2]);
+    expect(readdirSync(root).sort()).toEqual([".boxops", ".cache", ".github"]);
   });
 });
 

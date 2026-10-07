@@ -38,7 +38,9 @@ if ((process.env.HTTPS_PROXY || process.env.https_proxy) && !process.env.NODE_US
   process.exit(r.status ?? 2);
 }
 
-const root = realpathSync(join(dirname(fileURLToPath(import.meta.url)), ".."));
+// Paths as the file system spells them (realpathSync.native): on a disk that ignores case (macOS's,
+// Windows'), /Users/me/ROADMAP is /Users/me/roadmap, and a cache there must be seen to be inside.
+const root = realpathSync.native(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const inRepo = (path) => path === root || path.startsWith(root + sep);
 const read = (file) => {
   try {
@@ -103,7 +105,7 @@ function parseBuild(text) {
 /** The pinned commit's tool and BUILD.json: from the cache if the tool there is the file its BUILD.json describes, else downloaded. */
 async function cached() {
   const dir = join(cacheRoot(), repo.replace("/", "__"), sha);
-  if (inRepo(dir)) fail(`${dir} is inside this repository: set BOXOPS_CACHE to a folder outside it`);
+  if (inRepo(realish(dir))) fail(`${dir} is inside this repository: set BOXOPS_CACHE to a folder outside it`);
   const cli = join(dir, "boxops.mjs");
   const build = parseBuild(read(join(dir, "BUILD.json")));
   if (build && existsSync(cli) && digest(readFileSync(cli)) === build.files["dist/boxops.mjs"]) return { cli, build };
@@ -180,7 +182,7 @@ function cacheRoot() {
         continue;
       }
       mkdirSync(dir, { recursive: true, mode: 0o700 });
-      const real = realpathSync(dir);
+      const real = realpathSync.native(dir);
       const st = statSync(real);
       if (inRepo(real) || (uid !== undefined && (st.uid !== uid || st.mode & 0o022))) continue; // someone else's, or others can write to it
       writeFileSync(join(real, ".write-test"), "");
@@ -192,7 +194,7 @@ function cacheRoot() {
   fail("no writable cache folder outside this repository; set BOXOPS_CACHE (a folder of yours) or BOXOPS_CLI");
 }
 
-/** `path` with the symlinks in its existing part resolved: where a folder not made yet would be. */
+/** `path` with its existing part as the file system spells it, symlinks resolved: where a folder not made yet would be. */
 function realish(path) {
   const rest = [];
   let at = path;
@@ -200,7 +202,7 @@ function realish(path) {
     rest.unshift(basename(at));
     at = dirname(at);
   }
-  return join(realpathSync(at), ...rest);
+  return join(realpathSync.native(at), ...rest);
 }
 
 function githubToken() {

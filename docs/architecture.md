@@ -1141,20 +1141,22 @@ describes, and keeps both in a per-user cache outside the repository
 (`$BOXOPS_CACHE`, an absolute `$XDG_CACHE_HOME/boxops`, `~/.cache/boxops`,
 then the temp folder; a folder others can write to is passed over, and one
 inside the repository is refused, since a file committed there would run as
-code), checking the tool against the `BUILD.json` again at each run. Offline
-it takes `$BOXOPS_CLI`, checked against its release's `BUILD.json` when there
-is one beside it, and says so when that's another release than the pin's
-`# vX.Y.Z` (the tool would check the roadmap as that release does, and
-report its own version with the pin's commit). With `HTTPS_PROXY` set it
-restarts Node with `NODE_USE_ENV_PROXY=1`, without which Node's `fetch`
-ignores the proxy (Node.js 22.21+ or 24+ honours it), keeping the options
-Node was started with (`--use-system-ca`, for a proxy that re-signs TLS).
-It stops if the release needs a newer Node.js. On the commands the tool
-warns on, it gives the tool's warnings (when it, `AGENTS.md`'s block, read
-only from a plain file, or `deploy.yml`'s Pages guard isn't what the
-`BUILD.json` names) and tells the tool it has. It calls the tool's
-`main(argv, { root, repo, sha, tag, launcher, checked })`, a contract that
-stays the same across 0.x.
+code: paths are compared as the file system spells them, so that on a disk
+that ignores case, as macOS's and Windows' do, the repository's path in
+another case is inside it too), checking the tool against the `BUILD.json`
+again at each run. Offline it takes `$BOXOPS_CLI`, checked against its
+release's `BUILD.json` when there is one beside it, and says so when that's
+another release than the pin's `# vX.Y.Z` (the tool would check the roadmap
+as that release does, and report its own version with the pin's commit).
+With `HTTPS_PROXY` set it restarts Node with `NODE_USE_ENV_PROXY=1`, without
+which Node's `fetch` ignores the proxy (Node.js 22.21+ or 24+ honours it),
+keeping the options Node was started with (`--use-system-ca`, for a proxy
+that re-signs TLS). It stops if the release needs a newer Node.js. On the
+commands the tool warns on, it gives the tool's warnings (when it,
+`AGENTS.md`'s block, read only from a plain file, or `deploy.yml`'s Pages
+guard isn't what the `BUILD.json` names) and tells the tool it has. It calls
+the tool's `main(argv, { root, repo, sha, tag, launcher, checked })`, a
+contract that stays the same across 0.x.
 
 **The starter** (`starter/`) is the starter repository's 13 files as they
 are for every release, with placeholders: each BoxOps pin is
@@ -1192,21 +1194,22 @@ a release must have none of.
   rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
   `init` and `preview`'s fetch against a fake GitHub, the launcher run with
   Node (its download against a `fetch` answering from a table, the cache's
-  order and refusals, `BUILD.json` checks, `BOXOPS_CLI` (a release other
-  than the pin's, a folder), mirrors and tokens, warnings on the tool's
-  commands alone, `AGENTS.md` read only as a plain file, proxies and Node's
-  options), the starter made for a release (what `init` writes, and `sync`
-  for its files) and its links to BoxOps' docs (pages git tracks, but those
-  still to write), the commands `publish-starter` prints to publish it and
-  those `init` prints to start a repository (pasted into bash, and zsh where
-  it's installed, without `-e`: from another folder they do so, against
-  stand-ins for GitHub's repositories and `gh`, and after a failed clone or
-  `cd` they change nothing where they were pasted), Path B's workflows (the
-  starter's but for one step, which the README shows, and setup-node told to
-  read nothing in the workspace) and that step run with bash against a
-  stand-in for github.com, a hostile workspace (its files, git configuration
-  and `GIT_*` variables try to run code: sentinel files stay unwritten, git
-  is the only program started, and the site is a clean workspace's), and no
+  order and refusals (the repository's path in another case too),
+  `BUILD.json` checks, `BOXOPS_CLI` (a release other than the pin's, a
+  folder), mirrors and tokens, warnings on the tool's commands alone,
+  `AGENTS.md` read only as a plain file, proxies and Node's options), the
+  starter made for a release (what `init` writes, and `sync` for its files)
+  and its links to BoxOps' docs (pages git tracks, but those still to
+  write), the commands `publish-starter` prints to publish it and those
+  `init` prints to start a repository (pasted into bash, and zsh where it's
+  installed, without `-e`: from another folder they do so, against stand-ins
+  for GitHub's repositories and `gh`, and after a failed clone or `cd` they
+  change nothing where they were pasted), Path B's workflows (the starter's
+  but for one step, which the README shows, and setup-node told to read
+  nothing in the workspace) and that step run with bash against a stand-in
+  for github.com, a hostile workspace (its files, git configuration and
+  `GIT_*` variables try to run code: sentinel files stay unwritten, git is
+  the only program started, and the site is a clean workspace's), and no
   network call from the action or the offline commands (every way Node
   reaches the network made to fail and noted), and that each file staged in
   `cutover/` is the live one with only the cutover's changes made. Those

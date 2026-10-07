@@ -14,7 +14,7 @@ import { starterFiles } from "./embedded";
 import { ensureApp, startPreview } from "./preview";
 import { fetchRelease } from "./upgrade";
 import { openRelease, verifiedApp } from "./release";
-import { APP_FILES, ID, capture, cleanUp, fakeGitHub, releaseFiles, sampleRepo, tempDir } from "./test-release";
+import { APP_FILES, ID, IGNORES_CASE, capture, cleanUp, fakeGitHub, releaseFiles, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
 import { SHELLS, block, paste, shellEnv, standIns } from "./test-shell";
 
@@ -215,12 +215,18 @@ describe("upgrade", () => {
     expect(readFileSync(join(dir, "boxops.mjs"))).toEqual(Buffer.from(files["dist/boxops.mjs"]));
   });
 
-  it("never caches inside the repository", async () => {
+  it("never caches inside the repository, whatever case names it on a disk that ignores case", async () => {
     const repo = adopter(A);
     const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: newRelease(join(tempDir(), "x")) } });
-    const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: join(repo.dir, ".cache") } });
-    expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, io)).toBe(2);
-    expect(io.stderr).toEqual(["boxops upgrade: BOXOPS_CACHE must be outside this repository"]);
+    const caches = [join(repo.dir, ".cache"), ...(IGNORES_CASE ? [join(repo.dir.toUpperCase(), ".cache"), join(repo.dir.toUpperCase(), "new", "cache")] : [])];
+    for (const cache of caches) {
+      const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: cache } });
+      expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, io)).toBe(2);
+      expect([cache, io.stderr]).toEqual([cache, ["boxops upgrade: BOXOPS_CACHE must be outside this repository"]]);
+    }
+    // The tag looked up, nothing downloaded, and nothing made in the repository.
+    expect(gh.calls.filter((url) => !url.endsWith("/git/ref/tags/v0.2.0"))).toEqual([]);
+    expect(repo.git(["status", "--porcelain", "--ignored"])).toBe("");
   });
 });
 

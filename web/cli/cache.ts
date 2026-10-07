@@ -13,7 +13,13 @@ import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import type { Env } from "./gha.ts";
 import { type BuildJson, digest, parseBuildJson } from "./release.ts";
 
-/** `path` with its existing part's symlinks resolved, the rest as written: where a folder not made yet would be. */
+/**
+ * `path` with its existing part as the file system spells it
+ * (realpathSync.native: symlinks resolved, and on a disk that ignores case,
+ * macOS's or Windows', the case it has, as /Users/me/ROADMAP is
+ * /Users/me/roadmap there), the rest as written: where a folder not made yet
+ * would be.
+ */
 function realish(path: string): string {
   const rest: string[] = [];
   let at = resolve(path);
@@ -21,7 +27,7 @@ function realish(path: string): string {
     rest.unshift(basename(at));
     at = dirname(at);
   }
-  return join(realpathSync(at), ...rest);
+  return join(realpathSync.native(at), ...rest);
 }
 
 const within = (path: string, top: string) => path === top || path.startsWith(top + sep);
@@ -42,7 +48,7 @@ export function cacheRoot(env: Env, root: string): string {
     join(homedir(), ".cache", "boxops"),
     join(tmpdir(), `boxops-cache-${uid ?? "user"}`),
   ];
-  const top = realpathSync(root);
+  const top = realpathSync.native(root);
   for (const [i, dir] of tries.entries()) {
     if (!dir) continue;
     try {
@@ -51,7 +57,7 @@ export function cacheRoot(env: Env, root: string): string {
         continue;
       }
       mkdirSync(dir, { recursive: true, mode: 0o700 });
-      const real = realpathSync(dir);
+      const real = realpathSync.native(dir);
       if (within(real, top)) continue;
       const st = statSync(real);
       if (uid !== undefined && (st.uid !== uid || st.mode & 0o022)) continue;
@@ -71,7 +77,7 @@ export function cacheRoot(env: Env, root: string): string {
  */
 export function releaseCache(env: Env, root: string, repo: string, sha: string): string {
   const dir = join(cacheRoot(env, root), repo.replace("/", "__"), sha);
-  if (within(realish(dir), realpathSync(root))) throw new Error(`${dir} is inside this repository: set BOXOPS_CACHE to a folder outside it`);
+  if (within(realish(dir), realpathSync.native(root))) throw new Error(`${dir} is inside this repository: set BOXOPS_CACHE to a folder outside it`);
   return dir;
 }
 
