@@ -6,7 +6,7 @@
 // read a real token.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -317,6 +317,32 @@ describe("the launcher's cache", () => {
     mkdirSync(join(base, "shared"));
     chmodSync(join(base, "shared"), 0o777);
     expect(cachedIn(env({ BOXOPS_CACHE: join(base, "shared") }), base)).toBe(join("home6", ".cache", "boxops", tail));
+  });
+
+  it("in the temp folder, which anyone can write to, is only a folder that no one else can use: never a symlink", () => {
+    const base = realpathSync(tempDir());
+    writeFileSync(join(base, "file"), "");
+    // ~/.cache can't be made (a file is in the way): the temp folder is all that's left.
+    const env = { HOME: join(base, "file", "home"), TMPDIR: join(base, "tmp") };
+    mkdirSync(env.TMPDIR);
+    const there = join(env.TMPDIR, `boxops-cache-${process.getuid?.() ?? "user"}`);
+    // Left there by another user: a symlink to a folder of yours that others can read (a clone of their repository,
+    // say), holding a tool where the pinned release's would be, with a BUILD.json that describes it.
+    const planted = "export async function main() { console.log('PLANTED TOOL RAN'); return 0; }\n";
+    const clone = join(base, "clone");
+    mkdirSync(join(clone, "Allenfp__BoxOps", A), { recursive: true });
+    writeFileSync(join(clone, "Allenfp__BoxOps", A, "boxops.mjs"), planted);
+    writeFileSync(join(clone, "Allenfp__BoxOps", A, "BUILD.json"), buildJson(planted));
+    chmodSync(clone, 0o755);
+    symlinkSync(clone, there);
+    const refused = "boxops: no writable cache folder outside this repository; set BOXOPS_CACHE (a folder of yours) or BOXOPS_CLI";
+    const linked = launch(launcherRepo(), ["version"], { env, github: raw("Allenfp/BoxOps", A) });
+    expect([linked.code, linked.stdout, linked.stderr, linked.calls]).toEqual([2, "", refused, []]);
+    // That folder itself there, which others can read: passed over too.
+    rmSync(there);
+    renameSync(clone, there);
+    const shared = launch(launcherRepo(), ["version"], { env, github: raw("Allenfp/BoxOps", A) });
+    expect([shared.code, shared.stdout, shared.stderr, shared.calls]).toEqual([2, "", refused, []]);
   });
 
   it("is never inside the repository: BOXOPS_CACHE there is refused, an XDG_CACHE_HOME there passed over, and nothing is made there", () => {

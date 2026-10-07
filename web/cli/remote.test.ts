@@ -4,11 +4,12 @@
 // (launcher.test.ts).
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { main } from "./boxops";
+import { cacheRoot } from "./cache";
 import type { Io } from "./context";
 import { doctorCommand } from "./doctor";
 import { starterFiles } from "./embedded";
@@ -229,6 +230,39 @@ describe("upgrade", () => {
     // The tag looked up, nothing downloaded, and nothing made in the repository.
     expect(gh.calls.filter((url) => !url.endsWith("/git/ref/tags/v0.2.0"))).toEqual([]);
     expect(repo.git(["status", "--porcelain", "--ignored"])).toBe("");
+  });
+});
+
+describe("the cache (cli/cache.ts), as the launcher keeps it", () => {
+  it("in the temp folder, which anyone can write to, is only a folder that no one else can use: never a symlink", () => {
+    const root = realpathSync(tempDir());
+    const base = realpathSync(tempDir());
+    writeFileSync(join(base, "file"), "");
+    const saved = { HOME: process.env.HOME, TMPDIR: process.env.TMPDIR };
+    // ~/.cache can't be made (a file is in the way): the temp folder is all that's left.
+    process.env.HOME = join(base, "file", "home");
+    process.env.TMPDIR = join(base, "tmp");
+    mkdirSync(process.env.TMPDIR);
+    const there = join(process.env.TMPDIR, `boxops-cache-${process.getuid?.() ?? "user"}`);
+    try {
+      expect(cacheRoot({}, root)).toBe(there);
+      expect(statSync(there).mode & 0o777).toBe(0o700);
+      rmSync(there, { recursive: true });
+      // Left there by another user: a symlink to a folder of this user's that others can read. Then that folder itself.
+      const clone = join(base, "clone");
+      mkdirSync(clone);
+      chmodSync(clone, 0o755);
+      symlinkSync(clone, there);
+      expect(() => cacheRoot({}, root)).toThrow("no writable cache folder outside this repository; set BOXOPS_CACHE");
+      rmSync(there);
+      renameSync(clone, there);
+      expect(() => cacheRoot({}, root)).toThrow("no writable cache folder outside this repository; set BOXOPS_CACHE");
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 });
 

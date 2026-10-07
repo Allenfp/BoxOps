@@ -194,8 +194,10 @@ free of workflows that restore caches. The starter's use none.
   into the repository or an address.
 - **The launcher** keeps the tool it downloads in a cache outside the
   repository (a file committed into the repository can't become code that
-  teammates' laptops run), and checks it against its release's `BUILD.json`
-  at every run.
+  teammates' laptops run), in a folder of the user's that others can't
+  write to (in the temp folder, which anyone can write to, one no one else
+  can use, never a symlink another user could have left there), and checks
+  it against its release's `BUILD.json` at every run.
 
 ## Risks that remain
 

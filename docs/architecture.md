@@ -1246,17 +1246,19 @@ and `dist/boxops.mjs` once (from raw.githubusercontent.com, else, for a
 private mirror, the contents API with `GH_TOKEN`, `GITHUB_TOKEN` or
 `gh auth token --hostname github.com`), runs the tool only if it's the file
 that `BUILD.json` describes, and keeps both in a per-user cache outside the
-repository
-(`$BOXOPS_CACHE`, an absolute `$XDG_CACHE_HOME/boxops`, `~/.cache/boxops`,
-then the temp folder; a folder others can write to is passed over, and one
-inside the repository is refused, since a file committed there would run as
-code: paths are compared as the file system spells them, so that on a disk
-that ignores case, as macOS's and Windows' do, the repository's path in
-another case is inside it too), checking the tool against the `BUILD.json`
-again at each run. Offline it takes `$BOXOPS_CLI`, checked against its
-release's `BUILD.json` when there is one beside it, and says so when that's
-another release than the pin's `# vX.Y.Z` (the tool would check the roadmap
-as that release does, and report its own version with the pin's commit).
+repository (`$BOXOPS_CACHE`, an absolute `$XDG_CACHE_HOME/boxops`,
+`~/.cache/boxops`, then the temp folder; a folder others can write to is
+passed over, and in the temp folder, which anyone can write to, so is any
+but a folder no one else can use, as the launcher makes it: never a symlink
+another user could have left there. One inside the repository is refused,
+since a file committed there would run as code: paths are compared as the
+file system spells them, so that on a disk that ignores case, as macOS's
+and Windows' do, the repository's path in another case is inside it too),
+checking the tool against the `BUILD.json` again at each run. Offline it
+takes `$BOXOPS_CLI`, checked against its release's `BUILD.json` when there
+is one beside it, and says so when that's another release than the pin's
+`# vX.Y.Z` (the tool would check the roadmap as that release does, and
+report its own version with the pin's commit).
 With `HTTPS_PROXY` set it restarts Node with `NODE_USE_ENV_PROXY=1`, without
 which Node's `fetch` ignores the proxy (Node.js 22.21+ or 24+ honours it),
 keeping the options Node was started with (`--use-system-ca`, for a proxy
@@ -1303,10 +1305,12 @@ a release must have none of.
   rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
   `init` and `preview`'s fetch against a fake GitHub, the launcher run with
   Node (its download against a `fetch` answering from a table, the cache's
-  order and refusals (the repository's path in another case too),
-  `BUILD.json` checks, `BOXOPS_CLI` (a release other than the pin's, a
-  folder), mirrors and tokens, warnings on the tool's commands alone,
-  `AGENTS.md` read only as a plain file, proxies and Node's options), the
+  order and refusals (the repository's path in another case too, and in the
+  temp folder a symlink, or a folder others can read), `BUILD.json` checks,
+  `BOXOPS_CLI` (a release other than the pin's, a folder), mirrors and
+  tokens (github.com's from `gh`, never another host's), warnings on the
+  tool's commands alone, `AGENTS.md` read only as a plain file, proxies and
+  Node's options), the
   starter made for a release (what `init` writes, and `sync` for its files)
   and its links to BoxOps' docs (pages git tracks, but those still to
   write), the commands `publish-starter` prints to publish it and those

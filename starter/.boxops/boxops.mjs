@@ -163,7 +163,9 @@ function keep(file, bytes) {
  * The cache: $BOXOPS_CACHE, $XDG_CACHE_HOME/boxops, ~/.cache/boxops, then a folder of this
  * user's in the temp folder (which sandboxes allow); the first that is outside this repository
  * (a file committed there would run as code), can be made and written, is this user's and
- * isn't writable by others.
+ * isn't writable by others. The temp folder is everyone's: there, only a folder (not a symlink,
+ * which another user could leave, to a folder of yours holding their files) that no one else
+ * can use, as this launcher makes it.
  */
 function cacheRoot() {
   const uid = process.getuid?.();
@@ -182,6 +184,10 @@ function cacheRoot() {
         continue;
       }
       mkdirSync(dir, { recursive: true, mode: 0o700 });
+      if (i === tries.length - 1) {
+        const own = lstatSync(dir);
+        if (!own.isDirectory() || (uid !== undefined && (own.uid !== uid || own.mode & 0o077))) continue;
+      }
       const real = realpathSync.native(dir);
       const st = statSync(real);
       if (inRepo(real) || (uid !== undefined && (st.uid !== uid || st.mode & 0o022))) continue; // someone else's, or others can write to it

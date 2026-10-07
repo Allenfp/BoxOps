@@ -7,7 +7,7 @@
 // whenever it's used, and, once preview has run, the app beside them
 // (app/**, cli/preview.ts). Node-only.
 
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import type { Env } from "./gha.ts";
@@ -36,8 +36,11 @@ const within = (path: string, top: string) => path === top || path.startsWith(to
  * The cache folder: $BOXOPS_CACHE, $XDG_CACHE_HOME/boxops (an absolute
  * one), ~/.cache/boxops, then a folder of this user's in the temp folder;
  * the first that can be made, is outside `root`, is this user's and isn't
- * writable by others. Throws if none is, or if $BOXOPS_CACHE is inside
- * `root` (nothing is made there).
+ * writable by others. The temp folder is everyone's: there, only a folder
+ * (not a symlink, which another user could leave, to a folder of this
+ * user's holding their files) that no one else can use, as it's made.
+ * Throws if none is, or if $BOXOPS_CACHE is inside `root` (nothing is made
+ * there).
  */
 export function cacheRoot(env: Env, root: string): string {
   const uid = process.getuid?.();
@@ -57,6 +60,10 @@ export function cacheRoot(env: Env, root: string): string {
         continue;
       }
       mkdirSync(dir, { recursive: true, mode: 0o700 });
+      if (i === tries.length - 1) {
+        const own = lstatSync(dir);
+        if (!own.isDirectory() || (uid !== undefined && (own.uid !== uid || own.mode & 0o077))) continue;
+      }
       const real = realpathSync.native(dir);
       if (within(real, top)) continue;
       const st = statSync(real);
