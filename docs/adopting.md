@@ -543,11 +543,15 @@ these differences:
 - Push rulesets aren't available for public repositories. Anyone with
   Write can change `.boxops/boxops.mjs` and `AGENTS.md`, with their token or
   as themselves, and the workflows as themselves (on GitHub's web page, or
-  with git; their token can't, having no Workflows permission). Give Write
-  only to people you trust with those files, and look over what changes
-  there now and then: `git log -p -- .github .boxops AGENTS.md CLAUDE.md`.
-  Each deploy also warns when the launcher or `AGENTS.md`'s BoxOps block
-  isn't the release's text.
+  with git; their token can't, having no Workflows permission, except to
+  copy a workflow file that's already on another branch, unchanged:
+  [security.md](security.md#the-chain-of-trust)). Give Write only to people
+  you trust with those files, delete branches once they're merged
+  (Settings → General → **Automatically delete head branches** does it for
+  pull requests), and look over what changes there now and then:
+  `git log -p -- .github .boxops AGENTS.md CLAUDE.md`. Each deploy also
+  warns when the launcher or `AGENTS.md`'s BoxOps block isn't the
+  release's text.
 - The token's **Resource owner** is the repository's owner: the
   organization, or your own account for a repository you own.
 - A private repository on Team or Pro gets a public site, which the deploy

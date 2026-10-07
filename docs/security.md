@@ -21,7 +21,15 @@ What a roadmap repository's site runs, and what each link rests on:
 1. **Its workflows**, `.github/workflows/deploy.yml` and `check.yml`. An
    editor's token can't change them (it has no Workflows permission), and
    the push ruleset keeps them, the launcher and `AGENTS.md` to repository
-   admins and Dependabot ([adopting.md](adopting.md#4-rulesets)).
+   admins and Dependabot ([adopting.md](adopting.md#4-rulesets)). Without
+   the push ruleset (a public repository can't have one), the token has
+   one way in: GitHub lets a workflow file be committed without that
+   permission if the same file, path and contents, is on another branch of
+   the repository. GitHub documents this for its classic `workflow` scope,
+   and it presumably holds for a fine-grained token's Workflows permission
+   too. So a branch left behind, an old upgrade's say, could have its
+   workflows put back on `main`, moving the pin back to an older release:
+   delete branches once they're merged.
 2. **The pin**: the commit SHA on their `uses: Allenfp/BoxOps@<commit SHA>`
    lines. A commit SHA names its whole tree, so a pin can't be moved the way
    a tag or branch can.
@@ -42,7 +50,7 @@ What a roadmap repository's site runs, and what each link rests on:
 | Who | Can change the data? | Can change the code the site runs? | What stops it |
 |---|---|---|---|
 | A viewer | No | No | A private site opens only for people with read access. |
-| An editor's token (Contents: write, this repository) | Yes | No | No Workflows permission; the push ruleset keeps `.boxops/` and `AGENTS.md` to admins; the action reads the roadmap from git's objects and refuses symlinks and submodules. |
+| An editor's token (Contents: write, this repository) | Yes | No (without the push ruleset, only by copying a workflow that's already on another branch: [1 above](#the-chain-of-trust)) | No Workflows permission; the push ruleset keeps `.github/`, `.boxops/` and `AGENTS.md` to admins; the action reads the roadmap from git's objects and refuses symlinks and submodules. |
 | A writer as themselves (web page, git) | Yes | Only without the push ruleset | The push ruleset (its bypass: repository admins and Dependabot). |
 | A repository admin, Dependabot | Through a pull request | Admins merge pin changes | Dependabot proposes released tags only, 3 days after they're out; the release notes are in its pull request; **Check roadmap** runs the new release first. |
 | BoxOps' maintainer | No | Only for repositories that merge an upgrade | The `release` environment's approval, rulesets that let only the deploy key make release commits and tags, immutable releases, attestations. |

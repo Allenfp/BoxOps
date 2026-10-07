@@ -453,6 +453,11 @@ a GitHub Enterprise Cloud organization with private Pages:
 - The push ruleset (`.github/**/*`, `.boxops/**/*`, `AGENTS.md`,
   `CLAUDE.md`) refuses an editor's workflow and launcher edits, and lets
   Dependabot push.
+- Once, with the push ruleset off for it: whether an editor's fine-grained
+  token (Contents alone) can commit a workflow file that's the same, path
+  and contents, as one on another branch. GitHub documents that for the
+  classic `workflow` scope; [security.md](security.md#the-chain-of-trust)
+  takes it to hold for fine-grained tokens too.
 - Reading newer saves by blob SHA, and `?ref=` previews, on the private
   repository.
 - An open tab reloading across the upgrade.
