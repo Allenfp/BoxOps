@@ -83,8 +83,13 @@ There are no downgrade migrations.
 
 ## Path B: without third-party actions
 
-An organization that allows only GitHub's own actions can run the release
-with git and Node.js instead of `uses:` (the starter's README shows the
-step). Its line is `BOXOPS_ACTION: Allenfp/BoxOps@<sha> # vX.Y.Z`;
-Dependabot can't move it, so upgrade with `node .boxops/boxops.mjs upgrade`,
-which rewrites it like any pin.
+An organization that allows only GitHub's own actions runs the release with
+git and Node.js instead of `uses:`: in both workflows, `actions/setup-node`
+and a step that fetches the pinned commit with git, checks it's that
+commit, and runs its `dist/action.mjs` (with `--mode check` in `check.yml`).
+The starter's README shows the step; BoxOps' `templates/path-b/` has both
+workflows whole. Its pin is a line like
+`BOXOPS_ACTION: Allenfp/BoxOps@<sha> # vX.Y.Z`, which the launcher, `doctor`
+and the deploy's checks read as they read `uses:`. Dependabot can't move it,
+so upgrade with `node .boxops/boxops.mjs upgrade`, which rewrites it like
+any pin (Dependabot still proposes upgrades of GitHub's own actions).

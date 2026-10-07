@@ -1,0 +1,50 @@
+# Checks pull requests (hand edits and Dependabot's upgrades of GitHub's
+# actions) with the pinned BoxOps release: Path B, for organizations that
+# allow only GitHub's own actions. Keep its `BOXOPS_ACTION: Allenfp/BoxOps@…`
+# line identical to deploy.yml's; `node .boxops/boxops.mjs upgrade` moves both.
+name: Check roadmap
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: false # checks take ~15 s; a cancelled check shows as a confusing grey mark on upgrade PRs
+
+jobs:
+  check:
+    name: Check roadmap
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: BoxOps (Path B, no third-party action)
+        env:
+          BOXOPS_ACTION: Allenfp/BoxOps@<RELEASE_COMMIT_SHA> # v0.1.0
+        run: |
+          set -euo pipefail
+          repo=${BOXOPS_ACTION%@*}
+          sha=${BOXOPS_ACTION#*@}
+          if ! [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=BoxOps::BOXOPS_ACTION is '$BOXOPS_ACTION': it must be <owner>/<repository>@<40-character commit SHA>"
+            exit 1
+          fi
+          dir="$RUNNER_TEMP/boxops-action"
+          git init -q "$dir"
+          git -C "$dir" fetch -q --depth 1 --no-tags "https://github.com/$repo" "$sha"
+          git -C "$dir" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          if [ "$(git -C "$dir" rev-parse HEAD)" != "$sha" ]; then
+            echo "::error title=BoxOps::git fetched another commit than $sha"
+            exit 1
+          fi
+          node "$dir/dist/action.mjs" --mode check

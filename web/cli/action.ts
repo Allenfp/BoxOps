@@ -1,6 +1,7 @@
 // The BoxOps action: dist/action.mjs runs runAction() when a workflow uses a
-// release (`uses: Allenfp/BoxOps@<sha>`), and Path B runs it as
-// `node dist/boxops.mjs action --flag value …`. Node-only.
+// release (`uses: Allenfp/BoxOps@<sha>`), and Path B runs the same file with
+// flags in place of inputs, `node dist/action.mjs --flag value …` (as does
+// `node dist/boxops.mjs action --flag value …`). Node-only.
 //
 // It checks a roadmap repository's roadmap and, in build mode, assembles its
 // Pages site from this release's prebuilt app and a roadmap.json. Steps:

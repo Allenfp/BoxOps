@@ -78,29 +78,45 @@ problem, the run warns and the site shows a notice until you upgrade.
 - **IP allow lists:** GitHub's standard runners can't be allow-listed. Use
   larger runners with static addresses or self-hosted runners (`runs-on` in
   both workflows); editors' browsers need allowed networks too.
-- **GitHub's own actions only (Path B):** replace the BoxOps step in both
-  workflows with this one (in `check.yml`, add `--mode check`):
+- **GitHub's own actions only (Path B):** in both workflows, replace the
+  BoxOps step with these two, which fetch the same release with git, check
+  it is that commit, and run it with Node.js. In `check.yml` the last line is
+  `node "$dir/dist/action.mjs" --mode check`. BoxOps'
+  [templates/path-b/](https://github.com/Allenfp/BoxOps/tree/<SOURCE_COMMIT_SHA>/templates/path-b)
+  has both workflows whole.
 
   ```yaml
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-      - id: boxops
-        name: BoxOps (Path B, no third-party action)
-        env:
-          BOXOPS_ACTION: Allenfp/BoxOps@<the commit from the uses: line> # vX.Y.Z
-        run: |
-          set -euo pipefail
-          repo=${BOXOPS_ACTION%@*}; sha=${BOXOPS_ACTION#*@}
-          dir="$RUNNER_TEMP/boxops-action"
-          git init -q "$dir"
-          git -C "$dir" fetch -q --depth 1 --no-tags "https://github.com/$repo" "$sha"
-          git -C "$dir" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
-          [ "$(git -C "$dir" rev-parse HEAD)" = "$sha" ]
-          node "$dir/dist/boxops.mjs" action --releases-file "$RUNNER_TEMP/boxops-releases.json"
+        - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+          with:
+            node-version: 24
+        - id: boxops
+          name: BoxOps (Path B, no third-party action)
+          env:
+            BOXOPS_ACTION: Allenfp/BoxOps@<RELEASE_COMMIT_SHA> # v0.1.0
+          run: |
+            set -euo pipefail
+            repo=${BOXOPS_ACTION%@*}
+            sha=${BOXOPS_ACTION#*@}
+            if ! [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error title=BoxOps::BOXOPS_ACTION is '$BOXOPS_ACTION': it must be <owner>/<repository>@<40-character commit SHA>"
+              exit 1
+            fi
+            dir="$RUNNER_TEMP/boxops-action"
+            git init -q "$dir"
+            git -C "$dir" fetch -q --depth 1 --no-tags "https://github.com/$repo" "$sha"
+            git -C "$dir" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            if [ "$(git -C "$dir" rev-parse HEAD)" != "$sha" ]; then
+              echo "::error title=BoxOps::git fetched another commit than $sha"
+              exit 1
+            fi
+            node "$dir/dist/action.mjs" --releases-file "$RUNNER_TEMP/boxops-releases.json"
   ```
 
-  Dependabot can't move that line; `node .boxops/boxops.mjs upgrade` does.
+  Keep `BOXOPS_ACTION` on the commit and tag of the `uses:` line it
+  replaces. Dependabot can't move it; `node .boxops/boxops.mjs upgrade`
+  does, and the launcher and `doctor` read it as they read `uses:`. git
+  fetches it from github.com without a token: from BoxOps itself, not a
+  private mirror.
 - GitHub Enterprise Server, GHE.com and Windows runners aren't supported.
 
 The starter files in this repository are MIT-0: use them as you like, no

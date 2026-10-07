@@ -97,7 +97,9 @@ web/
   vite.cli.config.ts        the command-line tool and the action, for Node
 templates/                  what the tool writes into a roadmap repository's
                             AGENTS.md (agents-block.md) and prints as its
-                            guide (guide/*.md)
+                            guide (guide/*.md); path-b/, the starter's
+                            workflows for organizations that allow only
+                            GitHub's own actions
 starter/                    the starter repository's files (a roadmap
                             repository: workflows, launcher, sample roadmap)
 cutover/                    the files staged for the commit that moves the
@@ -1056,8 +1058,9 @@ Pages guard isn't this release's, unless the launcher has (below).
 
 **The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
 `path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;
-Path B passes the same as `--flags`, and only Path B can name the site's
-folder, with `--out DIR`: relative to the workspace, new or empty) runs in
+Path B gives `dist/action.mjs` the same as `--flags`, and only Path B can
+name the site's folder, with `--out DIR`: relative to the workspace, new or
+empty) runs in
 this order, each failure an error annotation with a plain message:
 
 1. github.com only (GitHub Enterprise Server and GHE.com aren't supported in
@@ -1106,6 +1109,16 @@ or read as configuration (`package.json`, `.npmrc`, `vite.config.*`,
 and pager are all left alone, and `GIT_*` variables are dropped); it makes no
 network call and takes no token.
 
+**Path B** (`templates/path-b/`) is the starter's two workflows for an
+organization that allows only GitHub's own actions: the BoxOps step becomes
+`actions/setup-node` and a step that fetches the commit on its
+`BOXOPS_ACTION: <owner>/<repo>@<sha> # vX.Y.Z` line with git (from
+github.com, without a token) into the runner's temp folder, checks that's
+the commit it has, and runs its `dist/action.mjs`, the file `uses:` runs,
+with `--releases-file …` (`--mode check` in `check.yml`). The launcher,
+`doctor`, `upgrade` and the action's checks read a `BOXOPS_ACTION:` line as
+a pin; Dependabot can't move it. The starter's README shows the step.
+
 **The launcher** (`starter/.boxops/boxops.mjs`, `launcher: 1`) finds the pin
 in `deploy.yml` by the repository's name (the first `<owner>/<repo with
 "boxops" in it>@<40 lowercase hex>` on a `uses:` or `BOXOPS_ACTION:` line,
@@ -1140,15 +1153,20 @@ stays the same across 0.x.
   (comments and line ends kept, idempotent), `sync`, `upgrade` and `init`
   rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
   `init` and `preview`'s fetch against a fake GitHub, the launcher run with
-  Node, a hostile workspace (its files, git configuration and `GIT_*`
-  variables try to run code: sentinel files stay unwritten, git is the only
-  program started, and the site is a clean workspace's), and no network call
-  from the action or the offline commands (every way Node reaches the network
-  made to fail and noted), and that each file staged in `cutover/` is the live
-  one with only the cutover's changes made. Those that read a whole roadmap
-  read fixed copies (the browser tests' fixture, and `roadmap/` as shipped, in
-  `web/src/model/fixtures/shipped-roadmap/`), never the live `roadmap/`, which
-  saves may write any valid way.
+  Node (its download against a `fetch` answering from a table, the cache's
+  order and refusals, `BUILD.json` checks, `BOXOPS_CLI`, mirrors and tokens,
+  warnings, proxies), the starter made for a release (what `init` writes,
+  and `sync` for its files), Path B's workflows (the starter's but for one
+  step, which the README shows) and that step run with bash against a
+  stand-in for github.com, a hostile workspace (its files, git configuration
+  and `GIT_*` variables try to run code: sentinel files stay unwritten, git
+  is the only program started, and the site is a clean workspace's), and no
+  network call from the action or the offline commands (every way Node
+  reaches the network made to fail and noted), and that each file staged in
+  `cutover/` is the live one with only the cutover's changes made. Those
+  that read a whole roadmap read fixed copies (the browser tests' fixture,
+  and `roadmap/` as shipped, in `web/src/model/fixtures/shipped-roadmap/`),
+  never the live `roadmap/`, which saves may write any valid way.
 - **Browser tests** (Playwright, `web/e2e/`) run the production build in
   WebKit, Safari's engine, and all of them again in Chromium (Chrome, Edge)
   and Firefox. GitHub is faked by a stateful stand-in

@@ -10,11 +10,11 @@ import { buildJsonText, identity, makeBuildJson } from "./cli/release.ts";
 // command and what they carry: what git tracks in templates/ and starter/,
 // and docs/data-format.md; the yaml library inside; unminified, so anyone
 // can read what runs) and dist/action.mjs (a few lines: it imports
-// ./boxops.mjs and runs runAction). Then dist/BUILD.json, naming the build
-// and every file's SHA-256, as a release's does: run `npm run build` first,
-// so dist/app is there to list. The build id and time are the app's
-// (cli/site.ts's appInfo), so the tool and the app it ships agree;
-// BUILD.json's `source` is HEAD.
+// ./boxops.mjs and runs runAction, with Path B's flags if it's given any).
+// Then dist/BUILD.json, naming the build and every file's SHA-256, as a
+// release's does: run `npm run build` first, so dist/app is there to list.
+// The build id and time are the app's (cli/site.ts's appInfo), so the tool
+// and the app it ships agree; BUILD.json's `source` is HEAD.
 
 const WEB_DIR = fileURLToPath(new URL(".", import.meta.url));
 const REPO_DIR = resolve(WEB_DIR, "..");
@@ -34,12 +34,15 @@ function walk(dir: string, rel = ""): string[] {
 /**
  * dist/action.mjs, which action.yml runs: the action is in boxops.mjs, with
  * everything else (one file, not a chunk the two share, so boxops.mjs is
- * whole for the launcher, Path B and anyone reading it).
+ * whole for the launcher, Path B and anyone reading it). The runner gives it
+ * no arguments, only INPUT_* variables; Path B runs it with flags instead
+ * (`node dist/action.mjs --mode check`).
  */
-const ACTION_MJS = `// BoxOps action entry: action.yml runs this (runs.using: node24). Everything is in boxops.mjs.
+const ACTION_MJS = `// BoxOps action entry: action.yml runs this (runs.using: node24), and Path B runs it with flags.
+// Everything is in boxops.mjs.
 import { runAction } from "./boxops.mjs";
 
-process.exitCode = await runAction();
+process.exitCode = await runAction({ argv: process.argv.slice(2) });
 `;
 
 /** Emits dist/action.mjs. */
