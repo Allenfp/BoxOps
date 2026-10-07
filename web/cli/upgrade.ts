@@ -5,15 +5,15 @@
 // then runs the NEW release's `migrate --check`, `sync` and `validate`.
 // Commits nothing. Node-only.
 
-import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { cacheRoot, releaseCache } from "./cache.ts";
+import { cachedTool, keepTool, releaseCache } from "./cache.ts";
 import { EXIT, type Io, type LaunchContext, UsageError } from "./context.ts";
 import { allPins, workflowFiles } from "./doctor.ts";
 import { fileAt, gitHub, latestTag, tagCommit } from "./github.ts";
 import { rewritePins } from "./pins.ts";
-import { digest, parseBuildJson } from "./release.ts";
+import { type BuildJson, digest, parseBuildJson } from "./release.ts";
 
 /** The `main` of a release's dist/boxops.mjs: the launcher's contract. */
 export type Main = (argv: string[], ctx: LaunchContext) => Promise<number>;
@@ -24,23 +24,28 @@ export interface UpgradeOptions {
 }
 
 /**
- * A release's dist/boxops.mjs in the cache (fetched if it isn't there), its
- * SHA-256 checked against the BUILD.json of the same commit, which must name
- * the tag's version.
+ * A release's dist/boxops.mjs in the launcher's cache, with the BUILD.json of
+ * the same commit, which must name the tag's version and describe the tool
+ * (as the launcher checks it). Fetched if either isn't there, or the tool
+ * isn't the file the BUILD.json describes.
  */
 export async function fetchRelease(io: Io, root: string, repo: string, sha: string, tag: string): Promise<string> {
-  const dir = releaseCache(cacheRoot(io.env, root), repo, sha);
-  const file = join(dir, "boxops.mjs");
-  if (existsSync(file)) return file;
+  const dir = releaseCache(io.env, root, repo, sha);
+  const version = (build: BuildJson) => {
+    if (`v${build.version}` !== tag) throw new Error(`${repo}@${sha.slice(0, 7)} is BoxOps ${build.version}, not ${tag}`);
+  };
+  const cached = cachedTool(dir);
+  if (cached) {
+    version(cached.buildJson);
+    return cached.file;
+  }
   const gh = gitHub(io.env, io.fetch);
-  const build = parseBuildJson(new TextDecoder().decode(await fileAt(gh, repo, sha, "BUILD.json")));
-  if (`v${build.version}` !== tag) throw new Error(`${repo}@${sha.slice(0, 7)} is BoxOps ${build.version}, not ${tag}`);
+  const text = new TextDecoder().decode(await fileAt(gh, repo, sha, "BUILD.json"));
+  const build = parseBuildJson(text);
+  version(build);
   const bytes = await fileAt(gh, repo, sha, "dist/boxops.mjs");
   if (digest(bytes) !== build.files["dist/boxops.mjs"]) throw new Error(`dist/boxops.mjs of ${repo}@${sha.slice(0, 7)} isn’t the file its BUILD.json describes`);
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  writeFileSync(`${file}.${process.pid}`, bytes, { mode: 0o600 });
-  renameSync(`${file}.${process.pid}`, file);
-  return file;
+  return keepTool(dir, bytes, text);
 }
 
 export async function upgradeCommand(root: string, wanted: string | undefined, ctx: LaunchContext, io: Io, o: UpgradeOptions = {}): Promise<number> {

@@ -2,7 +2,7 @@
 // fake GitHub (a `fetch` that answers from a table), and the launcher.
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,6 +11,7 @@ import type { Io } from "./context";
 import { doctorCommand } from "./doctor";
 import { starterFiles } from "./embedded";
 import { ensureApp, startPreview } from "./preview";
+import { fetchRelease } from "./upgrade";
 import { buildJsonText, type Identity, makeBuildJson, openRelease, verifiedApp } from "./release";
 import { launcherText } from "./sync";
 import { APP_FILES, ID, capture, cleanUp, sampleRepo, tempDir } from "./test-release";
@@ -185,6 +186,25 @@ describe("upgrade", () => {
     expect(io.stderr.pop()).toBe("boxops upgrade: No BoxOps pin (`uses: <owner>/<boxops repo>@<commit>`) in .github/workflows to upgrade");
   });
 
+  it("keeps the new release's tool with its BUILD.json, as the launcher does, and fetches a changed one again", async () => {
+    const repo = adopter(A);
+    const files = newRelease(join(tempDir(), "calls.jsonl"));
+    const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: files } });
+    const cache = tempDir();
+    const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: cache } });
+    expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, io)).toBe(0);
+    const dir = join(realpathSync(cache), "Allenfp__BoxOps", B);
+    expect(readdirSync(dir).sort()).toEqual(["BUILD.json", "boxops.mjs"]);
+    expect(readFileSync(join(dir, "BUILD.json"), "utf8")).toBe(files["BUILD.json"]);
+    const calls = gh.calls.length;
+    expect(await fetchRelease(io, repo.dir, "Allenfp/BoxOps", B, "v0.2.0")).toBe(join(dir, "boxops.mjs"));
+    expect(gh.calls.length).toBe(calls);
+    writeFileSync(join(dir, "boxops.mjs"), "export async function main() { return 9; }\n");
+    await fetchRelease(io, repo.dir, "Allenfp/BoxOps", B, "v0.2.0");
+    expect(gh.calls.slice(calls)).toEqual([`https://raw.githubusercontent.com/Allenfp/BoxOps/${B}/BUILD.json`, `https://raw.githubusercontent.com/Allenfp/BoxOps/${B}/dist/boxops.mjs`]);
+    expect(readFileSync(join(dir, "boxops.mjs"))).toEqual(Buffer.from(files["dist/boxops.mjs"]));
+  });
+
   it("never caches inside the repository", async () => {
     const repo = adopter(A);
     const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: newRelease(join(tempDir(), "x")) } });
@@ -330,6 +350,42 @@ describe("preview", () => {
     );
     expect(readdirSync(other)).not.toContain("BUILD.json");
     await expect(ensureApp(tempDir(), {}, capture())).rejects.toThrow(/^No app beside .*: run preview through \.boxops\/boxops\.mjs/);
+  });
+
+  it("beside the BUILD.json the launcher keeps, fetches the app alone, and later only what's missing or damaged", async () => {
+    const cliDir = tempDir();
+    const files = releaseFiles(ID);
+    writeFileSync(join(cliDir, "boxops.mjs"), files["dist/boxops.mjs"]);
+    writeFileSync(join(cliDir, "BUILD.json"), files["BUILD.json"]);
+    const gh = fakeGitHub({ files: { [A]: files } });
+    const io = capture({ fetch: gh.fetch, cliDir });
+    const fetched = () => gh.calls.splice(0).map((url) => url.replace(`https://raw.githubusercontent.com/Allenfp/BoxOps/${A}/`, ""));
+    await ensureApp(cliDir, { repo: "Allenfp/BoxOps", sha: A }, io);
+    expect(fetched()).toEqual(Object.keys(APP_FILES).sort().map((p) => `dist/app/${p}`));
+    expect(verifiedApp(openRelease(cliDir, ID.build)).map((f) => f.path).sort()).toEqual(Object.keys(APP_FILES).sort());
+    await ensureApp(cliDir, { repo: "Allenfp/BoxOps", sha: A }, io);
+    expect(fetched()).toEqual([]);
+    writeFileSync(join(cliDir, "app", "favicon.svg"), "<svg/>");
+    rmSync(join(cliDir, "app", "assets", "parse-B2.js"));
+    await ensureApp(cliDir, { repo: "Allenfp/BoxOps", sha: A }, io);
+    expect(fetched()).toEqual(["dist/app/assets/parse-B2.js", "dist/app/favicon.svg"]);
+    expect(verifiedApp(openRelease(cliDir, ID.build))).toHaveLength(Object.keys(APP_FILES).length);
+    // Run without the launcher, it can't know the pin, and says what's wrong.
+    rmSync(join(cliDir, "app", "favicon.svg"));
+    await expect(ensureApp(cliDir, {}, io)).rejects.toThrow(
+      `The app beside ${cliDir} isn’t whole (dist/app/favicon.svg is missing or damaged): run preview through .boxops/boxops.mjs, which fetches it`,
+    );
+  });
+
+  it("won't fetch the app of a pinned commit that's another build than the tool", async () => {
+    const cliDir = tempDir();
+    writeFileSync(join(cliDir, "boxops.mjs"), "export async function main() { return 0; }\n");
+    const gh = fakeGitHub({ files: { [B]: releaseFiles({ ...ID, build: "0.1.0+ffffffffffff" }) } });
+    await expect(ensureApp(cliDir, { repo: "Allenfp/BoxOps", sha: B }, capture({ fetch: gh.fetch, cliDir }))).rejects.toThrow(
+      `Allenfp/BoxOps@${B.slice(0, 12)} is BoxOps build 0.1.0+ffffffffffff, but this tool is 0.1.0+0123456789ab: set BOXOPS_CLI to that release’s dist/boxops.mjs`,
+    );
+    expect(gh.calls).toEqual([`https://raw.githubusercontent.com/Allenfp/BoxOps/${B}/BUILD.json`]);
+    expect(readdirSync(cliDir)).toEqual(["boxops.mjs"]);
   });
 });
 

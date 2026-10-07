@@ -4,21 +4,22 @@
 // GitHub nothing, and, told it's made afresh at each fetch (LIVE_HEADER),
 // fetches roadmap.json twice a second, so a saved file shows within a
 // second. The app's files are this release's: dist/app beside the tool, or,
-// for a tool the launcher downloaded alone, fetched once by the pinned
-// commit, checked against its BUILD.json and kept beside it.
-// Node-only.
+// for a tool the launcher downloaded (with its BUILD.json, or alone), fetched
+// once by the pinned commit, each checked against that BUILD.json and kept
+// beside it. Node-only.
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dirname, extname, join, relative, sep } from "node:path";
 import { LIVE_HEADER } from "../src/model/bundle.ts";
 import { loadRoadmap } from "../src/model/parse.ts";
+import { writeWhole } from "./cache.ts";
 import { type Io, type LaunchContext, UsageError } from "./context.ts";
 import { fileAt, gitHub } from "./github.ts";
-import { type BuildJson, buildJsonText, digest, findBuildJson, openRelease, parseBuildJson, releaseFile, verifiedApp } from "./release.ts";
+import { type BuildJson, digest, findBuildJson, openRelease, parseBuildJson, releaseFile, verifiedApp } from "./release.ts";
 import { resultLine } from "./roadmap.ts";
 import { buildBundle } from "./site.ts";
 
@@ -33,31 +34,59 @@ const TYPES: Record<string, string> = {
   ".md": "text/plain; charset=utf-8",
 };
 
+/** The app's files (dist/app/** in BUILD.json) that aren't beside the tool in `cliDir` as BUILD.json describes them. */
+function appFilesToFetch(cliDir: string, build: BuildJson): string[] {
+  return Object.entries(build.files)
+    .filter(([path]) => path.startsWith("dist/app/"))
+    .filter(([path, want]) => {
+      const file = releaseFile(cliDir, path);
+      return !lstatSync(file, { throwIfNoEntry: false })?.isFile() || digest(readFileSync(file)) !== want;
+    })
+    .map(([path]) => path);
+}
+
 /**
- * Makes sure the app's files are beside the tool in `cliDir`: if there's no
- * BUILD.json there, fetches it and every dist/app file from `repo@sha` (the
- * pin), checking each against it, then keeps them (the launcher's cache).
+ * Makes sure the app's files are beside the tool in `cliDir`, as BUILD.json
+ * describes them. A release has them. The launcher's cache holds the tool
+ * and its commit's BUILD.json until the first preview, which fetches each
+ * app file from `repo@sha` (the pin), checked against that BUILD.json, and
+ * keeps it there; only files missing or damaged are fetched. Beside a tool
+ * with no BUILD.json, BUILD.json is fetched first (it must name this tool's
+ * build) and kept last, once the app is whole.
  */
 export async function ensureApp(cliDir: string, ctx: LaunchContext, io: Io): Promise<void> {
-  if (findBuildJson(cliDir)) return;
+  const id = io.identity();
+  const local = findBuildJson(cliDir) ? openRelease(cliDir, id.build).buildJson : null;
+  const missing = local ? appFilesToFetch(cliDir, local) : null;
+  if (missing && !missing.length) return;
   if (!ctx.repo || !ctx.sha) {
-    throw new UsageError(`No app beside ${cliDir}: run preview through .boxops/boxops.mjs, or set BOXOPS_CLI to a release’s dist/boxops.mjs`);
+    throw new UsageError(
+      missing
+        ? `The app beside ${cliDir} isn’t whole (${missing[0]} is missing or damaged): run preview through .boxops/boxops.mjs, which fetches it`
+        : `No app beside ${cliDir}: run preview through .boxops/boxops.mjs, or set BOXOPS_CLI to a release’s dist/boxops.mjs`,
+    );
   }
-  io.err(`Fetching the app of ${ctx.repo}@${ctx.sha.slice(0, 12)} (once)…`);
+  const where = `${ctx.repo}@${ctx.sha.slice(0, 12)}`;
+  io.err(`Fetching the app of ${where} (once)…`);
   const gh = gitHub(io.env, io.fetch);
-  const text = new TextDecoder().decode(await fileAt(gh, ctx.repo, ctx.sha, "BUILD.json"));
-  const build: BuildJson = parseBuildJson(text);
-  for (const [path, want] of Object.entries(build.files)) {
-    if (!path.startsWith("dist/app/")) continue;
+  let build = local;
+  let text: string | null = null;
+  if (!build) {
+    text = new TextDecoder().decode(await fileAt(gh, ctx.repo, ctx.sha, "BUILD.json"));
+    build = parseBuildJson(text);
+    if (build.build !== id.build) {
+      throw new UsageError(`${where} is BoxOps build ${build.build}, but this tool is ${id.build}: set BOXOPS_CLI to that release’s dist/boxops.mjs`);
+    }
+  }
+  for (const path of missing ?? appFilesToFetch(cliDir, build)) {
     const bytes = await fileAt(gh, ctx.repo, ctx.sha, path);
-    if (digest(bytes) !== want) throw new Error(`${path} from ${ctx.repo}@${ctx.sha.slice(0, 12)} isn’t the file its BUILD.json describes`);
+    if (digest(bytes) !== build.files[path]) throw new Error(`${path} from ${where} isn’t the file its BUILD.json describes`);
     const file = releaseFile(cliDir, path);
     mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, bytes);
+    writeWhole(file, bytes);
   }
   // Last, so a fetch cut short is tried again next time.
-  writeFileSync(join(cliDir, `BUILD.json.${process.pid}`), buildJsonText(build));
-  renameSync(join(cliDir, `BUILD.json.${process.pid}`), join(cliDir, "BUILD.json"));
+  if (text !== null) writeWhole(join(cliDir, "BUILD.json"), text);
 }
 
 export interface Preview {
