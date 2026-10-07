@@ -1,6 +1,6 @@
-# CI, the check every change gets: on pull requests and every push (pages.yml
-# deploys main untested since the demo moved), by hand, weekly (main, and the
-# latest release), and for a release (release.yml calls
+# CI, the check every change gets: on every pull request and push to main
+# (pages.yml deploys main untested since the demo moved), by hand, weekly
+# (main, and the latest release), and for a release (release.yml calls
 # it on the commit it releases, with the version). Its jobs:
 #   test          lint, types, unit tests (also in two far-apart time zones),
 #                 the changelog's form, npm run validate
@@ -21,6 +21,7 @@ name: CI
 on:
   pull_request:
   push:
+    branches: [main]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -43,9 +44,6 @@ concurrency:
 jobs:
   test:
     name: test
-    # A pull request from a branch of this repo is already checked by the push
-    # run on that branch, so only pull requests from forks run here.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     # Pinned on purpose: ubuntu-latest moves to Ubuntu 26.04 between 2026-10-19
     # and 2026-11-19. Move to ubuntu-26.04 in its own pull request.
     runs-on: ubuntu-24.04
@@ -88,7 +86,6 @@ jobs:
 
   release-tree:
     name: release tree
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -258,8 +255,8 @@ jobs:
           BOXOPS_OUTPUTS: ${{ toJSON(steps.check.outputs) }}
         run: node web/scripts/smoke/assert-site.mjs --release build/release --repo starter-copy --sentinels "$RUNNER_TEMP/sentinels"
       # Build mode publishes the default branch only (docs/decisions.md), so
-      # it runs through uses: where this run is on it (weekly, for a release,
-      # by hand on main); elsewhere the release's tool writes the site, with
+      # it runs through uses: where this run is on main (weekly, for a
+      # release, by hand); elsewhere the release's tool writes the site, with
       # the same code.
       - name: The release's action builds the site (build mode)
         id: build
@@ -283,7 +280,6 @@ jobs:
 
   workflows:
     name: workflows
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

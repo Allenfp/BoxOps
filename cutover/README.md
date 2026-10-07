@@ -21,7 +21,7 @@ check.)
 |---|---|
 | `.github/workflows/pages.yml` | Replaced whole. `allenfp.github.io/BoxOps/` becomes a redirect to `allenfp.github.io/boxops-demo/` (the next file), and `/next/` a read-only canary of `main`: this commit's release tree (`npm run release:build`, version `X.Y.Z-next`), its action assembling `Allenfp/boxops-demo`'s roadmap, as a release would. On every push to `main`, daily and by hand. |
 | `pages/redirect.html` | New: the redirect, published as the site's `index.html`. It goes on to `/boxops-demo/` with the address's query and hash (`?view=table`, a box's `#…`) on the same origin, so a tab's session storage goes along; its Content-Security-Policy allows its one script by hash. Without script, it links to the demo and the starter. |
-| `.github/workflows/ci.yml` | It runs on pushes to `main` too (`pages.yml` no longer tests what it deploys), writes no site from `roadmap/`, and lints no workflows in `cutover/`. |
+| `.github/workflows/ci.yml` | It runs on every pull request, from this repository's branches too (not only forks'), and on pushes to `main` alone: `pages.yml` no longer tests what it deploys, and the `main` ruleset's required checks are the pull request's own runs. It writes no site from `roadmap/`, and lints no workflows in `cutover/`. |
 | `web/vite.config.ts` | `DEV_ROADMAP`, what `npm run dev` shows when `$BOXOPS_ROADMAP` isn't set, becomes the browser tests' roadmap, `web/e2e/fixtures/roadmap` (it's `../roadmap` now), and its doc comment with it. |
 | `web/scripts/roadmap-dir.ts` | The default folder of `npm run validate` and `npm run report` becomes `e2e/fixtures/roadmap` (it's `../roadmap` now), in its usage line and comment too. |
 
@@ -82,7 +82,8 @@ On a branch, merged by pull request:
    ones, then delete this folder and the test that checks it:
    `rsync -a --exclude=/README.md cutover/ ./ && git rm -rq cutover
    web/scripts/cutover.test.ts`. That swaps the workflows: `pages.yml`
-   becomes the redirect and `/next/`, and `ci.yml` runs on `main` too.
+   becomes the redirect and `/next/`, and `ci.yml` checks every pull request
+   and `main`.
 3. `docs/data-format.md`'s "In this repository": `npm run validate` checks
    `e2e/fixtures/roadmap` unless given another folder (it says `../roadmap`,
    the live demo's roadmap), and the bullet on how the demo deploys goes.
@@ -102,7 +103,8 @@ On a branch, merged by pull request:
 ## After merging
 
 1. Revoke the old token scoped to `Allenfp/BoxOps`: that's what makes the
-   pinned repository unwritable from a browser.
+   pinned repository unwritable from a browser. Then add the `main`
+   ruleset (`docs/releasing.md`, "At the cutover").
 2. The redirect keeps the query and hash: `allenfp.github.io/BoxOps/?view=table#x`
    opens `allenfp.github.io/boxops-demo/?view=table#x`, in the table.
 3. `allenfp.github.io/BoxOps/next/` shows the demo's roadmap, read-only, with

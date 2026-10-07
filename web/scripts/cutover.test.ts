@@ -26,15 +26,36 @@ const STAGED: Record<string, [string, string][] | null> = {
       "# CI, the check every change gets: on pull requests and every push to a\n" +
         "# branch other than main (which pages.yml checks before deploying), by hand,\n" +
         "# weekly (main, and the latest release), and for a release (release.yml calls\n",
-      "# CI, the check every change gets: on pull requests and every push (pages.yml\n" +
-        "# deploys main untested since the demo moved), by hand, weekly (main, and the\n" +
-        "# latest release), and for a release (release.yml calls\n",
+      "# CI, the check every change gets: on every pull request and push to main\n" +
+        "# (pages.yml deploys main untested since the demo moved), by hand, weekly\n" +
+        "# (main, and the latest release), and for a release (release.yml calls\n",
     ],
     [
       "#                 repository's, the starter's, Path B's, the cutover's) and\n",
       "#                 repository's, the starter's and Path B's) and\n",
     ],
-    ["  push:\n    branches-ignore: [main]\n", "  push:\n"],
+    [
+      "  push:\n" +
+        "    branches-ignore: [main]\n",
+      "  push:\n" +
+        "    branches: [main]\n",
+    ],
+    [
+      "    # A pull request from a branch of this repo is already checked by the push\n" +
+        "    # run on that branch, so only pull requests from forks run here.\n" +
+        "    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository\n",
+      "",
+    ],
+    [
+      "    name: release tree\n" +
+        "    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository\n",
+      "    name: release tree\n",
+    ],
+    [
+      "    name: workflows\n" +
+        "    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository\n",
+      "    name: workflows\n",
+    ],
     [
       "      # starter's files; then the site it writes from the starter's roadmap at\n" +
         "      # this commit, and from roadmap/ (the demo's, as pages.yml writes it,\n" +
@@ -44,12 +65,18 @@ const STAGED: Record<string, [string, string][] | null> = {
         "      # this commit.\n" +
         "      - name: The release's tool on the starter, and the site it writes\n",
     ],
-    ['          node ../build/release/dist/boxops.mjs build --out "$RUNNER_TEMP/demo-site"\n', ""],
+    [
+      '          node ../build/release/dist/boxops.mjs build --out "$RUNNER_TEMP/demo-site"\n',
+      "",
+    ],
     [
       "      - name: Lint the workflows (this repository's, the starter's, Path B's, the cutover's)\n",
       "      - name: Lint the workflows (this repository's, the starter's and Path B's)\n",
     ],
-    [" templates/path-b/*.yml cutover/.github/workflows/*.yml\n", " templates/path-b/*.yml\n"],
+    [
+      " templates/path-b/*.yml cutover/.github/workflows/*.yml\n",
+      " templates/path-b/*.yml\n",
+    ],
   ],
   ".github/workflows/pages.yml": null,
   "pages/redirect.html": null,

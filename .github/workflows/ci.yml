@@ -261,8 +261,8 @@ jobs:
           BOXOPS_OUTPUTS: ${{ toJSON(steps.check.outputs) }}
         run: node web/scripts/smoke/assert-site.mjs --release build/release --repo starter-copy --sentinels "$RUNNER_TEMP/sentinels"
       # Build mode publishes the default branch only (docs/decisions.md), so
-      # it runs through uses: where this run is on it (weekly, for a release,
-      # by hand on main); elsewhere the release's tool writes the site, with
+      # it runs through uses: where this run is on main (weekly, for a
+      # release, by hand); elsewhere the release's tool writes the site, with
       # the same code.
       - name: The release's action builds the site (build mode)
         id: build
