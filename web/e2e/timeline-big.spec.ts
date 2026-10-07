@@ -96,6 +96,9 @@ test("only what's near the screen is drawn; the grid counts every row, and what 
 });
 
 test("nothing on screen is missing, wherever it's scrolled, at every zoom, and after Today", async ({ page, github }) => {
+  // Fifteen places at three zooms, Today and a bigger window, each in this tab and in one that
+  // draws all 603 boxes: in WebKit, in a full run, 17 to 27 seconds, now and then past the 30 allowed.
+  test.slow();
   const whole = await wholeTab(page, github);
   for (const zoom of ["Months", "Weeks", "Quarters"]) {
     for (const p of [page, whole]) await p.getByRole("button", { name: zoom, exact: true }).click();
