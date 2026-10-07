@@ -26,11 +26,13 @@ in [docs/decisions.md](docs/decisions.md). The data format is
 - Never create a tag, a commit on `releases` or a GitHub release, and never
   change the repository's settings, rulesets or deploy keys: releases are
   made by the release workflow, with its deploy key, once the maintainer
-  approves. (A tag ruleset whose only bypass is that deploy key refused the
-  owner's own tag push over SSH when tried on 2026-10-06; whether it also
-  stops a tag made through the REST API isn't checked yet. Were it not to
-  hold, releases would move to a repository of their own, such as
-  `Allenfp/boxops-action`.)
+  approves. (Tried on 2026-10-06 on a scratch repository: a tag ruleset
+  whose only bypass is a deploy key refused the owner's own tag push over
+  SSH, and let the deploy key create and delete tags. Whether it also stops
+  the owner making a tag through the REST API isn't checked yet. Were it
+  not to hold, releases would move to a repository of their own, such as
+  `Allenfp/boxops-action`: [docs/decisions.md](docs/decisions.md), release
+  identity.)
 - Commit in small, logical steps, each leaving the unit tests passing. The
   subject is a plain sentence of at most 72 characters, saying what is now
   true (`git log` shows the style; `Docs: …` and `Tests: …` for those
