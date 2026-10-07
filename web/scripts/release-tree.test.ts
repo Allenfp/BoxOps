@@ -14,8 +14,8 @@ import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildJsonText, makeBuildJson, parseBuildJson } from "../cli/release";
 import { cleanUp, readOutputs, tempDir } from "../cli/test-release";
-import { LIMITS, bundledPackages, checkReleaseTree, sha256sums, treeHash } from "./check-release-tree";
-import { gitTree, renderReadme } from "./release-tree";
+import { LIMITS, type SpdxDocument, bundledPackages, checkReleaseTree, sha256sums, treeHash } from "./check-release-tree";
+import { gitTree, releaseSbom, renderReadme } from "./release-tree";
 
 afterEach(cleanUp);
 
@@ -66,6 +66,34 @@ function goodTree(): string {
 
 /** The problems the checks find in the tree at `dir`. */
 const problems = async (dir: string) => (await checkReleaseTree(dir, { webDir: WEB })).problems;
+
+type Relationship = SpdxDocument["relationships"][number];
+
+/** A package's SPDX id as npm writes it: "@types/react@19.3.0" → SPDXRef-Package-types.react-19.3.0. */
+const spdxId = (pkg: string) => `SPDXRef-Package-${pkg.replace(/^@/, "").replace("/", ".").replace(/@(?=[^@]*$)/, "-")}`;
+
+/** A relationship of package a to package b ("name@version" each), as npm writes it. */
+const related = (a: string, type: string, b: string): Relationship => ({ spdxElementId: spdxId(a), relatedSpdxElement: spdxId(b), relationshipType: type });
+
+/**
+ * An SPDX document as `npm sbom --sbom-format spdx` writes one for web/,
+ * cut short: the package it describes (boxops-roadmap at `version`), and
+ * `packages` ("name@version"), with these relationships.
+ */
+function spdx(version: string, packages: string[], relationships: Relationship[] = []): SpdxDocument {
+  const root = `boxops-roadmap@${version}`;
+  return {
+    spdxVersion: "SPDX-2.3",
+    name: root,
+    documentNamespace: `http://spdx.org/spdxdocs/boxops-roadmap-${version}-0f5e7b2c-6a4d-4f00-9c3e-2b1d8e7a6c5f`,
+    documentDescribes: [spdxId(root)],
+    packages: [root, ...packages].map((pkg) => {
+      const at = pkg.lastIndexOf("@");
+      return { SPDXID: spdxId(pkg), name: pkg.slice(0, at), versionInfo: pkg.slice(at + 1), externalRefs: [{ referenceCategory: "PACKAGE-MANAGER", referenceType: "purl", referenceLocator: `pkg:npm/${pkg}` }] };
+    }),
+    relationships: [{ spdxElementId: "SPDXRef-DOCUMENT", relatedSpdxElement: spdxId(root), relationshipType: "DESCRIBES" }, ...relationships],
+  };
+}
 
 describe("the release tree's checks", () => {
   it("pass a right tree, and compute git's tree id without git", async () => {
@@ -216,6 +244,60 @@ describe("the release tree's checks", () => {
   });
 });
 
+describe("the release's SBOM (releaseSbom)", () => {
+  // npm sbom for web/, cut short: yaml is the app's and the tool's, and vite, a dev dependency, names it too.
+  const full = spdx(
+    "0.1.0",
+    ["@types/react@19.3.0", "react@19.3.0", "react-dom@19.3.0", "scheduler@0.28.0", "vite@8.3.2", "yaml@2.9.1"],
+    [
+      related("react@19.3.0", "DEPENDENCY_OF", "boxops-roadmap@0.1.0"),
+      related("react-dom@19.3.0", "DEPENDENCY_OF", "boxops-roadmap@0.1.0"),
+      related("yaml@2.9.1", "DEPENDENCY_OF", "boxops-roadmap@0.1.0"),
+      related("@types/react@19.3.0", "DEV_DEPENDENCY_OF", "boxops-roadmap@0.1.0"),
+      related("vite@8.3.2", "DEV_DEPENDENCY_OF", "boxops-roadmap@0.1.0"),
+      related("react@19.3.0", "PREREQUISITE_FOR", "react-dom@19.3.0"),
+      related("scheduler@0.28.0", "DEPENDENCY_OF", "react-dom@19.3.0"),
+      related("yaml@2.9.1", "DEPENDENCY_OF", "vite@8.3.2"),
+    ],
+  );
+  // What npm ls --omit dev --all lists.
+  const production = new Set(["react-dom@19.3.0", "react@19.3.0", "scheduler@0.28.0", "yaml@2.9.1"]);
+
+  it("is npm's, cut down to the production packages and the relationships among them", () => {
+    const sbom = releaseSbom(full, production, "0.1.0");
+    expect(sbom.packages.map((p) => `${p.name}@${p.versionInfo}`)).toEqual(["boxops-roadmap@0.1.0", "react@19.3.0", "react-dom@19.3.0", "scheduler@0.28.0", "yaml@2.9.1"]);
+    expect(sbom.relationships).toEqual([0, 1, 2, 3, 6, 7].map((i) => full.relationships[i]));
+    expect({ ...sbom, packages: [], relationships: [] }).toEqual({ ...full, packages: [], relationships: [] });
+  });
+
+  it("describes a release candidate as itself, where npm gives web/package.json's version", () => {
+    const sbom = releaseSbom(full, production, "0.1.0-rc.1");
+    const id = "SPDXRef-Package-boxops-roadmap-0.1.0-rc.1";
+    expect(sbom.name).toBe("boxops-roadmap@0.1.0-rc.1");
+    expect(sbom.documentNamespace).toBe("http://spdx.org/spdxdocs/boxops-roadmap-0.1.0-rc.1-0f5e7b2c-6a4d-4f00-9c3e-2b1d8e7a6c5f");
+    expect(sbom.documentDescribes).toEqual([id]);
+    expect(sbom.packages[0]).toEqual({
+      SPDXID: id,
+      name: "boxops-roadmap",
+      versionInfo: "0.1.0-rc.1",
+      externalRefs: [{ referenceCategory: "PACKAGE-MANAGER", referenceType: "purl", referenceLocator: "pkg:npm/boxops-roadmap@0.1.0-rc.1" }],
+    });
+    expect(sbom.relationships.filter((r) => r.relatedSpdxElement === id).map((r) => r.spdxElementId)).toEqual([
+      "SPDXRef-DOCUMENT",
+      "SPDXRef-Package-react-19.3.0",
+      "SPDXRef-Package-react-dom-19.3.0",
+      "SPDXRef-Package-yaml-2.9.1",
+    ]);
+    expect(JSON.stringify(sbom)).not.toMatch(/boxops-roadmap[-@]0\.1\.0(?!-rc\.1)/);
+  });
+
+  it("refuses an npm SBOM without a production package npm ls lists, as npm sbom --omit dev leaves out yaml", () => {
+    const omitted = spdx("0.1.0", ["react@19.3.0", "react-dom@19.3.0", "scheduler@0.28.0"]);
+    expect(() => releaseSbom(omitted, production, "0.1.0")).toThrow("npm sbom doesn’t list yaml@2.9.1, which npm ls --omit dev does");
+    expect(() => releaseSbom({ ...full, documentDescribes: [] }, production, "0.1.0")).toThrow("npm sbom: its document doesn’t describe one package, web/package.json’s");
+  });
+});
+
 describe("release/README.md.tmpl", () => {
   it("is filled in, every placeholder known and every value used", () => {
     const template = readFileSync(join(REPO, "release", "README.md.tmpl"), "utf8");
@@ -259,7 +341,12 @@ interface Built {
   builds: { clone: string; out: string; tree: string }[];
 }
 
-/** Makes the commit and builds it twice (see Built); each clone has its own copy of the dependencies npm ci installed. */
+/**
+ * Makes the commit and builds it twice (see Built); each clone has its own
+ * copy of the dependencies npm ci installed. The first build makes its SBOM
+ * too (npm sbom, in its clone), as CI's does; the second, as the release
+ * workflow's rebuild, none.
+ */
 function buildTwice(): Built {
   const work = mkdtempSync(join(tmpdir(), "boxops-test-"));
   const src = join(work, "src");
@@ -278,7 +365,7 @@ function buildTwice(): Built {
     git(work, ["clone", "-q", "--no-hardlinks", src, clone]);
     cpSync(join(WEB, "node_modules"), join(clone, "web", "node_modules"), { recursive: true, verbatimSymlinks: true });
     const out = join(work, `${name}-out`);
-    const r = spawnSync(process.execPath, [join(clone, "web", "node_modules", "tsx", "dist", "cli.mjs"), "scripts/release-tree.ts", "--out", out, "--no-sbom"], {
+    const r = spawnSync(process.execPath, [join(clone, "web", "node_modules", "tsx", "dist", "cli.mjs"), "scripts/release-tree.ts", "--out", out, ...(name === "a" ? [] : ["--no-sbom"])], {
       cwd: join(clone, "web"),
       encoding: "utf8",
     });
@@ -314,6 +401,21 @@ describe("a release tree built from one commit", () => {
     expect(Object.keys(build.files)).toEqual(files.filter((p) => p !== "BUILD.json"));
     // Every chunk the app has is in the tree, and listed.
     expect(files.filter((p) => p.startsWith("dist/app/assets/") && p.endsWith(".js")).length).toBeGreaterThan(10);
+  });
+
+  it("has an SBOM of what the app and the tool bundle, yaml among them, and no dev dependency", () => {
+    const [a, b] = built.builds;
+    const sbom = JSON.parse(readFileSync(join(a.out, "sbom.spdx.json"), "utf8")) as SpdxDocument;
+    const installed = (name: string) => (JSON.parse(readFileSync(join(WEB, "node_modules", name, "package.json"), "utf8")) as { version: string }).version;
+    const listed = sbom.packages.map((p) => `${p.name}@${p.versionInfo}`);
+    expect(listed).toEqual(expect.arrayContaining([`yaml@${installed("yaml")}`, `react@${installed("react")}`, `react-dom@${installed("react-dom")}`]));
+    expect(listed.filter((p) => /^(vite|vitest|typescript|@vitejs\/|@types\/|@playwright\/|oxlint|tsx)@/.test(p))).toEqual([]);
+    // It describes the release, BoxOps' package under its MIT licence; checkReleaseTree (above) found it names
+    // exactly the packages the licence files name.
+    const { version } = JSON.parse(readFileSync(join(WEB, "package.json"), "utf8")) as { version: string };
+    expect(sbom.packages.find((p) => p.SPDXID === sbom.documentDescribes[0])).toMatchObject({ name: "boxops-roadmap", versionInfo: version, licenseDeclared: "MIT" });
+    // The rebuild makes none (--no-sbom).
+    expect(existsSync(join(b.out, "sbom.spdx.json"))).toBe(false);
   });
 
   it("isn't built from a checkout with a file not committed", () => {

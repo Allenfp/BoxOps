@@ -4,9 +4,12 @@
 // with three files beside it:
 //   TREE             git's id of the tree: what the release commit's tree is
 //   SHA256SUMS       every file's SHA-256, as `sha256sum -c` reads them
-//   sbom.spdx.json   `npm sbom` of what the app and the tool bundle: a release
-//                    asset, not in the tree (an SPDX document carries a time
-//                    and a random id, so it differs at every build)
+//   sbom.spdx.json   the SBOM of what the app and the tool bundle (SPDX): npm's
+//                    of every package installed, cut down to the production
+//                    ones `npm ls --omit dev` lists (releaseSbom), its own
+//                    package as this release's version. A release asset, not
+//                    in the tree (an SPDX document carries a time and a
+//                    random id, so it differs at every build)
 //
 // The tree (the distribution design's §2.2):
 //   action.yml                 release/action.yml
@@ -36,7 +39,7 @@ import { fileURLToPath } from "node:url";
 import { UsageError, flag, parseArgs } from "../cli/context.ts";
 import { type BuildJson, buildJsonText, makeBuildJson, parseBuildJson } from "../cli/release.ts";
 import { buildVersion } from "../cli/site.ts";
-import { checkReleaseTree, sha256sums } from "./check-release-tree.ts";
+import { type SpdxDocument, type SpdxPackage, checkReleaseTree, sha256sums } from "./check-release-tree.ts";
 
 /** web/ of the BoxOps checkout this script is in. */
 const WEB_DIR = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -130,6 +133,71 @@ function vite(webDir: string, args: string[], version: string, log: (text: strin
   if (r.status !== 0) throw new Error(`vite ${args.join(" ")} failed (exit ${r.status ?? r.signal}):\n${r.stdout ?? ""}${r.stderr ?? ""}`);
 }
 
+/** npm, in web/, as the release build runs it: its JSON on stdout (or an error saying what failed). */
+function npm(webDir: string, args: string[]): string {
+  const r = spawnSync("npm", args, { cwd: webDir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  if (r.status !== 0) throw new Error(`npm ${args.join(" ")} failed (exit ${r.status ?? r.signal}): ${r.stderr || r.error?.message}`);
+  return r.stdout;
+}
+
+interface NpmLsNode {
+  version?: string;
+  dependencies?: Record<string, NpmLsNode>;
+}
+
+/**
+ * Every package `npm ls --omit dev --all` lists in web/, as name@version:
+ * web/package.json's production dependencies and theirs, the packages the
+ * app and the tool may bundle.
+ */
+export function productionPackages(webDir: string): Set<string> {
+  const out = new Set<string>();
+  const visit = (deps: Record<string, NpmLsNode> | undefined) => {
+    for (const [name, dep] of Object.entries(deps ?? {})) {
+      if (!dep.version) throw new Error(`npm ls --omit dev lists ${name} with no version: run npm ci in ${webDir} first`);
+      out.add(`${name}@${dep.version}`);
+      visit(dep.dependencies);
+    }
+  };
+  visit((JSON.parse(npm(webDir, ["ls", "--omit", "dev", "--all", "--json"])) as NpmLsNode).dependencies);
+  return out;
+}
+
+/**
+ * The release's SBOM, from npm's of every package installed (`npm sbom`):
+ * the package it describes (web/package.json's), as the release's version
+ * (npm gives package.json's, X.Y.Z for X.Y.Z-rc.N too); the `production`
+ * packages (productionPackages), every one of which must be there; and the
+ * relationships among those. Not `npm sbom --omit dev`, which leaves out a
+ * production package that a dev dependency also names, as an optional
+ * peer: yaml, which vite names, and which the tool and the app both bundle.
+ */
+export function releaseSbom(full: SpdxDocument, production: ReadonlySet<string>, version: string): SpdxDocument {
+  const root = full.documentDescribes.length === 1 ? full.packages.find((p) => p.SPDXID === full.documentDescribes[0]) : undefined;
+  if (!root) throw new Error("npm sbom: its document doesn’t describe one package, web/package.json’s");
+  const packages = full.packages.filter((p) => p === root || production.has(`${p.name}@${p.versionInfo}`));
+  const listed = new Set(packages.map((p) => `${p.name}@${p.versionInfo}`));
+  const missing = [...production].filter((p) => !listed.has(p));
+  if (missing.length) throw new Error(`npm sbom doesn’t list ${missing.join(", ")}, which npm ls --omit dev does`);
+  const kept = new Set(["SPDXRef-DOCUMENT", ...packages.map((p) => p.SPDXID)]);
+  // npm names the package, its id, the document and its namespace by package.json's version.
+  const was = root.versionInfo;
+  const id = root.SPDXID.endsWith(`-${was}`) ? `${root.SPDXID.slice(0, -was.length)}${version}` : root.SPDXID;
+  const renamed = (ref: string) => (ref === root.SPDXID ? id : ref);
+  const purl = (ref: NonNullable<SpdxPackage["externalRefs"]>[number]) =>
+    ref.referenceType === "purl" && ref.referenceLocator.endsWith(`@${was}`) ? { ...ref, referenceLocator: `${ref.referenceLocator.slice(0, -was.length)}${version}` } : ref;
+  return {
+    ...full,
+    name: full.name === `${root.name}@${was}` ? `${root.name}@${version}` : full.name,
+    documentNamespace: full.documentNamespace.replace(`/${root.name}-${was}-`, `/${root.name}-${version}-`),
+    documentDescribes: [id],
+    packages: packages.map((p) => (p === root ? { ...p, SPDXID: id, versionInfo: version, ...(p.externalRefs && { externalRefs: p.externalRefs.map(purl) }) } : p)),
+    relationships: full.relationships
+      .filter((r) => kept.has(r.spdxElementId) && kept.has(r.relatedSpdxElement))
+      .map((r) => ({ ...r, spdxElementId: renamed(r.spdxElementId), relatedSpdxElement: renamed(r.relatedSpdxElement) })),
+  };
+}
+
 /** git's id of the tree of the files in `dir`, from git itself: a throwaway repository's index, no configuration but these. */
 export function gitTree(dir: string): string {
   const scratch = mkdtempSync(join(tmpdir(), "boxops-tree-"));
@@ -203,9 +271,9 @@ export async function buildReleaseTree(o: TreeOptions): Promise<ReleaseTree> {
   writeFileSync(join(out, "TREE"), `${tree}\n`);
   writeFileSync(join(out, "SHA256SUMS"), sha256sums(dir, all));
   if (o.sbom !== false) {
-    const r = spawnSync("npm", ["sbom", "--omit", "dev", "--sbom-format", "spdx"], { cwd: webDir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-    if (r.status !== 0) throw new Error(`npm sbom failed (exit ${r.status ?? r.signal}): ${r.stderr ?? r.error?.message}`);
-    writeFileSync(join(out, "sbom.spdx.json"), r.stdout);
+    // Every package installed, whatever NODE_ENV (production omits dev ones) or npm's own settings say.
+    const full = JSON.parse(npm(webDir, ["sbom", "--sbom-format", "spdx", "--include=dev", "--include=optional", "--include=peer"])) as SpdxDocument;
+    writeFileSync(join(out, "sbom.spdx.json"), `${JSON.stringify(releaseSbom(full, productionPackages(webDir), version), null, 2)}\n`);
   }
 
   const check = await checkReleaseTree(dir, { beside: out, webDir });

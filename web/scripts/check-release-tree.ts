@@ -99,6 +99,23 @@ export function bundledPackages(code: string): string[] {
 /** The packages a Vite licence list names (its "## <name> - <version>" headings). */
 export const licensed = (text: string) => [...text.matchAll(/^## ((?:@[^/\s]+\/)?[^\s]+) - \S+/gm)].map((m) => m[1]);
 
+/** As much of an SPDX 2 document as the release's SBOM is made and checked by (`npm sbom --sbom-format spdx` writes one). */
+export interface SpdxDocument {
+  spdxVersion: string;
+  name: string;
+  documentNamespace: string;
+  documentDescribes: string[];
+  packages: SpdxPackage[];
+  relationships: { spdxElementId: string; relatedSpdxElement: string; relationshipType: string }[];
+}
+
+export interface SpdxPackage {
+  SPDXID: string;
+  name: string;
+  versionInfo: string;
+  externalRefs?: { referenceCategory: string; referenceType: string; referenceLocator: string }[];
+}
+
 /** Checks the release tree in `dir`; with `beside` (release-tree.ts's --out), its TREE and SHA256SUMS too, where they are. */
 export async function checkReleaseTree(dir: string, o: { beside?: string; webDir?: string } = {}): Promise<TreeCheck> {
   const problems: string[] = [];

@@ -1125,9 +1125,12 @@ untracked (`--allow-dirty` to try one anyway, its build id ending in
 other file of the tree, the top-level ones too, and every file is written
 0644, so git's id for the tree is the same wherever it's built. Beside the
 tree: `TREE` (that id: the release commit's tree), `SHA256SUMS` and
-`sbom.spdx.json` (`npm sbom`: a release file, not in the tree, since it
-carries a time and a random id). Two builds of one commit are the same, byte
-for byte. `npm run check:release-tree` (`scripts/check-release-tree.ts`)
+`sbom.spdx.json` (a release file, not in the tree, since it carries a time
+and a random id): npm's SBOM of every package installed, cut down to the
+production packages `npm ls --omit dev` lists, and BoxOps' own package at
+the release's version. (`npm sbom --omit dev` alone leaves out `yaml`, which
+vite, a dev dependency, names as an optional peer.) Two builds of one commit
+are the same, byte for byte. `npm run check:release-tree` (`scripts/check-release-tree.ts`)
 checks a tree: only a release's files, none hidden, executable, a symlink,
 source, `node_modules`, a workflow or a source map; each in `BUILD.json`
 with its SHA-256, and no other; `action.yml` running `dist/action.mjs` on
