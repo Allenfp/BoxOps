@@ -41,6 +41,9 @@ for (const visibility of ["public", "private"] as const) {
       github.inject("ref", "hang");
       await page.reload();
       await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
+      // The first load's call, and this load's, which hangs: made once GitHub's code has come, so
+      // waited for before the clock moves on.
+      await expect.poll(() => github.calls("ref")).toBe(2);
       // The check gives up after a few seconds, well before the call's own timeout and retry.
       await page.clock.fastForward(5_000);
       await page.clock.fastForward(20_000);
@@ -48,7 +51,7 @@ for (const visibility of ["public", "private"] as const) {
       await page.waitForTimeout(300); // time for a retry that shouldn't happen
       await expect(page.locator(".banner")).toHaveCount(0);
       await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
-      expect(github.calls("ref")).toBe(2); // the first load's, and the one that hung
+      expect(github.calls("ref")).toBe(2); // no more
 
       await dragDays(page, DAGSTER, 10);
       await save(page);

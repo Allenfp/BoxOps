@@ -310,6 +310,9 @@ test("each step says what it would do: a rule broken or kept again; the popup wa
 test("others' saves wait while a box is moved, and come in after", async ({ page, github }) => {
   await box(page, DAGSTER).focus();
   await press(page, "Space", "ArrowRight");
+  // Moved. (Space pressed before the move's code has come picks the box up once it has; a check
+  // for others' saves until then would go ahead.)
+  await expect(dragDates(page)).toContainText("2026-09-15 – 2026-10-26");
   github.deploy(github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC pipeline v2") }, "Sam Lee", "CDC renamed"));
   // The check is skipped while it's moved: nothing is fetched.
   let fetches = 0;
