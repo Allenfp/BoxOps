@@ -196,7 +196,10 @@ writes to `main` here but merged pull requests, so it gets its ruleset too:
    deletions, Block force pushes, Require a pull request before merging (0
    approvals), Require status checks to pass: CI's jobs `test`,
    `release tree`, `browser tests`, `smoke (ubuntu-24.04)`,
-   `smoke (ubuntu-24.04-arm)`, `smoke (ubuntu-26.04)` and `workflows`. Or:
+   `smoke (ubuntu-24.04-arm)`, `smoke (ubuntu-26.04)` and `workflows`, each
+   with GitHub Actions as its source, so that no commit status or other
+   app's check of the same name stands in for CI's (setting a status takes
+   only push access). Or:
 
    ```sh
    gh api -X POST repos/Allenfp/BoxOps/rulesets --input - <<'EOF'
@@ -207,12 +210,18 @@ writes to `main` here but merged pull requests, so it gets its ruleset too:
                 "dismiss_stale_reviews_on_push": false, "require_code_owner_review": false,
                 "require_last_push_approval": false, "required_review_thread_resolution": false}},
               {"type": "required_status_checks", "parameters": {"strict_required_status_checks_policy": false,
-                "required_status_checks": [{"context": "test"}, {"context": "release tree"},
-                  {"context": "browser tests"}, {"context": "smoke (ubuntu-24.04)"},
-                  {"context": "smoke (ubuntu-24.04-arm)"}, {"context": "smoke (ubuntu-26.04)"},
-                  {"context": "workflows"}]}}]}
+                "required_status_checks": [
+                  {"context": "test", "integration_id": 15368},
+                  {"context": "release tree", "integration_id": 15368},
+                  {"context": "browser tests", "integration_id": 15368},
+                  {"context": "smoke (ubuntu-24.04)", "integration_id": 15368},
+                  {"context": "smoke (ubuntu-24.04-arm)", "integration_id": 15368},
+                  {"context": "smoke (ubuntu-26.04)", "integration_id": 15368},
+                  {"context": "workflows", "integration_id": 15368}]}}]}
    EOF
    ```
+
+   (15368 is GitHub Actions' app id: `gh api apps/github-actions --jq .id`.)
 
    The cutover's `ci.yml` checks every pull request, so these are the pull
    request's own runs.
