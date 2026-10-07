@@ -86,7 +86,8 @@ web/
   scripts/                  validate.ts, report.ts (`npm run validate` and
                             `report`: the tool's commands; an optional
                             argument names another roadmap folder),
-                            gen-roadmap.ts (synthetic roadmaps of any size)
+                            gen-roadmap.ts (synthetic roadmaps of any size),
+                            cutover.test.ts (what's staged in cutover/)
   e2e/                      browser tests, fake GitHub, fixture roadmap
   index.html                early theme, boot watchdog (inline scripts)
   vite.config.ts            the app: build id, CSP, licences; roadmap.json
@@ -97,6 +98,8 @@ templates/                  what the tool writes into a roadmap repository's
                             guide (guide/*.md)
 starter/                    the starter repository's files (a roadmap
                             repository: workflows, launcher, sample roadmap)
+cutover/                    the files staged for the commit that moves the
+                            demo to its own repository, and its steps
 ```
 
 `model/` also holds `paths.ts` (which files are roadmap files), `bundle.ts`
@@ -1110,25 +1113,26 @@ a contract that stays the same across 0.x.
 
 ## Tests and CI
 
-- **Unit tests** (Vitest, `web/src/**/*.test.ts` and `web/cli/**/*.test.ts`)
-  cover dates, loading and validation, the draft and rebasing, YAML writing,
-  change descriptions, layout and capacity, the report, the GitHub client,
-  reader and save logic against the browser tests' fake GitHub, the
-  roadmap readers, git SHAs and `roadmap.json` against real git repositories
-  made in the temp folder, and the command-line tool and the action against
-  such repositories and a fake release: every command, each of the action's
-  checks with its message, outputs and summary, migrations (comments and line
-  ends kept, idempotent), `sync`, `upgrade` and `init` rewriting sample
-  repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`, `init` and
-  `preview`'s fetch against a fake GitHub, the launcher run with Node, a
-  hostile workspace (its files, git configuration and `GIT_*` variables try
-  to run code: sentinel files stay unwritten, git is the only program
-  started, and the site is a clean workspace's), and no network call from
-  the action or the offline commands (every way Node reaches the network
-  made to fail and noted). Those that read a whole roadmap read fixed copies
-  (the browser tests' fixture, and `roadmap/` as shipped, in
-  `web/src/model/fixtures/shipped-roadmap/`), never the live `roadmap/`,
-  which saves may write any valid way.
+- **Unit tests** (Vitest, `web/src/**/*.test.ts`, `web/cli/**/*.test.ts` and
+  `web/scripts/**/*.test.ts`) cover dates, loading and validation, the draft
+  and rebasing, YAML writing, change descriptions, layout and capacity, the
+  report, the GitHub client, reader and save logic against the browser tests'
+  fake GitHub, the roadmap readers, git SHAs and `roadmap.json` against real
+  git repositories made in the temp folder, and the command-line tool and the
+  action against such repositories and a fake release: every command, each of
+  the action's checks with its message, outputs and summary, migrations
+  (comments and line ends kept, idempotent), `sync`, `upgrade` and `init`
+  rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
+  `init` and `preview`'s fetch against a fake GitHub, the launcher run with
+  Node, a hostile workspace (its files, git configuration and `GIT_*`
+  variables try to run code: sentinel files stay unwritten, git is the only
+  program started, and the site is a clean workspace's), and no network call
+  from the action or the offline commands (every way Node reaches the network
+  made to fail and noted), and that each file staged in `cutover/` is the live
+  one with only the cutover's changes made. Those that read a whole roadmap
+  read fixed copies (the browser tests' fixture, and `roadmap/` as shipped, in
+  `web/src/model/fixtures/shipped-roadmap/`), never the live `roadmap/`, which
+  saves may write any valid way.
 - **Browser tests** (Playwright, `web/e2e/`) run the production build in
   WebKit, Safari's engine, and all of them again in Chromium (Chrome, Edge)
   and Firefox. GitHub is faked by a stateful stand-in

@@ -9,10 +9,10 @@ import { LIVE_HEADER } from "./src/model/bundle.ts";
 
 const WEB_DIR = fileURLToPath(new URL(".", import.meta.url));
 const REPO_DIR = resolve(WEB_DIR, "..");
-/** What `npm run dev` shows: $BOXOPS_ROADMAP (relative to where npm was run), else this repo's roadmap/. */
+/** What `npm run dev` shows: $BOXOPS_ROADMAP (relative to where npm was run), else the browser tests' roadmap (e2e/fixtures/roadmap). */
 const DEV_ROADMAP = process.env.BOXOPS_ROADMAP
   ? resolve(process.env.INIT_CWD ?? process.cwd(), process.env.BOXOPS_ROADMAP)
-  : resolve(REPO_DIR, "roadmap");
+  : resolve(WEB_DIR, "e2e/fixtures/roadmap");
 /**
  * The build id and time, in index.html (and the dev server's roadmap.json;
  * a site's comes from the command-line tool, built with the same id). The id
