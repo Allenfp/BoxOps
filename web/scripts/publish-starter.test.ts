@@ -19,6 +19,10 @@ import { TestRepo } from "../cli/test-repo";
 import { SHELLS, block, paste, shellEnv, standIns, which } from "../cli/test-shell";
 import { NO_REPLY, main, publishCommands, publishStarter } from "./publish-starter";
 
+// Each test runs git dozens of times, some pasting commands into a shell too: up to 3 seconds on a
+// quiet machine, and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
+
 const repos: TestRepo[] = [];
 afterEach(() => {
   for (const r of repos.splice(0)) r.remove();

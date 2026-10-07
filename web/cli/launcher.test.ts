@@ -9,11 +9,15 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WARNING_COMMANDS } from "./boxops";
 import { type BuildJson, buildJsonText, makeBuildJson } from "./release";
 import { launcherText } from "./sync";
 import { ID, IGNORES_CASE, cleanUp, tempDir } from "./test-release";
+
+// Each test starts Node with the launcher, some several times: over a second on a quiet machine,
+// and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 afterEach(cleanUp);
 

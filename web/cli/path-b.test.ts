@@ -8,13 +8,18 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 import { permissionFindings } from "./doctor";
 import { carried, starterFiles } from "./embedded";
 import { findPins, rewritePins } from "./pins";
 import { cleanUp, readOutputs, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
+
+// The step's tests run it with bash, which runs git to fetch and check out the release and Node to
+// run it: under a second on a quiet machine, and several times that under load, near or past
+// vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 const repos: TestRepo[] = [];
 afterEach(() => {

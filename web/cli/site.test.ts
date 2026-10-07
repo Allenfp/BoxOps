@@ -1,13 +1,17 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readBundle } from "../src/model/bundle";
 import { parseFile } from "../src/model/parse";
 import { EXECUTABLE } from "../src/model/paths";
 import { RoadmapReadError } from "./git";
 import { type ParseCache, appInfo, assembleBundle, buildBundle, buildVersion, hashFolder, repoFromRemote, repoVisibility, withoutCredentials } from "./site";
 import { TestRepo } from "./test-repo";
+
+// Most tests make a repository and read it with git many times (one 52 times): up to 3 seconds on a
+// quiet machine, and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 const repos: TestRepo[] = [];
 const temps: string[] = [];
@@ -261,9 +265,7 @@ describe("buildBundle locally", () => {
     expect((await buildBundle({ repoDir: r.dir, app: APP, env: {}, warn: () => {} })).source.repo).toBe("planning/roadmap");
   });
 
-  // 52 git processes, one after another: about 2 seconds on a quiet machine, but more than vitest's
-  // 5 seconds with the browser tests running alongside.
-  it("caps the history at 50 commits", { timeout: 30_000 }, async () => {
+  it("caps the history at 50 commits", async () => {
     const { repo: r, second } = repo();
     // 52 more commits of the same tree, quickly.
     let head = second;

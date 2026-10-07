@@ -65,6 +65,10 @@ const { embedded } = await import("./embedded");
 // the runs below start only what a release's would.
 embedded();
 
+// Each test runs the action and commands on a workspace, and git many times: over a second on a
+// quiet machine, and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
+
 const repos: InstanceType<typeof TestRepo>[] = [];
 const savedEnv = { ...process.env };
 beforeEach(() => {

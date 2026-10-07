@@ -3,10 +3,14 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LIMITS, RoadmapReadError, firstParents, listCommitFolder, readCommit, readCommitFiles, readRoadmapDir, readRoadmapGit, resolveCommit } from "./git";
 import { EXECUTABLE } from "../src/model/paths";
 import { type Entry, TestRepo } from "./test-repo";
+
+// Most tests make a repository and read it with git, some many times: up to a second on a quiet
+// machine, and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 const repos: TestRepo[] = [];
 const temps: string[] = [];

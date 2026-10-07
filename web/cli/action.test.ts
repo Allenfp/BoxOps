@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, 
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { parse } from "yaml";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readBundle } from "../src/model/bundle";
 import { readInputs, runAction } from "./action";
 import { starterFiles } from "./embedded";
@@ -10,6 +10,10 @@ import { LIMITS } from "./git";
 import { buildJsonText, makeBuildJson, parseBuildJson } from "./release";
 import { type ActionsEnv, APP_FILES, ID, NASTY_SHOWN, NASTY_YAML, SAMPLE, actionsEnv, cleanUp, makeRelease, obeyed, readOutputs, runnerCommand, sampleRepo, tempDir } from "./test-release";
 import { type Entry, TestRepo } from "./test-repo";
+
+// Each test makes a repository and runs git on it many times (one over 50 times, and a clone): up
+// to 3 seconds on a quiet machine, and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 const repos: TestRepo[] = [];
 const savedLimits = { ...LIMITS };
@@ -111,8 +115,7 @@ describe("build mode", () => {
     expect(r.log).toContain(`Site assembled in ${site}: BoxOps 0.1.0+0123456789ab, acme/roadmap@${commit.slice(0, 12)}`);
   });
 
-  // Over 50 git processes, one after another, and a clone: more than vitest's 5 seconds with other tests running alongside.
-  it("lists the last 50 commits in roadmap.json's history, from a checkout as deep as the starter's deploy makes", { timeout: 30_000 }, async () => {
+  it("lists the last 50 commits in roadmap.json's history, from a checkout as deep as the starter's deploy makes", async () => {
     // Open tabs go by it (github/read.ts, site.ts): a shallow clone would give the commit and its parent alone.
     const steps = (parse(starterFiles()[".github/workflows/deploy.yml"]) as { jobs: { build: { steps: { uses?: string; with?: Record<string, unknown> }[] } } }).jobs.build.steps;
     const depth = Number(steps.find((s) => s.uses?.startsWith("actions/checkout@"))?.with?.["fetch-depth"] ?? 1); // actions/checkout's default: 1

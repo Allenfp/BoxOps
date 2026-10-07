@@ -13,11 +13,15 @@ import net from "node:net";
 import tls from "node:tls";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAction } from "./action";
 import { main } from "./boxops";
 import { ID, actionsEnv, capture, cleanUp, makeRelease, readOutputs, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
+
+// The action and a dozen commands read a repository with git: under a second on a quiet machine,
+// and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 /** Network calls attempted while the guard is on. */
 const attempts: string[] = [];

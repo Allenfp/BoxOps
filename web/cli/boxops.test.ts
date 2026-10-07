@@ -1,12 +1,16 @@
 import { readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildReport, formatReport } from "../src/model/report";
 import { loadRoadmap } from "../src/model/parse";
 import { main } from "./boxops";
 import type { Io, LaunchContext } from "./context";
 import { ID, NASTY, NASTY_SHOWN, NASTY_YAML, SAMPLE, capture, cleanUp, makeRelease, obeyed, sampleRepo, tempDir } from "./test-release";
 import { type Entry, TestRepo } from "./test-repo";
+
+// Most tests make a repository and run commands that read it with git, some many times: over a
+// second on a quiet machine, and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 const repos: TestRepo[] = [];
 afterEach(() => {

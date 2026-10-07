@@ -10,9 +10,13 @@ import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 import { cleanUp, tempDir } from "../cli/test-release";
+
+// Each test runs the step with bash several times, and it starts Node, jq and the stand-in gh: up
+// to 3 seconds on a quiet machine, and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 afterEach(cleanUp);
 

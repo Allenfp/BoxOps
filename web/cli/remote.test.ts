@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { delimiter, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { main } from "./boxops";
 import { cacheRoot } from "./cache";
 import type { LaunchContext } from "./context";
@@ -20,6 +20,11 @@ import { buildJsonText, openRelease, parseBuildJson, verifiedApp } from "./relea
 import { APP_FILES, ID, IGNORES_CASE, capture, cleanUp, fakeGitHub, releaseFiles, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
 import { SHELLS, block, paste, shellEnv, standIns } from "./test-shell";
+
+// Many tests start programs: git, a stand-in gh a dozen times, a shell to paste init's next steps
+// into: up to 4 seconds on a quiet machine, and several times that under load, near or past
+// vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 const repos: TestRepo[] = [];
 afterEach(() => {
@@ -513,8 +518,7 @@ describe("doctor's attestation check (gh attestation verify)", () => {
     ]);
   });
 
-  // A dozen programs started one after another: more than vitest's 5 seconds with other tests running alongside.
-  it("tells a check that failed from one gh couldn't make: signed out, offline, too slow", { timeout: 30_000 }, () => {
+  it("tells a check that failed from one gh couldn't make: signed out, offline, too slow", () => {
     const notFound = withGh("echo 'Error: HTTP 404: Not Found (https://api.github.com/repos/Allenfp/BoxOps/attestations/sha256:abc)' >&2; exit 1").result;
     expect(notFound).toEqual({ ok: false, output: "Error: HTTP 404: Not Found (https://api.github.com/repos/Allenfp/BoxOps/attestations/sha256:abc)" });
     const wrongSigner = withGh("echo '✗ Verification failed: expected SourceRepositoryURI to be https://github.com/Allenfp/BoxOps' >&2; exit 1").result;

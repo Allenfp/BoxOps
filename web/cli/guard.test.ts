@@ -8,12 +8,16 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 import { carried, starterFiles } from "./embedded";
 import { contractNumber } from "./pins";
 import { GUARD } from "./release";
 import { cleanUp, tempDir } from "./test-release";
+
+// Each test runs the step with bash many times, and it starts jq and the stand-in gh: up to 3
+// seconds on a quiet machine, and several times that under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 afterEach(cleanUp);
 
