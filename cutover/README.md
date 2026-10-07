@@ -33,27 +33,37 @@ of the work until then, so the cutover commit makes their changes itself
 
 1. A release candidate, `v0.1.0-rc.1`, is out (`docs/releasing.md`), and the
    starter repository, `Allenfp/boxops-starter`, published for it.
-2. `Allenfp/boxops-demo` holds the demo's roadmap with its history. From a
-   fresh clone (`git filter-repo` rewrites the clone it runs in, and needs
+2. `Allenfp/boxops-demo` holds the demo's roadmap with its history, its
+   authors' and committers' personal addresses replaced. From a fresh clone
+   (`git filter-repo` rewrites the clone it runs in, and needs
    [git-filter-repo](https://github.com/newren/git-filter-repo)):
 
    ```sh
    git clone --no-local https://github.com/Allenfp/BoxOps.git boxops-demo && cd boxops-demo &&
-     git log --format='%ae%n%ce' -- roadmap/ | sort -u | grep -E '@(gmail\.com|veryboringdata\.co)$' |
+     git log --format='%ae%n%ce' -- roadmap/ | sort -u | grep -iE '@(gmail\.com|veryboringdata\.co)$' |
        sed 's/.*/<29790605+Allenfp@users.noreply.github.com> <&>/' > ../demo-mailmap &&
      cat ../demo-mailmap &&
      git filter-repo --path roadmap/ --mailmap ../demo-mailmap &&
-     git log --format='%ae%n%ce' | sort -u
+     git log --format='%ae%n%ce' | sort -u |
+       awk '!/@users\.noreply\.github\.com$/ && $0 != "noreply@github.com" { print "still in the history: " $0; left = 1 } END { exit left }'
    ```
 
-   The mailmap has two lines, the maintainer's Gmail address and the
-   veryboringdata.co one, each mapped to
-   `29790605+Allenfp@users.noreply.github.com` (as authors and committers);
-   the last command must list no other personal address. Then, in that
-   clone, the starter's files as the release candidate's `init` writes them
-   (its pins on rc.1's commit), but for the starter's sample roadmap; the
-   demo's data stamped `format: 1`; and the demo's own repository (pushing
-   workflow files takes SSH, or a token with the workflow scope):
+   The mailmap maps each Gmail or veryboringdata.co address that authored or
+   committed a change to `roadmap/` to
+   `29790605+Allenfp@users.noreply.github.com`. Today that's the maintainer's
+   Gmail address, written two ways (its first letter in either case), which
+   git counts as two addresses; the veryboringdata.co one is only on commits
+   outside `roadmap/`, which `--path roadmap/` drops. The last command fails,
+   naming the address, if any is left but a GitHub no-reply one
+   (`…@users.noreply.github.com`, or `noreply@github.com`, the committer
+   GitHub writes on what's made on its site): then stop, and run it again in
+   a fresh clone once the `grep` takes that address in. Then, in that clone,
+   the starter's files as the release candidate's `init` writes them (its
+   pins on rc.1's commit), but for the starter's sample roadmap; the demo's
+   data stamped `format: 1`; a commit of those, as the no-reply address (a
+   fresh clone commits as your global git identity); the same check, which
+   now takes in that commit; and the demo's own repository (pushing workflow
+   files takes SSH, or a token with the workflow scope):
 
    ```sh
    curl -fsSLo ../boxops.mjs https://github.com/Allenfp/BoxOps/releases/download/v0.1.0-rc.1/boxops.mjs &&
@@ -61,7 +71,10 @@ of the work until then, so the cutover commit makes their changes itself
      node ../boxops.mjs init ../demo-starter &&
      rsync -a --exclude=/roadmap/ ../demo-starter/ ./ &&
      node .boxops/boxops.mjs migrate && node .boxops/boxops.mjs validate &&
+     git config user.email 29790605+Allenfp@users.noreply.github.com &&
      git add -A && git commit -m "Run the demo from the BoxOps starter, pinned to v0.1.0-rc.1" &&
+     git log --format='%ae%n%ce' | sort -u |
+       awk '!/@users\.noreply\.github\.com$/ && $0 != "noreply@github.com" { print "still in the history: " $0; left = 1 } END { exit left }' &&
      gh repo create Allenfp/boxops-demo --public --source . --push
    ```
 
