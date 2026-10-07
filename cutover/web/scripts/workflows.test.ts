@@ -193,6 +193,16 @@ describe("the release workflow", () => {
     }
   });
 
+  it("attests the files before it pushes the commit and the tag, so no tag is ever out without its attestations", () => {
+    const steps = release.jobs.publish.steps ?? [];
+    const push = steps.findIndex((s) => s.env?.DEPLOY_KEY);
+    const attests = steps.flatMap((s, i) => (s.uses?.startsWith("actions/attest@") ? [i] : []));
+    expect(attests).toHaveLength(2);
+    expect(push).toBeGreaterThan(Math.max(...attests));
+    // Then the GitHub release, on the tag pushed.
+    expect(steps.findIndex((s) => s.run?.includes("gh release create"))).toBeGreaterThan(push);
+  });
+
   it("holds the deploy key in its publish job alone, in the release environment, which runs nothing from this repository", () => {
     const text = read(".github/workflows/release.yml");
     expect(text.match(/secrets\.RELEASE_DEPLOY_KEY/g)).toHaveLength(1);

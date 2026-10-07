@@ -79,8 +79,8 @@ can't change after.
   ways: CI's, the rebuild's, and the files it's about to commit.
 - **Published by a job that runs none of BoxOps' code.** The publish job
   holds the deploy key and runs only git, curl, jq, tar, the GitHub CLI and
-  GitHub's own actions. It waits for the maintainer's approval, then pushes
-  the commit and its tag in one step.
+  GitHub's own actions. It waits for the maintainer's approval, attests the
+  files, then pushes the commit and its tag in one step.
 - **Signed and fixed.** Every file of the release, and its tarball, get a
   provenance attestation (a signed statement of which workflow run built
   them, from which commit); the tarball an SBOM attestation (the packages

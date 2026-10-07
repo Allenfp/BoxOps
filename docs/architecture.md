@@ -1545,9 +1545,9 @@ a release must have none of.
   preflight (the version, `web/package.json` and `CHANGELOG.md` agree, and
   the tag is new), all of CI on the commit, the release tree built again
   apart, and, once the maintainer approves the `release` environment, the
-  tested tree committed to `releases` and tagged in one push with the
-  release deploy key (if git's id for it is CI's and the rebuild's),
-  attested and published as an immutable GitHub release. See
+  tested tree (if git's id for it is CI's and the rebuild's) attested, then
+  committed to `releases` and tagged in one push with the release deploy
+  key, and published as an immutable GitHub release. See
   [releasing.md](releasing.md).
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
   validation and the build on every push to `main`, then builds the

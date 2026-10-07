@@ -5,9 +5,9 @@
 #              tree, checks it and tests it as built
 #   reproduce  the release tree built again, apart: a fresh install, no cache
 #   publish    once the maintainer approves the `release` environment: the
-#              tested tree, if the rebuild matches it, committed to the
-#              `releases` branch and tagged vX.Y.Z in one push with the
-#              release deploy key; attested (provenance, and an SBOM); and
+#              tested tree, if the rebuild matches it, attested (provenance,
+#              and an SBOM); then committed to the `releases` branch and
+#              tagged vX.Y.Z in one push with the release deploy key; and
 #              published as an immutable GitHub release, its notes the
 #              changelog's section. It runs no code from this repository:
 #              only git, curl, jq, tar, gh and GitHub's own actions.
@@ -193,6 +193,26 @@ jobs:
             exit 1
           fi
           echo "TREE=$tree" >> "$GITHUB_ENV"
+      # Attested before anything is pushed: a tag is never out without its
+      # attestations (Dependabot would offer it, while `gh attestation
+      # verify` and doctor fail). On a re-run, attesting the same files
+      # again does no harm.
+      - name: The release's files
+        run: |
+          set -euo pipefail
+          mkdir assets
+          tar -C built/release --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -czf "assets/boxops-$V.tar.gz" .
+          cp built/release/dist/boxops.mjs built/SHA256SUMS built/sbom.spdx.json assets/
+          # What the provenance attestation vouches for: every file of the
+          # tree (named by its path in it), and the tarball.
+          { cat built/SHA256SUMS; (cd assets && sha256sum "boxops-$V.tar.gz"); } >"$RUNNER_TEMP/subjects"
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: ${{ runner.temp }}/subjects
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: assets/boxops-${{ inputs.version }}.tar.gz
+          sbom-path: assets/sbom.spdx.json
       - name: Commit the tree to releases and tag it, in one push, with the release deploy key
         env:
           DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
@@ -243,22 +263,6 @@ jobs:
           git push --atomic "$remote" "$commit:refs/heads/releases" "$commit:refs/tags/v$V"
           echo "COMMIT=$commit" >> "$GITHUB_ENV"
           echo "Pushed $commit to releases, tagged v$V."
-      - name: The release's files
-        run: |
-          set -euo pipefail
-          mkdir assets
-          tar -C built/release --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -czf "assets/boxops-$V.tar.gz" .
-          cp built/release/dist/boxops.mjs built/SHA256SUMS built/sbom.spdx.json assets/
-          # What the provenance attestation vouches for: every file of the
-          # tree (named by its path in it), and the tarball.
-          { cat built/SHA256SUMS; (cd assets && sha256sum "boxops-$V.tar.gz"); } >"$RUNNER_TEMP/subjects"
-      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with:
-          subject-checksums: ${{ runner.temp }}/subjects
-      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with:
-          subject-path: assets/boxops-${{ inputs.version }}.tar.gz
-          sbom-path: assets/sbom.spdx.json
       # A draft until its files are on it: once published, an immutable
       # release's files and tag can't change.
       - name: Publish the GitHub release

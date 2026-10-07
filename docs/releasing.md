@@ -74,23 +74,25 @@ Actions → Release → Run workflow, from `main`, with the version. Its jobs:
    tree, checks its tree id and its `SHA256SUMS` against what CI's release
    tree job and the rebuild gave as their jobs' outputs (no later job can
    change those, while any job of the run could replace an artifact), the
-   SBOM against CI's, and every file against `SHA256SUMS`; it commits the
-   tree to `releases` and tags it in one atomic push with the deploy key,
-   attests it, and publishes the GitHub release with preflight's notes (a
-   draft until its files are on it, then published, titled `BoxOps X.Y.Z`,
-   or `Security: BoxOps X.Y.Z` when the changelog's `Security:` line isn't
-   `none`).
+   SBOM against CI's, and every file against `SHA256SUMS`; it attests the
+   files, then commits the tree to `releases` and tags it in one atomic
+   push with the deploy key (so no tag is ever out without its
+   attestations), and publishes the GitHub release with preflight's notes
+   (a draft until its files are on it, then published, titled
+   `BoxOps X.Y.Z`, or `Security: BoxOps X.Y.Z` when the changelog's
+   `Security:` line isn't `none`).
 
 A run takes about as long as CI, most of it the browser tests, and then
 waits for the approval.
 
-If publish fails after its push (attesting, or making the GitHub release),
-the tag is there and preflight would refuse a new run: run publish again
-instead, within 7 days (while the run's artifacts last), from the run's
-page, Re-run jobs → Re-run failed jobs (not all jobs), and approve it
-again. It finds the tag on this run's commit of the tested tree and goes on
-from there; a draft release the failed attempt left is deleted and made
-again.
+If publish fails before its push (attesting, say), nothing is out: run it
+again, or the whole workflow. If it fails after (making the GitHub
+release), the tag is there and preflight would refuse a new run: run
+publish again instead, within 7 days (while the run's artifacts last), from
+the run's page, Re-run jobs → Re-run failed jobs (not all jobs), and
+approve it again. It attests the files again (which does no harm), finds
+the tag on this run's commit of the tested tree and goes on from there; a
+draft release the failed attempt left is deleted and made again.
 
 ## One-off settings
 
