@@ -30,7 +30,8 @@ inputs:
       build mode only. deploy: assemble the site without the broken entries and report
       how many in the `problems` output (the starter then turns the run red).
       fail: stop, so the last good site stays live. Hard errors (data format,
-      symlinks, limits, wrong branch, missing settings.yaml) always stop the build.
+      symlinks, limits, wrong branch, a checkout that isn't the run's commit,
+      missing settings.yaml) always stop the build.
     required: false
     default: deploy
   releases-file:
@@ -46,7 +47,8 @@ inputs:
   repository:
     description: >-
       The repository the roadmap belongs to (owner/name). Naming a repository other
-      than the one running this workflow forces read-only.
+      than the one running this workflow forces read-only, and builds its checkout
+      as it is; this workflow's own is built only at the commit the run is for.
     required: false
     default: ${{ github.repository }}
   summary:

@@ -15,7 +15,9 @@
 //   4–7. The roadmap read from git objects at the checkout's HEAD, never the
 //      working tree: hardened plumbing git only (cli/git.ts); plain files
 //      only (a symlink or submodule is an error naming it), within the limits,
-//      every blob checked against its SHA and read as strict UTF-8.
+//      every blob checked against its SHA and read as strict UTF-8. In build
+//      mode HEAD must be the run's commit (GITHUB_SHA), unless `repository`
+//      names another repository.
 //   8. Format gate: a roadmap without a settings.yaml, or in another data
 //      format, stops the build.
 //   9. Validation: each problem an error annotation on its file and line,
@@ -209,6 +211,24 @@ export function locateRepository(env: Env, path: string, roadmap: string): strin
   return top;
 }
 
+/**
+ * Step 4, in build mode: the checkout is the commit the run is for
+ * (GITHUB_SHA). A workflow on the default branch can check out another (a
+ * pull request's head under pull_request_target or workflow_run, whose runs
+ * are on the default branch), which step 2 alone would let it publish.
+ * Another repository's roadmap (`repository` naming one: a canary, say) is
+ * built from its checkout, read-only.
+ */
+export function checkCommit(env: Env, repository: string, commit: string): void {
+  const own = !repository || repository.toLowerCase() === (env.GITHUB_REPOSITORY ?? "").toLowerCase();
+  const sha = (env.GITHUB_SHA ?? "").toLowerCase();
+  if (own && sha && commit !== sha) {
+    throw new ActionError(
+      `BoxOps builds the site from the commit this run is for (${sha.slice(0, 12)}), and the checkout is at ${commit.slice(0, 12)}: check out that commit (actions/checkout with no ref:), or use mode: check`,
+    );
+  }
+}
+
 /** Step 8: the roadmap must have a settings.yaml, in this BoxOps's data format. */
 export function checkFormat(files: Record<string, string>, roadmap: string, version: string): number {
   const file = `${roadmap}/settings.yaml`;
@@ -341,6 +361,7 @@ async function steps(runner: Runner, env: Env, o: ActionOptions): Promise<number
   const repoDir = locateRepository(env, inputs.path, inputs.roadmap);
   const commit = resolveCommit(repoDir, "HEAD");
   runner.setOutput("commit", commit);
+  if (inputs.mode === "build") checkCommit(env, inputs.repository, commit);
   const repository = inputs.repository || env.GITHUB_REPOSITORY || "";
   let bundle: Bundle;
   try {

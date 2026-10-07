@@ -4,11 +4,12 @@
 # repositories it must refuse, each failing with the error that says why: a
 # symlink in the roadmap and as it, a submodule in it and as it, a .git file,
 # data format 0 and 2, no settings.yaml, a branch that isn't the default, a
-# file that isn't UTF-8, a roadmap input with "..", a path outside the
-# workspace, GitHub Enterprise Server. And a roadmap with problems, which
-# check mode fails, build mode publishes without the broken entries
-# (on-problems: deploy, the count in the `problems` output) or refuses
-# (on-problems: fail); and a scheduled run, which builds.
+# checkout that isn't the run's commit (unless the roadmap is another
+# repository's), a file that isn't UTF-8, a roadmap input with "..", a path
+# outside the workspace, GitHub Enterprise Server. And a roadmap with
+# problems, which check mode fails, build mode publishes without the broken
+# entries (on-problems: deploy, the count in the `problems` output) or
+# refuses (on-problems: fail); and a scheduled run, which builds.
 #
 # Usage: bad-repos.sh RELEASE_DIR [STARTER]   (RELEASE_DIR: a release tree,
 # npm run release:build's build/release; STARTER: default this checkout's starter/)
@@ -136,6 +137,17 @@ run GITHUB_REF_NAME=feature INPUT_MODE=check
 expect "…which check mode reads" 0 "1 departments, 2 lanes, 2 boxes — OK"
 run GITHUB_EVENT_NAME=schedule GITHUB_EVENT_PATH="$work/schedule.json"
 expect "a scheduled run, which builds (GitHub runs schedules on the default branch)" 0 "Site assembled in $work/temp/boxops-site"
+
+new_repo moved-on
+ran_for=$(git -C "$repo" rev-parse HEAD)
+printf '# Edited since\n' >>"$repo/roadmap/settings.yaml"
+commit "A commit after the run's"
+run GITHUB_SHA="$ran_for"
+expect "a checkout that isn't the run's commit, in build mode" 1 "BoxOps builds the site from the commit this run is for (${ran_for:0:12}), and the checkout is at"
+run GITHUB_SHA="$ran_for" INPUT_REPOSITORY=acme/demo
+expect "…which is built when the roadmap is another repository's (read-only)" 0 "Site assembled in $work/temp/boxops-site: BoxOps"
+run GITHUB_SHA="$(git -C "$repo" rev-parse HEAD)"
+expect "…as it is when the run's commit is checked out" 0 "Site assembled in $work/temp/boxops-site: BoxOps"
 
 new_repo not-utf8
 printf 'id: bx-9z9z-bad\ntitle: \377\376\n' >"$repo/roadmap/boxes/bx-9z9z-bad.yaml"

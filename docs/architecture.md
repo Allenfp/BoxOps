@@ -195,13 +195,14 @@ The demo moves to a repository of its own at the cutover (`cutover/`), and
   `roadmap.json` beside a copy of it, the BoxOps action in a roadmap
   repository's deploy and `node dist/boxops.mjs build` in this repo's
   (see [The command-line tool and the action](#the-command-line-tool-and-the-action)).
-  It reads `roadmap/` from git objects at the commit being built (`GITHUB_SHA`
-  in Actions, else HEAD), never from the checkout, with git hardened and
-  plumbing only (`cli/git.ts`). Only plain files are allowed: a symlink or
-  submodule anywhere under `roadmap/` (outside hidden paths) stops the build,
-  as does text that isn't UTF-8 or more than 20,000 files, 1 MiB in one
-  roadmap file or 64 MiB in all. Each blob is checked against its SHA, and a
-  BOM is kept. The bundle holds:
+  It reads `roadmap/` from git objects at the commit being built
+  (`GITHUB_SHA` in Actions, where the action reads the checkout's `HEAD`
+  and, in build mode, refuses one that isn't it; else HEAD), never from the
+  checkout, with git hardened and plumbing only (`cli/git.ts`). Only plain
+  files are allowed: a symlink or submodule anywhere under `roadmap/`
+  (outside hidden paths) stops the build, as does text that isn't UTF-8 or
+  more than 20,000 files, 1 MiB in one roadmap file or 64 MiB in all. Each
+  blob is checked against its SHA, and a BOM is kept. The bundle holds:
   - `files` (the roadmap files, `model/paths.ts`), their git `blobs`, and
     `ignored` (other files there, which the validator and the app report as
     unexpected);
@@ -1191,7 +1192,11 @@ this order, each failure an error annotation with a plain message:
    `.git` folder of its own; `roadmap` a plain folder name.
 4. to 7. `roadmap/` from git objects at the checkout's `HEAD`, as above:
    hardened plumbing git, plain files only, the limits, every blob's SHA,
-   strict UTF-8.
+   strict UTF-8. In build mode `HEAD` must be the commit the run is for
+   (`GITHUB_SHA`), unless `repository` names another repository (whose
+   checkout is built as it is, read-only): a workflow on the default branch
+   that checks out another commit, such as a pull request's head under
+   `pull_request_target` or `workflow_run`, can't publish it.
 8. The data format: a missing `settings.yaml`, or any format other than this
    release's, stops the build: older with "run `node .boxops/boxops.mjs
    migrate`", newer with "upgrade the pin".

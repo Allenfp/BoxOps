@@ -173,7 +173,11 @@ free of workflows that restore caches. The starter's use none.
 - **The roadmap is read from git's objects** at the commit being built, not
   from the checked-out files: plain files only (a symlink or submodule stops
   the build), within limits (20,000 files, 1 MiB each, 64 MiB in all), each
-  checked against its blob SHA and read as strict UTF-8.
+  checked against its blob SHA and read as strict UTF-8. The commit is the
+  one the run is for, on the default branch: a workflow that checks out
+  another (a pull request's head, say) can't build it into the site. (A
+  roadmap of another repository, named by the `repository` input, is built
+  as checked out, and read-only.)
 - **Data is untrusted, whichever way it comes.** The deploy validates the
   roadmap, but the app also reads newer saves straight from GitHub, so the
   app itself drops values it can't use, makes links only of `http:` and

@@ -288,6 +288,26 @@ describe("the repository (step 3)", () => {
   });
 });
 
+describe("the run's commit (step 4)", () => {
+  it("builds the commit the run is for, not another checked out (a pull request's head, say), unless the roadmap is another repository's", async () => {
+    const { repo, commit } = workspace();
+    // The checkout moved on from the run's commit.
+    const head = repo.commit(sampleRepo({ "roadmap/settings.yaml": SAMPLE["settings.yaml"].replace("Our roadmap", "Moved on") }), "Another commit");
+    const refused = `error: BoxOps builds the site from the commit this run is for (${commit.slice(0, 12)}), and the checkout is at ${head.slice(0, 12)}: check out that commit (actions/checkout with no ref:), or use mode: check`;
+    const moved = await run({ repo, env: { GITHUB_SHA: commit } });
+    expect([moved.code, errors(moved), moved.outputs.site]).toEqual([1, [refused], undefined]);
+    // The workflow's own repository named, whatever its case: the same.
+    expect(errors(await run({ repo, env: { GITHUB_SHA: commit, INPUT_REPOSITORY: "ACME/Roadmap" } }))).toEqual([refused]);
+    // The run's commit checked out (GITHUB_SHA as the runner gives it), or check mode, which reads what's checked out.
+    expect((await run({ repo, env: { GITHUB_SHA: head } })).code).toBe(0);
+    expect((await run({ repo, env: { GITHUB_SHA: commit, INPUT_MODE: "check" } })).code).toBe(0);
+    // Another repository's roadmap (a canary checks the demo's out beside its own): built from its checkout, read-only.
+    const canary = await run({ repo, env: { GITHUB_SHA: commit, INPUT_REPOSITORY: "acme/demo" } });
+    expect(canary.code).toBe(0);
+    expect(JSON.parse(readFileSync(join(canary.outputs.site, "roadmap.json"), "utf8")).source).toMatchObject({ repo: "acme/demo", commit: head, readonly: true });
+  });
+});
+
 describe("tree, entries and blobs (steps 4–7)", () => {
   /** The error annotations a workspace with these entries under roadmap/ (besides the sample's) gets. */
   async function readErrors(entries: Record<string, Entry>, base = sampleRepo()): Promise<string[]> {

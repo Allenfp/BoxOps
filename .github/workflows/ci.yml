@@ -300,13 +300,15 @@ jobs:
       # Build mode publishes the default branch only (docs/decisions.md), so
       # it runs through uses: where this run is on main (weekly, for a
       # release, by hand); elsewhere the release's tool writes the site, with
-      # the same code.
+      # the same code. The roadmap is another repository's, named: build mode
+      # builds the workflow's own only at the run's commit.
       - name: The release's action builds the site (build mode)
         id: build
         if: github.event_name == 'schedule' || github.ref_name == github.event.repository.default_branch
         uses: ./build/release
         with:
           path: starter-copy
+          repository: acme/roadmap
           summary: "false"
       - name: The site, from the release's tool (on a branch or pull request)
         if: steps.build.outcome == 'skipped'
@@ -538,6 +540,7 @@ jobs:
         uses: ./rel
         with:
           path: starter-copy
+          repository: acme/roadmap
           summary: "false"
       - if: steps.latest.outputs.sha
         name: The site is the release's app and the roadmap's roadmap.json; outputs right; nothing planted ran
