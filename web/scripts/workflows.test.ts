@@ -136,7 +136,12 @@ describe("the release workflow", () => {
     const called = (ci.on.workflow_call as { outputs: Record<string, { value: string }> }).outputs;
     expect(called.tree.value).toBe("${{ jobs.release-tree.outputs.tree }}");
     expect(called.sums.value).toBe("${{ jobs.release-tree.outputs.sums }}");
-    expect(ci.jobs["release-tree"].outputs).toEqual({ tree: "${{ steps.tree.outputs.tree }}", sums: "${{ steps.tree.outputs.sums }}" });
+    expect(called.sbom.value).toBe("${{ jobs.release-tree.outputs.sbom }}");
+    expect(ci.jobs["release-tree"].outputs).toEqual({
+      tree: "${{ steps.tree.outputs.tree }}",
+      sums: "${{ steps.tree.outputs.sums }}",
+      sbom: "${{ steps.tree.outputs.sbom }}",
+    });
     expect(release.jobs.reproduce.outputs).toEqual({ tree: "${{ steps.rebuilt.outputs.tree }}", sums: "${{ steps.rebuilt.outputs.sums }}" });
     expect(release.jobs.preflight.outputs).toEqual({ notes: "${{ steps.versions.outputs.notes }}" });
     const steps = release.jobs.publish.steps ?? [];
@@ -145,11 +150,13 @@ describe("the release workflow", () => {
     expect(check?.env).toEqual({
       TESTED_TREE: "${{ needs.verify.outputs.tree }}",
       TESTED_SUMS: "${{ needs.verify.outputs.sums }}",
+      TESTED_SBOM: "${{ needs.verify.outputs.sbom }}",
       REBUILT_TREE: "${{ needs.reproduce.outputs.tree }}",
       REBUILT_SUMS: "${{ needs.reproduce.outputs.sums }}",
       NOTES_SHA256: "${{ needs.preflight.outputs.notes }}",
     });
     expect(check?.run).toContain('echo "$TESTED_SUMS  built/SHA256SUMS" | sha256sum --check --quiet --strict -');
+    expect(check?.run).toContain('echo "$TESTED_SBOM  built/sbom.spdx.json" | sha256sum --check --quiet --strict -');
     expect(check?.run).toContain('echo "$NOTES_SHA256  notes/notes.md" | sha256sum --check --quiet --strict -');
     expect(check?.run).toContain('if [ "$tree" != "$TESTED_TREE" ]; then');
   });

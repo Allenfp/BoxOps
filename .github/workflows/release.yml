@@ -161,13 +161,15 @@ jobs:
           path: notes
       # The release commit is the tested tree, byte for byte: git's id for
       # the downloaded files, and their SHA256SUMS' SHA-256, must be what
-      # CI's release tree job and the rebuild gave as outputs, and the notes
-      # what preflight checked. Job outputs: no later job can change one,
-      # where any job of this run could replace an artifact.
+      # CI's release tree job and the rebuild gave as outputs, the SBOM what
+      # CI's built, and the notes what preflight checked. Job outputs: no
+      # later job can change one, where any job of this run could replace an
+      # artifact.
       - name: The tree to ship is the tested tree, and the rebuild's
         env:
           TESTED_TREE: ${{ needs.verify.outputs.tree }}
           TESTED_SUMS: ${{ needs.verify.outputs.sums }}
+          TESTED_SBOM: ${{ needs.verify.outputs.sbom }}
           REBUILT_TREE: ${{ needs.reproduce.outputs.tree }}
           REBUILT_SUMS: ${{ needs.reproduce.outputs.sums }}
           NOTES_SHA256: ${{ needs.preflight.outputs.notes }}
@@ -178,6 +180,7 @@ jobs:
             exit 1
           fi
           echo "$TESTED_SUMS  built/SHA256SUMS" | sha256sum --check --quiet --strict -
+          echo "$TESTED_SBOM  built/sbom.spdx.json" | sha256sum --check --quiet --strict -
           echo "$NOTES_SHA256  notes/notes.md" | sha256sum --check --quiet --strict -
           (cd built/release && sha256sum --check --quiet --strict ../SHA256SUMS)
           [ "$(find built/release -type f | wc -l)" -eq "$(wc -l <built/SHA256SUMS)" ]

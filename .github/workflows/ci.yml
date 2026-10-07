@@ -39,6 +39,9 @@ on:
       sums:
         description: The SHA-256 of that tree's SHA256SUMS (every file's SHA-256)
         value: ${{ jobs.release-tree.outputs.sums }}
+      sbom:
+        description: The SHA-256 of the SBOM built beside it (sbom.spdx.json)
+        value: ${{ jobs.release-tree.outputs.sbom }}
   schedule:
     - cron: "23 6 * * 1" # Mondays 06:23 UTC: runner images and platforms change under pinned actions
 
@@ -110,6 +113,7 @@ jobs:
     outputs:
       tree: ${{ steps.tree.outputs.tree }}
       sums: ${{ steps.tree.outputs.sums }}
+      sbom: ${{ steps.tree.outputs.sbom }}
     defaults:
       run:
         working-directory: web
@@ -138,11 +142,14 @@ jobs:
       # block, launcher and guard (docs/releasing.md, "The changelog").
       - name: The changelog's numbers are the release tree's
         run: node scripts/check-changelog.mjs --build-json ../build/release/BUILD.json
-      - name: Its tree id and its SHA256SUMS' SHA-256, as the job's outputs (for release.yml)
+      - name: Its tree id, and SHA256SUMS' and the SBOM's SHA-256, as the job's outputs (for release.yml)
         id: tree
         run: |
-          echo "tree=$(cat ../build/TREE)" >>"$GITHUB_OUTPUT"
-          echo "sums=$(sha256sum ../build/SHA256SUMS | cut -d' ' -f1)" >>"$GITHUB_OUTPUT"
+          {
+            echo "tree=$(cat ../build/TREE)"
+            echo "sums=$(sha256sum ../build/SHA256SUMS | cut -d' ' -f1)"
+            echo "sbom=$(sha256sum ../build/sbom.spdx.json | cut -d' ' -f1)"
+          } >>"$GITHUB_OUTPUT"
       # The release's tool, as a roadmap repository's launcher runs it, on the
       # starter's files; then the site it writes from the starter's roadmap at
       # this commit, and from roadmap/ (the demo's, as pages.yml writes it,

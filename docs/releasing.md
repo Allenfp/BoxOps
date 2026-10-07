@@ -66,12 +66,13 @@ Actions → Release → Run workflow, from `main`, with the version. Its jobs:
    curl, jq, tar, gh and GitHub's own actions: it downloads the tested
    tree, checks its tree id and its `SHA256SUMS` against what CI's release
    tree job and the rebuild gave as their jobs' outputs (no later job can
-   change those, while any job of the run could replace an artifact) and
-   every file against `SHA256SUMS`, commits it to `releases` and tags it in
-   one atomic push with the deploy key, attests it, and publishes the
-   GitHub release with preflight's notes (a draft until its files are on
-   it, then published, titled `BoxOps X.Y.Z`, or `Security: BoxOps X.Y.Z`
-   when the changelog's `Security:` line isn't `none`).
+   change those, while any job of the run could replace an artifact), the
+   SBOM against CI's, and every file against `SHA256SUMS`; it commits the
+   tree to `releases` and tags it in one atomic push with the deploy key,
+   attests it, and publishes the GitHub release with preflight's notes (a
+   draft until its files are on it, then published, titled `BoxOps X.Y.Z`,
+   or `Security: BoxOps X.Y.Z` when the changelog's `Security:` line isn't
+   `none`).
 
 A run takes about as long as CI, most of it the browser tests, and then
 waits for the approval.
