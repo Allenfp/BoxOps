@@ -52,6 +52,10 @@ firefox` for the browser tests):
 | a workflow (`.github/workflows/`, `starter/.github/workflows/`, `templates/path-b/`) | actionlint, with shellcheck installed (CI's `workflows` job runs both) |
 | `roadmap/` | `npm run validate` |
 
+`npm test` also runs git, bash, `jq` and `rsync`, which macOS and GitHub's
+Ubuntu runners have (elsewhere, `jq` and `rsync` may need installing), and
+zsh where it's installed.
+
 Before `npm run e2e` or `npm run perf`, make sure nothing listens on port
 4173 (`lsof -nP -iTCP:4173 -sTCP:LISTEN`): outside CI, Playwright uses a
 server it finds there, which would serve an old build.
