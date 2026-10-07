@@ -1399,10 +1399,9 @@ a release must have none of.
   `TZ=Pacific/Kiritimati`, UTC−8/−7 and UTC+14, so nothing depends on the
   runner's time zone), the changelog's form and validation; **release
   tree**, `npm run release:build` (the version `release.yml` gives, else
-  `web/package.json`'s) and its check (and the changelog's numbers against
-  its `BUILD.json`), the release's tool on `starter/`'s files and the sites
-  it writes, then the tree uploaded for the jobs after it; **browser
-  tests**, on that
+  `web/package.json`'s) and its check (the changelog's numbers too), the
+  release's tool on `starter/`'s files and the sites it writes,
+  then the tree uploaded for the jobs after it; **browser tests**, on that
   tree (`BOXOPS_RELEASE_DIR`): the starter's dry run, the browser tests
   (WebKit first, then Chromium, then Firefox) and the performance checks;
   **smoke**, on `ubuntu-24.04`, `ubuntu-24.04-arm` and `ubuntu-26.04`,
@@ -1416,9 +1415,8 @@ a release must have none of.
   default branch only, and the action through `uses:` must refuse it there,
   as it must a symlink or a submodule in the roadmap, data format 2 and a
   roadmap without `settings.yaml`, each failing its step with a `result`
-  output saying why); then bad repositories, each
-  refused with its error annotation
-  (symlinks, submodules, a `.git` file, data formats 0 and 2, no
+  output saying why); then bad repositories, each refused with its error
+  annotation (symlinks, submodules, a `.git` file, data formats 0 and 2, no
   `settings.yaml`, a branch that isn't the default, bytes that aren't
   UTF-8, inputs out of bounds, GitHub Enterprise Server, problems in check
   and build modes), and the action with the network cut off; **workflows**,
