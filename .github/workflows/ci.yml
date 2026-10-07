@@ -15,7 +15,9 @@
 #   workflows     actionlint and shellcheck on every workflow (this
 #                 repository's, the starter's, Path B's, the cutover's) and
 #                 on the smoke scripts, and the Pages guard against a stand-in gh
-#   latest release  (weekly) the latest release's action, on three runners
+#   latest release  (weekly) the latest release's action on three runners,
+#                 as smoke tests a tree's, on the starter's files it was
+#                 built with
 name: CI
 
 on:
@@ -508,7 +510,26 @@ jobs:
         run: |
           bash src/web/scripts/smoke/starter-repo.sh starter-copy src/starter
           bash src/web/scripts/smoke/plant-hostile.sh starter-copy "$RUNNER_TEMP/sentinels"
+      # Then as the smoke job tests a release tree's action, with the release's
+      # own smoke scripts: check mode (with the same GIT_* variables), build
+      # mode (a scheduled run builds), bad repositories, no network.
       - if: steps.latest.outputs.sha
+        name: The release's action checks it (check mode)
+        id: check
+        uses: ./rel
+        env:
+          GIT_OBJECT_DIRECTORY: /nonexistent
+          GIT_TRACE: ${{ runner.temp }}/sentinels/env-trace
+        with:
+          path: starter-copy
+          mode: check
+      - if: steps.latest.outputs.sha
+        name: Check mode's outputs are right, and nothing planted ran
+        env:
+          BOXOPS_OUTPUTS: ${{ toJSON(steps.check.outputs) }}
+        run: node src/web/scripts/smoke/assert-site.mjs --release rel --repo starter-copy --sentinels "$RUNNER_TEMP/sentinels"
+      - if: steps.latest.outputs.sha
+        name: The release's action builds the site (build mode)
         id: build
         uses: ./rel
         with:
@@ -523,3 +544,6 @@ jobs:
       - if: steps.latest.outputs.sha
         name: Bad repositories fail as they should, each with its error
         run: bash src/web/scripts/smoke/bad-repos.sh rel src/starter
+      - if: steps.latest.outputs.sha
+        name: The action makes no network call
+        run: bash src/web/scripts/smoke/no-net.sh rel starter-copy

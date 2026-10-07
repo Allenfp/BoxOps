@@ -1426,8 +1426,10 @@ a release must have none of.
   every workflow (this repo's, the starter's, Path B's and the cutover's),
   shellcheck on the smoke scripts, and the Pages guard's test against a
   stand-in `gh`; and weekly, **latest release**, the latest release's action
-  on the three runners, on the starter's files as they were when it was
-  built.
+  on the three runners, tested as **smoke** tests a tree's (check and build
+  modes through `uses:`, bad repositories, no network), on the starter's
+  files and with the smoke scripts as they were at the commit it was built
+  from (not the demo's data: [decisions.md](decisions.md)).
 - **Releases.** `release.yml`, run by hand from `main` with a version:
   preflight (the version, `web/package.json` and `CHANGELOG.md` agree, and
   the tag is new), all of CI on the commit, the release tree built again
