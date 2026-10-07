@@ -22,11 +22,11 @@ upgrade, then lists what changed. The form is in
 
 - BoxOps is a release that a roadmap repository pins by commit, made from the starter repository: a prebuilt GitHub Action that checks the roadmap and assembles its Pages site from git objects alone (no network, no token, no build in the roadmap repository), and the command-line tool its launcher runs: `validate`, `report`, `preview`, `migrate`, `guide`, `sync`, `doctor`, `upgrade`, `init`, `build`.
 - A roadmap has a data format, 1; the app opens a roadmap in another format read-only, and `migrate` moves one to this release's.
-- A save is one commit on `main`, made with GraphQL's `createCommitOnBranch` on top of the head it was checked against, and signed by GitHub; edits by others to the same item are offered as keep mine or keep theirs.
+- A save is one commit on `main`, made with GraphQL's `createCommitOnBranch` on top of the head it was checked against (GitHub signs it where it can; whether that meets a *Require signed commits* rule with a fine-grained token isn't checked yet); edits by others to the same item are offered as keep mine or keep theirs.
 - Private repositories: the app reads newer saves through the API, fetching only files whose blob SHA changed, and previews a branch (`?ref=`) for those who can read it.
 - Open tabs learn of a new release from the site's `roadmap.json`, go read-only, and reload into it; a security or other update notice from the deploy shows in the app as plain text.
 - Unsaved edits are kept in the browser, one draft per tab, and offered again after a crash or a closed tab; they can be downloaded when they can't be saved.
 - The timeline, the table and People draw only what's near the screen on a big roadmap (over 300 boxes, or 200 rows); the app's code is fetched in parts as it's used, and the YAML parser only when needed.
 - Keyboard and screen readers: the timeline is a grid the arrow keys move around, where boxes and PTO are added, moved and deleted; date fields have a calendar dialog; changes, saves and others' saves are announced; the views are checked against WCAG 2.2 A and AA.
-- The site's Content-Security-Policy allows only the app's own code and GitHub's API; no roadmap data ever becomes HTML, CSS or SVG.
+- The site's Content-Security-Policy runs only the app's own code and connects only to its own site, GitHub's API and `raw.githubusercontent.com` (a public repository's files); no roadmap data ever becomes HTML, CSS or SVG.
 - Releases are built twice to the same bytes, tested as built (the browser tests, and the action on three runners), committed and tagged only by the release workflow's deploy key once the maintainer approves, and attested with provenance and an SBOM.
