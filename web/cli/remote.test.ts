@@ -10,12 +10,12 @@ import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { main } from "./boxops";
 import { cacheRoot } from "./cache";
-import type { Io } from "./context";
+import type { Io, LaunchContext } from "./context";
 import { doctorCommand } from "./doctor";
 import { starterFiles } from "./embedded";
 import { gitHub } from "./github";
 import { ensureApp, startPreview } from "./preview";
-import { fetchRelease } from "./upgrade";
+import { fetchRelease, upgradeCommand } from "./upgrade";
 import { openRelease, verifiedApp } from "./release";
 import { APP_FILES, ID, IGNORES_CASE, capture, cleanUp, fakeGitHub, releaseFiles, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
@@ -135,7 +135,7 @@ describe("init", () => {
 describe("upgrade", () => {
   /** A new release whose tool records how it was called, in `log`. */
   function newRelease(log: string) {
-    const cli = `import { appendFileSync } from "node:fs";\nexport async function main(argv, ctx) { appendFileSync(${JSON.stringify(log)}, JSON.stringify({ argv, sha: ctx.sha, tag: ctx.tag, root: ctx.root }) + "\\n"); return 0; }\n`;
+    const cli = `import { appendFileSync } from "node:fs";\nexport async function main(argv, ctx) { appendFileSync(${JSON.stringify(log)}, JSON.stringify({ argv, sha: ctx.sha, tag: ctx.tag, root: ctx.root, launcher: ctx.launcher, checked: ctx.checked }) + "\\n"); return 0; }\n`;
     return releaseFiles({ ...ID, version: "0.2.0", build: "0.2.0+fedcba987654" }, cli);
   }
 
@@ -145,7 +145,8 @@ describe("upgrade", () => {
     const log = join(tempDir(), "calls.jsonl");
     const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.1.0": A, "v0.2.0": B } }, latest: { "Allenfp/BoxOps": "v0.2.0" }, files: { [B]: newRelease(log) } });
     const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
-    expect(await main(["upgrade"], { root: repo.dir }, io)).toBe(0);
+    // As launcher 1 runs it: with its number, and its word that it checked the BoxOps files (against the old release).
+    expect(await main(["upgrade"], { root: repo.dir, repo: "Allenfp/BoxOps", sha: A, tag: "v0.1.0", launcher: 1, checked: true }, io)).toBe(0);
     expect(io.stdout[0]).toBe(
       `Moved the BoxOps pins in .github/workflows/check.yml, .github/workflows/deploy.yml, .github/workflows/path-b.yml from v0.1.0 to v0.2.0 (Allenfp/BoxOps@${B.slice(0, 12)}).`,
     );
@@ -154,8 +155,9 @@ describe("upgrade", () => {
     expect(/[^\r]\n/.test(deploy)).toBe(false);
     expect(readFileSync(join(repo.dir, ".github/workflows/path-b.yml"), "utf8")).toContain(`BOXOPS_ACTION: Allenfp/BoxOps@${B} # v0.2.0\n`);
     const calls = readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    // Neither passed on: the new release reads its files itself. Its validate warns, after its sync; migrate --check, before it, doesn't.
     expect(calls).toEqual([
-      { argv: ["migrate", "--check"], sha: B, tag: "v0.2.0", root: repo.dir },
+      { argv: ["migrate", "--check"], sha: B, tag: "v0.2.0", root: repo.dir, checked: true },
       { argv: ["sync"], sha: B, tag: "v0.2.0", root: repo.dir },
       { argv: ["validate"], sha: B, tag: "v0.2.0", root: repo.dir },
     ]);
@@ -169,6 +171,22 @@ describe("upgrade", () => {
     const again = capture({ fetch: gh.fetch, cwd: repo.dir, env: io.env });
     expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, again)).toBe(0);
     expect(again.stdout).toEqual([`Already on Allenfp/BoxOps@${B.slice(0, 12)} (v0.2.0).`]);
+  });
+
+  it("lets the new release's validate warn of the files its sync didn't make its own, such as the Pages guard", async () => {
+    const repo = adopter(A);
+    const deploy = join(repo.dir, ".github/workflows/deploy.yml");
+    writeFileSync(deploy, readFileSync(deploy, "utf8").replace("# boxops-guard: 1", "# boxops-guard: 0"));
+    const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: newRelease(join(tempDir(), "x")) } });
+    const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
+    // The new release is this one (Pages guard 1), printing to `inner`.
+    const inner = capture({ cwd: repo.dir });
+    const load = async () => (argv: string[], ctx: LaunchContext) => main(argv, ctx, inner);
+    // From an old launcher (0), which checked the files against the old release.
+    const ctx = { root: repo.dir, repo: "Allenfp/BoxOps", sha: A, tag: "v0.1.0", launcher: 0, checked: true };
+    expect(await upgradeCommand(repo.dir, "v0.2.0", ctx, io, { load })).toBe(0);
+    // Once, from validate; and not "the launcher is 0": the launcher is the file, this release's.
+    expect(inner.stderr).toEqual(["boxops: the Pages guard in deploy.yml is 0; this BoxOps expects 1: run `node .boxops/boxops.mjs doctor`"]);
   });
 
   it("checks the release's tool against its BUILD.json before running it", async () => {

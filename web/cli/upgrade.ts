@@ -77,9 +77,16 @@ export async function upgradeCommand(root: string, wanted: string | undefined, c
   io.out(`Moved the BoxOps pins in ${changed.join(", ")} from ${from} to ${tag} (${repo}@${sha.slice(0, 12)}).`);
 
   const main = await (o.load ?? (async (f: string) => ((await import(pathToFileURL(f).href)) as { main: Main }).main))(file);
-  const next: LaunchContext = { ...ctx, root, repo, sha, tag };
+  // Not the launcher's number, nor its word that it has checked the BoxOps
+  // files: it compared them with the old release's BUILD.json. The new
+  // release reads them, after its sync has rewritten what it writes. Its
+  // migrate --check, before that sync, warns of nothing (`checked`): its
+  // warnings would be of files sync rewrites next, and validate, after it,
+  // warns of whatever isn't the new release's yet, such as the Pages guard.
+  const { checked: _checked, launcher: _launcher, ...rest } = ctx;
+  const next: LaunchContext = { ...rest, root, repo, sha, tag };
   io.out(`\n${tag}: migrate --check`);
-  const migrate = await main(["migrate", "--check"], next);
+  const migrate = await main(["migrate", "--check"], { ...next, checked: true });
   io.out(`\n${tag}: sync`);
   const sync = await main(["sync"], next);
   io.out(`\n${tag}: validate`);

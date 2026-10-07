@@ -84,8 +84,9 @@ release, and propose one once it's been out 3 days (its cooldown):
 `node .boxops/boxops.mjs upgrade [vX.Y.Z]` moves every pin (and its
 comment) to that release, or to the latest when none is given; downloads
 the new release's tool, checked against its `BUILD.json`; then runs the new
-release's `migrate --check`, `sync` and `validate`. It commits nothing. On
-a branch:
+release's `migrate --check`, `sync` and `validate`, which warns of what
+`sync` doesn't change, such as a new Pages guard (`doctor` shows the
+change). It commits nothing. On a branch:
 
 ```sh
 git switch -c upgrade-boxops
