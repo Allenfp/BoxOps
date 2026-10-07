@@ -1168,7 +1168,10 @@ that. `npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out
 in this clone's git (never the working tree), after checking the release
 commit's `BUILD.json` names the tag's version, the tag (if fetched) names the
 commit, and every page of the docs the starter links to is there at that
-commit; it prints the commands to publish it and pushes nothing.
+commit; it prints the commands to publish it and pushes nothing. `init`
+can't check that, so a unit test does: every page `starter/` links to is one
+git tracks, but for those listed as still to write (`TO_WRITE` in
+`cli/starter.test.ts`), which a release must have none of.
 
 ## Tests and CI
 

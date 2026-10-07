@@ -103,6 +103,10 @@ Tests catch most of these; change the files together anyway.
   changes after a release has shipped it (before that, edit freely). The
   action, `doctor` and the launcher tell roadmap repositories whose copy
   differs.
+- Every page of this repository that `starter/README.md` links to is
+  there before a release: `TO_WRITE` in `web/cli/starter.test.ts`, the
+  pages not written yet, is empty. (The release's `init` writes those links
+  unchecked; `npm run publish-starter` refuses them.)
 - After a release, `npm run publish-starter` writes the starter repository
   for it; it pushes nothing.
 

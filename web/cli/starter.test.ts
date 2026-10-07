@@ -3,12 +3,13 @@
 // the files it keeps.
 
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { main } from "./boxops";
-import { starterFiles } from "./embedded";
+import { starterFiles, trackedFiles } from "./embedded";
 import { findPins } from "./pins";
-import { renderStarter } from "./starter";
+import { HERE } from "./release";
+import { SOURCE_PLACEHOLDER, docLinks, renderStarter } from "./starter";
 import { ID, capture, cleanUp, fakeGitHub, releaseFiles, tempDir } from "./test-release";
 
 afterEach(cleanUp);
@@ -66,6 +67,26 @@ describe("renderStarter", () => {
     expect(() => renderStarter({ "AGENTS.md": "See <RELEASE_COMMIT_SHA>.\n" }, RELEASE)).toThrow(
       "starter/AGENTS.md still has <RELEASE_COMMIT_SHA> once made for v0.1.0: it’s on a line BoxOps doesn’t fill in",
     );
+  });
+});
+
+/**
+ * Pages of BoxOps' docs that starter/ links to and that aren't written yet.
+ * A release needs none (AGENTS.md, Releases): its `init` would write links to
+ * nothing, and publish-starter refuses to publish them.
+ */
+const TO_WRITE = ["docs/adopting.md"];
+
+describe("starter/'s links to BoxOps' docs", () => {
+  it("go to pages git tracks here, but those still to write (and those aren't written)", () => {
+    const repo = resolve(HERE, "../..");
+    const links = [...docLinks(starterFiles(), SOURCE_PLACEHOLDER)];
+    expect(links.map(([path]) => path)).toContain("templates/path-b");
+    const missing = links.filter(([path, kind]) => {
+      const files = trackedFiles(repo, [path]);
+      return kind === "blob" ? !files.includes(path) : !files.length || files.some((f) => !f.startsWith(`${path}/`));
+    });
+    expect(missing.map(([path]) => path).sort()).toEqual(TO_WRITE);
   });
 });
 

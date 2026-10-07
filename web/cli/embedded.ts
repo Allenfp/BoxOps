@@ -19,7 +19,7 @@ export const EMBEDDED_PATHS = ["templates", "starter"];
  * checkout at `repoDir`: never an untracked .DS_Store or editor backup, which
  * `init` would otherwise write into new repositories.
  */
-function trackedFiles(repoDir: string, paths: string[]): string[] {
+export function trackedFiles(repoDir: string, paths: string[]): string[] {
   // As cli/site.ts's appInfo reads this checkout: no system configuration, no fsmonitor hook, no GIT_* variable.
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) if (!key.startsWith("GIT_")) env[key] = value;

@@ -9,6 +9,7 @@
 // built release, so a link at its tag would find no docs there. Node-only.
 
 import { COMMIT_SHA, rewritePins } from "./pins.ts";
+import { UPSTREAM } from "./release.ts";
 
 /** Where a release commit goes in starter/. */
 export const RELEASE_PLACEHOLDER = "<RELEASE_COMMIT_SHA>";
@@ -48,4 +49,16 @@ export function renderStarter(files: Record<string, string>, r: StarterRelease):
     out[path] = made;
   }
   return out;
+}
+
+/**
+ * The pages of BoxOps' docs the files link to at `source` (a commit, or
+ * SOURCE_PLACEHOLDER in starter/ itself): `blob/<source>/…` files and
+ * `tree/<source>/…` folders, by path in BoxOps.
+ */
+export function docLinks(files: Record<string, string>, source: string): Map<string, "blob" | "tree"> {
+  const links = new Map<string, "blob" | "tree">();
+  const re = new RegExp(`https://github\\.com/${UPSTREAM}/(blob|tree)/${source}/([^\\s)#?"'<>]+)`, "g");
+  for (const text of Object.values(files)) for (const m of text.matchAll(re)) links.set(m[2].replace(/\/$/, ""), m[1] as "blob" | "tree");
+  return links;
 }

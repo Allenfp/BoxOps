@@ -20,7 +20,7 @@ import { UsageError, flag, parseArgs } from "../cli/context.ts";
 import { gitPlumbing } from "../cli/git.ts";
 import { COMMIT_SHA } from "../cli/pins.ts";
 import { UPSTREAM, parseBuildJson } from "../cli/release.ts";
-import { renderStarter } from "../cli/starter.ts";
+import { docLinks, renderStarter } from "../cli/starter.ts";
 
 const strictUtf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
@@ -72,14 +72,6 @@ function starterAt(repoDir: string, source: string): Record<string, string> {
   }
   if (!Object.keys(files).length) throw new Error(`there’s no starter/ at ${source.slice(0, 12)}`);
   return files;
-}
-
-/** The pages of BoxOps' docs the files link to at `source` (`blob/<source>/…` and `tree/<source>/…`), by path in BoxOps and kind. */
-function docLinks(files: Record<string, string>, source: string): Map<string, "blob" | "tree"> {
-  const links = new Map<string, "blob" | "tree">();
-  const re = new RegExp(`https://github\\.com/${UPSTREAM}/(blob|tree)/${source}/([^\\s)#?"'>]+)`, "g");
-  for (const text of Object.values(files)) for (const m of text.matchAll(re)) links.set(m[2].replace(/\/$/, ""), m[1] as "blob" | "tree");
-  return links;
 }
 
 /** Makes the starter for the release and writes it to `o.out`; throws a plain message if anything doesn't check out. */
