@@ -28,9 +28,10 @@ const atLeast = (version, [major, minor]) => {
 };
 if (!atLeast(process.versions.node, [22, 12])) fail(`needs Node.js 22.12 or newer (this is ${process.versions.node})`);
 
-// Node's fetch honours HTTPS_PROXY only when NODE_USE_ENV_PROXY=1 at startup (Node 22.21+, 24+).
+// Node's fetch honours HTTPS_PROXY only when NODE_USE_ENV_PROXY=1 at startup (Node 22.21+, 24+):
+// start again with it, and with the options Node was given (--use-system-ca, say).
 if ((process.env.HTTPS_PROXY || process.env.https_proxy) && !process.env.NODE_USE_ENV_PROXY) {
-  const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), ...process.argv.slice(2)], {
+  const r = spawnSync(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url), ...process.argv.slice(2)], {
     stdio: "inherit",
     env: { ...process.env, NODE_USE_ENV_PROXY: "1" },
   });
@@ -120,8 +121,10 @@ async function download(dir) {
     return build;
   }
   fail(
-    `couldn’t download BoxOps ${tag ?? sha.slice(0, 7)} from ${repo}. Check the network; for a private ` +
-      "mirror set GH_TOKEN or run `gh auth login`; offline, set BOXOPS_CLI to a release’s dist/boxops.mjs.",
+    `couldn’t download BoxOps ${tag ?? sha.slice(0, 7)} from ${repo}. Check the network; behind a proxy, set ` +
+      `HTTPS_PROXY (Node.js 22.21+ or 24+ uses it; this is ${process.versions.node}) and, if it re-signs TLS, ` +
+      "run `node --use-system-ca .boxops/boxops.mjs …`; for a private mirror set GH_TOKEN or run " +
+      "`gh auth login`; offline, set BOXOPS_CLI to a release’s dist/boxops.mjs.",
   );
 }
 

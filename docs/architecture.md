@@ -1141,9 +1141,11 @@ inside the repository is refused, since a file committed there would run as
 code), checking the tool against the `BUILD.json` again at each run. Offline
 it takes `$BOXOPS_CLI`, checked against its release's `BUILD.json` when there
 is one beside it. With `HTTPS_PROXY` set it restarts Node with
-`NODE_USE_ENV_PROXY=1`, without which Node's `fetch` ignores the proxy. It
-stops if the release needs a newer Node.js, gives the tool's warnings (when
-it, `AGENTS.md`'s block or `deploy.yml`'s Pages guard isn't what the
+`NODE_USE_ENV_PROXY=1`, without which Node's `fetch` ignores the proxy
+(Node.js 22.21+ or 24+ honours it), keeping the options Node was started
+with (`--use-system-ca`, for a proxy that re-signs TLS). It stops if the
+release needs a newer Node.js, gives the tool's warnings (when it,
+`AGENTS.md`'s block or `deploy.yml`'s Pages guard isn't what the
 `BUILD.json` names) and tells the tool it has, and calls the tool's
 `main(argv, { root, repo, sha, tag, launcher, checked })`, a contract that
 stays the same across 0.x.

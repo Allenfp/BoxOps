@@ -89,6 +89,8 @@ interface LaunchOptions {
   github?: Record<string, string | Uint8Array>;
   /** What `gh auth token` prints (default: it fails, as when signed out). */
   ghToken?: string;
+  /** Node's options, after the --import of the stand-in fetch. */
+  nodeArgs?: string[];
 }
 
 /** Runs the launcher in `root` with Node. */
@@ -113,7 +115,8 @@ function launch(root: string, args: string[], o: LaunchOptions = {}): Launched {
     FAKE_GITHUB_LOG: join(dir, "calls.jsonl"),
     ...o.env,
   };
-  const r = spawnSync(process.execPath, ["--import", pathToFileURL(join(dir, "fetch.mjs")).href, join(root, ".boxops", "boxops.mjs"), ...args], { encoding: "utf8", env });
+  const node = ["--import", pathToFileURL(join(dir, "fetch.mjs")).href, ...(o.nodeArgs ?? [])];
+  const r = spawnSync(process.execPath, [...node, join(root, ".boxops", "boxops.mjs"), ...args], { encoding: "utf8", env });
   const stdout = r.stdout.trim();
   const calls = readFileSync(join(dir, "calls.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as Call);
   let ran: Launched["ran"];
@@ -213,7 +216,7 @@ describe("the launcher's download", () => {
     const none = launch(root, ["version"], { github: {} });
     expect([none.code, none.stderr]).toEqual([
       2,
-      "boxops: couldn’t download BoxOps v0.1.0 from acme/boxops-mirror. Check the network; for a private mirror set GH_TOKEN or run `gh auth login`; offline, set BOXOPS_CLI to a release’s dist/boxops.mjs.",
+      `boxops: couldn’t download BoxOps v0.1.0 from acme/boxops-mirror. Check the network; behind a proxy, set HTTPS_PROXY (Node.js 22.21+ or 24+ uses it; this is ${process.versions.node}) and, if it re-signs TLS, run \`node --use-system-ca .boxops/boxops.mjs …\`; for a private mirror set GH_TOKEN or run \`gh auth login\`; offline, set BOXOPS_CLI to a release’s dist/boxops.mjs.`,
     ]);
     expect(none.calls.every((c) => c.auth === null)).toBe(true);
   });
@@ -324,5 +327,13 @@ describe("the launcher and proxies", () => {
     expect(launch(root, ["version"], { env: { BOXOPS_CLI: tool } }).ran?.proxy).toBe(null);
     expect(launch(root, ["version"], { env: { BOXOPS_CLI: tool, HTTPS_PROXY: "http://127.0.0.1:9" } }).ran?.proxy).toBe("1");
     expect(launch(root, ["version"], { env: { BOXOPS_CLI: tool, https_proxy: "http://127.0.0.1:9" } }).ran?.proxy).toBe("1");
+  });
+
+  it("starts Node again with the options it was given (--use-system-ca, for a proxy that re-signs TLS, say)", () => {
+    const tool = "export async function main() { console.log(JSON.stringify({ execArgv: process.execArgv, proxy: process.env.NODE_USE_ENV_PROXY ?? null })); return 0; }\n";
+    const r = launch(launcherRepo(), ["version"], { env: { HTTPS_PROXY: "http://127.0.0.1:9" }, github: raw("Allenfp/BoxOps", A, tool), nodeArgs: ["--no-warnings"] });
+    // The tool came through the stand-in fetch, which only Node's --import option loads.
+    expect([r.code, r.calls.length]).toEqual([0, 2]);
+    expect(JSON.parse(r.stdout)).toEqual({ execArgv: ["--import", expect.stringMatching(/^file:.*\/fetch\.mjs$/), "--no-warnings"], proxy: "1" });
   });
 });
