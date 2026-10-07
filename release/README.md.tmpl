@@ -1,0 +1,30 @@
+# BoxOps {{version}}
+
+The release build of [BoxOps](https://github.com/Allenfp/BoxOps) {{version}}
+(build `{{build}}`), made by its release workflow from commit
+[`{{sourceShort}}`](https://github.com/Allenfp/BoxOps/tree/{{source}}) of
+BoxOps' source. The source, the docs and the issues are on BoxOps' `main`
+branch; this commit, on its `releases` branch, holds the built release only.
+
+A roadmap repository (one made from
+[the starter](https://github.com/Allenfp/boxops-starter)) runs this commit,
+pinned by its SHA in its workflows:
+`uses: Allenfp/BoxOps@<this commit's SHA> # v{{version}}`.
+
+- `action.yml` and `dist/action.mjs`: the GitHub Action. It checks the
+  roadmap and assembles the Pages site, reading git objects only: no
+  network, no token, no build.
+- `dist/boxops.mjs`: the engine and the command-line tool, unminified. A
+  roadmap repository's launcher, `node .boxops/boxops.mjs`, runs it.
+- `dist/app/`: the app, built.
+- `BUILD.json`: the build, its data format and contract numbers, and every
+  other file's SHA-256.
+- `LICENSE`: BoxOps' licence (MIT). `THIRD_PARTY_LICENSES.txt`: those of the
+  packages `dist/boxops.mjs` bundles. `dist/app/licenses.txt`: those of what
+  the app bundles, and of its icons.
+
+To check that a file came from BoxOps' release workflow:
+
+```sh
+gh attestation verify <file> -R Allenfp/BoxOps --signer-workflow Allenfp/BoxOps/.github/workflows/release.yml
+```

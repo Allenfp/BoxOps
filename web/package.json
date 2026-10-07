@@ -10,6 +10,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:cli": "vite build -c vite.cli.config.ts",
+    "release:build": "tsx scripts/release-tree.ts",
+    "check:release-tree": "tsx scripts/check-release-tree.ts",
     "preview": "vite preview",
     "lint": "oxlint --deny-warnings",
     "typecheck": "tsc -b",
