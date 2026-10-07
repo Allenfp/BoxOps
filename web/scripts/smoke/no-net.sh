@@ -3,7 +3,9 @@
 # (INPUT_* variables, a push to main's environment), in check mode and in
 # build mode, on the roadmap repository REPO, with every way Node reaches the
 # network cut off and noted (no-net.mjs), it succeeds and nothing is noted. A
-# control first: a fetch under the same module is noted.
+# control first: under the same module, a fetch, and a DNS lookup and a UDP
+# socket through names imported from Node's modules (as the release's bundle
+# imports them), are noted.
 #
 # Usage: no-net.sh RELEASE_DIR REPO
 set -euo pipefail
@@ -19,11 +21,20 @@ export BOXOPS_NO_NET_LOG="$work/net.log"
 printf '%s\n' '{"repository":{"full_name":"acme/roadmap","default_branch":"main","private":true,"visibility":"private"}}' >"$work/event.json"
 no_net="--import=$here/no-net.mjs"
 
-node "$no_net" -e 'fetch("https://api.github.com/").then(() => process.exit(1), () => process.exit(0))'
-if ! grep -q '^fetch https://api.github.com/' "$BOXOPS_NO_NET_LOG"; then
-  echo "no-net.sh: the control fetch wasn't noted, so the check below proves nothing" >&2
-  exit 1
-fi
+node "$no_net" --input-type=module -e '
+import { lookup } from "node:dns";
+import { createSocket } from "node:dgram";
+for (const call of [() => fetch("https://api.github.com/"), () => lookup("api.github.com", () => {}), () => createSocket("udp4")]) {
+  try { await call(); } catch {}
+}
+process.exit(0);
+'
+for tried in "fetch https://api.github.com/" "dns.lookup api.github.com" "dgram.createSocket udp4"; do
+  if ! grep -qxF "$tried" "$BOXOPS_NO_NET_LOG"; then
+    echo "no-net.sh: the control's try ($tried) wasn't noted, so the check below proves nothing" >&2
+    exit 1
+  fi
+done
 : >"$BOXOPS_NO_NET_LOG"
 
 for mode in check build; do

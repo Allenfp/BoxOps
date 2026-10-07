@@ -1,18 +1,23 @@
 // The action, and every command but doctor, upgrade, init and preview's or
 // build's first fetch of the app, work without the network: with every way
 // Node reaches it (sockets, TLS, DNS, HTTP, fetch, UDP) made to fail and
-// noted, they run as usual and nothing is noted. Git, the one program the
-// action starts, is told to use no transport (cli/git.ts) and never fetches
-// what a clone lacks.
+// noted, through a module's object or a name imported from it, they run as
+// usual and nothing is noted. Git, the one program the action starts, is
+// told to use no transport (cli/git.ts) and never fetches what a clone lacks.
+// And scripts/smoke/no-net.mjs, which cuts a Node process off the same way
+// for the smoke tests and the starter's dry run, stops and notes each way.
 
-import dgram from "node:dgram";
-import dns from "node:dns";
+import { spawnSync } from "node:child_process";
+import dgram, { createSocket } from "node:dgram";
+import dns, { lookup, resolve4 } from "node:dns";
 import http from "node:http";
 import https from "node:https";
+import { syncBuiltinESMExports } from "node:module";
 import net from "node:net";
 import tls from "node:tls";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAction } from "./action";
 import { main } from "./boxops";
@@ -39,24 +44,37 @@ function block(obj: object, key: string, label: string): void {
 }
 
 const repos: TestRepo[] = [];
+// The ways out no-net.mjs cuts, the same.
 beforeEach(() => {
   attempts.length = 0;
   block(net.Socket.prototype, "connect", "net.Socket.connect");
   block(net, "connect", "net.connect");
   block(net, "createConnection", "net.createConnection");
   block(tls, "connect", "tls.connect");
-  block(dns, "lookup", "dns.lookup");
-  block(dns, "resolve", "dns.resolve");
-  block(dns.promises, "lookup", "dns.promises.lookup");
+  // Every DNS query, which goes out without a socket of Node's: the functions of dns and
+  // dns.promises, and the methods of their Resolvers, of which those functions are bound copies.
+  for (const [obj, label] of [
+    [dns, "dns"],
+    [dns.promises, "dns.promises"],
+    [dns.Resolver.prototype, "dns.Resolver"],
+    [dns.promises.Resolver.prototype, "dns.promises.Resolver"],
+  ] as const) {
+    for (const key of Object.getOwnPropertyNames(obj)) if (/^(lookup|lookupService|resolve\w*|reverse)$/.test(key)) block(obj, key, `${label}.${key}`);
+  }
   block(http, "request", "http.request");
   block(http, "get", "http.get");
   block(https, "request", "https.request");
   block(https, "get", "https.get");
   block(dgram, "createSocket", "dgram.createSocket");
+  for (const key of Object.getOwnPropertyNames(dgram.Socket.prototype)) if (/^(connect|send)/.test(key)) block(dgram.Socket.prototype, key, `dgram.Socket.${key}`);
   block(globalThis, "fetch", "fetch");
+  // A name imported from one of Node's modules (`import { lookup } from "node:dns"`, as the tool
+  // imports them) is the function it had when first imported, not the one above, until this.
+  syncBuiltinESMExports();
 });
 afterEach(() => {
   for (const undo of restore.splice(0).reverse()) undo();
+  syncBuiltinESMExports();
   for (const r of repos.splice(0)) r.remove();
   cleanUp();
 });
@@ -76,7 +94,15 @@ describe("without the network", () => {
     expect(() => new net.Socket().connect(443, "github.com")).toThrow("no network: net.Socket.connect");
     expect(() => https.get("https://github.com/")).toThrow("no network: https.get");
     expect(() => dns.lookup("github.com", () => {})).toThrow("no network: dns.lookup");
-    expect(attempts).toHaveLength(5);
+    expect(() => dns.resolveTxt("github.com", () => {})).toThrow("no network: dns.resolveTxt");
+    expect(() => new dns.Resolver().resolve4("github.com", () => {})).toThrow("no network: dns.Resolver.resolve4");
+    expect(() => dns.promises.resolveMx("github.com")).toThrow("no network: dns.promises.resolveMx");
+    expect(() => Reflect.apply(dgram.Socket.prototype.send, {}, ["x", 53, "192.0.2.1"])).toThrow("no network: dgram.Socket.send");
+    // Through names imported from Node's modules, as the tool imports them.
+    expect(() => lookup("github.com", () => {})).toThrow("no network: dns.lookup");
+    expect(() => resolve4("github.com", () => {})).toThrow("no network: dns.resolve4");
+    expect(() => createSocket("udp4")).toThrow("no network: dgram.createSocket");
+    expect(attempts).toHaveLength(12);
   });
 
   it("the action checks and builds a site", async () => {
@@ -113,5 +139,65 @@ describe("without the network", () => {
       [`build --out ${out}`]: 0,
     });
     expect(attempts).toEqual([]);
+  });
+});
+
+describe("scripts/smoke/no-net.mjs, given to node --import", () => {
+  // Every way out, tried once; the name never resolves and the address is one kept for documentation,
+  // so a way left open reaches nothing. Then an IP address, looked up as a server on 127.0.0.1 is.
+  const PROBE = `
+import { Socket, createSocket } from "node:dgram";
+import dns, { Resolver, lookup, lookupService, resolve4 } from "node:dns";
+import { resolveTxt } from "node:dns/promises";
+import { request } from "node:http";
+import { get } from "node:https";
+import { connect } from "node:net";
+import { connect as connectTls } from "node:tls";
+for (const way of [
+  () => dns.lookup("github.invalid", () => {}),
+  () => lookup("github.invalid", () => {}),
+  () => resolve4("github.invalid", () => {}),
+  () => lookupService("192.0.2.1", 53, () => {}),
+  () => new Resolver().resolveMx("github.invalid", () => {}),
+  () => resolveTxt("github.invalid"),
+  () => createSocket("udp4"),
+  () => new Socket("udp4").send("x", 53, "192.0.2.1"),
+  () => connect(443, "github.invalid"),
+  () => connectTls(443, "github.invalid"),
+  () => get("https://github.invalid/"),
+  () => request("http://github.invalid/"),
+  () => fetch("https://github.invalid/"),
+]) {
+  try { way()?.catch?.(() => {}); } catch {}
+}
+console.log(await new Promise((done) => lookup("127.0.0.1", (error, address) => done(error ? String(error) : address))));
+process.exit(0);
+`;
+
+  it("stops and notes every way out, through a module's object or a name imported from it, as the release's bundle imports them", () => {
+    const log = join(tempDir(), "net.log");
+    writeFileSync(log, "");
+    const module = fileURLToPath(new URL("../scripts/smoke/no-net.mjs", import.meta.url));
+    const r = spawnSync(process.execPath, [`--import=${pathToFileURL(module).href}`, "--input-type=module", "-e", PROBE], {
+      encoding: "utf8",
+      env: { ...process.env, BOXOPS_NO_NET_LOG: log },
+    });
+    expect([r.status, r.stderr, r.stdout]).toEqual([0, "", "127.0.0.1\n"]);
+    expect(readFileSync(log, "utf8").split("\n")).toEqual([
+      "dns.lookup github.invalid",
+      "dns.lookup github.invalid",
+      "dns.resolve4 github.invalid",
+      "dns.lookupService 192.0.2.1",
+      "dns.Resolver.resolveMx github.invalid",
+      "dns.promises.resolveTxt github.invalid",
+      "dgram.createSocket udp4",
+      "dgram.Socket.send x",
+      "net.connect 443",
+      "tls.connect 443",
+      "https.get https://github.invalid/",
+      "http.request http://github.invalid/",
+      "fetch https://github.invalid/",
+      "",
+    ]);
   });
 });
