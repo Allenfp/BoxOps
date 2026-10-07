@@ -25,6 +25,7 @@ check.)
 | `web/vite.config.ts` | `DEV_ROADMAP`, what `npm run dev` shows when `$BOXOPS_ROADMAP` isn't set, becomes the browser tests' roadmap, `web/e2e/fixtures/roadmap` (it's `../roadmap` now), and its doc comment with it. |
 | `web/scripts/roadmap-dir.ts` | The default folder of `npm run validate` and `npm run report` becomes `e2e/fixtures/roadmap` (it's `../roadmap` now), in its usage line and comment too. |
 | `web/scripts/workflows.test.ts` | It stops looking for workflows in `cutover/`, which the cutover commit deletes (it requires this folder's `pages.yml` until then), and its first comment and first test's name stop naming them. |
+| `.github/dependabot.yml` | Dependabot's actions pull requests stop moving pins in `cutover/`'s workflows, which the cutover commit deletes. |
 
 `AGENTS.md`, `README.md` and `docs/` aren't staged: they change with the rest
 of the work until then, so the cutover commit makes their changes itself
@@ -133,8 +134,8 @@ On a branch, merged by pull request:
      deploying", `pages.yml`'s line and the paragraph under it (the
      redirect and `/next/`, as they are); and `cutover/` in the layout (the
      folder, and `cutover.test.ts` in `scripts/`), in the unit tests (the
-     files staged there) and in CI's workflows job (the workflows it
-     lints).
+     files staged there), in CI's workflows job (the workflows it lints)
+     and in Upgrades (the folders Dependabot moves pins in).
    - `docs/releasing.md`: "At the cutover" (its pointer to this README, and
      "the cutover's `ci.yml`", now just `ci.yml`), "before the cutover" in
      "One-off settings", and "(before the cutover, the demo)" in the release

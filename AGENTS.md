@@ -110,7 +110,9 @@ Tests catch most of these; change the files together anyway.
 - `FORMAT`, the migrations (`web/src/model/migrations/`) and
   `docs/data-format.md` ("Changing the format").
 - An action used in several workflows: the same commit and `# vX.Y.Z`
-  comment everywhere (check a new one with `git ls-remote`).
+  comment everywhere (check a new one with `git ls-remote`); Dependabot's
+  pull request moves it in every folder of workflows, which
+  `.github/dependabot.yml` lists (a new folder goes there too).
   `web/scripts/workflows.test.ts` checks that, and that every job asks for
   its permissions and has a time limit, every checkout keeps no
   credentials, and the release workflow's publish job alone holds the

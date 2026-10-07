@@ -1575,5 +1575,7 @@ a release must have none of.
   never cancelled midway; a burst of saves deploys at most twice. Jobs get
   only the permissions they need, and actions are pinned to commits.
 - **Upgrades.** Dependabot (`.github/dependabot.yml`) opens pull requests
-  weekly for the actions' pinned commits and for the npm packages in `web/`
-  (minor and patch upgrades together), once a release is 3 days old.
+  weekly for the actions' pinned commits, in every folder of workflows at
+  once (this repository's, the starter's, Path B's and the cutover's), and
+  for the npm packages in `web/` (minor and patch upgrades together), once a
+  release is 3 days old.

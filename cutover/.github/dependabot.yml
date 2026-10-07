@@ -10,7 +10,6 @@ updates:
       - /
       - /starter/.github/workflows
       - /templates/path-b
-      - /cutover/.github/workflows
     schedule:
       interval: weekly
     cooldown:

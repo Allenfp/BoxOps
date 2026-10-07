@@ -92,14 +92,19 @@ describe("every workflow", () => {
   }
 
   it("pin each action to one commit and version, wherever it's used", () => {
-    const pins = new Map<string, Set<string>>();
+    // Each action's pins ("<commit> <version>"), and the files each is in.
+    const pins = new Map<string, Map<string, Set<string>>>();
     for (const path of FILES) {
       for (const m of read(path).matchAll(/uses: ([\w.-]+\/[\w.-]+)@([0-9a-f]{40}) # (v\S+)/g)) {
-        if (!pins.has(m[1])) pins.set(m[1], new Set());
-        pins.get(m[1])?.add(`${m[2]} ${m[3]}`);
+        const refs = pins.get(m[1]) ?? new Map<string, Set<string>>();
+        pins.set(m[1], refs);
+        refs.set(`${m[2]} ${m[3]}`, (refs.get(`${m[2]} ${m[3]}`) ?? new Set()).add(path));
       }
     }
-    for (const [action, refs] of pins) expect([...refs], action).toHaveLength(1);
+    for (const [action, refs] of pins) {
+      const where = [...refs].map(([ref, paths]) => `${ref} in ${[...paths].join(", ")}`).join(" | ");
+      expect([...refs.keys()], `${action}: ${where}`).toHaveLength(1);
+    }
     expect([...pins.keys()].sort()).toEqual([
       "actions/attest",
       "actions/checkout",
@@ -109,6 +114,22 @@ describe("every workflow", () => {
       "actions/upload-artifact",
       "actions/upload-pages-artifact",
     ]);
+  });
+});
+
+describe("Dependabot's pull requests", () => {
+  interface Update {
+    "package-ecosystem": string;
+    directories?: string[];
+    groups?: Record<string, { patterns?: string[] }>;
+  }
+
+  it("move an action's pins in every folder of workflows at once: none is left behind to fail the test above", () => {
+    const actions = (parse(read(".github/dependabot.yml")) as { updates: Update[] }).updates.find((u) => u["package-ecosystem"] === "github-actions");
+    // Dependabot reads .github/workflows for "/", and any other folder's own *.yml files.
+    const folders = [...new Set(FILES.map((p) => p.slice(0, p.lastIndexOf("/"))))].map((d) => (d === ".github/workflows" ? "/" : `/${d}`));
+    expect([...(actions?.directories ?? [])].sort()).toEqual(folders.sort());
+    expect(actions?.groups).toEqual({ "github-actions": { patterns: ["actions/*"] } });
   });
 });
 

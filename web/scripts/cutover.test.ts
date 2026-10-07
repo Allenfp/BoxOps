@@ -94,6 +94,7 @@ const STAGED: Record<string, [string, string][] | null> = {
       " templates/path-b/*.yml\n",
     ],
   ],
+  ".github/dependabot.yml": [["      - /cutover/.github/workflows\n", ""]],
   ".github/workflows/pages.yml": null,
   "pages/redirect.html": null,
   "web/vite.config.ts": [
