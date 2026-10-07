@@ -280,6 +280,9 @@ describe("preview", () => {
       const bundle = JSON.parse(first.body);
       expect(bundle.source).toMatchObject({ local: true, tree: null, commit: repo.git(["rev-parse", "HEAD"]), dir: "roadmap" });
       expect(bundle.app.build).toBe(ID.build);
+      // Said to be made afresh, so the app looks twice a second; the app's own files aren't.
+      expect(first.headers["boxops-live"]).toBe("1");
+      expect(index.headers["boxops-live"]).toBeUndefined();
       expect((await get(preview.url, "/roadmap.json", { "If-None-Match": String(first.headers.etag) })).status).toBe(304);
       writeFileSync(join(repo.dir, "roadmap", "people.yaml"), "people: []\n");
       const second = await get(preview.url, "/roadmap.json", { "If-None-Match": String(first.headers.etag) });

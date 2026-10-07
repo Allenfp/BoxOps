@@ -1,7 +1,7 @@
 // The deployed site around the app: its roadmap.json, the app build behind
 // it, and reloading onto a newer one.
 
-import { type AppInfo, type Bundle, type BundleSource, readBundle } from "./model/bundle";
+import { type AppInfo, type Bundle, type BundleSource, LIVE_HEADER, readBundle } from "./model/bundle";
 
 /**
  * Set by a reload that must not be answered from the browser's cache (Pages
@@ -67,6 +67,11 @@ export class SiteError extends Error {
  * `timeoutMs` gives up (status 0) on an answer that stalls, body included.
  */
 export async function fetchBundle(timeoutMs?: number): Promise<Bundle> {
+  return (await fetchSite(timeoutMs)).bundle;
+}
+
+/** fetchBundle(), and whether a preview made it afresh from the files on disk (LIVE_HEADER). */
+export async function fetchSite(timeoutMs?: number): Promise<{ bundle: Bundle; live: boolean }> {
   const abort = new AbortController();
   const timer = timeoutMs === undefined ? undefined : setTimeout(() => abort.abort(), timeoutMs);
   try {
@@ -79,7 +84,7 @@ export async function fetchBundle(timeoutMs?: number): Promise<Bundle> {
     }
     if (!res.ok) throw new SiteError(`roadmap.json: HTTP ${res.status}`, res.status);
     try {
-      return readBundle(await res.json());
+      return { bundle: readBundle(await res.json()), live: res.headers.get(LIVE_HEADER) === "1" };
     } catch (e) {
       throw abort.signal.aborted ? late() : new SiteError(`roadmap.json: ${(e as Error).message}`, res.status);
     }

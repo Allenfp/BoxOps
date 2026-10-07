@@ -25,7 +25,7 @@ import type { Page } from "@playwright/test";
 import { readRoadmapDir } from "../cli/git";
 import { appInfo, assembleBundle, hashFolder } from "../cli/site";
 import { type GitFileMode, gitBlobSha, gitTreeSha } from "../src/github/git-objects";
-import type { AppInfo, Bundle } from "../src/model/bundle";
+import { type AppInfo, type Bundle, LIVE_HEADER } from "../src/model/bundle";
 
 export const REPO = "acme/roadmap";
 export const BRANCH = "main";
@@ -160,6 +160,10 @@ export class FakeGitHub {
   truncate: "none" | "recursive" | "all" = "none";
   /** Changes to every roadmap.json the site serves: an app update, notices, a build from files on disk. */
   patchBundle?: (b: Bundle) => Bundle;
+  /** Whether the site serves roadmap.json as made afresh at each fetch (LIVE_HEADER), as a preview does. */
+  live = false;
+  /** How many times the page has fetched roadmap.json. */
+  siteFetches = 0;
   /** Git modes for paths from the repository root (a symlink, a submodule); 100644 otherwise. */
   modes: Record<string, GitFileMode> = {};
   /** Every call, in order. */
@@ -268,8 +272,9 @@ export class FakeGitHub {
 
   async install(page: Page): Promise<void> {
     await page.route("**/roadmap.json*", async (route) => {
+      this.siteFetches++;
       const bundle = await this.bundle(this.deployed);
-      return route.fulfill({ contentType: "application/json", body: JSON.stringify(bundle) });
+      return route.fulfill({ contentType: "application/json", headers: this.live ? { [LIVE_HEADER]: "1" } : {}, body: JSON.stringify(bundle) });
     });
     await page.route(/^https:\/\/(api\.github\.com|raw\.githubusercontent\.com)\//, async (route) => {
       const req = route.request();

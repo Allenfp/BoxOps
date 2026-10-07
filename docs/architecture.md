@@ -159,9 +159,12 @@ both.
   disk instead: `tree` is null and the bundle is marked `local`. The dev server
   and `preview` always read files on disk (the dev server `$BOXOPS_ROADMAP`,
   else `../roadmap`) and mark the bundle `local`. The app shows a local
-  bundle read-only, with a banner, never calls GitHub for it, and fetches it
-  again twice a second (every 5 seconds after a failure), showing a changed
-  file without a notice. `validate` and `report` read files on disk under the
+  bundle read-only, with a banner, and never calls GitHub for it. Served by
+  the dev server or `preview`, which make it afresh at each fetch and say so
+  (a `BoxOps-Live: 1` header), it's fetched again twice a second (every 5
+  seconds after a failure), a changed file shown without a notice; a local
+  build's hosted as plain files is fetched once more, then left alone, since
+  it can't change. `validate` and `report` read files on disk under the
   same rules: symlinks are errors, never followed. A submodule, though, is
   just a folder on disk, so only a build from git objects stops on one. The app still opens a `roadmap.json` from before schema 1, treating
   what it lacks as unknown.
@@ -1029,7 +1032,7 @@ the roadmap is in another data format.
 |---|---|
 | `validate [--json] [folder]` | `npm run validate`'s check and output, line for line (it's what that script runs). |
 | `report [--json] [folder]` | `npm run report`'s text, byte for byte; `--json` with dates as `YYYY-MM-DD`. |
-| `preview [--port 4173] [--open]` | Serves the working tree's roadmap with the release's app on 127.0.0.1 only (other `Host` names are refused): `roadmap.json` made afresh on each fetch, marked local, so the app shows a saved file within a second. Only the app's files listed in `BUILD.json` are served. A tool the launcher downloaded alone fetches the app once, by the pinned commit, each file checked against `BUILD.json`. |
+| `preview [--port 4173] [--open]` | Serves the working tree's roadmap with the release's app on 127.0.0.1 only (other `Host` names are refused): `roadmap.json` made afresh on each fetch, marked local and sent with `BoxOps-Live: 1`, so the app looks twice a second and shows a saved file within a second. Only the app's files listed in `BUILD.json` are served. A tool the launcher downloaded alone fetches the app once, by the pinned commit, each file checked against `BUILD.json`. |
 | `build --out DIR [--commit REF \| --worktree]` | Writes the site the action would: the app (each file checked against `BUILD.json`) and `roadmap.json`, into a new or empty folder. `pages.yml` deploys this repo's demo this way until it has its own repository. |
 | `migrate [--check]` | Runs the data format migrations (`src/model/migrations/`): each edits text in place at spots the yaml Document API locates, so comments, order and line ends stay; they're idempotent; the chain sets `format` last; then it validates. 0.1.0's only migration, 0 → 1, stamps `format: 1`. |
 | `guide [topic]` | The guide for this release: `templates/guide/` and, for `format`, `docs/data-format.md`. |

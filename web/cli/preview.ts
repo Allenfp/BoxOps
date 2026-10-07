@@ -1,8 +1,8 @@
 // `preview [--port 4173] [--open]`: the working tree's roadmap in the app,
 // served on 127.0.0.1 only. The site is what the action would build, but read
 // from the files on disk and marked local: the app shows it read-only, asks
-// GitHub nothing, and fetches roadmap.json twice a second, so a saved file shows
-// within a second. The app's files are this release's: dist/app beside the
+// GitHub nothing, and, told it's made afresh at each fetch (LIVE_HEADER),
+// fetches roadmap.json twice a second, so a saved file shows within a second. The app's files are this release's: dist/app beside the
 // tool, or, for a tool the launcher downloaded alone, fetched once by the
 // pinned commit, checked against its BUILD.json and kept beside it.
 // Node-only.
@@ -13,6 +13,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dirname, extname, join, relative, sep } from "node:path";
+import { LIVE_HEADER } from "../src/model/bundle.ts";
 import { loadRoadmap } from "../src/model/parse.ts";
 import { type Io, type LaunchContext, UsageError } from "./context.ts";
 import { fileAt, gitHub } from "./github.ts";
@@ -119,10 +120,10 @@ export async function startPreview(o: PreviewOptions): Promise<Preview> {
         (json) => {
           const etag = `"${createHash("sha256").update(json).digest("base64url")}"`;
           if (req.headers["if-none-match"] === etag) {
-            res.writeHead(304, { ...headers, ETag: etag }).end();
+            res.writeHead(304, { ...headers, ETag: etag, [LIVE_HEADER]: "1" }).end();
             return;
           }
-          res.writeHead(200, { ...headers, "Content-Type": "application/json", ETag: etag }).end(req.method === "HEAD" ? undefined : json);
+          res.writeHead(200, { ...headers, "Content-Type": "application/json", ETag: etag, [LIVE_HEADER]: "1" }).end(req.method === "HEAD" ? undefined : json);
         },
         (e: Error) => {
           o.io.err(e.message);

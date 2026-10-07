@@ -8,6 +8,14 @@ import type { RoadmapFiles } from "./types.ts";
 /** The bundle layout written by this BoxOps. Tabs of every version read `schema` and `app.build`, so those never move. */
 export const SCHEMA = 1;
 
+/**
+ * The HTTP header ("1") a server sends with a roadmap.json it makes afresh
+ * from the files on disk at each fetch (`boxops preview`, `npm run dev`): the
+ * app then looks again twice a second. A local build's copy hosted as plain
+ * files doesn't send it, so the app looks once and stops.
+ */
+export const LIVE_HEADER = "BoxOps-Live";
+
 /** The app that built the bundle. */
 export interface AppInfo {
   /** web/package.json's version. */

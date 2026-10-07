@@ -34,7 +34,7 @@ import { ZOOM_LEVELS } from "./model/types";
 import { Icon } from "./components/Icon";
 import { noteDraft, runningFine } from "./components/ErrorBoundary";
 import { LoadProblem, liveUrl } from "./components/LoadScreen";
-import { SiteError, fetchBundle, guardReload, isNewerApp, movesForward, reloadApp } from "./site";
+import { SiteError, fetchBundle, fetchSite, guardReload, isNewerApp, movesForward, reloadApp } from "./site";
 import { AddedPto } from "./table/addedPto";
 
 interface Loaded extends LoadResult, Snapshot {
@@ -54,7 +54,7 @@ const ZOOM_LABEL: Record<ZoomLevel, string> = { weeks: "Weeks", months: "Months"
 
 /** How often open tabs look for other people's saves. */
 const POLL_MS = 2 * 60_000;
-/** How often a copy built from the files on disk (a preview, the dev server) looks for an edited file: a saved file shows within a second. */
+/** How often a copy a preview or the dev server builds from the files on disk looks for an edited file: a saved file shows within a second. */
 const LOCAL_POLL_MS = 500;
 /** Its wait after a failed look (the preview stopped, say). */
 const LOCAL_RETRY_MS = 5000;
@@ -435,19 +435,22 @@ export function App() {
     };
   }, [pollable, seen, show, noteSite]);
 
-  // A copy built from the files on disk (`boxops preview`, `npm run dev`): its
-  // roadmap.json is made afresh on each fetch from the working tree, so look
-  // twice a second, and show what changed. Same-origin and local: no GitHub.
+  // A copy built from the files on disk. Served by `boxops preview` or
+  // `npm run dev`, its roadmap.json is made afresh on each fetch from the
+  // working tree (they say so: LIVE_HEADER), so look twice a second, and show
+  // what changed; hosted as files (a local build's), it can't change, so stop
+  // after one look. Same-origin and local: no GitHub.
   const watching = state.status === "ready" && !state.preview && !!state.source.local;
   useEffect(() => {
     if (!watching) return;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const check = async () => {
-      let wait = LOCAL_POLL_MS;
+      let wait: number | null = LOCAL_POLL_MS;
       try {
-        const bundle = await fetchBundle(SITE_MS);
+        const { bundle, live } = await fetchSite(SITE_MS);
         if (stopped) return;
+        if (!live) wait = null;
         noteSite(bundle);
         const current = onScreen.current;
         const next = await snapshotOf(bundle);
@@ -457,7 +460,7 @@ export function App() {
       } catch {
         wait = LOCAL_RETRY_MS;
       } finally {
-        if (!stopped) timer = setTimeout(() => void check(), wait);
+        if (!stopped && wait !== null) timer = setTimeout(() => void check(), wait);
       }
     };
     timer = setTimeout(() => void check(), LOCAL_POLL_MS);

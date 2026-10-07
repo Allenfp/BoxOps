@@ -247,9 +247,10 @@ test("a roadmap.json that arrives but can't be opened: a plain message and Try a
 });
 
 test("a copy built from files on disk shows a saved file within a second, and no notice", async ({ page, github }) => {
-  // What `boxops preview` serves: the working tree, at HEAD's commit, made afresh on each fetch.
+  // What `boxops preview` serves: the working tree, at HEAD's commit, made afresh on each fetch (and said to be).
   const head = github.head;
   github.patchBundle = (b) => ({ ...b, source: { ...b.source, commit: head, history: [head], local: true } });
+  github.live = true;
   await page.reload();
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
   const calls = github.calls();
@@ -263,6 +264,26 @@ test("a copy built from files on disk shows a saved file within a second, and no
   await page.clock.runFor(1000);
   await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
   expect(github.calls()).toBe(calls);
+});
+
+test("a copy built from files on disk and hosted as files looks once, then stops", async ({ page, github }) => {
+  // A local build's site (`build --worktree`) put on a server: its roadmap.json can't change, and isn't said to.
+  const head = github.head;
+  github.patchBundle = (b) => ({ ...b, source: { ...b.source, commit: head, history: [head], local: true } });
+  await page.reload();
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v2");
+  const fetches = github.siteFetches;
+  github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v2", "Revenue mart v3") });
+  github.deploy();
+  // One look, a moment after loading, shows what's there; then no more.
+  await page.clock.runFor(1000);
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  expect(github.siteFetches).toBe(fetches + 1);
+  github.otherSave({ [boxFile(REVENUE)]: (t) => t.replace("Revenue mart v3", "Revenue mart v4") });
+  github.deploy();
+  await page.clock.runFor(10_000);
+  await expect(boxTitle(page, REVENUE)).toHaveText("Revenue mart v3");
+  expect(github.siteFetches).toBe(fetches + 1);
 });
 
 test("a copy built from files on disk is read-only and asks GitHub nothing", async ({ page, github }) => {

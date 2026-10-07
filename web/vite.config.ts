@@ -5,6 +5,7 @@ import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { withContentSecurityPolicy } from "./cli/csp.ts";
 import { appInfo, buildBundle, findRepo } from "./cli/site.ts";
+import { LIVE_HEADER } from "./src/model/bundle.ts";
 
 const WEB_DIR = fileURLToPath(new URL(".", import.meta.url));
 const REPO_DIR = resolve(WEB_DIR, "..");
@@ -29,8 +30,8 @@ const APP = appInfo(WEB_DIR, REPO_DIR);
  * next to the app by the action, or by `node dist/boxops.mjs build` (cli/),
  * so one build of the app serves every roadmap.
  * Dev: `roadmap.json` (cli/site.ts; the fields are in src/model/bundle.ts)
- * from the files on disk, re-read on every request and always marked local;
- * YAML edits reload the page.
+ * from the files on disk, re-read on every request (and said to be, with
+ * LIVE_HEADER) and always marked local; YAML edits reload the page.
  */
 function roadmapData(): Plugin {
   return {
@@ -55,6 +56,8 @@ function roadmapData(): Plugin {
         bundle().then(
           (b) => {
             res.setHeader("Content-Type", "application/json");
+            // Made afresh at each fetch: the app looks again twice a second.
+            res.setHeader(LIVE_HEADER, "1");
             res.end(JSON.stringify(b));
           },
           (e: Error) => {
