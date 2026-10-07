@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import { REPO, TOKEN } from "./fake-github";
-import { DAGSTER, box, boxDates, dragDays, expect, heard, save, test, toolbar } from "./helpers";
+import { DAGSTER, box, boxDates, boxFile, dragDays, expect, heard, save, test, toolbar } from "./helpers";
 
 // Code fetched when it's first needed: what saving needs (with the yaml
 // library) once someone starts editing, never just to show the roadmap; a
@@ -152,6 +152,20 @@ test("Tab before a keyboard move's code is here goes on, as it does mid-move: th
   release();
   await expect(toolbar(page)).toContainText("Save · 1 change");
   await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
+  await expect(page.locator(".dragging")).toHaveCount(0);
+});
+
+test("⌘S before a keyboard move's code is here saves the box, moved by the keys before it, as mid-move", async ({ page, github }) => {
+  const release = await holdBack(page, "keyMove");
+  await page.reload();
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(box(page, DAGSTER)).toBeFocused();
+  release();
+  await expect.poll(() => github.file(boxFile(DAGSTER))).toContain("start: 2026-09-15\nend: 2026-10-26\n");
+  await expect(toolbar(page)).toContainText("No changes");
   await expect(page.locator(".dragging")).toHaveCount(0);
 });
 

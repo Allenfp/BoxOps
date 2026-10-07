@@ -756,8 +756,9 @@ export function Timeline(props: Props) {
   /**
    * Space on a box or PTO block (`cell`): pick it up. Before the move's code is here, it's picked
    * up once it is (if focus is still on it, nothing was pressed meanwhile, and it came within
-   * MOVE_CODE_WAIT_MS), and the keys pressed in between move it then. Tab meanwhile goes on, as it
-   * does mid-move: the keys before it move it once its code is here, and it's dropped there.
+   * MOVE_CODE_WAIT_MS), and the keys pressed in between move it then (⌘S among them saving it
+   * dropped, as mid-move). Tab meanwhile goes on, as it does mid-move: the keys before it move it
+   * once its code is here, and it's dropped there.
    */
   const pickUp = (cell: HTMLElement, kind: string, id: string) => {
     if (readOnly) return say(readOnlyWhy);
@@ -797,7 +798,14 @@ export function Timeline(props: Props) {
         // Drawn now, and so listening for the move's keys (the keyMoving effect) before any more come:
         // a key pressed before React's next render would otherwise reach neither that nor onGridKey.
         flushSync(() => code.pickUp(host, kind, id));
-        for (const e of keys) if (move.current) code.onMoveKey(host, e, () => flushSync(() => code.drop(host)));
+        for (const e of keys) {
+          if (!move.current) break;
+          code.onMoveKey(host, e, () => {
+            flushSync(() => code.drop(host));
+            // ⌘S: dropped, then the app's own ⌘S saves it, as mid-move; held back here, so it's sent again.
+            window.dispatchEvent(new KeyboardEvent(e.type, e));
+          });
+        }
         if (tabbed) code.drop(host);
       },
       () => {
