@@ -207,9 +207,10 @@ free of workflows that restore caches. The starter's use none.
    starts calling out by mistake, not one that means to.
 3. **The maintainer's account.** Their admin session, or a token with admin
    rights, could lift the rulesets that keep releases to the deploy key. No
-   one is exempt from those rulesets, so lifting one shows in the audit log,
-   and BoxOps' release instructions keep a token with admin rights for
-   those settings alone ([releasing.md](releasing.md#one-off-settings)).
+   account is on those rulesets' bypass lists, only the deploy key, so
+   lifting one shows in the audit log; and BoxOps' release instructions keep
+   a token with admin rights for those settings alone
+   ([releasing.md](releasing.md#one-off-settings)).
 4. **The launcher is code in your repository.** Only the push ruleset keeps
    editors from changing it; without that ruleset, an editor could change
    what teammates' laptops run when they use `node .boxops/boxops.mjs` (not
