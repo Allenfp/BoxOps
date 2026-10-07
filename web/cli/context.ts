@@ -20,8 +20,9 @@ export interface LaunchContext {
   /**
    * The launcher has compared itself, AGENTS.md's BoxOps block and
    * deploy.yml's Pages guard with this release's BUILD.json, and warned of
-   * any that differ, so the tool doesn't again (launcher 1 does whenever it
-   * has a BUILD.json: always, but for a BOXOPS_CLI that has none beside it).
+   * any that differ, so the tool doesn't again (launcher 1 does for the
+   * commands that warn, WARNING_COMMANDS, whenever it has a BUILD.json:
+   * always, but for a BOXOPS_CLI that has none beside it).
    */
   checked?: boolean;
 }

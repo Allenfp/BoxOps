@@ -10,6 +10,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSy
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { WARNING_COMMANDS } from "./boxops";
 import { type BuildJson, buildJsonText, makeBuildJson } from "./release";
 import { launcherText } from "./sync";
 import { ID, cleanUp, tempDir } from "./test-release";
@@ -321,8 +322,15 @@ describe("the launcher's warnings", () => {
       "boxops: AGENTS.md’s BoxOps block is 1; this BoxOps writes 3: run `node .boxops/boxops.mjs sync`",
       "boxops: the Pages guard in deploy.yml is 1; this BoxOps expects 4: run `node .boxops/boxops.mjs doctor`",
     ]);
-    // Not for sync, which writes them, doctor, which lists them, init or version (as the tool).
-    for (const command of ["sync", "doctor", "init", "version"]) expect(launch(root, [command], { env: { BOXOPS_CLI: releaseTool(TOOL, old) } })).toMatchObject({ code: 0, stderr: "" });
+    // On the commands the tool warns on, and no others (sync writes them, doctor lists them…):
+    // those the tool decides on, which it doesn't for these.
+    const others = ["sync", "doctor", "init", "version", "--version", "help", "--help", "-h", "action", "nope", ""];
+    expect(WARNING_COMMANDS).not.toContain("version");
+    for (const command of [...WARNING_COMMANDS, ...others]) {
+      const ran = launch(root, command ? [command] : [], { env: { BOXOPS_CLI: releaseTool(TOOL, old) } });
+      const warns = WARNING_COMMANDS.includes(command);
+      expect([command, ran.code, ran.stderr.split("\n").filter(Boolean).length, ran.ran?.ctx.checked]).toEqual([command, 0, warns ? 3 : 0, warns || undefined]);
+    }
     // The release's own numbers: nothing to say. No block in AGENTS.md: nothing either.
     expect(launch(root, ["validate"], { env: { BOXOPS_CLI: releaseTool() } }).stderr).toBe("");
     expect(launch(launcherRepo(DEPLOY(), { "AGENTS.md": "# Ours\n" }), ["validate"], { env: { BOXOPS_CLI: releaseTool(TOOL, buildJson(TOOL, { agentsBlock: 3 })) } }).stderr).toBe("");

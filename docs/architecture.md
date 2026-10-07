@@ -1055,9 +1055,11 @@ the roadmap is in another data format.
 
 Only `doctor`, `upgrade`, `init` and `preview`'s first fetch of the app use
 the network (read-only; a token from `GH_TOKEN`, `GITHUB_TOKEN` or
-`gh auth token` if there is one). Every command but `sync`, `doctor`, `init`
-and `version` warns when the repository's launcher, `AGENTS.md` block or
-Pages guard isn't this release's, unless the launcher has (below).
+`gh auth token` if there is one). `validate`, `report`, `build`, `preview`,
+`migrate`, `upgrade` and `guide` (`WARNING_COMMANDS`; not `sync`, `doctor`,
+`init`, `version` or `help`) warn when the repository's launcher,
+`AGENTS.md` block or Pages guard isn't this release's, unless the launcher
+has (below).
 
 **The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
 `path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;
@@ -1142,13 +1144,14 @@ code), checking the tool against the `BUILD.json` again at each run. Offline
 it takes `$BOXOPS_CLI`, checked against its release's `BUILD.json` when there
 is one beside it, and says so when that's another release than the pin's
 `# vX.Y.Z` (the tool would check the roadmap as that release does, and
-report its own version with the pin's commit). With `HTTPS_PROXY` set it restarts Node with
-`NODE_USE_ENV_PROXY=1`, without which Node's `fetch` ignores the proxy
-(Node.js 22.21+ or 24+ honours it), keeping the options Node was started
-with (`--use-system-ca`, for a proxy that re-signs TLS). It stops if the
-release needs a newer Node.js, gives the tool's warnings (when it,
-`AGENTS.md`'s block or `deploy.yml`'s Pages guard isn't what the
-`BUILD.json` names) and tells the tool it has, and calls the tool's
+report its own version with the pin's commit). With `HTTPS_PROXY` set it
+restarts Node with `NODE_USE_ENV_PROXY=1`, without which Node's `fetch`
+ignores the proxy (Node.js 22.21+ or 24+ honours it), keeping the options
+Node was started with (`--use-system-ca`, for a proxy that re-signs TLS).
+It stops if the release needs a newer Node.js. On the commands the tool
+warns on, it gives the tool's warnings (when it, `AGENTS.md`'s block or
+`deploy.yml`'s Pages guard isn't what the `BUILD.json` names) and tells the
+tool it has. It calls the tool's
 `main(argv, { root, repo, sha, tag, launcher, checked })`, a contract that
 stays the same across 0.x.
 

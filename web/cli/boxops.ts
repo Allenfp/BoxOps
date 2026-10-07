@@ -250,6 +250,14 @@ const COMMANDS: Record<string, { values?: string[]; switches?: string[]; run: Co
 };
 
 /**
+ * The commands that warn of old BoxOps files (staleWarnings): not sync, which
+ * writes them, doctor, which lists them all, or init and version, which are
+ * about the release; nor help, the action or an unknown command. The
+ * launcher warns on the same ones (launcher.test.ts checks).
+ */
+export const WARNING_COMMANDS = Object.keys(COMMANDS).filter((name) => !["sync", "doctor", "init", "version"].includes(name));
+
+/**
  * Runs a command; returns its exit code (0 OK, 1 problems, 2 usage or
  * environment, 3 data format mismatch). The launcher's contract: frozen.
  */
@@ -268,7 +276,7 @@ export async function main(argv: string[], ctx: LaunchContext = {}, io: Io = def
   }
   try {
     const args = parseArgs(rest, [...COMMON, ...(command.values ?? [])], command.switches ?? []);
-    if (!["sync", "doctor", "init", "version"].includes(name)) {
+    if (WARNING_COMMANDS.includes(name)) {
       const root = rootOf(args, ctx, io);
       if (existsSync(root)) staleWarnings(root, ctx, io);
     }
