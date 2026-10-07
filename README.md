@@ -138,7 +138,10 @@ pushed to `main`; every push is validated before it deploys.
   over-capacity and full departments, overloaded engineers, engineers booked
   during their PTO, everyone's bookings and PTO by date, unassigned boxes and
   broken rules. Both take another roadmap folder as an argument:
-  `npm run validate -- <folder>`.
+  `npm run validate -- <folder>`. They're the BoxOps command-line tool's
+  `validate` and `report`; after `npm run build && npm run build:cli`,
+  `node dist/boxops.mjs help` lists the rest (a live read-only `preview` of
+  the files on disk, `migrate`, `guide`, and more).
 
 ## Developing the app
 
@@ -149,6 +152,9 @@ from 22.12, and 26 or later, work too).
 cd web
 npm ci
 npm run dev        # http://localhost:5173; shows ../roadmap (or $BOXOPS_ROADMAP) read-only, reloading on change
+npm run build      # the app, in dist/app (no roadmap: the site's roadmap.json is written beside it)
+npm run build:cli  # after build: the command-line tool and action (dist/boxops.mjs, dist/action.mjs, dist/BUILD.json)
+node dist/boxops.mjs build --out <folder>   # the site: the app and roadmap.json from ../roadmap at HEAD
 npm run lint       # oxlint, including the React hooks rules; a warning fails it
 npm run typecheck  # TypeScript, browser and Node code apart (npm run build checks types too)
 npm test           # unit tests
@@ -162,14 +168,15 @@ npm run gen-roadmap -- 2000 2026-10-03 <folder>  # a synthetic roadmap (boxes, "
 
 Every pull request, and every push to a branch other than `main` (docs-only
 too), runs CI: lint, type check, the unit tests (also in two time zones far
-apart), validation, a build, the browser tests (in WebKit, then Chromium and
-Firefox) and the performance checks. On `main`, the deploy lints,
-type-checks, validates, runs the unit tests and builds, and runs the browser
-tests in WebKit unless nothing outside `roadmap/` has changed since the
-version that is live. So a save from the app usually goes live within a
-minute (a few minutes if an app change is deploying at the same time), and
+apart), validation, a build, the command-line tool on the starter's files,
+the browser tests (in WebKit, then Chromium and Firefox) and the performance
+checks. On `main`, the deploy lints, type-checks, validates, runs the unit
+tests and builds (the app, then the site with the command-line tool: the app
+plus `roadmap/` as its `roadmap.json`), and runs the browser tests in WebKit
+unless nothing outside `roadmap/` has changed since the version that is
+live. So a save from the app usually goes live within a minute (a few minutes if an app change is deploying at the same time), and
 anything else must pass the browser tests before it deploys.
 
 - [docs/architecture.md](docs/architecture.md): how loading, saving, conflicts,
-  polling, layout and CI work.
+  polling, layout, the command-line tool, the action and CI work.
 - [docs/decisions.md](docs/decisions.md): what was decided, when and why.

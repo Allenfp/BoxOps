@@ -332,6 +332,8 @@ Departments and boxes:
 
 Over capacity, overloaded engineers, engineers booked during PTO and broken
 rules are not validation errors; `npm run report` lists them.
+`npm run validate` exits 1 when there's a problem, and 3 when the roadmap is
+in another data format (see [Format versions](#format-versions)).
 
 `npm run validate -- <folder>` (and `npm run report -- <folder>`) checks a
 roadmap folder other than `../roadmap`; a relative `<folder>` is relative to
@@ -344,9 +346,12 @@ roadmap is in. This BoxOps reads and writes format **1**, frozen as of BoxOps
 0.1.0: the rules on this page.
 
 - A roadmap without `format` counts as format 0. It opens read-only in the app
-  and fails validation until `format: 1` is added to `settings.yaml`. (Later
-  releases will do that, and any other change of format, with a `migrate`
-  command.)
+  and fails validation until `format: 1` is added to `settings.yaml`, which
+  `migrate` does (`node .boxops/boxops.mjs migrate` in a roadmap repository),
+  changing nothing else. Every change of format comes with such a migration,
+  run only by `migrate` (which edits the files in place, keeping comments and
+  order, and can be run again safely) and committed like any other edit;
+  `migrate --check` says whether one is needed.
 - A roadmap in a newer format opens read-only too, and fails validation. A
   tab left open from before an upgrade to a newer format won't save once the
   upgrade is merged: it says "BoxOps is being upgraded; reload in a minute"

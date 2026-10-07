@@ -68,29 +68,54 @@ web/
                             saveOutcome (what a save that didn't simply go
                             through comes to), messages (errors in words),
                             git-objects (git blob and tree SHAs, base64)
-  cli/                      Node-only: git.ts (reads a roadmap folder from git
-                            objects or from disk), site.ts (builds roadmap.json),
+  cli/                      Node-only: the command-line tool and the GitHub
+                            Action (bundled into dist/boxops.mjs; see
+                            [The command-line tool and the action](#the-command-line-tool-and-the-action)):
+                            boxops.ts (the commands), action.ts (the
+                            action's steps), git.ts (reads a roadmap folder
+                            from git objects or from disk), site.ts (builds
+                            roadmap.json), release.ts (BUILD.json, the
+                            contract numbers, the app's files), gha.ts
+                            (annotations, outputs, the job summary),
+                            notices.ts (update and security notices), pins.ts
+                            (the `uses:` lines), migrate.ts, preview.ts,
+                            guide.ts, sync.ts, doctor.ts, upgrade.ts,
+                            init.ts, github.ts (the few GitHub calls they
+                            make), embedded.ts (what the tool carries),
                             csp.ts (the built page's Content-Security-Policy)
-  scripts/                  validate.ts, report.ts (command-line checks; an
-                            optional argument names another roadmap folder),
+  scripts/                  validate.ts, report.ts (`npm run validate` and
+                            `report`: the tool's commands; an optional
+                            argument names another roadmap folder),
                             gen-roadmap.ts (synthetic roadmaps of any size)
   e2e/                      browser tests, fake GitHub, fixture roadmap
   index.html                early theme, boot watchdog (inline scripts)
-  vite.config.ts            build id, CSP, and roadmap.json at build time
-                            and in dev
+  vite.config.ts            the app: build id, CSP, licences; roadmap.json
+                            in dev only
+  vite.cli.config.ts        the command-line tool and the action, for Node
+templates/                  what the tool writes into a roadmap repository's
+                            AGENTS.md (agents-block.md) and prints as its
+                            guide (guide/*.md)
+starter/                    the starter repository's files (a roadmap
+                            repository: workflows, launcher, sample roadmap)
 ```
 
 `model/` also holds `paths.ts` (which files are roadmap files), `bundle.ts`
-(the `roadmap.json` fields) and `draftStore.ts` (unsaved drafts in
-`localStorage`). Browser code (`src/`) is type-checked without
+(the `roadmap.json` fields), `draftStore.ts` (unsaved drafts in
+`localStorage`) and `migrations/` (data format migrations, which only
+`migrate` runs). Browser code (`src/`) is type-checked without
 Node's types (`tsconfig.app.json`); `cli/`, `scripts/`, `e2e/`, the unit tests
 and the configs have them (`tsconfig.node.json`). `npm run typecheck` checks
 both.
 
 ## Reading
 
-- **At build time** the Vite plugin writes `roadmap.json` (`cli/site.ts`;
-  fields in `model/bundle.ts`), so viewers need no token.
+- **At build time** the site gets a `roadmap.json` next to the app
+  (`cli/site.ts`; fields in `model/bundle.ts`), so viewers need no token.
+  The app's own build (`npm run build`, into `web/dist/app`) holds no
+  roadmap, so one build serves every roadmap: the command-line tool writes
+  `roadmap.json` beside a copy of it, the BoxOps action in a roadmap
+  repository's deploy and `node dist/boxops.mjs build` in this repo's
+  (see [The command-line tool and the action](#the-command-line-tool-and-the-action)).
   It reads `roadmap/` from git objects at the commit being built (`GITHUB_SHA`
   in Actions, else HEAD), never from the checkout, with git hardened and
   plumbing only (`cli/git.ts`). Only plain files are allowed: a symlink or
@@ -132,11 +157,12 @@ both.
 
   A local build whose `roadmap/` has uncommitted changes reads the files on
   disk instead: `tree` is null and the bundle is marked `local`. The dev server
-  always reads files on disk (`$BOXOPS_ROADMAP`, else `../roadmap`) and marks
-  its bundle `local`. The app shows a local bundle read-only, with a banner,
-  and never calls GitHub or polls for it. `npm run validate` and
-  `report` read files on disk under the same rules: symlinks are errors, never
-  followed. A submodule, though, is just a folder on disk, so only a build
+  and `preview` always read files on disk (the dev server `$BOXOPS_ROADMAP`,
+  else `../roadmap`) and mark the bundle `local`. The app shows a local
+  bundle read-only, with a banner, never calls GitHub for it, and fetches it
+  again every second (every 5 after a failure), showing a changed file without
+  a notice. `validate` and `report` read files on disk under the same rules:
+  symlinks are errors, never followed. A submodule, though, is just a folder on disk, so only a build
   from git objects stops on one. The app still opens a `roadmap.json` from before schema 1, treating
   what it lacks as unknown.
 - **On load** the app paints the bundle as soon as `roadmap.json` arrives.
@@ -972,14 +998,127 @@ when a focused element is removed.
   first field drawn, which can be in a row drawn just above the view, so
   the table scrolls up a little to it.
 
+## The command-line tool and the action
+
+BoxOps 0.1.0 is distributed as a release a roadmap repository pins by commit
+(the plan: a roadmap repository made from `starter/` holds its data and a few
+workflows, and runs the app's prebuilt release; nothing is built there).
+`npm run build` makes the app in `web/dist/app`; `npm run build:cli`
+(`vite.cli.config.ts`, Vite's own Rolldown, no other bundler) then makes the
+rest of what a release's `dist/` holds:
+
+- `dist/boxops.mjs`: the engine (loading, validation, the report, the
+  roadmap readers, `roadmap.json`), every command, and what they carry
+  (`templates/`, `starter/`, `docs/data-format.md`), the `yaml` library
+  inside: no npm, no `node_modules`. Unminified, about 450 kB. Node 22.12 or
+  later.
+- `dist/action.mjs`: a few lines that import `boxops.mjs` and run the action.
+- `dist/BUILD.json`: the build id (the app's, compiled into both), the commit
+  it was built from, the data format, the contract numbers (`bundle`, the
+  `roadmap.json` schema; `launcher`; `guard`; `agentsBlock`; `migratesFrom`)
+  and every file's SHA-256 (`sha256-<base64>`). Deterministic: no clocks or
+  run ids. A release keeps it beside `dist/` (`cli/release.ts` looks in both
+  places, and reads a path `dist/X` in it as the file `X` beside the tool).
+
+**Commands** (`node dist/boxops.mjs <command>` here; in a roadmap repository
+`node .boxops/boxops.mjs <command>`, the launcher, which runs the release its
+`deploy.yml` pins). Exit codes: 0 OK, 1 problems, 2 usage or environment, 3
+the roadmap is in another data format.
+
+| Command | What it does |
+|---|---|
+| `validate [--json] [folder]` | `npm run validate`'s check and output, line for line (it's what that script runs). |
+| `report [--json] [folder]` | `npm run report`'s text, byte for byte; `--json` with dates as `YYYY-MM-DD`. |
+| `preview [--port 4173] [--open]` | Serves the working tree's roadmap with the release's app on 127.0.0.1 only (other `Host` names are refused): `roadmap.json` made afresh on each fetch, marked local, so the app shows a saved file within a second. Only the app's files listed in `BUILD.json` are served. A tool the launcher downloaded alone fetches the app once, by the pinned commit, each file checked against `BUILD.json`. |
+| `build --out DIR [--commit REF \| --worktree]` | Writes the site the action would: the app (each file checked against `BUILD.json`) and `roadmap.json`, into a new or empty folder. `pages.yml` deploys this repo's demo this way until it has its own repository. |
+| `migrate [--check]` | Runs the data format migrations (`src/model/migrations/`): each edits text in place at spots the yaml Document API locates, so comments, order and line ends stay; they're idempotent; the chain sets `format` last; then it validates. 0.1.0's only migration, 0 → 1, stamps `format: 1`. |
+| `guide [topic]` | The guide for this release: `templates/guide/` and, for `format`, `docs/data-format.md`. |
+| `sync [--check]` | Rewrites `AGENTS.md`'s managed block (`templates/agents-block.md`, between `<!-- boxops:begin block=N … -->` and `<!-- boxops:end -->`) and the launcher, and makes `CLAUDE.md` if there's none. Never the workflows; never through a symlink. |
+| `doctor` | Checks Node, that every pin names one commit and is a tag of the pinned repository (`git/matching-refs/tags`: a fork's commit seen through it isn't), the pins' comments, `gh attestation verify` with the release workflow as signer (if `gh` is installed), the launcher, guard and block numbers, the workflows' permissions against the starter's (with the change to make), and retired runner labels. |
+| `upgrade [vX.Y.Z]` | Resolves the tag (default: the latest release), fetches that release's tool into the launcher's cache (outside the repository; checked against its `BUILD.json`), rewrites every BoxOps `uses:` and Path B `BOXOPS_ACTION:` line with its `# vX.Y.Z` comment (line ends kept), then runs the new release's `migrate --check`, `sync` and `validate`. Commits nothing. |
+| `init <dir> [--action owner/repo@sha]` | Writes the starter's files with the pin filled in: the tool's own tag resolved to a commit, or the commit given, whose `BUILD.json` must name this build. |
+| `version` | `BoxOps 0.1.0 (Allenfp/BoxOps@abc1234, build 0.1.0+…, data format 1)`. |
+
+Only `doctor`, `upgrade`, `init` and `preview`'s first fetch of the app use
+the network (read-only; a token from `GH_TOKEN`, `GITHUB_TOKEN` or
+`gh auth token` if there is one). Every command warns when the repository's
+launcher, `AGENTS.md` block or Pages guard isn't this release's.
+
+**The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
+`path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;
+Path B passes the same as `--flags`) runs in this order, each failure an
+error annotation with a plain message:
+
+1. github.com only (GitHub Enterprise Server and GHE.com aren't supported in
+   0.1), Linux or macOS runners, known input values; a warning if the
+   workflow uses BoxOps by a tag or branch rather than a commit.
+2. In build mode, the run's ref must be the default branch (from the event
+   payload; no token).
+3. `path` must be inside the workspace (after resolving symlinks) with a
+   `.git` folder of its own; `roadmap` a plain folder name.
+4. to 7. `roadmap/` from git objects at the checkout's `HEAD`, as above:
+   hardened plumbing git, plain files only, the limits, every blob's SHA,
+   strict UTF-8.
+8. The data format: any other than this release's stops the build, older
+   with "run `node .boxops/boxops.mjs migrate`", newer with "upgrade the pin".
+9. Validation: each problem an error annotation on its file and line (50 at
+   most; the rest in the log), counted in the `problems` output. Check mode
+   fails on any; build mode only with `on-problems: fail` (the default,
+   `deploy`, publishes the site without the broken entries, as the app loads
+   them, and the starter's workflow turns the run red).
+10. Warnings, from git objects too: BoxOps pins that differ or aren't
+    commits, an old Pages guard, launcher or `AGENTS.md` block, retired
+    runner labels.
+11. Notices from the optional `releases-file` (`cli/notices.ts`): a newer
+    release titled "Security: …" gives a warning and a `security` notice in
+    `roadmap.json`, any other newer one a notice and an `info` notice, and
+    this release titled "Withdrawn: …" a warning (in the app too).
+    Release candidates count only when running one.
+12. In build mode, `$RUNNER_TEMP/boxops-site` made afresh: the release's
+    `dist/app` (each file checked against `BUILD.json`, and no other file)
+    and `roadmap.json`. `repository` naming another repository makes the site
+    read-only and private (a canary of the demo); `read-only` makes it
+    read-only.
+13. The outputs (`site`, `version`, `build`, `format`, `commit`, `problems`,
+    `result`) go to `$GITHUB_OUTPUT` with random heredoc delimiters no value
+    holds as a line, and the result and capacity headlines to the job summary,
+    in code blocks (`cli/gha.ts`: nothing from the roadmap can end an
+    annotation early or start a workflow command).
+
+The only program it starts is git; nothing in the workspace is run, imported
+or read as configuration (`package.json`, `.npmrc`, `vite.config.*`,
+`tsconfig.json`, `.env`, the repository's hooks, filters, textconv, fsmonitor
+and pager are all left alone, and `GIT_*` variables are dropped); it makes no
+network call and takes no token.
+
+**The launcher** (`starter/.boxops/boxops.mjs`, `launcher: 1`) finds the pin
+in `deploy.yml` by the repository's name (any `<owner>/<repo with "boxops" in
+it>@<40-hex>` on a `uses:` or `BOXOPS_ACTION:` line, CRLF and mirrors
+included), downloads that commit's `dist/boxops.mjs` once into a per-user
+cache outside the repository (`$BOXOPS_CACHE`, `$XDG_CACHE_HOME/boxops`,
+`~/.cache/boxops`, then the temp folder; a cache inside the repository is
+refused, since a file committed there would run as code), or takes
+`$BOXOPS_CLI`, and calls its `main(argv, { root, repo, sha, tag, launcher })`,
+a contract that stays the same across 0.x.
+
 ## Tests and CI
 
 - **Unit tests** (Vitest, `web/src/**/*.test.ts` and `web/cli/**/*.test.ts`)
   cover dates, loading and validation, the draft and rebasing, YAML writing,
   change descriptions, layout and capacity, the report, the GitHub client,
-  reader and save logic against the browser tests' fake GitHub, and the
+  reader and save logic against the browser tests' fake GitHub, the
   roadmap readers, git SHAs and `roadmap.json` against real git repositories
-  made in the temp folder. Those that read a whole roadmap read fixed copies
+  made in the temp folder, and the command-line tool and the action against
+  such repositories and a fake release: every command, each of the action's
+  checks with its message, outputs and summary, migrations (comments and line
+  ends kept, idempotent), `sync`, `upgrade` and `init` rewriting sample
+  repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`, `init` and
+  `preview`'s fetch against a fake GitHub, the launcher run with Node, a
+  hostile workspace (its files, git configuration and `GIT_*` variables try
+  to run code: sentinel files stay unwritten, git is the only program
+  started, and the site is a clean workspace's), and no network call from
+  the action or the offline commands (every way Node reaches the network
+  made to fail and noted). Those that read a whole roadmap read fixed copies
   (the browser tests' fixture, and `roadmap/` as shipped, in
   `web/src/model/fixtures/shipped-roadmap/`), never the live `roadmap/`,
   which saves may write any valid way.
@@ -1080,13 +1219,16 @@ when a focused element is removed.
 - **CI.** `CI` (`ci.yml`) runs lint, the type check, the unit tests (again
   with `TZ=America/Los_Angeles` and with `TZ=Pacific/Kiritimati`, UTC−8/−7
   and UTC+14, so nothing depends on the runner's time zone), validation, the
-  build, the browser tests (WebKit first, then Chromium, then Firefox) and
+  build, the command-line tool (built, then run on `starter/`'s files, and
+  writing this repo's site), the browser tests (WebKit first, then Chromium, then Firefox) and
   the performance checks on every pull request and every push to a branch
   other than `main`, whatever it changes. A pull request from a branch of
   this repo is covered by that branch's push run, so only pull requests from
   forks run it again.
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
-  validation and the build on every push to `main`. It runs the unit tests
+  validation and the build on every push to `main`, then builds the
+  command-line tool and writes the site with it (`build`: the app, and
+  `roadmap.json` from `roadmap/` at the commit), which it publishes. It runs the unit tests
   and the browser tests too, the latter in WebKit alone (CI has run them in
   all three), before deploying, unless nothing outside `roadmap/` has changed
   since the commit the live site was built from (that of the newest
