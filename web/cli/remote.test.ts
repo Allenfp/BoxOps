@@ -12,8 +12,8 @@ import { doctorCommand } from "./doctor";
 import { starterFiles } from "./embedded";
 import { ensureApp, startPreview } from "./preview";
 import { fetchRelease } from "./upgrade";
-import { buildJsonText, type Identity, makeBuildJson, openRelease, verifiedApp } from "./release";
-import { APP_FILES, ID, capture, cleanUp, sampleRepo, tempDir } from "./test-release";
+import { openRelease, verifiedApp } from "./release";
+import { APP_FILES, ID, capture, cleanUp, fakeGitHub, releaseFiles, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
 
 const repos: TestRepo[] = [];
@@ -24,39 +24,6 @@ afterEach(() => {
 
 const A = "a".repeat(40);
 const B = "b".repeat(40);
-
-/** A fake GitHub: tags per repository (tag → commit), and files per commit. Every call is listed in `calls`. */
-function fakeGitHub(o: { tags?: Record<string, Record<string, string>>; files?: Record<string, Record<string, string | Uint8Array>>; latest?: Record<string, string> }) {
-  const calls: string[] = [];
-  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-  const fetch = async (input: RequestInfo | URL): Promise<Response> => {
-    const url = String(input);
-    calls.push(url);
-    let m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/git\/ref\/tags\/(.+)$/.exec(url);
-    if (m) {
-      const sha = o.tags?.[m[1]]?.[m[2]];
-      return sha ? json({ ref: `refs/tags/${m[2]}`, object: { type: "commit", sha } }) : json({ message: "Not Found" }, 404);
-    }
-    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/git\/matching-refs\/tags\?per_page=100&page=1$/.exec(url);
-    if (m) return json(Object.entries(o.tags?.[m[1]] ?? {}).map(([tag, sha]) => ({ ref: `refs/tags/${tag}`, object: { type: "commit", sha } })));
-    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\/latest$/.exec(url);
-    if (m) return o.latest?.[m[1]] ? json({ tag_name: o.latest[m[1]] }) : json({ message: "Not Found" }, 404);
-    m = /^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([0-9a-f]{40})\/(.+)$/.exec(url);
-    if (m) {
-      const file = o.files?.[m[2]]?.[m[3]];
-      return file === undefined ? new Response("404: Not Found", { status: 404 }) : new Response(typeof file === "string" ? file : Buffer.from(file));
-    }
-    return json({ message: "Not Found" }, 404);
-  };
-  return { fetch: fetch as typeof globalThis.fetch, calls };
-}
-
-/** A release's files as GitHub serves them at its commit: BUILD.json, dist/boxops.mjs, the app. */
-function releaseFiles(id: Identity, cli = "export async function main() { return 0; }\n"): Record<string, string | Uint8Array> {
-  const files: Record<string, Uint8Array> = { "dist/boxops.mjs": Buffer.from(cli), "dist/action.mjs": Buffer.from('import "./boxops.mjs";\n') };
-  for (const [p, t] of Object.entries(APP_FILES)) files[`dist/app/${p}`] = Buffer.from(t);
-  return { ...files, "BUILD.json": buildJsonText(makeBuildJson(id, files)) };
-}
 
 /** A roadmap repository made from the starter, pinned to `repo@sha # tag`, checked out. */
 function adopter(sha: string, tag = "v0.1.0", o: { crlf?: boolean; pathB?: boolean } = {}): TestRepo {

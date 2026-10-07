@@ -8,9 +8,9 @@ site's address is in **Settings → Pages**.
 
 ## Setting it up
 
-The full guide, with what each step is for, is
-[docs/adopting.md in BoxOps](https://github.com/Allenfp/BoxOps/blob/main/docs/adopting.md).
-In short:
+The full guide, with what each step is for, is BoxOps'
+[docs/adopting.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/adopting.md),
+as of the release this repository was made with. In short:
 
 1. **Organization owner, once:** allow private Pages sites (Settings → Member
    privileges), allow the actions this repository uses (`Allenfp/BoxOps@*`

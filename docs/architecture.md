@@ -80,9 +80,11 @@ web/
                             notices.ts (update and security notices), pins.ts
                             (the `uses:` lines), migrate.ts, preview.ts,
                             guide.ts, sync.ts, doctor.ts, upgrade.ts,
-                            init.ts, github.ts (the few GitHub calls they
+                            init.ts, starter.ts (the starter made for a
+                            release), github.ts (the few GitHub calls they
                             make), embedded.ts (what the tool carries),
-                            csp.ts (the built page's Content-Security-Policy)
+                            cache.ts (the launcher's cache), csp.ts (the
+                            built page's Content-Security-Policy)
   scripts/                  validate.ts, report.ts (`npm run validate` and
                             `report`: the tool's commands; an optional
                             argument names another roadmap folder),
@@ -1043,7 +1045,7 @@ the roadmap is in another data format.
 | `sync [--check]` | Rewrites `AGENTS.md`'s managed block (`templates/agents-block.md`, between `<!-- boxops:begin block=N … -->` and `<!-- boxops:end -->`) and the launcher, and makes `CLAUDE.md` if there's none. Never the workflows; never through a symlink. |
 | `doctor` | Checks Node, that every pin names one commit and is a tag of the pinned repository (`git/matching-refs/tags`: a fork's commit seen through it isn't), the pins' comments, `gh attestation verify` with the release workflow as signer (if `gh` is installed), the launcher, guard and block numbers, the workflows' permissions against the starter's (with the change to make), and retired runner labels. |
 | `upgrade [vX.Y.Z]` | Resolves the tag (default: the latest release), fetches that release's tool and `BUILD.json` into the launcher's cache, as the launcher keeps them (outside the repository; the tool checked against the `BUILD.json`), rewrites every BoxOps `uses:` and Path B `BOXOPS_ACTION:` line with its `# vX.Y.Z` comment (line ends kept), then runs the new release's `migrate --check`, `sync` and `validate`. Commits nothing. |
-| `init <dir> [--action owner/repo@sha]` | Writes the starter's files with the pin filled in: the tool's own tag resolved to a commit, or the commit given, whose `BUILD.json` must name this build. |
+| `init <dir> [--action owner/repo@sha]` | Writes the starter's files made for a release (`cli/starter.ts`: every pin, and `README.md`'s links to BoxOps' docs at the commit of `main` the release was built from, since a release commit holds no docs), the release being the tool's own tag resolved to a commit, or the commit given, whose `BUILD.json` must name this build and that commit of `main`. |
 | `version` | `BoxOps 0.1.0 (Allenfp/BoxOps@abc1234, build 0.1.0+…, data format 1)`. |
 
 Only `doctor`, `upgrade`, `init` and `preview`'s first fetch of the app use

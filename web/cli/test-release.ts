@@ -1,7 +1,7 @@
 // Fixtures for the command-line tool's and the action's unit tests: a fake
-// release (BUILD.json and a tiny app) in the system's temp folder, a GitHub
-// Actions environment around a TestRepo, the starter's sample roadmap, and a
-// reader for $GITHUB_OUTPUT.
+// release (BUILD.json and a tiny app) in the system's temp folder, a fake
+// GitHub serving releases, a GitHub Actions environment around a TestRepo,
+// the starter's sample roadmap, and a reader for $GITHUB_OUTPUT.
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -51,6 +51,39 @@ export function makeRelease(id: Identity = ID, app: Record<string, string> = APP
   }
   writeFileSync(join(root, "BUILD.json"), buildJsonText(makeBuildJson(id, files)));
   return join(root, "dist");
+}
+
+/** A fake GitHub: tags per repository (tag → commit), and files per commit. Every call is listed in `calls`. */
+export function fakeGitHub(o: { tags?: Record<string, Record<string, string>>; files?: Record<string, Record<string, string | Uint8Array>>; latest?: Record<string, string> }) {
+  const calls: string[] = [];
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  const fetch = async (input: RequestInfo | URL): Promise<Response> => {
+    const url = String(input);
+    calls.push(url);
+    let m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/git\/ref\/tags\/(.+)$/.exec(url);
+    if (m) {
+      const sha = o.tags?.[m[1]]?.[m[2]];
+      return sha ? json({ ref: `refs/tags/${m[2]}`, object: { type: "commit", sha } }) : json({ message: "Not Found" }, 404);
+    }
+    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/git\/matching-refs\/tags\?per_page=100&page=1$/.exec(url);
+    if (m) return json(Object.entries(o.tags?.[m[1]] ?? {}).map(([tag, sha]) => ({ ref: `refs/tags/${tag}`, object: { type: "commit", sha } })));
+    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\/latest$/.exec(url);
+    if (m) return o.latest?.[m[1]] ? json({ tag_name: o.latest[m[1]] }) : json({ message: "Not Found" }, 404);
+    m = /^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([0-9a-f]{40})\/(.+)$/.exec(url);
+    if (m) {
+      const file = o.files?.[m[2]]?.[m[3]];
+      return file === undefined ? new Response("404: Not Found", { status: 404 }) : new Response(typeof file === "string" ? file : Buffer.from(file));
+    }
+    return json({ message: "Not Found" }, 404);
+  };
+  return { fetch: fetch as typeof globalThis.fetch, calls };
+}
+
+/** A release's files as GitHub serves them at its commit: BUILD.json, dist/boxops.mjs, the app. */
+export function releaseFiles(id: Identity, cli = "export async function main() { return 0; }\n"): Record<string, string | Uint8Array> {
+  const files: Record<string, Uint8Array> = { "dist/boxops.mjs": Buffer.from(cli), "dist/action.mjs": Buffer.from('import "./boxops.mjs";\n') };
+  for (const [p, t] of Object.entries(APP_FILES)) files[`dist/app/${p}`] = Buffer.from(t);
+  return { ...files, "BUILD.json": buildJsonText(makeBuildJson(id, files)) };
 }
 
 /** The starter's sample roadmap (the starter repo's roadmap/), by path in the folder. */
