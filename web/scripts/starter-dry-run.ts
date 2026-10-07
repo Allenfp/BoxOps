@@ -26,8 +26,9 @@
 //      and no request off this machine; the preview shows a saved edit.
 //
 // Every Node process it starts runs with the network cut off: a module given
-// to --import makes sockets, DNS, HTTP and fetch fail and notes each try
-// (only init's two calls are answered, by the stand-in). None may try. Each
+// to --import (scripts/smoke/no-net.mjs) makes sockets, DNS, HTTP and fetch
+// fail and notes each try (only init's two calls are answered, by the
+// stand-in). None may try. Each
 // step prints "ok"; the first that fails stops it, keeping its folder in the
 // temp folder to look at (--keep keeps it anyway).
 
@@ -52,48 +53,8 @@ const DIST = join(WEB, "dist");
 const RELEASE_DIR = process.env.BOXOPS_RELEASE_DIR ? resolve(WEB, process.env.BOXOPS_RELEASE_DIR) : null;
 const UPSTREAM = "Allenfp/BoxOps";
 
-/** Cuts a Node process off the network, noting each try in $DRY_RUN_NET_LOG; fetch answers from $DRY_RUN_GITHUB (URL → file), if set. */
-const NET_MODULE = `import dgram from "node:dgram";
-import dns from "node:dns";
-import http from "node:http";
-import https from "node:https";
-import net from "node:net";
-import tls from "node:tls";
-import { appendFileSync, readFileSync } from "node:fs";
-const note = (line) => appendFileSync(process.env.DRY_RUN_NET_LOG, line + "\\n");
-// A name that's an IP address is looked up without the network (a server listening on 127.0.0.1 does).
-const cut = (obj, key, label, local = () => false) => {
-  const own = obj[key];
-  obj[key] = function (...args) {
-    if (local(args[0])) return own.apply(this, args);
-    note(label + " " + String(args[0]).slice(0, 80));
-    throw new Error("no network in the dry run: " + label);
-  };
-};
-const ip = (host) => typeof host === "string" && net.isIP(host) !== 0;
-cut(net.Socket.prototype, "connect", "net.Socket.connect");
-cut(net, "connect", "net.connect");
-cut(net, "createConnection", "net.createConnection");
-cut(tls, "connect", "tls.connect");
-cut(dns, "lookup", "dns.lookup", ip);
-cut(dns, "resolve", "dns.resolve");
-cut(dns.promises, "lookup", "dns.promises.lookup", ip);
-cut(http, "request", "http.request");
-cut(http, "get", "http.get");
-cut(https, "request", "https.request");
-cut(https, "get", "https.get");
-cut(dgram, "createSocket", "dgram.createSocket");
-const table = process.env.DRY_RUN_GITHUB ? JSON.parse(readFileSync(process.env.DRY_RUN_GITHUB, "utf8")) : {};
-globalThis.fetch = async (input) => {
-  const url = String(input);
-  if (Object.hasOwn(table, url)) {
-    appendFileSync(process.env.DRY_RUN_GITHUB_LOG, url + "\\n");
-    return new Response(readFileSync(table[url]));
-  }
-  note("fetch " + url);
-  throw new TypeError("no network in the dry run");
-};
-`;
+/** Cuts a Node process off the network, noting each try (scripts/smoke/no-net.mjs: init's two calls are answered from a table). */
+const NET_MODULE = join(WEB, "scripts", "smoke", "no-net.mjs");
 
 let failed = false;
 let n = 0;
@@ -174,15 +135,13 @@ async function main(): Promise<number> {
   const work = realpathSync(mkdtempSync(join(tmpdir(), "boxops-dry-run-")));
   const nodeDir = dirname(process.execPath);
   for (const d of ["home", "tmp", "runner-temp", "runner-temp-b"]) mkdirSync(join(work, d));
-  const netModule = join(work, "net.mjs");
-  writeFileSync(netModule, NET_MODULE);
   const netLog = join(work, "net.log");
   const githubLog = join(work, "github.log");
   writeFileSync(netLog, "");
   writeFileSync(githubLog, "");
   /** A bare environment: nothing of this shell's (no token, no proxy, no git configuration). */
-  const bare = { PATH: `${nodeDir}:/usr/bin:/bin`, HOME: join(work, "home"), TMPDIR: join(work, "tmp"), LANG: "en_US.UTF-8", DRY_RUN_NET_LOG: netLog, DRY_RUN_GITHUB_LOG: githubLog };
-  const nodeArgs = ["--import", pathToFileURL(netModule).href];
+  const bare = { PATH: `${nodeDir}:/usr/bin:/bin`, HOME: join(work, "home"), TMPDIR: join(work, "tmp"), LANG: "en_US.UTF-8", BOXOPS_NO_NET_LOG: netLog, BOXOPS_NO_NET_ANSWERED: githubLog };
+  const nodeArgs = ["--import", pathToFileURL(NET_MODULE).href];
   const git = (cwd: string, args: string[]) =>
     execFileSync("git", args, {
       cwd,
@@ -243,7 +202,7 @@ async function main(): Promise<number> {
           [`https://raw.githubusercontent.com/${UPSTREAM}/${sha}/BUILD.json`]: join(release, "BUILD.json"),
         }),
       );
-      const r = node(work, [join(release, "dist", "boxops.mjs"), "init", "acme-roadmap"], { DRY_RUN_GITHUB: join(work, "github.json") });
+      const r = node(work, [join(release, "dist", "boxops.mjs"), "init", "acme-roadmap"], { BOXOPS_NO_NET_TABLE: join(work, "github.json") });
       check(r.status === 0, `init exited ${r.status}: ${r.stderr}`);
       const made = renderStarter(starterFiles(), { repo: UPSTREAM, sha, tag: tag(), source: build?.source ?? "" });
       same(Object.fromEntries(walk(roadmap).map((p) => [p, readFileSync(join(roadmap, p), "utf8")])), made, "init's files");
@@ -380,7 +339,7 @@ async function main(): Promise<number> {
           BOXOPS_ACTION: boxops?.env?.BOXOPS_ACTION ?? "",
           GIT_CONFIG_GLOBAL: join(work, "gitconfig"),
           GIT_CONFIG_NOSYSTEM: "1",
-          NODE_OPTIONS: `--import=${pathToFileURL(netModule).href}`,
+          NODE_OPTIONS: `--import=${pathToFileURL(NET_MODULE).href}`,
         },
       });
       check(r.status === 0, `Path B's step exited ${r.status}: ${r.stdout}${r.stderr}`);
