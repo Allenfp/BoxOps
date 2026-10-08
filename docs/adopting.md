@@ -376,10 +376,11 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
 2. **New push ruleset** (private and internal repositories), named
    `roadmap-only`: **Bypass list** → **Add bypass** → **Repository admin**
    and **Dependabot**; under **Push protections**, tick **Restrict file
-   paths** and add three paths, `**/*`, `**/.*` and `**/.*/**/*`, then,
-   under its **Allowed exceptions**, `roadmap/**/*`. **Create.** Only
-   repository admins and Dependabot can then change anything outside
-   `roadmap/`; editors change `roadmap/` freely.
+   paths** and add five paths, `**/*`, `**/.*`, `**/.*/**/*`, `**/.*/**/.*`
+   and `**/.*/**/.*/**/*`, then, under its **Allowed exceptions**,
+   `roadmap/**/*`. **Create.** Only repository admins and Dependabot can
+   then change anything outside `roadmap/`; editors change `roadmap/`
+   freely.
    - Why: an editor's token can change any file, and many decide what
      runs. The workflows pin the release that builds your site; the
      launcher runs on teammates' laptops; `AGENTS.md` and `CLAUDE.md`
@@ -391,26 +392,38 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
      `.gitmodules`, git hook managers' files (`.husky/`, `lefthook.yml`,
      `.pre-commit-config.yaml`), direnv's `.envrc`, `.npmrc`,
      `package.json` and more. Allowing only `roadmap/` covers them all,
-     and whatever a new tool reads next.
-   - Why three: GitHub matches paths with Ruby's `fnmatch` and its
+     and whatever a new tool reads next, as far as the five paths reach
+     (below).
+   - Why five: GitHub matches paths with Ruby's `fnmatch` and its
      `FNM_PATHNAME` flag, where `*` and `**/` don't match a name that
      starts with `.` (unless `FNM_DOTMATCH` is set too, which GitHub's docs
-     don't say). So `**/*` alone may leave out `.envrc` and `.github/`:
-     `**/.*` covers such files, and `**/.*/**/*` what's in such folders.
+     don't say). So each path covers paths with a given number of such
+     names: `**/*` none (`README.md`); `**/.*` and `**/.*/**/*` one, a
+     file's (`.envrc`) or a folder's (`.claude/settings.json`);
+     `**/.*/**/.*` and `**/.*/**/.*/**/*` two (`.devcontainer/.env`,
+     `.config/.husky/pre-commit`). A path with three or more, such as
+     `.a/.b/.c`, still gets through: if a tool your team uses reads one,
+     add a pair of paths for each name more, for three
+     `**/.*/**/.*/**/.*` and `**/.*/**/.*/**/.*/**/*` (the rule takes 200).
+     If GitHub does match such names, `**/*` alone covers every path, and
+     the other four do no harm.
    - Dependabot must be on the bypass list, or it can't push the branch of
      its upgrade pull request (which changes the workflows). Push rulesets
      also apply to the repository's forks.
    - Check it: someone with Write but not Admin, on GitHub's web page,
-     edits `README.md`, and adds a file `.claude/settings.json`: both
-     commits must be refused. A save from the app must still go through.
+     edits `README.md`, then adds each of `.envrc`,
+     `.claude/settings.json` and `.devcontainer/.env` as a new file: all
+     four commits must be refused. A save from the app must still go
+     through.
    - Allowed exceptions are in public preview (since 2026-08-25). Without
      them, restrict the paths themselves instead: `.github/**/*`,
      `.boxops/**/*`, `AGENTS.md` and `CLAUDE.md`, and those of the files
      above that your teammates' tools read, such as `.claude/**/*`,
      `.mcp.json` and `.vscode/**/*` (in `fnmatch`, `**/` is any number of
      folders: `.github/**` alone would cover `.github/dependabot.yml` but
-     not `.github/workflows/deploy.yml`). A list covers only the tools it
-     names.
+     not `.github/workflows/deploy.yml`; and, as above, names starting
+     with `.` inside a folder need paths of their own, such as
+     `.claude/**/.*`). A list covers only the tools it names.
 3. **Require signed commits** (optional): saves from the app should pass
    it, since GitHub signs each one and shows it as Verified (tried on
    2026-10-06 with a fine-grained token), but a save under this rule hasn't

@@ -484,10 +484,11 @@ repository, saving from the app with a fine-grained token (one
   tags ([Checking the deploy key's bypass](#checking-the-deploy-keys-bypass)).
 
 Not tried yet: whether a *Require signed commits* ruleset lets the app's
-saves through (it should, as GitHub verifies them: the canary checklist
-below has it), and whether the owner can still make a tag through the REST
-API or the web page's release form (the deploy key's bypass check, before
-the first release).
+saves through (it should, as GitHub verifies them), and whether a push
+ruleset's `*` matches a name that starts with `.` (the canary checklist
+below has both); and whether the owner can still make a tag through the
+REST API or the web page's release form (the deploy key's bypass check,
+before the first release).
 
 ## The canary checklist
 
@@ -509,8 +510,12 @@ a GitHub Enterprise Cloud organization with private Pages:
 - A signed-commit ruleset, and a save from the app.
 - The push ruleset ([adopting.md](adopting.md#4-rulesets): every path
   but `roadmap/**/*`, the hidden ones too) refuses an editor's edits to a
-  workflow, the launcher, `README.md` and a new `.claude/settings.json`,
-  and lets the app's saves and Dependabot through.
+  workflow, the launcher and `README.md`, and a new `.envrc`,
+  `.claude/settings.json` or `.devcontainer/.env`; and lets the app's
+  saves and Dependabot through.
+- Once, a push ruleset that restricts `**/*` alone: whether it refuses a
+  new `.envrc` and `.devcontainer/.env`. If it does, GitHub's `*` matches
+  names that start with `.`, and adopting.md can say `**/*` is enough.
 - Once, with the push ruleset off for it: whether an editor's fine-grained
   token (Contents alone) can commit a workflow file that's the same, path
   and contents, as one on another branch. GitHub documents that for the

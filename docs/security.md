@@ -254,8 +254,9 @@ free of workflows that restore caches. The starter's use none.
    tools act on, of which BoxOps checks none: `.claude/` settings and hooks,
    `.vscode/tasks.json`, `.devcontainer/`, git hook managers' files,
    `.envrc`, `.npmrc` and the like. The push ruleset that lets only
-   `roadmap/` change keeps all of them to admins
-   ([adopting.md](adopting.md#4-rulesets)); without one, look over what
+   `roadmap/` change keeps all of them to admins (if GitHub's `*` doesn't
+   match a name that starts with `.`, as far as paths with two such names:
+   [adopting.md](adopting.md#4-rulesets)). Without one, look over what
    changes outside `roadmap/`: `git log -p -- . ':!roadmap'`. Every deploy
    warns when the launcher or the block isn't the release's text, whatever
    number it gives: that check is the release's own code, and runs neither.
