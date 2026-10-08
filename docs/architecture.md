@@ -1204,7 +1204,10 @@ meaning the same.
 Path B gives `dist/action.mjs` the same as `--flags`, and only Path B can
 name the site's folder, with `--out DIR`: relative to the workspace, new or
 empty) runs in
-this order, each failure an error annotation with a plain message:
+this order, each failure an error annotation with a plain message. One
+that stops it (any but step 9's problems) is the `result` output too,
+`failed: …` (for a roadmap that can't be read as it is, its first problem
+named), and that line in the job summary:
 
 1. github.com only (GitHub Enterprise Server and GHE.com aren't supported in
    0.1), Linux or macOS runners, known input values; a warning if the

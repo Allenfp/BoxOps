@@ -205,6 +205,28 @@ describe("platform and inputs (step 1)", () => {
     for (const [env, message] of cases) expect(errors(await run({ repo, env }))).toEqual([`error: ${message}`]);
   });
 
+  it("puts what stopped it in the job summary as well as an annotation and the result: one line, the result's", async () => {
+    const failed = (r: Run) => [r.code, r.summary, r.outputs.result];
+    const line = (result: string) => `### BoxOps 0.1.0\n\n\`\`\`text\n${result}\n\`\`\`\n`;
+    // The format gate, a roadmap that can't be read, a guard (the branch), an input: whatever the summary input says.
+    const format = await run({ repo: workspace(sampleRepo({ "roadmap/settings.yaml": "format: 2\n" })).repo, env: { INPUT_SUMMARY: "false" } });
+    expect(failed(format)).toEqual([1, line(format.outputs.result), expect.stringMatching(/^failed: This roadmap is in data format 2; /)]);
+    const link = await run({ repo: workspace(sampleRepo({ "roadmap/boxes/link.yaml": { mode: "120000", content: "x" } })).repo });
+    expect(failed(link)).toEqual([1, line(link.outputs.result), expect.stringMatching(/^failed: roadmap\/boxes\/link\.yaml is a symlink; /)]);
+    const branch = await run({ repo: workspace().repo, env: { GITHUB_REF_NAME: "feature" } });
+    expect(failed(branch)).toEqual([1, line(branch.outputs.result), expect.stringMatching(/^failed: BoxOps builds the site from the default branch \(main\) only/)]);
+    const input = await run({ repo: workspace().repo, env: { INPUT_MODE: "deploy" } });
+    expect(failed(input)).toEqual([1, line('failed: Input mode is "deploy"; it must be "build" or "check"'), 'failed: Input mode is "deploy"; it must be "build" or "check"']);
+    // A summary that can't be written to: the annotation and the result all the same, and no throw.
+    const env = { ...actionsEnv(workspace().repo.dir), INPUT_MODE: "deploy", GITHUB_STEP_SUMMARY: join(tempDir(), "no", "summary") };
+    const log: string[] = [];
+    expect(await runAction({ env, out: (l) => log.push(l), cliDir: makeRelease(), identity: ID })).toBe(1);
+    expect([log, readOutputs(env.GITHUB_OUTPUT).result]).toEqual([
+      ['::error title=BoxOps::Input mode is "deploy"; it must be "build" or "check"'],
+      'failed: Input mode is "deploy"; it must be "build" or "check"',
+    ]);
+  });
+
   it("takes Path B's flags in place of inputs", async () => {
     const { repo } = workspace();
     const out = join(tempDir(), "site");
