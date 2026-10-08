@@ -457,9 +457,11 @@ reach ([privacy](#before-you-add-real-people-privacy)).
 - Editing by hand: with Node.js 22.12 or later, in a clone,
   `node .boxops/boxops.mjs validate` checks the files (it must end in
   "— OK"), `report` lists over-capacity departments and overbooked people,
-  `preview` shows the working copy in the app at http://127.0.0.1:4173, and
-  `guide` prints the full guide. The launcher downloads the pinned release's
-  tool the first time; the starter's `README.md` has the rest.
+  `preview` shows the working copy in the app at http://127.0.0.1:4173,
+  `guide` prints the guide (workflow, recipes, commit messages, upgrading)
+  and `guide format` every file and field. The launcher downloads the
+  pinned release's tool the first time; the starter's `README.md` has the
+  rest.
 - To hear of new releases (a security fix's title starts "Security:"): on
   https://github.com/Allenfp/BoxOps, **Watch** → **Custom** → **Releases**
   → **Apply**. Managed users can't watch a repository outside their
