@@ -144,8 +144,10 @@ Tests catch most of these; change the files together anyway.
 - The contract numbers in `BUILD.json` (`bundle`, `launcher`, `guard`,
   `agentsBlock`) count released versions: raise one when what it numbers
   changes after a release has shipped it (before that, edit freely). The
-  action, `doctor` and the launcher tell roadmap repositories whose copy
-  differs.
+  action, `doctor` and the launcher compare `launcher`, `guard` and
+  `agentsBlock` with a roadmap repository's copies and say which differs;
+  `bundle` is the `roadmap.json` schema open tabs read. (`migratesFrom`
+  counts nothing: it's the oldest data format `migrate` brings up.)
 - Every page of this repository that `starter/README.md` links to is
   there before a release: `TO_WRITE` in `web/cli/starter.test.ts`, the
   pages not written yet, is empty. (The release's `init` writes those links

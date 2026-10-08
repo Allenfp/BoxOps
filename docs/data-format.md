@@ -31,13 +31,15 @@ BoxOps numbers several things, each for its own reason:
   release by its commit, and there are no moving tags (`v0`, `v0.1`).
 - **The data format**, the whole number `format` in `roadmap/settings.yaml`:
   the shape of the files. Each release reads and writes one format.
-- **Contract numbers**, in a release's `BUILD.json`, for what a roadmap
-  repository holds a copy of or reads: `bundle` (the site's `roadmap.json`
-  schema), `launcher` (`.boxops/boxops.mjs`), `guard` (the "Check the
-  GitHub Pages settings" step of `deploy.yml`), `agentsBlock` (the block
-  BoxOps manages in `AGENTS.md`), and `migratesFrom` (the oldest data format
-  `migrate` brings up). A release that changes one raises its number; the
-  action, `doctor` and the launcher then say which copy is old.
+- **Contract numbers**, in a release's `BUILD.json`. Three number what a
+  roadmap repository holds a copy of: `launcher` (`.boxops/boxops.mjs`),
+  `guard` (the "Check the GitHub Pages settings" step of `deploy.yml`) and
+  `agentsBlock` (the block BoxOps manages in `AGENTS.md`). A release that
+  changes one raises its number, and the action, `doctor` and the launcher
+  compare the repository's copies with it and say which is old. `bundle` is
+  the schema of the site's `roadmap.json`, which open tabs read.
+  `migratesFrom` is no count of changes: it's how far back `migrate`
+  reaches, the oldest data format it brings up.
 - **The build id**, `X.Y.Z+<12 hex digits of the commit's web/ tree>`, in
   the app, `BUILD.json` and every `roadmap.json`: when it changes, open tabs
   reload.
