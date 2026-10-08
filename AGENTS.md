@@ -179,9 +179,9 @@ Tests catch most of these; change the files together anyway.
 saved from the app like any roadmap. To change it by hand, follow the guide
 BoxOps gives roadmap repositories,
 [templates/guide/overview.md](templates/guide/overview.md) and the
-[recipes](templates/guide/recipes.md), [commit messages](templates/guide/commits.md)
-and [file format](templates/guide/format.md) it points to, with two
-differences:
+[recipes](templates/guide/recipes.md),
+[commit messages](templates/guide/commits.md) and
+[file format](templates/guide/format.md) it points to, with two differences:
 
 - Where it says `node .boxops/boxops.mjs validate`, `report` or `preview`,
   run `npm run validate`, `npm run report --silent` or `npm run dev` from

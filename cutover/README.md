@@ -162,7 +162,8 @@ On a branch, merged by pull request:
 
 1. Add the `main` ruleset (`docs/releasing.md`, "At the cutover"): nothing
    writes to `main` here now but merged pull requests.
-2. The redirect keeps the query and hash: `allenfp.github.io/BoxOps/?view=table#x`
-   opens `allenfp.github.io/boxops-demo/?view=table#x`, in the table.
+2. The redirect keeps the query and hash:
+   `allenfp.github.io/BoxOps/?view=table#x` opens
+   `allenfp.github.io/boxops-demo/?view=table#x`, in the table.
 3. `allenfp.github.io/BoxOps/next/` shows the demo's roadmap, read-only, with
    this commit's build (`0.1.0-next+…`).

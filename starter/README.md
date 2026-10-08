@@ -1,10 +1,11 @@
 # Our roadmap
 
 This repository is a team roadmap: small YAML files in `roadmap/`, shown as a
-swim-lane timeline, a table and a roster by [BoxOps](https://github.com/Allenfp/BoxOps)
-on this repository's GitHub Pages site. Editors change it in the browser, and
-each **Save** is a commit on `main` that goes live in about a minute. The
-site's address is in **Settings → Pages**.
+swim-lane timeline, a table and a roster by
+[BoxOps](https://github.com/Allenfp/BoxOps) on this repository's GitHub Pages
+site. Editors change it in the browser, and each **Save** is a commit on
+`main` that goes live in about a minute. The site's address is in
+**Settings → Pages**.
 
 ## Setting it up
 
@@ -45,13 +46,13 @@ as of the release this repository was made with. In short:
   each editor turns on **Keep my email addresses private** (GitHub's
   Settings → Emails).
 
-Before you add real people: everything in `roadmap/` (names, emails,
-managers, notes, PTO and its notes) is in the site's `roadmap.json`, which
-anyone who can open the site can read; each save's commit shows the saver's
-GitHub name and email address, unless they keep their email private; and
-PTO notes end up in commit messages. History keeps both. BoxOps'
-[docs/adopting.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/adopting.md#before-you-add-real-people-privacy) has
-more, with making a token and what each error means.
+Before you add real people: everything in `roadmap/` (names, emails, managers,
+notes, PTO and its notes) is in the site's `roadmap.json`, which anyone who
+can open the site can read; each save's commit shows the saver's GitHub name
+and email address, unless they keep their email private; and PTO notes end up
+in commit messages. History keeps both. BoxOps'
+[docs/adopting.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/adopting.md#before-you-add-real-people-privacy)
+has more, with making a token and what each error means.
 
 ## Editing without the app
 
@@ -80,12 +81,13 @@ that re-signs TLS also needs `node --use-system-ca .boxops/boxops.mjs …`, or
 
 Dependabot opens a pull request for each new BoxOps release. Its check runs
 the new release against this roadmap; read the release notes in it, and merge
-when it's green. Some upgrades ask you to run `node .boxops/boxops.mjs
-migrate` (a new data format) or `sync` (a new `AGENTS.md` block or launcher)
-on the pull request's branch first. `node .boxops/boxops.mjs guide upgrading`
-has the details, as does BoxOps'
-[docs/upgrading.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/upgrading.md); `node .boxops/boxops.mjs upgrade`
-does it by hand, and `node .boxops/boxops.mjs doctor` checks the setup.
+when it's green. Some upgrades ask you to run
+`node .boxops/boxops.mjs migrate` (a new data format) or `sync` (a new
+`AGENTS.md` block or launcher) on the pull request's branch first.
+`node .boxops/boxops.mjs guide upgrading` has the details, as does BoxOps'
+[docs/upgrading.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/upgrading.md);
+`node .boxops/boxops.mjs upgrade` does it by hand, and
+`node .boxops/boxops.mjs doctor` checks the setup.
 
 Every deploy also looks up BoxOps' releases: when one fixes a security
 problem, the run warns and the site shows a notice until you upgrade.
@@ -93,8 +95,9 @@ problem, the run warns and the site shows a notice until you upgrade.
 ## Enterprise notes
 
 More, and the commands for mirrors, in BoxOps'
-[docs/enterprise.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/enterprise.md); how a release is made and how to
-check one, in its [docs/security.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/security.md).
+[docs/enterprise.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/enterprise.md);
+how a release is made and how to check one, in its
+[docs/security.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/security.md).
 
 - **Actions allow lists:** BoxOps is one entry, `Allenfp/BoxOps@*` (or your
   mirror). Allow lists of exact commits also need the commit

@@ -11,7 +11,8 @@ push ruleset ([adopting.md](adopting.md#4-rulesets)) keeps everything
 outside `roadmap/` to admins and Dependabot; an AI assistant can do the
 steps when asked.
 
-What's in a release, and how one is made and checked: [security.md](security.md).
+What's in a release, and how one is made and checked:
+[security.md](security.md).
 
 ## Versions
 
@@ -106,8 +107,9 @@ git push -u origin upgrade-boxops
 request, let **Check roadmap** pass, and merge. Use it:
 
 - to take a security release now, rather than after Dependabot's 3 days;
-- with **Path B** ([enterprise.md](enterprise.md#path-b-githubs-own-actions-only)),
-  whose `BOXOPS_ACTION:` pin Dependabot can't move;
+- with **Path B**
+  ([enterprise.md](enterprise.md#path-b-githubs-own-actions-only)), whose
+  `BOXOPS_ACTION:` pin Dependabot can't move;
 - for a release candidate (`upgrade v0.2.0-rc.1`), or a patch of an older
   minor (`upgrade v0.1.2`, say, to take a security fix without the newer
   minor's data format).

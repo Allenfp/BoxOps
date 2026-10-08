@@ -1,9 +1,9 @@
 # <img src="web/public/favicon.svg" width="32" height="32" alt="" align="top"> BoxOps
 
-A team roadmap that lives in this repo. The plan is a set of small YAML files in
-`roadmap/`. A web app on GitHub Pages shows them as a swim-lane timeline and lets
-you edit them in the browser: press **Save** and the change is committed
-straight to `main`, and the site updates within a minute.
+A team roadmap that lives in this repo. The plan is a set of small YAML files
+in `roadmap/`. A web app on GitHub Pages shows them as a swim-lane timeline
+and lets you edit them in the browser: press **Save** and the change is
+committed straight to `main`, and the site updates within a minute.
 
 **Open it:** https://allenfp.github.io/BoxOps/
 
@@ -19,20 +19,19 @@ what can change the code a site runs and how to check a release.
 
 - **Timeline.** Departments of lanes, one per FTE of capacity, over weeks,
   months or quarters (working days only; weekends aren't shown). Drag a box to
-  move it (near an edge, the timeline scrolls on), drag its ends to resize
-  it, click it to edit, and double-click empty space (or a lane's **+**) to
-  add one. A box is as tall as the FTE it needs (0.5–2). A department
-  turns red where more FTE is planned than its lanes hold. Every box has a code
-  like `DE-A1F`, and boxes can be related ("finishes before", "happens
-  during"…); a broken rule pops up a warning but blocks nothing. **+ Add
-  department** and the pencil on a department heading add, rename, recolour, reorder
-  and remove departments and their lanes; dragging a department heading moves
-  it up or down. Each department has a **PTO** row
-  where engineers' time off shows as grey blocks: double-click to add, drag to
-  move, click to edit. A big roadmap (over 300 boxes and PTO blocks) draws
-  only the part of the timeline near the screen, so the browser's Find
-  (⌘F or Ctrl+F) sees only that; the Table's search looks through every
-  box.
+  move it (near an edge, the timeline scrolls on), drag its ends to resize it,
+  click it to edit, and double-click empty space (or a lane's **+**) to add
+  one. A box is as tall as the FTE it needs (0.5–2). A department turns red
+  where more FTE is planned than its lanes hold. Every box has a code like
+  `DE-A1F`, and boxes can be related ("finishes before", "happens during"…); a
+  broken rule pops up a warning but blocks nothing. **+ Add department** and
+  the pencil on a department heading add, rename, recolour, reorder and remove
+  departments and their lanes; dragging a department heading moves it up or
+  down. Each department has a **PTO** row where engineers' time off shows as
+  grey blocks: double-click to add, drag to move, click to edit. A big roadmap
+  (over 300 boxes and PTO blocks) draws only the part of the timeline near the
+  screen, so the browser's Find (⌘F or Ctrl+F) sees only that; the Table's
+  search looks through every box.
 - **Table.** Every box as an editable row (dates, FTE, engineers, flag,
   links, description) plus its **Scale** (FTE × working days, also shown on each
   timeline box), grouped by department, with search, sorting, a date range
@@ -57,12 +56,12 @@ what can change the code a site runs and how to check a release.
   are assigned engineers from this list. It prints, and draws a big roster,
   as the table does; its search looks through every column, PTO's dates and
   notes too.
-- **Printing.** The table and People print every row as shown, drawn on
-  screen or not (the search, dates, Hide finished, sort and collapsed departments
-  apply: a collapsed department prints only its heading); the timeline
-  prints what's on screen, at its zoom and dates. The toolbar's controls are
-  left out, and the colours print, in the light theme on white whichever
-  theme is on screen.
+- **Printing.** The table and People print every row as shown, drawn on screen
+  or not (the search, dates, Hide finished, sort and collapsed departments
+  apply: a collapsed department prints only its heading); the timeline prints
+  what's on screen, at its zoom and dates. The toolbar's controls are left
+  out, and the colours print, in the light theme on white whichever theme is
+  on screen.
 - **Saving.** Edits stay in your browser until you press **Save** (⌘S, or
   Ctrl+S on Windows and Linux), each tab's on its own; edits left in a tab
   you closed are offered back in the roadmap's other tabs, or the next time

@@ -127,7 +127,8 @@ action's major-version tag, such as `v7`, to its newest release.)
 The edited `upload-pages-artifact` has no tags: remake it by hand for each
 version you want, as above, and move its pin yourself.
 
-BoxOps itself: [a mirror](#a-mirror-of-boxops), or [Path B](#path-b-githubs-own-actions-only).
+BoxOps itself: [a mirror](#a-mirror-of-boxops), or
+[Path B](#path-b-githubs-own-actions-only).
 
 ## A mirror of BoxOps
 
@@ -170,8 +171,9 @@ copied. Then:
   github.com's API. If they can't, the lookup fails quietly and there are no
   notices: watch the releases yourself
   (https://github.com/Allenfp/BoxOps/releases.atom).
-- Check a mirrored release as any other ([security.md](security.md#checking-a-release)):
-  its tree is the commit's, whichever repository holds it.
+- Check a mirrored release as any other
+  ([security.md](security.md#checking-a-release)): its tree is the commit's,
+  whichever repository holds it.
 
 Don't copy BoxOps into the roadmap repository itself (into
 `.github/actions/`, say): then anyone who can write to the repository could

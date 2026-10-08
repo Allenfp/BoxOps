@@ -41,7 +41,8 @@ release, and what to do when a release goes wrong.
   The signer workflow is what matters: a tag's existence, or
   `gh release verify` alone, says nothing about who published it.
 - **That the tree is the commit's:** extract the tarball into an empty
-  folder, run `git init -q && git -c core.autocrlf=false add --all --force . && git write-tree`
+  folder, run
+  `git init -q && git -c core.autocrlf=false add --all --force . && git write-tree`
   there, and compare with `git rev-parse <release commit>^{tree}`.
 
 How it's built so that a release ships what was tested: CI (`ci.yml`) builds
@@ -361,10 +362,11 @@ canary checks.
 
 `CHANGELOG.md` holds one section per version, newest first, under
 `# Changelog` (and an `## Unreleased` section on top while there are
-unreleased changes, but not above a version about to be released). A version's section is its GitHub release's notes, as
-a roadmap repository's admin sees them in Dependabot's upgrade pull
-request, so it opens with the same lines, in this order, each saying
-something (`web/scripts/check-changelog.mjs` checks the form; CI runs it):
+unreleased changes, but not above a version about to be released). A
+version's section is its GitHub release's notes, as a roadmap repository's
+admin sees them in Dependabot's upgrade pull request, so it opens with the
+same lines, in this order, each saying something
+(`web/scripts/check-changelog.mjs` checks the form; CI runs it):
 
 ```
 ## 0.2.0 — 2026-11-02
@@ -466,10 +468,14 @@ repository, saving from the app with a fine-grained token (one
   the account's primary email; once it was on, with
   `<id>+<login>@users.noreply.github.com`. So editors turn it on before
   their first save ([adopting.md](adopting.md#editors)).
-- **A save on a head that has moved on is refused** with HTTP 200 and
-  `errors: [{type: "STALE_DATA", message: "Expected branch to point to \"<sha>\" but it did not.  Pull and try again."}]`
-  (two spaces before "Pull"), which the app and `web/e2e/fake-github.ts`
-  expect.
+- **A save on a head that has moved on is refused** with HTTP 200 and these
+  `errors`, two spaces before "Pull" and all, which the app and
+  `web/e2e/fake-github.ts` expect:
+
+  ```json
+  [{"type": "STALE_DATA", "message": "Expected branch to point to \"<sha>\" but it did not.  Pull and try again."}]
+  ```
+
 - **What's written is what was sent:** the message exactly, curly quotes
   and dashes included; deleting a folder's last file removed the folder;
   and the branch, read right after the save, showed the new commit.
@@ -492,8 +498,9 @@ a GitHub Enterprise Cloud organization with private Pages:
   set to GitHub Actions and Private, and the re-run publishing.
 - What the `github-pages` environment holds once Pages is set up, before
   anyone changes it: whether GitHub has already added a `main` rule under
-  Deployment branches and tags ([adopting.md](adopting.md#3-let-only-main-deploy-then-deploy)'s
-  step 3 allows for either; say there which it is).
+  Deployment branches and tags
+  ([adopting.md](adopting.md#3-let-only-main-deploy-then-deploy)'s step 3
+  allows for either; say there which it is).
 - With the site's visibility Public, the deploy refuses.
 - The guard's other messages: 403 (no access), and 404 and 5xx where they
   can be had.

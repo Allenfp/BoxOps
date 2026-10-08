@@ -193,8 +193,8 @@ The demo moves to a repository of its own at the cutover (`cutover/`), and
   The app's own build (`npm run build`, into `web/dist/app`) holds no
   roadmap, so one build serves every roadmap: the command-line tool writes
   `roadmap.json` beside a copy of it, the BoxOps action in a roadmap
-  repository's deploy and `node dist/boxops.mjs build` in this repo's
-  (see [The command-line tool and the action](#the-command-line-tool-and-the-action)).
+  repository's deploy and `node dist/boxops.mjs build` in this repo's (see
+  [The command-line tool and the action](#the-command-line-tool-and-the-action)).
   It reads `roadmap/` from git objects at the commit being built
   (`GITHUB_SHA` in Actions: the action reads the checkout's `HEAD`, which in
   build mode must be that commit unless the roadmap is another repository's;
@@ -292,27 +292,26 @@ The demo moves to a repository of its own at the cutover (`cutover/`), and
 - **Polling.** Every 2 minutes (counted from the start of the last check),
   while the tab is visible, the app re-fetches the site's own `roadmap.json`.
   That's a cheap 304 when nothing changed, and it doesn't touch the GitHub
-  API, whose anonymous limit (60 requests an hour per IP) counts 304s too.
-  It only ever moves forward (`movesForward` in `site.ts`): a bundle whose
-  `history` holds the commit on screen is taken; otherwise it's ignored if
-  the tab has seen it, if the history on screen holds it (two commits can
-  share a second), or if it's older by commit time, and taken in any other
-  case (a newer commit beyond the 50-commit history, or a bundle from before
-  schema 1 with no usable date). So a deploy that finishes late (deploys
-  aren't cancelled, and the tab may have read a newer head from GitHub)
-  never rolls the tab back. A newer commit is merged into the screen in
-  place, and a notice says who saved what (none when nothing in the
-  roadmap folder changed, as for an app commit: then only the commit on
-  screen moves on, and undo history is kept). A failed check
-  (offline, mid-deploy, a private site whose sign-in expired: the
-  same-origin request is then redirected to github.com and fails, or no
-  answer within 20 s) waits longer each time, 4, 8, then 15 minutes; two in
-  a row show a calm notice, "Can’t reach the site", saying the tab keeps
-  trying and to reload if it goes on (a private site may want a new
-  sign-in), until a check succeeds. Coming back online checks at once. A failed check
-  never counts as an app update. Every `roadmap.json` fetched also brings
-  the site's `notices`, shown as plain-text banners (never HTML; the same
-  one once) that can be put away.
+  API, whose anonymous limit (60 requests an hour per IP) counts 304s too. It
+  only ever moves forward (`movesForward` in `site.ts`): a bundle whose
+  `history` holds the commit on screen is taken; otherwise it's ignored if the
+  tab has seen it, if the history on screen holds it (two commits can share a
+  second), or if it's older by commit time, and taken in any other case (a
+  newer commit beyond the 50-commit history, or a bundle from before schema 1
+  with no usable date). So a deploy that finishes late (deploys aren't
+  cancelled, and the tab may have read a newer head from GitHub) never rolls
+  the tab back. A newer commit is merged into the screen in place, and a
+  notice says who saved what (none when nothing in the roadmap folder changed,
+  as for an app commit: then only the commit on screen moves on, and undo
+  history is kept). A failed check (offline, mid-deploy, a private site whose
+  sign-in expired: the same-origin request is then redirected to github.com
+  and fails, or no answer within 20 s) waits longer each time, 4, 8, then 15
+  minutes; two in a row show a calm notice, "Can’t reach the site", saying the
+  tab keeps trying and to reload if it goes on (a private site may want a new
+  sign-in), until a check succeeds. Coming back online checks at once. A
+  failed check never counts as an app update. Every `roadmap.json` fetched
+  also brings the site's `notices`, shown as plain-text banners (never HTML;
+  the same one once) that can be put away.
 - **Previews.** `?ref=<branch>` shows another branch read-only, read the same
   way (only files that differ from `main`'s are fetched). The name is checked
   against git's rules before any call. A private repository without a token
@@ -470,21 +469,21 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    It's sent only to GitHub.
 3. **Pre-save check.** First the app re-fetches `roadmap.json`: if a newer
    BoxOps was deployed that the poll hasn't seen, the tab goes read-only
-   instead of saving (see [Tabs left open](#tabs-left-open)). It waits 5 s
-   at most; one that can't be had says nothing. Then it reads the head of
-   `main` as on load; one still older than the tab's copy stops the save,
-   "GitHub’s answer is behind; try again in a few seconds", rather than be
-   taken for newer saves. If the head's `settings.yaml` states a newer data
-   format than this BoxOps writes (an upgrade was merged and is deploying),
-   nothing is written: "BoxOps is being upgraded; reload in a minute". If someone
-   saved roadmap changes since the tab loaded (by blob SHA: a commit to other
-   files doesn't count), their changes are merged onto the screen, outlined in
-   teal, and the save pauses on a dialog listing who saved what. The user can
-   review, then save, or choose whose version to keep for clashing items.
-   A save with that choice made isn't stopped for newer saves, unless they
-   would leave its changes invalid (a lane gone that a box of ours moved
-   into): then they come in for review the same way, with the box moved
-   where the lane's other boxes went and flagged.
+   instead of saving (see [Tabs left open](#tabs-left-open)). It waits 5 s at
+   most; one that can't be had says nothing. Then it reads the head of `main`
+   as on load; one still older than the tab's copy stops the save, "GitHub’s
+   answer is behind; try again in a few seconds", rather than be taken for
+   newer saves. If the head's `settings.yaml` states a newer data format than
+   this BoxOps writes (an upgrade was merged and is deploying), nothing is
+   written: "BoxOps is being upgraded; reload in a minute". If someone saved
+   roadmap changes since the tab loaded (by blob SHA: a commit to other files
+   doesn't count), their changes are merged onto the screen, outlined in teal,
+   and the save pauses on a dialog listing who saved what. The user can
+   review, then save, or choose whose version to keep for clashing items. A
+   save with that choice made isn't stopped for newer saves, unless they would
+   leave its changes invalid (a lane gone that a box of ours moved into): then
+   they come in for review the same way, with the box moved where the lane's
+   other boxes went and flagged.
 4. **Commit.** The changed files are written with the `yaml` Document API, so
    only the edited lines change and comments survive: only fields that differ
    from what was loaded are touched, list entries (lanes, people, PTO, rules,
@@ -789,62 +788,59 @@ when a focused element is removed.
   timeline (WCAG 2.1.4).
 - **The timeline** is an APG layout grid (`components/useGridFocus.ts`,
   `timeline/keyboard.ts`): rows are a department's heading, each lane, its
-  extra area and its PTO, each with a short name of its own ("Data
-  Engineering / FTE 2"); a row's cells are its controls (the lane's name,
-  whose row header also says its dates and size, and its **+**) and then
-  its boxes or PTO blocks in time order. The whole grid is one Tab stop,
-  the cell that last had focus (React renders every cell with tabindex −1;
-  the active one's is set on the DOM, so moving focus renders nothing). The
-  arrow keys go between cells, up and down to the cell nearest in time to
-  the day being looked at; Home, End, Page Up and Page Down jump. A box's
-  name says its title, code, dates, FTE, scale, engineers, flag, broken
-  rules and clashes; the focused box's lane, scale in full and progress are
-  its description,
-  one hidden element written before focus moves. The timeline scrolls a
-  focused cell clear of the sticky header and label column, and of the
-  broken-rule popup (which leaves room to scroll for that), as WCAG 2.4.11
-  asks. On a big roadmap, which draws only what's near the screen (see
-  [Timeline layout](#timeline-layout)), the keys go by the grid's rows and
-  cells as data (`timeline/rows.ts`), drawn or not, and the cell focus goes
-  to is drawn first; the grid's `aria-rowcount` counts every row and each
-  row drawn says which it is (`aria-rowindex`). A screen reader's browse
-  mode, and the browser's Find, reach only what's drawn. Enter, a click or
-  a screen reader's press opens a box or PTO block; Delete deletes it,
-  focus going to the cell beside it (or, alone in its row, the nearest in
-  the row above: never out of its department).
-  Space picks one up: the arrow keys then move what's drawn, as a pointer
-  drag does (nothing laid out again, nothing else moving), and Enter or
-  Space drops it as one change; Escape or ⌘Z puts it back; Tab, a click,
-  ⌘S (which saves it dropped), another view or going read-only drop it;
-  any other key (⌘← and ⌘→, Back and Forward in Chrome and Firefox on
-  a Mac, Home, Delete…) does nothing then but say Enter drops it.
-  Each step is said, with what it would change (`timeline/consequences.ts`:
-  a department over capacity or back within it, a rule broken or kept, an
-  engineer on PTO then), only the last of a key held down; others' saves
-  wait meanwhile, and Alt+← and Alt+→ are never the browser's Back and
-  Forward, on any cell (on a box not picked up, they say to pick it up
-  first). While the timeline is read-only (a preview, or saving), its cells
-  stay, as text or `aria-disabled` buttons, and keys that would change
-  something say why they don't. The dates along the top, grid lines,
-  hatching and drag labels are hidden from screen readers. The popup is
-  drawn under the editors, menus and dialogs, so it never hides what has
-  focus in them either. A box's scale card (`components/ScaleCard.tsx`)
-  shows on hover, and with I on a box that has keyboard focus (under its
-  scale, or under the box when it shows none; I again, focus moving on or
-  any other key puts it away), not with focus alone: it would cover the
-  lane below. The pointer can move onto it and Escape puts it away, doing
-  nothing else (WCAG 1.4.13). It covers the lane (or table rows) below, so
-  it lets the pointer through, and where the pointer is is watched instead:
-  a press or the wheel over it reaches what's under it, and puts it away.
-  Pressing a box or PTO block (to drag it, say) focuses it without the
-  keyboard's ring, and so does putting focus back on it after a drop:
-  browsers draw a ring whenever a script moves focus, so it's told by
-  whether a key or a press came last (`pressed` in `useGridFocus.ts`). An editor closed with a click on ✕, or its box or
-  block deleted with one, gives focus back the same way, scrolling
-  nothing (`focusLater`'s `clicked`, `markPressed`): the view stays where
-  the pointer left it. From the keyboard (Esc, or Enter on ✕ or Delete)
-  the cell focus goes to is scrolled into view. Focus from a press shows a
-  thin edge all the same, as Delete, Space and N act on it.
+  extra area and its PTO, each with a short name of its own ("Data Engineering
+  / FTE 2"); a row's cells are its controls (the lane's name, whose row header
+  also says its dates and size, and its **+**) and then its boxes or PTO
+  blocks in time order. The whole grid is one Tab stop, the cell that last had
+  focus (React renders every cell with tabindex −1; the active one's is set on
+  the DOM, so moving focus renders nothing). The arrow keys go between cells,
+  up and down to the cell nearest in time to the day being looked at; Home,
+  End, Page Up and Page Down jump. A box's name says its title, code, dates,
+  FTE, scale, engineers, flag, broken rules and clashes; the focused box's
+  lane, scale in full and progress are its description, one hidden element
+  written before focus moves. The timeline scrolls a focused cell clear of the
+  sticky header and label column, and of the broken-rule popup (which leaves
+  room to scroll for that), as WCAG 2.4.11 asks. On a big roadmap, which draws
+  only what's near the screen (see [Timeline layout](#timeline-layout)), the
+  keys go by the grid's rows and cells as data (`timeline/rows.ts`), drawn or
+  not, and the cell focus goes to is drawn first; the grid's `aria-rowcount`
+  counts every row and each row drawn says which it is (`aria-rowindex`). A
+  screen reader's browse mode, and the browser's Find, reach only what's
+  drawn. Enter, a click or a screen reader's press opens a box or PTO block;
+  Delete deletes it, focus going to the cell beside it (or, alone in its row,
+  the nearest in the row above: never out of its department). Space picks one
+  up: the arrow keys then move what's drawn, as a pointer drag does (nothing
+  laid out again, nothing else moving), and Enter or Space drops it as one
+  change; Escape or ⌘Z puts it back; Tab, a click, ⌘S (which saves it
+  dropped), another view or going read-only drop it; any other key (⌘← and ⌘→,
+  Back and Forward in Chrome and Firefox on a Mac, Home, Delete…) does nothing
+  then but say Enter drops it. Each step is said, with what it would change
+  (`timeline/consequences.ts`: a department over capacity or back within it, a
+  rule broken or kept, an engineer on PTO then), only the last of a key held
+  down; others' saves wait meanwhile, and Alt+← and Alt+→ are never the
+  browser's Back and Forward, on any cell (on a box not picked up, they say to
+  pick it up first). While the timeline is read-only (a preview, or saving),
+  its cells stay, as text or `aria-disabled` buttons, and keys that would
+  change something say why they don't. The dates along the top, grid lines,
+  hatching and drag labels are hidden from screen readers. The popup is drawn
+  under the editors, menus and dialogs, so it never hides what has focus in
+  them either. A box's scale card (`components/ScaleCard.tsx`) shows on hover,
+  and with I on a box that has keyboard focus (under its scale, or under the
+  box when it shows none; I again, focus moving on or any other key puts it
+  away), not with focus alone: it would cover the lane below. The pointer can
+  move onto it and Escape puts it away, doing nothing else (WCAG 1.4.13). It
+  covers the lane (or table rows) below, so it lets the pointer through, and
+  where the pointer is is watched instead: a press or the wheel over it
+  reaches what's under it, and puts it away. Pressing a box or PTO block (to
+  drag it, say) focuses it without the keyboard's ring, and so does putting
+  focus back on it after a drop: browsers draw a ring whenever a script moves
+  focus, so it's told by whether a key or a press came last (`pressed` in
+  `useGridFocus.ts`). An editor closed with a click on ✕, or its box or block
+  deleted with one, gives focus back the same way, scrolling nothing
+  (`focusLater`'s `clicked`, `markPressed`): the view stays where the pointer
+  left it. From the keyboard (Esc, or Enter on ✕ or Delete) the cell focus
+  goes to is scrolled into view. Focus from a press shows a thin edge all the
+  same, as Delete, Space and N act on it.
 - **Contrast.** Text meets 4.5:1, and 3:1 what shows a control or its
   state (a field's edge, a switch, the chosen segment, a box's progress
   mark and resize grips, a collapsed department's boxes) or is all there
@@ -859,17 +855,17 @@ when a focused element is removed.
   each pair, and what's drawn in a type's or a department's colour against
   an even sweep of every colour; axe checks the pages too
   (`e2e/a11y.spec.ts`).
-- **High contrast and motion.** In Windows' contrast themes (forced
-  colours) the browser paints with the theme's few colours and drops
-  shadows and background images, so each part of the stylesheet draws in
-  system colours what only they showed: the chosen option of a segmented
-  control, a switch's state, a box's progress mark, the Today line (across
-  boxes too) and flag, the picked day, the selected box, a team's colours (shown as they
-  are), the changed-by-someone-else dot and a lane's closed dates. Only
-  Chromium can emulate this, so `e2e/styles.spec.ts` checks it there. With
-  less motion asked for (`prefers-reduced-motion`), transitions take no
-  time (`--motion`) and Today, going to a box and going to PTO jump rather
-  than scroll smoothly (`a11y/motion.ts`).
+- **High contrast and motion.** In Windows' contrast themes (forced colours)
+  the browser paints with the theme's few colours and drops shadows and
+  background images, so each part of the stylesheet draws in system colours
+  what only they showed: the chosen option of a segmented control, a switch's
+  state, a box's progress mark, the Today line (across boxes too) and flag,
+  the picked day, the selected box, a team's colours (shown as they are), the
+  changed-by-someone-else dot and a lane's closed dates. Only Chromium can
+  emulate this, so `e2e/styles.spec.ts` checks it there. With less motion
+  asked for (`prefers-reduced-motion`), transitions take no time (`--motion`)
+  and Today, going to a box and going to PTO jump rather than scroll smoothly
+  (`a11y/motion.ts`).
 - **Not colour alone.** The table marks rows someone else changed, and
   clashes, with a mark and words for screen readers as well as their tint;
   a cell, team-settings name or editor field that won't do says why next to
@@ -1057,31 +1053,30 @@ when a focused element is removed.
 - **Focus.** The row focus is in (or a press is in: Safari doesn't focus a
   button that's clicked) is drawn wherever it is, with a row either side, so
   Tab and Shift+Tab always have somewhere to go (`table/useActiveRow.ts`).
-  While it has focus, it keeps its place and stays shown though an edit
-  would sort it elsewhere or the search or dates leave it out (a note in it
-  says so, and is announced once); a new sort, search or filter puts it
-  where it goes, and so does focus leaving it, once a press has finished (a
-  row moving as a press began would leave another under the pointer). Focus
-  on the header's sort buttons has left it. The window losing focus (⌘Tab,
-  the address bar) hasn't: its blur goes nowhere, as one to the page's
-  background does, so where focus is is looked at once the blur is over; and
-  the window getting focus back doesn't scroll the table. A change that
-  moves a focused row (to another department, re-sorted) or deletes it loses
-  focus without a blur in WebKit and Firefox, so `table/KeepFocus.tsx` sees
-  where focus was just before each change and, if it's lost, puts it back on
-  the same control in the same row, else the same column in the next row of
-  the department (or the one before, or its heading); put elsewhere in its
-  row for want of the control itself (one a save disables, or a row's
-  Delete, gone while saving), it goes back once that's back. What has
-  focus in a row is scrolled clear of the sticky header, the heading stuck
-  under it and the title column (People's names, which stay put the same
-  way), and of the broken-rule popup (the table leaves room to scroll for that), by hand
-  (`table/focusRow.ts`: WebKit doesn't when Tab moves focus); the header's
-  own sort buttons are always on screen, and the scroller has no
-  `scroll-padding`, which would have them scroll the table whenever one is
-  focused or clicked. Add box, Add PTO and Add engineer clear the search
-  (and dates), open the department, and scroll to the new row, which takes
-  focus.
+  While it has focus, it keeps its place and stays shown though an edit would
+  sort it elsewhere or the search or dates leave it out (a note in it says so,
+  and is announced once); a new sort, search or filter puts it where it goes,
+  and so does focus leaving it, once a press has finished (a row moving as a
+  press began would leave another under the pointer). Focus on the header's
+  sort buttons has left it. The window losing focus (⌘Tab, the address bar)
+  hasn't: its blur goes nowhere, as one to the page's background does, so
+  where focus is is looked at once the blur is over; and the window getting
+  focus back doesn't scroll the table. A change that moves a focused row (to
+  another department, re-sorted) or deletes it loses focus without a blur in
+  WebKit and Firefox, so `table/KeepFocus.tsx` sees where focus was just
+  before each change and, if it's lost, puts it back on the same control in
+  the same row, else the same column in the next row of the department (or the
+  one before, or its heading); put elsewhere in its row for want of the
+  control itself (one a save disables, or a row's Delete, gone while saving),
+  it goes back once that's back. What has focus in a row is scrolled clear of
+  the sticky header, the heading stuck under it and the title column (People's
+  names, which stay put the same way), and of the broken-rule popup (the table
+  leaves room to scroll for that), by hand (`table/focusRow.ts`: WebKit
+  doesn't when Tab moves focus); the header's own sort buttons are always on
+  screen, and the scroller has no `scroll-padding`, which would have them
+  scroll the table whenever one is focused or clicked. Add box, Add PTO and
+  Add engineer clear the search (and dates), open the department, and scroll
+  to the new row, which takes focus.
 - **Printing** (`table/PrintTable.tsx`, `table/usePrinting.ts`). On paper the
   table and People are a plain table of every row as shown (search, dates,
   Hide finished, sort, collapsed departments: one collapsed prints only its
@@ -1367,160 +1362,151 @@ a release must have none of.
   fake GitHub, the roadmap readers, git SHAs and `roadmap.json` against real
   git repositories made in the temp folder, and the command-line tool and the
   action against such repositories and a fake release: every command, each of
-  the action's checks with its message, outputs and summary (a huge value,
-  and values and file names holding ESC, CR or a right-to-left override,
-  printed as escapes by every command and in the log, or `##[` and `::`,
-  which no command prints as a workflow command in Actions), migrations
-  (comments and line ends kept, idempotent), `sync`, `upgrade` and `init`
-  rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
-  `init` and `preview`'s fetch against a fake GitHub, the launcher run with
-  Node (its download against a `fetch` answering from a table, the cache's
-  order and refusals (the repository's path in another case, or by macOS's
+  the action's checks with its message, outputs and summary (a huge value, and
+  values and file names holding ESC, CR or a right-to-left override, printed
+  as escapes by every command and in the log, or `##[` and `::`, which no
+  command prints as a workflow command in Actions), migrations (comments and
+  line ends kept, idempotent), `sync`, `upgrade` and `init` rewriting sample
+  repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`, `init` and
+  `preview`'s fetch against a fake GitHub, the launcher run with Node (its
+  download against a `fetch` answering from a table, the cache's order and
+  refusals (the repository's path in another case, or by macOS's
   `/System/Volumes/Data`, too, through each of `BOXOPS_CACHE`,
-  `XDG_CACHE_HOME`, `HOME` and `TMPDIR`, and in the temp folder a symlink,
-  or a folder others can read), `BUILD.json` checks,
-  `BOXOPS_CLI` (a release other than the pin's, a folder), mirrors and
-  tokens (github.com's from `gh`, never another host's), warnings on the
-  tool's commands alone, `AGENTS.md` read only as a plain file, proxies and
-  Node's options), the
-  starter made for a release (what `init` writes, and `sync` for its files)
-  and its links to BoxOps' docs (pages git tracks, but those still to
-  write), the commands `publish-starter` prints to publish it and those
-  `init` prints to start a repository (pasted into bash, and zsh where it's
-  installed, as CI has it, without `-e`: from another folder they do so,
-  against stand-ins for GitHub's repositories and `gh`, and after a failed
-  clone or `cd` they change nothing where they were pasted;
-  `publish-starter`'s commit as the maintainer's GitHub no-reply address,
-  whatever git's global identity, and push nothing made as another), Path
-  B's workflows (the starter's but for two steps, setup-node and BoxOps',
-  which the README shows, setup-node told to read nothing in the workspace)
-  and the BoxOps step run with bash against a stand-in for github.com, a
-  hostile workspace (its files, a `git` of its own that
-  relative folders on PATH would find, git configuration and `GIT_*`
+  `XDG_CACHE_HOME`, `HOME` and `TMPDIR`, and in the temp folder a symlink, or
+  a folder others can read), `BUILD.json` checks, `BOXOPS_CLI` (a release
+  other than the pin's, a folder), mirrors and tokens (github.com's from `gh`,
+  never another host's), warnings on the tool's commands alone, `AGENTS.md`
+  read only as a plain file, proxies and Node's options), the starter made for
+  a release (what `init` writes, and `sync` for its files) and its links to
+  BoxOps' docs (pages git tracks, but those still to write), the commands
+  `publish-starter` prints to publish it and those `init` prints to start a
+  repository (pasted into bash, and zsh where it's installed, as CI has it,
+  without `-e`: from another folder they do so, against stand-ins for GitHub's
+  repositories and `gh`, and after a failed clone or `cd` they change nothing
+  where they were pasted; `publish-starter`'s commit as the maintainer's
+  GitHub no-reply address, whatever git's global identity, and push nothing
+  made as another), Path B's workflows (the starter's but for two steps,
+  setup-node and BoxOps', which the README shows, setup-node told to read
+  nothing in the workspace) and the BoxOps step run with bash against a
+  stand-in for github.com, a hostile workspace (its files, a `git` of its own
+  that relative folders on PATH would find, git configuration and `GIT_*`
   variables try to run code: sentinel files stay unwritten, git, from PATH's
   absolute folders, is the only program started, and the site is a clean
-  workspace's), and no
-  network call from the action or the offline commands (every way Node
-  reaches the network made to fail and noted), that each file staged in
-  `cutover/` is the live one with only the cutover's changes made (and the
-  redirect it stages keeps the address's query and hash, its one script
-  allowed by hash), the release tree (built twice from one commit, this
+  workspace's), and no network call from the action or the offline commands
+  (every way Node reaches the network made to fail and noted), that each file
+  staged in `cutover/` is the live one with only the cutover's changes made
+  (and the redirect it stages keeps the address's query and hash, its one
+  script allowed by hash), the release tree (built twice from one commit, this
   checkout's files committed in a scratch repository and cloned twice, each
-  clone with its own copy of the dependencies: the two the same byte for
-  byte, git's tree id the one computed without git, and CI's smoke scripts
-  passing against it; its checks against a small tree made right and broken
-  every way they look for), the changelog's check, the docs' link check
-  (this repository's Markdown, and a small repository with a link of every
-  kind it reads, right and broken, and blocks read as GitHub reads them:
-  code indented in a list item or not, setext headings, footnotes), the
-  licence files, and the rules every workflow keeps
-  (`scripts/workflows.test.ts`: no
-  permissions but each job's own, a time limit on each, checkouts that keep
-  no credentials, each action pinned to one commit with its version beside
-  it, and the release workflow's deploy key held only by its publish job,
-  which runs nothing from this repository), the release workflow's preflight
-  run with bash (`scripts/release-preflight.test.ts`: `main`, at the commit
+  clone with its own copy of the dependencies: the two the same byte for byte,
+  git's tree id the one computed without git, and CI's smoke scripts passing
+  against it; its checks against a small tree made right and broken every way
+  they look for), the changelog's check, the docs' link check (this
+  repository's Markdown, and a small repository with a link of every kind it
+  reads, right and broken, and blocks read as GitHub reads them: code indented
+  in a list item or not, setext headings, footnotes), the licence files, and
+  the rules every workflow keeps (`scripts/workflows.test.ts`: no permissions
+  but each job's own, a time limit on each, checkouts that keep no
+  credentials, each action pinned to one commit with its version beside it,
+  and the release workflow's deploy key held only by its publish job, which
+  runs nothing from this repository), the release workflow's preflight run
+  with bash (`scripts/release-preflight.test.ts`: `main`, at the commit
   reviewed if one is given; the version's changelog section on top), and its
   publish job's last step run with bash against a stand-in `gh`
-  (`scripts/release-publish.test.ts`: the release a draft, then published,
-  and GitHub's latest only if none is of a later version; a draft left made
-  again; on a re-run, a published release taken as done only if it's that
-  run's). Those
-  that read a whole roadmap read fixed copies (the browser tests' fixture,
-  and `roadmap/` as shipped, in `web/src/model/fixtures/shipped-roadmap/`),
-  never the live `roadmap/`, which saves may write any valid way.
+  (`scripts/release-publish.test.ts`: the release a draft, then published, and
+  GitHub's latest only if none is of a later version; a draft left made again;
+  on a re-run, a published release taken as done only if it's that run's).
+  Those that read a whole roadmap read fixed copies (the browser tests'
+  fixture, and `roadmap/` as shipped, in
+  `web/src/model/fixtures/shipped-roadmap/`), never the live `roadmap/`, which
+  saves may write any valid way.
 - **The starter's dry run** (`npm run dry-run:starter`,
   `web/scripts/starter-dry-run.ts`) builds the app and the tool, lays
-  `web/dist` out as a release commit (each file checked against
-  `BUILD.json`), or takes the release tree in `$BOXOPS_RELEASE_DIR` as CI
-  does, commits it to the `releases` branch of a stand-in for github.com
-  (git is told to fetch from it), and makes a roadmap repository with that release's
-  `init` (its calls to GitHub answered by the stand-in). It runs the
-  launcher with `BOXOPS_CLI` (`version`, `validate`, `report`, `guide`,
-  `sync --check`, `migrate --check`, `build`, `preview`), the action as
-  `uses:` runs it (`dist/action.mjs` with the runner's inputs, a push
-  event's payload and a releases file naming a newer security release; then
-  check mode) and Path B's step with bash, which must assemble the same
-  site; then it opens that site, served as Pages serves it, and the preview
-  in WebKit: the app shows the roadmap and the security notice with no
-  error or CSP violation and no request off the machine, and the preview a
-  file edited on disk. Every Node process in it has the network cut off
-  (`scripts/smoke/no-net.mjs`, given to `--import`), and none may try it.
+  `web/dist` out as a release commit (each file checked against `BUILD.json`),
+  or takes the release tree in `$BOXOPS_RELEASE_DIR` as CI does, commits it to
+  the `releases` branch of a stand-in for github.com (git is told to fetch
+  from it), and makes a roadmap repository with that release's `init` (its
+  calls to GitHub answered by the stand-in). It runs the launcher with
+  `BOXOPS_CLI` (`version`, `validate`, `report`, `guide`, `sync --check`,
+  `migrate --check`, `build`, `preview`), the action as `uses:` runs it
+  (`dist/action.mjs` with the runner's inputs, a push event's payload and a
+  releases file naming a newer security release; then check mode) and Path B's
+  step with bash, which must assemble the same site; then it opens that site,
+  served as Pages serves it, and the preview in WebKit: the app shows the
+  roadmap and the security notice with no error or CSP violation and no
+  request off the machine, and the preview a file edited on disk. Every Node
+  process in it has the network cut off (`scripts/smoke/no-net.mjs`, given to
+  `--import`), and none may try it.
 - **Browser tests** (Playwright, `web/e2e/`) run the production build in
   WebKit, Safari's engine, and all of them again in Chromium (Chrome, Edge)
-  and Firefox: `web/dist/app`, or with `$BOXOPS_RELEASE_DIR` (as CI runs
-  them) a release tree's `dist/app`, the files a release ships
-  (`e2e/app-dir.ts`). `e2e/release.spec.ts` runs that build's command-line
-  tool on a real repository holding the tests' roadmap: its `roadmap.json`
-  is the stand-in's (the same files, blob and tree SHAs and parsed files),
-  the site it writes is the app under test byte for byte, and the app opens
-  it asking GitHub nothing. GitHub is faked by a stateful stand-in
-  (`web/e2e/fake-github.ts`: commits with real git trees and blobs, GraphQL
-  saves that check the expected head, a private mode, injected failures) and
-  the roadmap is a fixed copy in `web/e2e/fixtures/roadmap/`. The save and
-  polling tests run on a public and on a private repository, and every test
-  checks the stand-in saw no call a correct app never makes. It makes each
-  deploy's `roadmap.json` with the build's own code, so its blob and tree
-  SHAs are real. The clock is pinned to 09:00 on 2026-10-03 in the browser's
-  time zone, so tests never depend on live data, the date or the network.
-  Two draft tests keep the browser's own clock, since Playwright's fake one
-  hides the navigation timing that tells a reload from a page opened anew
-  (and nothing they check depends on the date).
+  and Firefox: `web/dist/app`, or with `$BOXOPS_RELEASE_DIR` (as CI runs them)
+  a release tree's `dist/app`, the files a release ships (`e2e/app-dir.ts`).
+  `e2e/release.spec.ts` runs that build's command-line tool on a real
+  repository holding the tests' roadmap: its `roadmap.json` is the stand-in's
+  (the same files, blob and tree SHAs and parsed files), the site it writes is
+  the app under test byte for byte, and the app opens it asking GitHub
+  nothing. GitHub is faked by a stateful stand-in (`web/e2e/fake-github.ts`:
+  commits with real git trees and blobs, GraphQL saves that check the expected
+  head, a private mode, injected failures) and the roadmap is a fixed copy in
+  `web/e2e/fixtures/roadmap/`. The save and polling tests run on a public and
+  on a private repository, and every test checks the stand-in saw no call a
+  correct app never makes. It makes each deploy's `roadmap.json` with the
+  build's own code, so its blob and tree SHAs are real. The clock is pinned to
+  09:00 on 2026-10-03 in the browser's time zone, so tests never depend on
+  live data, the date or the network. Two draft tests keep the browser's own
+  clock, since Playwright's fake one hides the navigation timing that tells a
+  reload from a page opened anew (and nothing they check depends on the date).
   The browser runs in UTC (`timezoneId`; WebKit ignores `TZ`), and in WebKit
-  the specs about dates (timeline, table, PTO, saving, the calendar) run
-  again in America/Los_Angeles and Pacific/Kiritimati, where the day starts
-  7 hours after UTC's and 14 hours before it. Tests of unsaved drafts open a
-  second tab in the same browser context (so the same `localStorage`), with
-  a clock of its own. An uncaught error or a Content-Security-Policy
-  violation in any tab a test opens fails it. `e2e/a11y.spec.ts` runs
-  axe-core (`@axe-core/playwright`, a test-only dependency) over each view,
-  the editors, menus and dialogs, the broken-rule popup, a box's scale card
-  and a box being moved against WCAG 2.2 A and AA, in the
-  light and the dark theme, and checks the page's structure, names and
-  what's announced (an init script records every message the live regions
-  are given); `e2e/styles.spec.ts` checks the stylesheet from computed
-  styles and layout rather than screenshots (fields and lists styled as
-  their own class says, not as a broader rule would; Windows' contrast
-  themes, emulated in Chromium; less motion; a long title at 1280 px,
-  everything at 320 px, and the page itself never scrolling, in any view;
-  touch screens; target sizes), and the unit test
-  `src/styles/contrast.test.ts` every colour pair; `e2e/keyboard.spec.ts`
-  checks where focus goes and what keys do, `e2e/calendar.spec.ts` the
-  date fields and their calendar (keys, names, Esc, focus, typed dates),
-  `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's
-  keyboard grid and moves, and `e2e/drag.spec.ts` dragging. The timeline's
-  specs (those three,
-  `timeline`, `departments` and `pto`) run again in WebKit with the
+  the specs about dates (timeline, table, PTO, saving, the calendar) run again
+  in America/Los_Angeles and Pacific/Kiritimati, where the day starts 7 hours
+  after UTC's and 14 hours before it. Tests of unsaved drafts open a second
+  tab in the same browser context (so the same `localStorage`), with a clock
+  of its own. An uncaught error or a Content-Security-Policy violation in any
+  tab a test opens fails it. `e2e/a11y.spec.ts` runs axe-core
+  (`@axe-core/playwright`, a test-only dependency) over each view, the
+  editors, menus and dialogs, the broken-rule popup, a box's scale card and a
+  box being moved against WCAG 2.2 A and AA, in the light and the dark theme,
+  and checks the page's structure, names and what's announced (an init script
+  records every message the live regions are given); `e2e/styles.spec.ts`
+  checks the stylesheet from computed styles and layout rather than
+  screenshots (fields and lists styled as their own class says, not as a
+  broader rule would; Windows' contrast themes, emulated in Chromium; less
+  motion; a long title at 1280 px, everything at 320 px, and the page itself
+  never scrolling, in any view; touch screens; target sizes), and the unit
+  test `src/styles/contrast.test.ts` every colour pair; `e2e/keyboard.spec.ts`
+  checks where focus goes and what keys do, `e2e/calendar.spec.ts` the date
+  fields and their calendar (keys, names, Esc, focus, typed dates),
+  `e2e/timeline-keys.spec.ts` and `e2e/move.spec.ts` the timeline's keyboard
+  grid and moves, and `e2e/drag.spec.ts` dragging. The timeline's specs (those
+  three, `timeline`, `departments` and `pto`) run again in WebKit with the
   timeline drawing only what's near the screen whatever the roadmap's size
   (`cull`, a test option), skipping only the checks that count every box;
   `e2e/timeline-big.spec.ts` checks a 600-box roadmap against itself drawn
-  whole: nothing on screen missing at any scroll or zoom, focus and moves
-  kept drawn (a box dragged into the corner in sight all the while the
-  timeline scrolls under it, held over WebKit's overlay scrollbars too),
-  what the app focuses or shows (from the warnings, from
-  People, after an editor's Delete, after someone else deletes the
-  focused box) drawn, the grid's rows counted. The
-  table's and People's specs (`table`, `people`, `pto`, `keyboard`, and
+  whole: nothing on screen missing at any scroll or zoom, focus and moves kept
+  drawn (a box dragged into the corner in sight all the while the timeline
+  scrolls under it, held over WebKit's overlay scrollbars too), what the app
+  focuses or shows (from the warnings, from People, after an editor's Delete,
+  after someone else deletes the focused box) drawn, the grid's rows counted.
+  The table's and People's specs (`table`, `people`, `pto`, `keyboard`, and
   `departments` for headings dragged and moved in the table) run again in
   WebKit with only the rows near the screen drawn (`virtualize`, a test
-  option; the fixture's rows all fit in what's drawn, so none is left
-  out), and `e2e/table-big.spec.ts` checks a big table (300 boxes)
-  against itself drawn whole in another window (every row counted, nothing
-  on screen missing however it's scrolled, each department as tall in both
-  densities, with only boxes drawn) and a 600-box one for the rest:
-  rows being edited kept (and their place, the window losing focus too),
-  an edit drawing again only its own row (a box's or a PTO entry's: the
-  table counts its rows' renders for tests, in `window.__boxopsTest`),
-  focus going with a row that moves (a PTO entry given to someone else
-  too) or is deleted, Tab across what's drawn, the view kept in place as
-  rows above it get shorter or are hidden but not across a new sort, a new
-  search or dates shown from the top, the header's buttons never scrolling
-  it and letting go of the row being edited, finished PTO hidden (but not
-  PTO added, after another view too), new rows scrolled to and focused,
-  printing every row on pages no bigger than the rows, dates unbroken. Its
-  clock is fixed (`page.clock.setFixedTime`), as nothing it checks moves
-  it on. WebKit's Tab skips buttons, as Safari's does by default, so those
-  tests focus a control and check where focus lands.
+  option; the fixture's rows all fit in what's drawn, so none is left out),
+  and `e2e/table-big.spec.ts` checks a big table (300 boxes) against itself
+  drawn whole in another window (every row counted, nothing on screen missing
+  however it's scrolled, each department as tall in both densities, with only
+  boxes drawn) and a 600-box one for the rest: rows being edited kept (and
+  their place, the window losing focus too), an edit drawing again only its
+  own row (a box's or a PTO entry's: the table counts its rows' renders for
+  tests, in `window.__boxopsTest`), focus going with a row that moves (a PTO
+  entry given to someone else too) or is deleted, Tab across what's drawn, the
+  view kept in place as rows above it get shorter or are hidden but not across
+  a new sort, a new search or dates shown from the top, the header's buttons
+  never scrolling it and letting go of the row being edited, finished PTO
+  hidden (but not PTO added, after another view too), new rows scrolled to and
+  focused, printing every row on pages no bigger than the rows, dates
+  unbroken. Its clock is fixed (`page.clock.setFixedTime`), as nothing it
+  checks moves it on. WebKit's Tab skips buttons, as Safari's does by default,
+  so those tests focus a control and check where focus lands.
 - **Performance** (`npm run perf`, `web/e2e/perf.spec.ts`, its own Playwright
   config) serves the production build (a release tree's, with
   `$BOXOPS_RELEASE_DIR`) with a generated 2,000-box roadmap
@@ -1528,102 +1514,97 @@ a release must have none of.
   gzipped, and opens it in WebKit without a token. It checks exactly that the
   main JavaScript file stays under 400 kB, that no file with the `yaml`
   library is fetched before the timeline shows, that the timeline then draws
-  at most 200 boxes, and that a keyboard move's step, a drag's and a
-  keystroke in the box editor draw again only the departments they're in
-  (the timeline counts its departments' renders for tests, in
-  `window.__boxopsTest`). It prints the time from navigation to the
-  timeline painted (median of 3), failing only above 2,500 ms, and a
-  keyboard move's step; the same roadmap without the build's parsing is
-  timed for comparison. On a 2,000-box roadmap generated around a fixed day
-  (the page's clock fixed there too), it times opening the table and People
-  (targets 300 ms, failing above 600), an edit committed there with
-  Enter and Tab from one table row into the next, which sorts and filters
-  the rows again for the row being edited (50 ms each, failing above 100),
-  the median of 5 after 2, and checks
-  exactly that each draws at most 70 rows with data and 15 options for each
-  of them, that no select has a long list filled before it's used (more
-  than 30 options), and that no textarea's height is read. CI runs it after
-  the browser tests.
-- **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus
-  the React hooks rules; any warning fails `npm run lint`. (typescript-eslint
+  at most 200 boxes, and that a keyboard move's step, a drag's and a keystroke
+  in the box editor draw again only the departments they're in (the timeline
+  counts its departments' renders for tests, in `window.__boxopsTest`). It
+  prints the time from navigation to the timeline painted (median of 3),
+  failing only above 2,500 ms, and a keyboard move's step; the same roadmap
+  without the build's parsing is timed for comparison. On a 2,000-box roadmap
+  generated around a fixed day (the page's clock fixed there too), it times
+  opening the table and People (targets 300 ms, failing above 600), an edit
+  committed there with Enter and Tab from one table row into the next, which
+  sorts and filters the rows again for the row being edited (50 ms each,
+  failing above 100), the median of 5 after 2, and checks exactly that each
+  draws at most 70 rows with data and 15 options for each of them, that no
+  select has a long list filled before it's used (more than 30 options), and
+  that no textarea's height is read. CI runs it after the browser tests.
+- **Lint** (oxlint, `web/.oxlintrc.json`): oxlint's correctness rules plus the
+  React hooks rules; any warning fails `npm run lint`. (typescript-eslint
   doesn't support TypeScript 7 yet.) A deliberate exception is a
   `// eslint-disable-next-line <rule> -- <reason>` comment, which oxlint
   honours; one that no longer hides anything is an error.
 - **CI.** `CI` (`ci.yml`) runs on every pull request and every push to a
-  branch other than `main`, whatever it changes (a pull request from a
-  branch of this repo is covered by that branch's push run, so only pull
-  requests from forks run it again), by hand, weekly, and for a release
-  (`release.yml` calls it). Its jobs, which run no package's install
-  script (`npm ci --ignore-scripts`): **test**, lint, the type check, the
-  unit tests (with zsh installed, which they paste commands into as well as
-  bash: `BOXOPS_TEST_ZSH=1` has them fail without it; again with
+  branch other than `main`, whatever it changes (a pull request from a branch
+  of this repo is covered by that branch's push run, so only pull requests
+  from forks run it again), by hand, weekly, and for a release (`release.yml`
+  calls it). Its jobs, which run no package's install script
+  (`npm ci --ignore-scripts`): **test**, lint, the type check, the unit tests
+  (with zsh installed, which they paste commands into as well as bash:
+  `BOXOPS_TEST_ZSH=1` has them fail without it; again with
   `TZ=America/Los_Angeles` and with `TZ=Pacific/Kiritimati`, UTC−8/−7 and
-  UTC+14, so nothing depends on the runner's time zone), the changelog's
-  form, the docs' links (every relative link and anchor in the Markdown git
-  tracks, as GitHub resolves them: `scripts/check-doc-links.mjs`) and
-  validation; **release
-  tree**, `npm run release:build` (the version `release.yml` gives, else
-  `web/package.json`'s) and its check (the changelog's numbers too: a
-  release's own section's, which must be the top one), the release's tool
-  on `starter/`'s files and the sites it writes, then the tree uploaded for
-  the jobs after it, which check what they download against this job's
-  outputs (the tree's id and `SHA256SUMS`' SHA-256, which no other job can
-  change) before testing it; **browser tests**, on that tree
-  (`BOXOPS_RELEASE_DIR`): the starter's dry run, the browser tests (WebKit
-  first, then Chromium, then Firefox) and the performance checks;
-  **smoke**, on `ubuntu-24.04`, `ubuntu-24.04-arm` and `ubuntu-26.04`,
-  where nothing is built or installed: the tree's action, as `uses:` runs
-  it, on a repository of the starter's files made hostile
-  (`scripts/smoke/`: npm scripts, `vite.config.*`, `.npmrc`, `.env`, a
-  `git` of its own, git hooks, filters and fsmonitor, each leaving a
-  sentinel file if anything runs it), in check mode (with `GIT_*`
-  variables that would send git to objects that aren't there and have it
-  write a trace, which the action drops) and, where the run is on `main`
-  (weekly, for a release), build
-  mode, its outputs and site checked (elsewhere the tree's tool writes the
-  site: build mode publishes the default branch only, and the action
-  through `uses:` must refuse it there, as it must a symlink or a submodule
-  in the roadmap, data format 2 and a roadmap without `settings.yaml`, each
-  failing its step with a `result` output saying why); then bad
-  repositories, each refused with its error annotation (symlinks,
+  UTC+14, so nothing depends on the runner's time zone), the changelog's form,
+  the docs' links (every relative link and anchor in the Markdown git tracks,
+  as GitHub resolves them: `scripts/check-doc-links.mjs`) and validation;
+  **release tree**, `npm run release:build` (the version `release.yml` gives,
+  else `web/package.json`'s) and its check (the changelog's numbers too: a
+  release's own section's, which must be the top one), the release's tool on
+  `starter/`'s files and the sites it writes, then the tree uploaded for the
+  jobs after it, which check what they download against this job's outputs
+  (the tree's id and `SHA256SUMS`' SHA-256, which no other job can change)
+  before testing it; **browser tests**, on that tree (`BOXOPS_RELEASE_DIR`):
+  the starter's dry run, the browser tests (WebKit first, then Chromium, then
+  Firefox) and the performance checks; **smoke**, on `ubuntu-24.04`,
+  `ubuntu-24.04-arm` and `ubuntu-26.04`, where nothing is built or installed:
+  the tree's action, as `uses:` runs it, on a repository of the starter's
+  files made hostile (`scripts/smoke/`: npm scripts, `vite.config.*`,
+  `.npmrc`, `.env`, a `git` of its own, git hooks, filters and fsmonitor, each
+  leaving a sentinel file if anything runs it), in check mode (with `GIT_*`
+  variables that would send git to objects that aren't there and have it write
+  a trace, which the action drops) and, where the run is on `main` (weekly,
+  for a release), build mode, its outputs and site checked (elsewhere the
+  tree's tool writes the site: build mode publishes the default branch only,
+  and the action through `uses:` must refuse it there, as it must a symlink or
+  a submodule in the roadmap, data format 2 and a roadmap without
+  `settings.yaml`, each failing its step with a `result` output saying why);
+  then bad repositories, each refused with its error annotation (symlinks,
   submodules, a `.git` file, data formats 0 and 2, no `settings.yaml`, a
   branch that isn't the default, bytes that aren't UTF-8, inputs out of
   bounds, GitHub Enterprise Server, problems in check and build modes), and
-  the action with the network cut off; **workflows**,
-  actionlint and shellcheck (each release checked against its SHA-256) on
-  every workflow (this repo's, the starter's, Path B's and the cutover's),
-  shellcheck on the smoke scripts, and the Pages guard's test against a
-  stand-in `gh`; and weekly, **latest release**, the latest release's action
-  on the three runners, tested as **smoke** tests a tree's (check and build
-  modes through `uses:`, bad repositories, no network), on the starter's
-  files and with the smoke scripts as they were at the commit it was built
-  from (not the demo's data: [decisions.md](decisions.md)).
+  the action with the network cut off; **workflows**, actionlint and
+  shellcheck (each release checked against its SHA-256) on every workflow
+  (this repo's, the starter's, Path B's and the cutover's), shellcheck on the
+  smoke scripts, and the Pages guard's test against a stand-in `gh`; and
+  weekly, **latest release**, the latest release's action on the three
+  runners, tested as **smoke** tests a tree's (check and build modes through
+  `uses:`, bad repositories, no network), on the starter's files and with the
+  smoke scripts as they were at the commit it was built from (not the demo's
+  data: [decisions.md](decisions.md)).
 - **Releases.** `release.yml`, run by hand from `main` with a version (and,
   optionally, the commit of `main` reviewed, which `main` must still be):
-  preflight (the version, `web/package.json` and `CHANGELOG.md` agree, and
-  the tag is new), all of CI on the commit, the release tree built again
-  apart, and, once the maintainer approves the `release` environment, the
-  tested tree (if git's id for it is CI's and the rebuild's) attested, then
-  committed to `releases` and tagged in one push with the release deploy
-  key, and published as an immutable GitHub release (GitHub's latest only
-  if no published release but a withdrawn one is of a later version). See
+  preflight (the version, `web/package.json` and `CHANGELOG.md` agree, and the
+  tag is new), all of CI on the commit, the release tree built again apart,
+  and, once the maintainer approves the `release` environment, the tested tree
+  (if git's id for it is CI's and the rebuild's) attested, then committed to
+  `releases` and tagged in one push with the release deploy key, and published
+  as an immutable GitHub release (GitHub's latest only if no published release
+  but a withdrawn one is of a later version). See
   [releasing.md](releasing.md).
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
   validation and the build on every push to `main`, then builds the
   command-line tool and writes the site with it (`build`: the app, and
   `roadmap.json` from `roadmap/` at the commit), which it publishes. It runs
-  the unit tests and the browser tests too, the latter in WebKit alone (CI
-  has run them in all three), before deploying, unless nothing outside
-  `roadmap/` has changed since the commit the live site was built from (that
-  of the newest successful `github-pages` deployment, else what its
-  `roadmap.json` says, which a private Pages site doesn't serve the
-  workflow), so saves from the app go live quickly and an app change whose
-  run failed or was cancelled is still tested before it goes out. If that
-  commit can't be read, the tests run. Deploys run one at a time and are
-  never cancelled midway; a burst of saves deploys at most twice. Jobs get
-  only the permissions they need, and actions are pinned to commits.
+  the unit tests and the browser tests too, the latter in WebKit alone (CI has
+  run them in all three), before deploying, unless nothing outside `roadmap/`
+  has changed since the commit the live site was built from (that of the
+  newest successful `github-pages` deployment, else what its `roadmap.json`
+  says, which a private Pages site doesn't serve the workflow), so saves from
+  the app go live quickly and an app change whose run failed or was cancelled
+  is still tested before it goes out. If that commit can't be read, the tests
+  run. Deploys run one at a time and are never cancelled midway; a burst of
+  saves deploys at most twice. Jobs get only the permissions they need, and
+  actions are pinned to commits.
 - **Upgrades.** Dependabot (`.github/dependabot.yml`) opens pull requests
-  weekly for the actions' pinned commits, in every folder of workflows at
-  once (this repository's, the starter's, Path B's and the cutover's), and
-  for the npm packages in `web/` (minor and patch upgrades together), once a
-  release is 3 days old.
+  weekly for the actions' pinned commits, in every folder of workflows at once
+  (this repository's, the starter's, Path B's and the cutover's), and for the
+  npm packages in `web/` (minor and patch upgrades together), once a release
+  is 3 days old.

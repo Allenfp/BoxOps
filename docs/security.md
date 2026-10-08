@@ -61,18 +61,18 @@ What a roadmap repository's site runs, and what each link rests on:
 | Someone with the maintainer's admin session or a token with admin rights | No | They could lift the rulesets and the environment's rules | Lifting them leaves an entry in the audit log; roadmap repositories review upgrades and can check the signer ([Checking a release](#checking-a-release)). |
 | A commit from a fork of BoxOps, seen through `Allenfp/BoxOps` | No | Only if someone pins it by hand | Dependabot proposes tags only, and only the deploy key makes tags; `doctor` checks that the pin is a tag of the pinned repository. |
 
-**The release identity, as tried.** On 2026-10-06, on a scratch
-repository owned by the same account, a tag ruleset (all tags; creations,
-updates and deletions restricted) with only "Deploy keys" on its bypass list
-refused the owner's own tag push over SSH (`GH013`), and let a deploy key
-with write access create and delete tags. Not checked yet: whether it also
-stops the owner making a tag through GitHub's REST API, or with the web
-page's "Create new tag on publish". [releasing.md](releasing.md#checking-the-deploy-keys-bypass)
-has the checks to make on `Allenfp/BoxOps` before its first release. If the
-owner can make a tag any of these ways, releases move to a repository of
-their own, written to only by the release workflow (such as
-`Allenfp/boxops-action`), before 0.1.0, since the repository a roadmap pins
-can't change after.
+**The release identity, as tried.** On 2026-10-06, on a scratch repository
+owned by the same account, a tag ruleset (all tags; creations, updates and
+deletions restricted) with only "Deploy keys" on its bypass list refused the
+owner's own tag push over SSH (`GH013`), and let a deploy key with write
+access create and delete tags. Not checked yet: whether it also stops the
+owner making a tag through GitHub's REST API, or with the web page's "Create
+new tag on publish".
+[releasing.md](releasing.md#checking-the-deploy-keys-bypass) has the checks
+to make on `Allenfp/BoxOps` before its first release. If the owner can make
+a tag any of these ways, releases move to a repository of their own, written
+to only by the release workflow (such as `Allenfp/boxops-action`), before
+0.1.0, since the repository a roadmap pins can't change after.
 
 ## How a release is made
 
@@ -97,8 +97,8 @@ can't change after.
   provenance attestation (a signed statement of which workflow run built
   them, from which commit); the tarball an SBOM attestation too: a signed
   copy of its SBOM (software bill of materials), `sbom.spdx.json`, the list
-  of the packages inside, each at its version. The GitHub release is immutable: its tag
-  can't move and its files can't change.
+  of the packages inside, each at its version. The GitHub release is
+  immutable: its tag can't move and its files can't change.
 
 ### Checking a release
 
