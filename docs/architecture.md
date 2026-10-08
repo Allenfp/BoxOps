@@ -622,8 +622,10 @@ against data the new code wrote.
   them. A part that can't be fetched (the connection dropped, or an app
   deploy replaced its file) says so, with Try again and Reload, and so does
   a save. The app keeps no failure, but WebKit and Chromium keep a module
-  file that failed to load until the page reloads, so a second failure
-  offers Reload only.
+  file that failed to load until the page reloads, so a fetch that fails
+  after another had failed before it began offers Reload only (a preload
+  that fails after it began, the pointer passing a view's tab again,
+  changes nothing).
 - **Screens.** The app is as tall as the window as it is (`100dvh`: a
   phone's browser bars shown or not). Short of room, the toolbar's title
   gives way first, cut short with … (whole in its tooltip), so Save and the

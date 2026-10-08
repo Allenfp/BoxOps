@@ -6,7 +6,9 @@
 // so, with Try again and Reload. The app keeps no failure: the next try, or
 // the next preload, fetches the file again. WebKit and Chromium (Safari,
 // Chrome, Edge) keep a module file that failed to load until the page
-// reloads, though, so a second failure says to reload.
+// reloads, though, so a fetch that fails after another had failed before it
+// began says to reload; what it says is settled as it begins, so a preload
+// failing meanwhile (the pointer passing the part's tab again) changes nothing.
 
 import { type ComponentType, lazy, useSyncExternalStore } from "react";
 import { reloadApp } from "../site";
@@ -15,7 +17,7 @@ import { Banner } from "./Banner";
 /** `T`: any component, whatever its props, as React.lazy takes. */
 export function lazyPart<T extends ComponentType<any>>(load: () => Promise<T>): T & { preload(): void } {
   let fetching: Promise<T> | undefined;
-  /** Fetches that failed, preloads too: after the first, trying again in this page may not help. */
+  /** Fetches that failed, preloads too: after one, trying again in this page may not help. */
   let failures = 0;
   const fetch = () =>
     (fetching ??= load().then(
@@ -31,8 +33,16 @@ export function lazyPart<T extends ComponentType<any>>(load: () => Promise<T>): 
     ));
   // React.lazy keeps what it resolved to, so trying again needs a new one;
   // every place showing the part then renders again (useSyncExternalStore).
-  // Failed stands in for any part: it takes the part's props and ignores them.
-  const attempt = () => lazy(() => fetch().then((part) => ({ default: part }), () => ({ default: Failed as unknown as T })));
+  // A failure stands in for any part: it takes the part's props and ignores
+  // them. Which one is settled as the part is asked for: if a fetch had
+  // failed before, trying again may not help. The fetch it waits for began
+  // then, or is under way (none settles meanwhile), so a preload that fails
+  // after it began changes nothing.
+  const attempt = () =>
+    lazy(() => {
+      const Failed = failures > 0 ? FailedAgain : FailedFirst;
+      return fetch().then((part) => ({ default: part }), () => ({ default: Failed as unknown as T }));
+    });
   let current = attempt();
   let tries = 0;
   const listeners = new Set<() => void>();
@@ -45,8 +55,11 @@ export function lazyPart<T extends ComponentType<any>>(load: () => Promise<T>): 
     tries++;
     for (const listener of listeners) listener();
   };
-  function Failed() {
-    return <Unavailable again={failures > 1} onRetry={retry} />;
+  function FailedFirst() {
+    return <Unavailable again={false} onRetry={retry} />;
+  }
+  function FailedAgain() {
+    return <Unavailable again onRetry={retry} />;
   }
   function Part(props: Record<string, unknown>) {
     useSyncExternalStore(subscribe, () => tries);

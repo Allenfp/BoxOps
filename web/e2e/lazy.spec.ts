@@ -480,6 +480,34 @@ test("a view whose code can't load (offline, or a deploy replaced it) says so; T
   await expect(page.locator(".box").first()).toBeVisible();
 });
 
+test("a view whose code can't load keeps Try again though a preload fails after its own fetch began", async ({ page, github: _ }) => {
+  // Each import of the app's code that fails, Vite's loader says (vite:preloadError): counted.
+  await page.evaluate(() => {
+    const w = window as unknown as { failedImports: number };
+    w.failedImports = 0;
+    addEventListener("vite:preloadError", () => w.failedImports++);
+  });
+  const failedImports = () => page.evaluate(() => (window as unknown as { failedImports: number }).failedImports);
+  const table = await failLater(page, /\/assets\/TableView-[\w-]+\.js$/);
+  const tab = page.getByRole("button", { name: "Table", exact: true });
+  await tab.click();
+  table.drop();
+  const banner = page.locator(".banner", { hasText: "This part of BoxOps couldn’t load" });
+  await expect(banner).toContainText(FIRST);
+  // The pointer leaves the tab and comes back: its preload fails too, as one begun the moment the
+  // view's own fetch failed can, before the banner is drawn (seen once in Firefox).
+  const failed = await failedImports();
+  await page.mouse.move(700, 600);
+  await tab.hover();
+  await expect.poll(failedImports).toBe(failed + 1);
+  // Drawn again, the banner is still the view's own fetch's: the first failure, with Try again.
+  await page.getByRole("button", { name: "Timeline", exact: true }).click();
+  await expect(page.locator(".box").first()).toBeVisible();
+  await tab.click();
+  await expect(banner).toContainText(FIRST);
+  await expect(banner.getByRole("button", { name: "Try again" })).toBeVisible();
+});
+
 test("a view fetched ahead while offline: showing it fetches it again where the browser can, or says to reload", async ({ page, github: _, browserName }) => {
   const asked = scripts(page);
   const table = await failLater(page, /\/assets\/TableView-[\w-]+\.js$/);
