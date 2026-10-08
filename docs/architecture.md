@@ -1391,10 +1391,10 @@ a release must have none of.
   clone or `cd` they change nothing where they were pasted;
   `publish-starter`'s commit as the maintainer's GitHub no-reply address,
   whatever git's global identity, and push nothing made as another), Path
-  B's workflows (the starter's but for one step, which the README shows, and
-  setup-node told to read nothing in the workspace) and that step run with
-  bash against a stand-in
-  for github.com, a hostile workspace (its files, a `git` of its own that
+  B's workflows (the starter's but for two steps, setup-node and BoxOps',
+  which the README shows, setup-node told to read nothing in the workspace)
+  and the BoxOps step run with bash against a stand-in for github.com, a
+  hostile workspace (its files, a `git` of its own that
   relative folders on PATH would find, git configuration and `GIT_*`
   variables try to run code: sentinel files stay unwritten, git, from PATH's
   absolute folders, is the only program started, and the site is a clean

@@ -16,8 +16,9 @@ repositories (not for working on BoxOps itself):
   what the validator checks) and `upgrading`.
 - `path-b/`: the starter's `deploy.yml` and `check.yml` for organizations
   that allow only GitHub's own actions: git fetches the pinned release and
-  Node.js runs its `dist/action.mjs`. Only the BoxOps step differs from the
-  starter's (a unit test checks), and the starter's README shows that step.
+  Node.js runs its `dist/action.mjs`. They differ from the starter's in two
+  steps, the BoxOps step and the `actions/setup-node` one before it (a unit
+  test checks), and the starter's README shows both.
 
 The starter repository's files are in `starter/`; its `AGENTS.md` is this
 block plus a heading and the team's notes, which a unit test checks.

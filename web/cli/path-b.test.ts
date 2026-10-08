@@ -1,9 +1,10 @@
 // Path B (templates/path-b/): the starter's workflows for organizations that
 // allow only GitHub's own actions, with git and Node.js running the pinned
-// release in place of `uses:`. Checked against the starter's workflows
-// (only the BoxOps step differs), the step the starter's README shows, the
-// tools that read pins, and the step's script itself, run with bash against
-// a stand-in for github.com (git told to fetch from a local repository).
+// release in place of `uses:`. Checked against the starter's workflows (only
+// setup-node, added, and the BoxOps step differ), the steps the starter's
+// README shows, the tools that read pins, and the step's script itself, run
+// with bash against a stand-in for github.com (git told to fetch from a
+// local repository).
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";

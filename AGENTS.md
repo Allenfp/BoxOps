@@ -93,8 +93,9 @@ Tests catch most of these; change the files together anyway.
 - The Pages guard step in `starter/.github/workflows/deploy.yml`
   (`# boxops-guard: N`), `GUARD`, and its copy in
   `templates/path-b/deploy.yml`.
-- `templates/path-b/*.yml` and the starter's two workflows: only the BoxOps
-  step differs, and the starter's `README.md` shows that step.
+- `templates/path-b/*.yml` and the starter's two workflows: they differ in
+  two steps, the BoxOps step and the `actions/setup-node` one Path B adds
+  before it, and the starter's `README.md` shows both.
 - The placeholders in `starter/` (`<RELEASE_COMMIT_SHA>` on pin lines,
   `<SOURCE_COMMIT_SHA>` in links to the docs) and `web/cli/starter.ts`,
   which fills them in for `init` and `npm run publish-starter`.
