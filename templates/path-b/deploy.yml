@@ -25,7 +25,7 @@ concurrency:
 jobs:
   build:
     name: Check and assemble
-    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 in Oct–Nov 2026
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 between 2026-10-19 and 2026-11-19
     timeout-minutes: 10
     permissions:
       contents: read # check out the roadmap
@@ -102,7 +102,7 @@ jobs:
                 private=", then Visibility: Private"
                 if [ "$VISIBILITY" = "public" ]; then private=""; fi # a public repository's site is public
                 echo "::error title=GitHub Pages isn't set up::Settings → Pages → Source: GitHub Actions$private. Re-run this workflow afterwards. Nothing was published." ;;
-              401|403) echo "::error title=Couldn't read the Pages settings (HTTP $status)::If your organization uses an IP allow list, run this workflow on a runner with an allowed IP address (README → Enterprise). Otherwise check this job still has pages: write. Nothing was published." ;;
+              401|403) echo "::error title=Couldn't read the Pages settings (HTTP $status)::If your organization uses an IP allow list, run this workflow on a runner with an allowed IP address (README → Enterprise notes). Otherwise check this job still has pages: write. Nothing was published." ;;
               *) echo "::error title=GitHub API problem (${status:-no response})::Couldn't read the Pages settings: $(head -c 300 "$err" | tr '\n' ' ' | sed 's/ *$//'). Re-run later. Nothing was published." ;;
             esac
             exit 1

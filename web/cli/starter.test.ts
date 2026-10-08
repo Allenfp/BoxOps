@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { main } from "./boxops";
-import { starterFiles, trackedFiles } from "./embedded";
+import { carried, starterFiles, trackedFiles } from "./embedded";
 import { findPins } from "./pins";
 import { HERE } from "./release";
 import { SOURCE_PLACEHOLDER, docLinks, renderStarter } from "./starter";
@@ -87,6 +87,17 @@ describe("starter/'s links to BoxOps' docs", () => {
       return kind === "blob" ? !files.includes(path) : !files.length || files.some((f) => !f.startsWith(`${path}/`));
     });
     expect(missing.map(([path]) => path).sort()).toEqual(TO_WRITE);
+  });
+});
+
+describe("the starter's files and Path B's workflows", () => {
+  it("write dates as YYYY-MM-DD, as BoxOps does everywhere: no month's name, no year alone", () => {
+    const files: Record<string, string> = { ...starterFiles(), "path-b/deploy.yml": carried("templates/path-b/deploy.yml"), "path-b/check.yml": carried("templates/path-b/check.yml") };
+    const month = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*([–-]\s*\w+\.?\s*)?\d{4}\b/g;
+    const year = /(?<![\w.-])(19|20)\d\d(?![\w.]|-\d\d-\d\d)/g;
+    for (const [path, text] of Object.entries(files)) expect([path, text.match(month), text.match(year)]).toEqual([path, null, null]);
+    // The runner's comment, as it is in this repository's own workflows.
+    expect(files[".github/workflows/deploy.yml"]).toContain("# pinned: ubuntu-latest moves to 26.04 between 2026-10-19 and 2026-11-19\n");
   });
 });
 

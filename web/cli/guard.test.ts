@@ -79,6 +79,16 @@ describe("the Pages guard (deploy.yml)", () => {
     });
   });
 
+  it("sends people to sections of the starter's README that are there", () => {
+    const run = guardStep(starterFiles()[".github/workflows/deploy.yml"]).run ?? "";
+    const named = [...run.matchAll(/README → ([^)]+)\)/g)].map((m) => m[1]);
+    const headings = starterFiles()["README.md"].split("\n").flatMap((l) => /^#+ (.+)$/.exec(l)?.slice(1) ?? []);
+    expect(named).toEqual(["Enterprise notes"]);
+    for (const section of named) expect(headings).toContain(section);
+    // What the guard sends people there for.
+    expect(starterFiles()["README.md"]).toContain("- **IP allow lists:**");
+  });
+
   it("lets a private repository publish to its private site, and a public one to a public site", () => {
     expect(guard(pages(), "private")).toEqual({ code: 0, stdout: "", stderr: "" });
     expect(guard(pages(), "internal")).toEqual({ code: 0, stdout: "", stderr: "" });
@@ -95,7 +105,7 @@ describe("the Pages guard (deploy.yml)", () => {
     for (const status of [401, 403]) {
       expect(guard({ error: `gh: Resource not accessible by integration (HTTP ${status})` }, "private")).toMatchObject({
         code: 1,
-        stdout: `::error title=Couldn't read the Pages settings (HTTP ${status})::If your organization uses an IP allow list, run this workflow on a runner with an allowed IP address (README → Enterprise). Otherwise check this job still has pages: write. Nothing was published.`,
+        stdout: `::error title=Couldn't read the Pages settings (HTTP ${status})::If your organization uses an IP allow list, run this workflow on a runner with an allowed IP address (README → Enterprise notes). Otherwise check this job still has pages: write. Nothing was published.`,
       });
     }
     expect(guard({ error: "gh: Server Error (HTTP 500)" }, "private")).toMatchObject({
