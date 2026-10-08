@@ -48,6 +48,10 @@ describe("statedFormat", () => {
     expect(() => statedFormat({ "settings.yaml": "format: [1]\n" })).toThrow(MigrationError);
     expect(() => statedFormat({ "settings.yaml": "title: [unclosed\n" })).toThrow(/^settings.yaml isn’t valid YAML \(.*\); fix it first$/);
     expect(() => statedFormat({ "settings.yaml": "- a list\n" })).toThrow("settings.yaml isn’t a list of settings (`key: value` lines); fix it first");
+    // Each as a file that can't be read for its format (migrate exits 1), not a format it can't migrate (3).
+    for (const settings of ['format: "1"\n', "format: [1]\n", "title: [unclosed\n", "- a list\n"]) {
+      expect(() => statedFormat({ "settings.yaml": settings })).toThrow(expect.objectContaining({ unreadable: true }));
+    }
   });
 });
 
@@ -121,6 +125,10 @@ describe("planMigration", () => {
     expect(() => planMigration({ "settings.yaml": "title: x\n" }, [fromOne], 2)).toThrow(
       "No migration from data format 0: this BoxOps migrates format 1 and later",
     );
+    // Formats it can't migrate from or to, not a file it can't read.
+    expect(() => planMigration({ "settings.yaml": "format: 2\n" })).toThrow(expect.objectContaining({ unreadable: false }));
+    expect(() => planMigration({ "settings.yaml": "title: x\n" }, [fromOne], 2)).toThrow(expect.objectContaining({ unreadable: false }));
+    expect(() => planMigration({ "settings.yaml": "format: one\n" })).toThrow(expect.objectContaining({ unreadable: true }));
   });
 
   // A made-up format 2 that renames a setting, the way a real migration would: with the

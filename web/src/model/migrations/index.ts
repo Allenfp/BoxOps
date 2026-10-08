@@ -44,9 +44,17 @@ export const MIGRATIONS: readonly Migration[] = [m001];
 /** The oldest format `migrate` can bring up to this BoxOps's (BUILD.json's `migratesFrom`). */
 export const MIGRATES_FROM = MIGRATIONS[0].from;
 
-/** The roadmap can't be migrated as it is: say why and stop. */
+/**
+ * The roadmap can't be migrated as it is: say why and stop. `unreadable`:
+ * because settings.yaml can't be read for its format (a problem in the file,
+ * to fix), not because of the format it states (one this BoxOps can't
+ * migrate from or to).
+ */
 export class MigrationError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly unreadable = false,
+  ) {
     super(message);
     this.name = "MigrationError";
   }
@@ -69,8 +77,8 @@ const BOM = "\uFEFF";
 /** settings.yaml as a yaml Document (without a BOM), or a MigrationError saying why it can't be. */
 function settingsDocument(text: string): Document {
   const doc = parseDocument(text.replace(/^\uFEFF/, ""));
-  if (doc.errors.length) throw new MigrationError(`settings.yaml isn’t valid YAML (${doc.errors[0].message.split("\n")[0]}); fix it first`);
-  if (doc.contents !== null && !isMap(doc.contents)) throw new MigrationError("settings.yaml isn’t a list of settings (`key: value` lines); fix it first");
+  if (doc.errors.length) throw new MigrationError(`settings.yaml isn’t valid YAML (${doc.errors[0].message.split("\n")[0]}); fix it first`, true);
+  if (doc.contents !== null && !isMap(doc.contents)) throw new MigrationError("settings.yaml isn’t a list of settings (`key: value` lines); fix it first", true);
   return doc;
 }
 
@@ -89,7 +97,7 @@ export function statedFormat(files: RoadmapFiles): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
     const range = (node as { range?: [number, number, number] | null }).range;
     const written = range ? text.slice(range[0], range[1]).trim() : "…";
-    throw new MigrationError(`settings.yaml: format: ${written} isn’t a whole number; fix it first`);
+    throw new MigrationError(`settings.yaml: format: ${written} isn’t a whole number; fix it first`, true);
   }
   return value;
 }
@@ -147,7 +155,7 @@ export function withFormat(text: string | undefined, n: number): string {
  * stated format up, then sets `format`. Nothing is written; the plan holds
  * the files afterwards. A roadmap already in `target` comes back unchanged.
  * A MigrationError if it's in a newer format, one older than the chain
- * reaches, or settings.yaml can't be read.
+ * reaches, or settings.yaml can't be read (that one `unreadable`).
  */
 export function planMigration(files: RoadmapFiles, migrations: readonly Migration[] = MIGRATIONS, target = FORMAT): MigrationPlan {
   const from = statedFormat(files);

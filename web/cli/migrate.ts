@@ -44,7 +44,8 @@ export async function migrateCommand(dir: string, check: boolean, io: Io): Promi
   } catch (e) {
     if (!(e instanceof MigrationError)) throw e;
     io.err(e.message);
-    return EXIT.format;
+    // 3 for a format this BoxOps can't migrate from or to; a settings.yaml that can't be read for one is a problem, as validate says.
+    return e.unreadable ? EXIT.problems : EXIT.format;
   }
   if (!plan.steps.length) {
     io.out(`${shown}/ is in data format ${FORMAT}, the one this BoxOps reads: nothing to migrate.`);

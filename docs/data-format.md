@@ -108,7 +108,9 @@ format:
   isn't in.
 - `migrate --check` writes nothing, and exits 1 when a migration is needed
   (0 when not). A roadmap in a newer format than the release's is refused
-  ("upgrade BoxOps rather than migrating").
+  ("upgrade BoxOps rather than migrating"), exit 3. One whose
+  `settings.yaml` can't be read for its format (a YAML syntax error, say)
+  is told what's wrong, and exits 1, as `validate` does for it.
 - Nothing migrates data by itself: the action can't write to the
   repository, and the app opens other formats read-only. A migration is a
   commit someone reviews, made on the upgrade's pull request

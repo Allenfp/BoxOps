@@ -1163,7 +1163,9 @@ its version. Releasing it is [docs/releasing.md](releasing.md)'s.
 **Commands** (`node dist/boxops.mjs <command>` here; in a roadmap repository
 `node .boxops/boxops.mjs <command>`, the launcher, which runs the release its
 `deploy.yml` pins). Exit codes: 0 OK, 1 problems, 2 usage or environment, 3
-the roadmap is in another data format.
+the roadmap is in another data format (one `migrate` can't migrate from or
+to, for `migrate`); a `settings.yaml` that can't be read for its format (a
+YAML syntax error, say) is a problem, 1.
 
 | Command | What it does |
 |---|---|

@@ -72,6 +72,23 @@ export class ActionError extends Error {
   }
 }
 
+/**
+ * Step 8's stop. `unreadable`: settings.yaml can't be read for its format (a
+ * problem in the file, as validate counts it), rather than stating another
+ * format or being missing (format 0, to migrate).
+ */
+export class FormatError extends ActionError {
+  constructor(
+    message: string,
+    file: string,
+    line?: number,
+    readonly unreadable = false,
+  ) {
+    super(message, file, line);
+    this.name = "FormatError";
+  }
+}
+
 export interface Inputs {
   mode: "build" | "check";
   roadmap: string;
@@ -252,28 +269,29 @@ export function checkFormat(files: Record<string, string>, roadmap: string, vers
   const file = `${roadmap}/settings.yaml`;
   const text = files["settings.yaml"];
   if (text === undefined) {
-    throw new ActionError(`${file} is missing: every roadmap needs one, with at least \`format: ${FORMAT}\`. Add it, commit and push. The site wasn’t changed`, file);
+    throw new FormatError(`${file} is missing: every roadmap needs one, with at least \`format: ${FORMAT}\`. Add it, commit and push. The site wasn’t changed`, file);
   }
   const format = settingsFormat(text) ?? (migratesFrom(text) === 0 ? 0 : null);
   if (format === null) {
     const issues = parseFile("settings.yaml", text).issues;
     const issue = issues.find((i) => i.message.startsWith("format:")) ?? issues[0];
     const line = issue?.line;
-    throw new ActionError(
+    throw new FormatError(
       `${file}${line === undefined ? "" : `:${line}`}: ${issue?.message ?? `format: expected a whole number, like "format: ${FORMAT}"`}. ` +
         "The data format can’t be read until that’s fixed: fix it, then push. The site wasn’t changed",
       file,
       line,
+      true,
     );
   }
   if (format < FORMAT) {
-    throw new ActionError(
+    throw new FormatError(
       `This roadmap is in data format ${format}; BoxOps ${version} reads format ${FORMAT}. Run \`node .boxops/boxops.mjs migrate\`, commit and push. The site wasn’t changed`,
       file,
     );
   }
   if (format > FORMAT) {
-    throw new ActionError(
+    throw new FormatError(
       `This roadmap is in data format ${format}; BoxOps ${version} reads format ${FORMAT}: this roadmap needs BoxOps that reads format ${format}; upgrade the pin (\`node .boxops/boxops.mjs upgrade\`). The site wasn’t changed`,
       file,
     );

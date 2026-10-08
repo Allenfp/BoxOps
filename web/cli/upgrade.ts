@@ -139,7 +139,9 @@ export async function upgradeCommand(root: string, wanted: string | undefined, c
   const validate = await run(["validate", ...roadmap], next);
 
   io.out("");
-  if (migrate === EXIT.problems) {
+  // A migration to do: migrate --check says one is needed, and validate that the format isn't the new release's
+  // (migrate --check says 1 for a settings.yaml it can't read too, which validate counts as a problem, 1).
+  if (migrate === EXIT.problems && validate === EXIT.format) {
     const folder = o.roadmap === undefined ? "" : ` --roadmap ${/^[\w./-]+$/.test(o.roadmap) ? o.roadmap : shellWord(o.roadmap)}`;
     io.out(`The data format changes in ${tag}: run \`node .boxops/boxops.mjs migrate${folder}\`, then validate again.`);
   }

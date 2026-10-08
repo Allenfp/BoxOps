@@ -212,10 +212,16 @@ describe("build", () => {
 
   it("names what keeps settings.yaml's format from being read, on its line, and takes format: 0 as migrate does", async () => {
     const none = join(tempDir(), "none");
+    // A problem in the file (exit 1, as validate says), not another data format (3).
     const yaml = await run(["build", "--out", none], { cwd: checkout(sampleRepo({ "roadmap/settings.yaml": "format: 1\ntitle: [unclosed\n" })).dir });
     expect([yaml.code, yaml.stderr.split("\n").pop()]).toEqual([
-      3,
+      1,
       "roadmap/settings.yaml:3: YAML syntax error: Flow sequence in block collection must be sufficiently indented and end with a ] at line 3, column 1. The data format can’t be read until that’s fixed: fix it, then push. Nothing was written",
+    ]);
+    const word = await run(["build", "--out", none], { cwd: checkout(sampleRepo({ "roadmap/settings.yaml": "format: one\n" })).dir });
+    expect([word.code, word.stderr.split("\n").pop()]).toEqual([
+      1,
+      'roadmap/settings.yaml:1: format: expected a whole number, like "format: 1". The data format can’t be read until that’s fixed: fix it, then push. Nothing was written',
     ]);
     const zero = await run(["build", "--out", none], { cwd: checkout(sampleRepo({ "roadmap/settings.yaml": "format: 0\n" })).dir });
     expect([zero.code, zero.stderr.split("\n").pop()]).toEqual([3, "This roadmap is in data format 0; BoxOps 0.1.0 reads format 1. Run `node .boxops/boxops.mjs migrate`, commit and push. Nothing was written"]);
@@ -264,6 +270,22 @@ describe("migrate", () => {
       code: 3,
       stderr: "This roadmap is in data format 2, newer than this BoxOps reads (1): upgrade BoxOps rather than migrating",
     });
+  });
+
+  it("says what keeps settings.yaml's format from being read, and exits 1 as validate does: a problem, not another format", async () => {
+    for (const [settings, said] of [
+      ["format: 1\ntitle: [unclosed\n", /^settings\.yaml isn’t valid YAML \(.+\); fix it first$/],
+      ["- format: 1\n", /^settings\.yaml isn’t a list of settings \(`key: value` lines\); fix it first$/],
+      ["format: one\n", /^settings\.yaml: format: one isn’t a whole number; fix it first$/],
+    ] as const) {
+      const repo = checkout(sampleRepo({ "roadmap/settings.yaml": settings }));
+      for (const argv of [["migrate"], ["migrate", "--check"]]) {
+        const r = await run(argv, { cwd: repo.dir });
+        expect([settings, argv, r.code, r.stderr]).toEqual([settings, argv, 1, expect.stringMatching(said)]);
+      }
+      expect((await run(["validate"], { cwd: repo.dir })).code).toBe(1);
+      expect(repo.git(["status", "--porcelain"])).toBe("");
+    }
   });
 });
 

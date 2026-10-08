@@ -16,7 +16,7 @@ import { formatDay } from "../src/model/dates.ts";
 import { FORMAT } from "../src/model/format.ts";
 import { loadRoadmap } from "../src/model/parse.ts";
 import { type Report, buildReport, formatReport } from "../src/model/report.ts";
-import { ActionError, checkFormat, runAction } from "./action.ts";
+import { FormatError, checkFormat, runAction } from "./action.ts";
 import { type Args, EXIT, type Io, type LaunchContext, UsageError, defaultIo, flag, parseArgs, roadmapOf, rootOf } from "./context.ts";
 import { doctorCommand } from "./doctor.ts";
 import { RoadmapReadError } from "./git.ts";
@@ -166,9 +166,10 @@ async function build(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
   try {
     checkFormat(bundle.files, dir, id.version);
   } catch (e) {
-    if (!(e instanceof ActionError)) throw e;
+    if (!(e instanceof FormatError)) throw e;
     io.err(e.message.replace(/The site wasn’t changed$/, "Nothing was written"));
-    return EXIT.format;
+    // As validate: a settings.yaml that can't be read for its format is a problem in it, not another format.
+    return e.unreadable ? EXIT.problems : EXIT.format;
   }
   const loaded = loadRoadmap(bundle.files, bundle.ignored);
   for (const issue of loaded.issues) io.err(issueLine(folder, issue, io.cwd));

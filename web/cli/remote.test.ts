@@ -252,13 +252,27 @@ describe("upgrade", () => {
     expect(await main(["upgrade", "v0.2.0", "--roadmap", "plans"], { root: repo.dir }, io)).toBe(0);
     expect(readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l).argv)).toEqual([["migrate", "--check", "--roadmap", "plans"], ["sync"], ["validate", "--roadmap", "plans"]]);
     expect(io.stdout).toEqual(expect.arrayContaining(["v0.2.0: migrate --check --roadmap plans", "v0.2.0: sync", "v0.2.0: validate --roadmap plans"]));
-    // A release whose migrate --check says a migration is needed: the command to run names the folder.
+    // A release whose migrate --check says a migration is needed, and validate that the format isn't its own: the
+    // command to run names the folder.
     const C = "c".repeat(40);
-    const migrating = releaseFiles({ ...ID, version: "0.3.0", build: "0.3.0+fedcba987654" }, 'export async function main(argv) { return argv[0] === "migrate" ? 1 : 0; }\n');
+    const migrating = releaseFiles({ ...ID, version: "0.3.0", build: "0.3.0+fedcba987654" }, 'export async function main(argv) { return { migrate: 1, validate: 3 }[argv[0]] ?? 0; }\n');
     const gh3 = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.3.0": C } }, files: { [C]: migrating } });
     const io3 = capture({ fetch: gh3.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
-    expect(await main(["upgrade", "v0.3.0", "--roadmap", "our plans"], { root: repo.dir }, io3)).toBe(1);
+    expect(await main(["upgrade", "v0.3.0", "--roadmap", "our plans"], { root: repo.dir }, io3)).toBe(3);
     expect(io3.stdout).toContain("The data format changes in v0.3.0: run `node .boxops/boxops.mjs migrate --roadmap 'our plans'`, then validate again.");
+  });
+
+  it("says nothing of a migration when settings.yaml can't be read: migrate --check and validate both say it's a problem", async () => {
+    const repo = adopter(A);
+    writeFileSync(join(repo.dir, "roadmap", "settings.yaml"), "format: 1\ntitle: [unclosed\n");
+    const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: newRelease(join(tempDir(), "x")) } });
+    const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: tempDir() } });
+    // The new release is this one, printing to `inner`.
+    const inner = capture({ cwd: repo.dir });
+    const load = async () => (argv: string[], ctx: LaunchContext) => main(argv, ctx, inner);
+    expect(await upgradeCommand(repo.dir, "v0.2.0", { root: repo.dir }, io, { load })).toBe(1);
+    expect(inner.stderr[0]).toMatch(/^settings\.yaml isn’t valid YAML \(.+\); fix it first$/);
+    expect(io.stdout.join("\n")).not.toContain("The data format changes");
   });
 
   it("lets the new release's validate warn of the files its sync didn't make its own, such as the Pages guard", async () => {
