@@ -100,12 +100,15 @@ jobs:
             exit 1
           fi
           echo "Releasing BoxOps $V from main@${GITHUB_SHA:0:12}."
+      # Kept 35 days, the longest a run can last: publish downloads the notes
+      # once the maintainer approves, which can take up to 30 (and CI's
+      # release tree is kept as long).
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-notes
           path: ${{ runner.temp }}/notes/notes.md
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 35
 
   verify:
     name: verify
@@ -147,7 +150,8 @@ jobs:
           npm run release:build -- --version "$V" --no-sbom
           echo "tree=$(cat ../build/TREE)" >>"$GITHUB_OUTPUT"
           echo "sums=$(sha256sum ../build/SHA256SUMS | cut -d' ' -f1)" >>"$GITHUB_OUTPUT"
-      # To compare by hand with CI's when they differ (publish uses the outputs).
+      # To compare by hand with CI's when they differ (publish uses the
+      # outputs, and finds out once approved): kept as long as CI's.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reproduce
@@ -155,7 +159,7 @@ jobs:
             build/TREE
             build/SHA256SUMS
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 35
 
   publish:
     name: publish

@@ -230,6 +230,14 @@ describe("the release workflow", () => {
     }
   });
 
+  it("keeps what publish downloads as long as a run can last: its approval can wait 30 days", () => {
+    const kept = (steps: Step[] | undefined, name: string) => steps?.find((s) => s.uses?.startsWith("actions/upload-artifact@") && s.with?.name === name)?.with?.["retention-days"];
+    // CI's tree, a week but for a release's run (release.yml gives the version).
+    expect(kept(ci.jobs["release-tree"].steps, "release-tree")).toBe("${{ inputs.version && 35 || 7 }}");
+    expect(kept(release.jobs.preflight.steps, "release-notes")).toBe(35);
+    expect(kept(release.jobs.reproduce.steps, "reproduce")).toBe(35);
+  });
+
   it("attests the files before it pushes the commit and the tag, so no tag is ever out without its attestations", () => {
     const steps = release.jobs.publish.steps ?? [];
     const push = steps.findIndex((s) => s.env?.DEPLOY_KEY);

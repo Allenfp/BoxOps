@@ -183,12 +183,15 @@ jobs:
           node ../build/release/dist/boxops.mjs sync --check --root ../starter
           node ../build/release/dist/boxops.mjs migrate --check --root ../starter
           node ../build/release/dist/boxops.mjs build --roadmap starter/roadmap --out "$RUNNER_TEMP/starter-site"
+      # Kept a week; for a release (release.yml gives the version), 35 days,
+      # the longest a run can last: its publish job downloads the tree once
+      # the maintainer approves, which can take up to 30.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-tree
           path: build/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: ${{ inputs.version && 35 || 7 }}
 
   e2e:
     name: browser tests
