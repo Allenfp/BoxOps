@@ -490,24 +490,28 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    from what was loaded are touched, list entries (lanes, people, PTO, rules,
    and plain values like tags and engineers) are matched up one by one, and a
    file keeps its BOM and line endings. Each department and box goes to the
-   file it was loaded from. The save is one GraphQL `createCommitOnBranch`
-   call (`github/save.ts`): GitHub makes the commit and moves `main` in one
-   step, only if `main` is still at the head the save was checked against. The
-   commit is authored by the token's owner and committed by GitHub, which
-   signs it "if supported", in GitHub's words; whether that satisfies a
-   *Require signed commits* rule with a fine-grained token is still to be
-   checked live. The app can't choose either name: the committer is GitHub,
-   and the author's email follows the user's email-privacy setting (their
-   `noreply` address when it's private). A ruleset that restricts author or
-   committer emails, or the commit message, by pattern rejects saves unless it
-   allows these. Only files whose blob SHA differs from the head's are sent,
-   and an empty change never is. CI skip markers such as `[skip ci]` in titles
-   are neutralised, so every save deploys. If someone saved in between, GitHub
-   refuses (`STALE_DATA`): the app re-reads only what changed, checks clashes
-   and validates again, then retries on top of their commit, at most twice
-   (their changes then come in with the usual notice, outlined in teal). A
-   same-file clash at that point shows the keep-mine / keep-theirs choice,
-   and changes of theirs that leave ours invalid come in for review; a
+   file it was loaded from. The save is one GraphQL `createCommitOnBranch` call
+   (`github/save.ts`): GitHub makes the commit and moves `main` in one step,
+   only if `main` is still at the head the save was checked against. The commit
+   is authored by the token's owner and committed by GitHub
+   (`GitHub <noreply@github.com>`), which signs it: a save made with a
+   fine-grained token on 2026-10-06 had a valid signature of GitHub's own, so
+   GitHub shows it as Verified ([releasing.md](releasing.md#checked-live) has
+   what was tried). Whether a *Require signed commits* rule accepts saves isn't
+   tried yet (it should: GitHub verifies them). The app can't choose either
+   name: the committer is GitHub, and the author's email follows the saver's
+   email-privacy setting: their primary email, or with "Keep my email addresses
+   private" on, `<id>+<login>@users.noreply.github.com` (both seen the same
+   day). A ruleset that restricts author or committer emails, or the commit
+   message, by pattern rejects saves unless it allows these. Only files whose
+   blob SHA differs from the head's are sent, and an empty change never is. CI
+   skip markers such as `[skip ci]` in titles are neutralised, so every save
+   deploys. If someone saved in between, GitHub refuses (HTTP 200 with a
+   `STALE_DATA` error, as tried live): the app re-reads only what changed,
+   checks clashes and validates again, then retries on top of their commit, at
+   most twice (their changes then come in with the usual notice, outlined in
+   teal). A same-file clash at that point shows the keep-mine / keep-theirs
+   choice, and changes of theirs that leave ours invalid come in for review; a
    re-read that fails (too many changes, the folder's problems, a rate limit)
    stops the save with its own reason. After a failure that leaves unclear
    whether the commit was made (a timeout, a dropped connection, a 5xx, an
@@ -525,12 +529,12 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    single sign-on, with GitHub's authorize link; an organization's token
    policy; an IP allow list; when a rate limit lifts, and whether it's the
    token's or, without one, the network's; being offline; a ruleset, whose
-   bypass list takes teams, roles and apps, never people). Failures a
-   different token fixes offer one, unless the account itself lacks Write
-   access (then it's titled for the account, and Close comes first); GitHub's
-   own answer and request id are under Details. While a save runs, the toolbar says which step it's on, with
-   the seconds once it's slow (a screen reader hears each step, not the
-   seconds).
+   bypass list takes teams, roles and apps, never people). Failures a different
+   token fixes offer one, unless the account itself lacks Write access (then
+   it's titled for the account, and Close comes first); GitHub's own answer and
+   request id are under Details. While a save runs, the toolbar says which step
+   it's on, with the seconds once it's slow (a screen reader hears each step,
+   not the seconds).
 5. **Deploy.** The push triggers the Pages workflow; the site usually updates
    within a minute (deploys queue, so longer if one is already running). The
    saved banner says so: "The site picks it up in about a minute."

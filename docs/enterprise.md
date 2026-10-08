@@ -285,28 +285,35 @@ included, from an address not on the list:
 ## Rulesets
 
 BoxOps saves straight to `main`, each save one commit made through GitHub's
-API, authored by the editor (with the email their privacy setting gives),
-committed by GitHub (`noreply@github.com`), and not a pull request. A ruleset
-on `main`, the repository's or an organization's or enterprise's, refuses
-every save if it:
+API, authored by the editor (with the email their privacy setting gives:
+their primary address, or with "Keep my email addresses private" on,
+`<id>+<username>@users.noreply.github.com`), committed and signed by GitHub
+(`noreply@github.com`), and not a pull request. A ruleset on `main`, the
+repository's or an organization's or enterprise's, refuses every save if
+it:
 
 - requires a pull request, status checks, a merge queue or successful
   deployments, or restricts updates;
 - restricts commit metadata (message, author or committer email) to
   patterns those saves don't match (a committer email pattern must allow
   `noreply@github.com`);
-- requires signed commits: GitHub signs a save's commit where it can, but
-  that hasn't been checked live with a fine-grained token yet, so don't rely
-  on it until it has;
 - restricts file paths, extensions or sizes that roadmap files hit.
 
 Exclude the roadmap repository from such a ruleset, or put a team all
 editors are in (or the Write role) on its bypass list as **Always allow**
 (or Exempt), not "For pull requests only". An organization's or
 enterprise's ruleset takes teams, roles and apps on its bypass list, not
-individual people. Dependabot needs to push its upgrade branch, which
-changes `.github/workflows/`: put it on the bypass list of any push ruleset
-that restricts those paths (the starter's own push ruleset does:
+individual people.
+
+**Require signed commits** should let saves through: GitHub signs each
+save's commit, and shows it as Verified (tried on 2026-10-06 with a
+fine-grained token: the signature valid, and GitHub's own). A save under
+the rule hasn't been tried yet, so try one once it's on; if it's refused,
+the way out is the same.
+
+Dependabot needs to push its upgrade branch, which changes
+`.github/workflows/`: put it on the bypass list of any push ruleset that
+restricts those paths (the starter's own push ruleset does:
 [adopting.md](adopting.md#4-rulesets)). Workflow execution protections
 (Settings → Actions → Policies) must let editors trigger `push`, admins
 `workflow_dispatch`, and `dependabot[bot]` `pull_request`.

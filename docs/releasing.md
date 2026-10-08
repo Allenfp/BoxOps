@@ -442,6 +442,39 @@ needs the release. Instead:
 Never delete a tag or force `releases` back: the rulesets refuse it, and
 roadmap repositories pin the commit.
 
+## Checked live
+
+What has been tried on GitHub itself rather than against the tests'
+stand-ins. On 2026-10-06, by the maintainer, in a private scratch
+repository, saving from the app with a fine-grained token (one
+`createCommitOnBranch` call):
+
+- **Saves are signed.** GraphQL gave the commit's signature as valid and
+  GitHub's own (`isValid`, `wasSignedByGitHub`), and the REST API its
+  verification as `valid`; its committer is `GitHub <noreply@github.com>`.
+  GitHub shows such a commit as Verified.
+- **The author's email follows the saver's setting.** With Settings →
+  Emails → "Keep my email addresses private" off, saves were authored with
+  the account's primary email; once it was on, with
+  `<id>+<login>@users.noreply.github.com`. So editors turn it on before
+  their first save ([adopting.md](adopting.md#editors)).
+- **A save on a head that has moved on is refused** with HTTP 200 and
+  `errors: [{type: "STALE_DATA", message: "Expected branch to point to \"<sha>\" but it did not.  Pull and try again."}]`
+  (two spaces before "Pull"), which the app and `web/e2e/fake-github.ts`
+  expect.
+- **What's written is what was sent:** the message exactly, curly quotes
+  and dashes included; deleting a folder's last file removed the folder;
+  and the branch, read right after the save, showed the new commit.
+- **A tag ruleset whose only bypass is "Deploy keys"** refused the owner's
+  own tag push over SSH (`GH013`), and let a deploy key create and delete
+  tags ([Checking the deploy key's bypass](#checking-the-deploy-keys-bypass)).
+
+Not tried yet: whether a *Require signed commits* ruleset lets the app's
+saves through (it should, as GitHub verifies them: the canary checklist
+below has it), and whether the owner can still make a tag through the REST
+API or the web page's release form (the deploy key's bypass check, before
+the first release).
+
 ## The canary checklist
 
 For each release candidate, in a private repository made from the starter in

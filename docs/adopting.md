@@ -251,11 +251,12 @@ either:
 
 A save's commit is authored by the editor and committed by GitHub (as
 `noreply@github.com`), so a committer email pattern must allow that address.
-**Require signed commits**: GitHub signs a save's commit where it can, but
-whether a save with a fine-grained token passes this rule hasn't been
-checked live yet; until it has, bypass it for the editors' team, or leave
-it off for this repository. A push ruleset that restricts file paths must
-let Dependabot through (it changes `.github/workflows/`).
+**Require signed commits** should let saves through: GitHub signs each
+save's commit and shows it as Verified (tried on 2026-10-06 with a
+fine-grained token), though a save under this rule hasn't been tried yet.
+Once it's on, save once from the app; if the app says GitHub's rules
+blocked the save, do as for the rules above. A push ruleset that restricts
+file paths must let Dependabot through (it changes `.github/workflows/`).
 
 ## Repository admin
 
@@ -354,9 +355,10 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
    target** → **Include default branch**; keep **Restrict deletions** and
    **Block force pushes**, which come ticked. **Create.** Add no rule a
    save can't meet (requiring a pull request, status checks, deployments
-   or a merge queue, restricting updates, commit metadata patterns) unless
-   a team all editors are in is on its bypass list as **Always allow**:
-   saves go straight to `main`.
+   or a merge queue, restricting updates, commit metadata patterns): saves
+   go straight to `main`. Such a rule goes in a ruleset of its own, with a
+   team all editors are in on its bypass list as **Always allow**, if at
+   all: a bypass covers every rule of its ruleset.
 2. **New push ruleset** (private and internal repositories), named
    `boxops-files`: **Bypass list** → **Add bypass** → **Repository admin**
    and **Dependabot**; under **Push protections**, **Restrict file paths**:
@@ -377,11 +379,14 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
      2026-08-25). Once they're generally available, the stricter form is
      to restrict every path and allow only `roadmap/`; check it the same
      way, `.github/` and `.boxops/` included.
-3. **Require signed commits**: compatible with saves from the app only once
-   it's been checked live (GitHub signs a save's commit where it can, but
-   it hasn't been tried with a fine-grained token yet). Until then, leave it
-   off, or put a team all editors are in on its bypass list. With it on,
-   commits pushed by hand must be signed too.
+3. **Require signed commits** (optional): saves from the app should pass
+   it, since GitHub signs each one and shows it as Verified (tried on
+   2026-10-06 with a fine-grained token), but a save under this rule hasn't
+   been tried yet. Tick it in the `main` ruleset, then save once from the
+   app. If the app says GitHub's rules blocked the save, move the rule to a
+   ruleset of its own with a team all editors are in on its bypass list: a
+   bypass covers every rule of its ruleset, deletions and force pushes too.
+   With it on, commits pushed by hand must be signed too.
 
 ### 5. Dependabot
 
