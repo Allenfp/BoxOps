@@ -104,9 +104,16 @@ export const test = base.extend<{
     // 5 s to show. The test's own time limit is the only one.
     await page.locator(".box, .empty-roadmap").first().waitFor();
     // The deployed copy is painted first; then the app asks GitHub for newer saves (when it
-    // may: with a token, or a public repository). Let that start, so it can't take a failure
-    // a test sets up for its save.
-    if (signedIn || visibility === "public") await expect.poll(() => github.calls("ref"), { timeout: 0 }).toBe(1);
+    // may: with a token, or a public repository), giving up 4 s from just before it painted
+    // (App's FRESHNESS_MS). Let that call start, so it can't take a failure a test sets up for
+    // its save; or, should the GitHub client's code come later than that (a very busy machine),
+    // let the 4 s pass and the page's timers catch up: then it's never made.
+    if (signedIn || visibility === "public") {
+      const painted = await page.evaluate(() => performance.now());
+      const late = () => page.evaluate((painted) => performance.now() > painted + 4000, painted);
+      await expect.poll(async () => github.calls("ref") === 1 || (await late()), { timeout: 0 }).toBe(true);
+      await page.evaluate(() => new Promise((caughtUp) => setTimeout(caughtUp)));
+    }
     await use(github);
     expect(github.forbidden, "calls GitHub would refuse, or a correct app never makes").toEqual([]);
   },
