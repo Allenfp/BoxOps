@@ -120,14 +120,25 @@ export async function tagCommit(gh: GitHub, repo: string, tag: string): Promise<
   return peel(gh, repo, ref.object);
 }
 
-/** Every tag of `repo` (`git/matching-refs/tags`), with the commit it names. */
+/**
+ * Every tag of `repo` (`git/matching-refs/tags`), with the commit it names,
+ * each once. GitHub documents no paging for that list, so it may give the
+ * whole list whatever `per_page` and `page` say: pages are asked for while
+ * each brings tags not seen yet, and the first that brings none (the same
+ * list again) is the last.
+ */
 export async function tags(gh: GitHub, repo: string): Promise<{ tag: string; commit: string }[]> {
   const out: { tag: string; commit: string }[] = [];
+  const seen = new Set<string>();
   for (let page = 1; page <= 10; page++) {
     const refs = (await api(gh, `repos/${repo}/git/matching-refs/tags?per_page=100&page=${page}`)) as Ref[];
     if (!Array.isArray(refs)) break;
-    for (const r of refs) out.push({ tag: r.ref.replace(/^refs\/tags\//, ""), commit: await peel(gh, repo, r.object) });
-    if (refs.length < 100) break;
+    const fresh = refs.filter((r) => !seen.has(r.ref));
+    for (const r of fresh) {
+      seen.add(r.ref);
+      out.push({ tag: r.ref.replace(/^refs\/tags\//, ""), commit: await peel(gh, repo, r.object) });
+    }
+    if (refs.length < 100 || !fresh.length) break;
   }
   return out;
 }

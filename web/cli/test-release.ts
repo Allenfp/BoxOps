@@ -57,8 +57,18 @@ export function makeRelease(id: Identity = ID, app: Record<string, string> = APP
   return join(root, "dist");
 }
 
-/** A fake GitHub: tags per repository (tag → commit), releases per repository, and files per commit. Every call is listed in `calls`. */
-export function fakeGitHub(o: { tags?: Record<string, Record<string, string>>; files?: Record<string, Record<string, string | Uint8Array>>; releases?: Record<string, ReleaseEntry[]> }) {
+/**
+ * A fake GitHub: tags per repository (tag → commit), releases per repository,
+ * and files per commit. Every call is listed in `calls`. git/matching-refs,
+ * for which GitHub documents no paging, gives every tag whatever `per_page`
+ * and `page` say, unless `refsPaged` has it page them.
+ */
+export function fakeGitHub(o: {
+  tags?: Record<string, Record<string, string>>;
+  files?: Record<string, Record<string, string | Uint8Array>>;
+  releases?: Record<string, ReleaseEntry[]>;
+  refsPaged?: boolean;
+}) {
   const calls: string[] = [];
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const fetch = async (input: RequestInfo | URL): Promise<Response> => {
@@ -69,8 +79,12 @@ export function fakeGitHub(o: { tags?: Record<string, Record<string, string>>; f
       const sha = o.tags?.[m[1]]?.[m[2]];
       return sha ? json({ ref: `refs/tags/${m[2]}`, object: { type: "commit", sha } }) : json({ message: "Not Found" }, 404);
     }
-    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/git\/matching-refs\/tags\?per_page=100&page=1$/.exec(url);
-    if (m) return json(Object.entries(o.tags?.[m[1]] ?? {}).map(([tag, sha]) => ({ ref: `refs/tags/${tag}`, object: { type: "commit", sha } })));
+    m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/git\/matching-refs\/tags\?per_page=(\d+)&page=(\d+)$/.exec(url);
+    if (m) {
+      const refs = Object.entries(o.tags?.[m[1]] ?? {}).map(([tag, sha]) => ({ ref: `refs/tags/${tag}`, object: { type: "commit", sha } }));
+      const [size, page] = [Number(m[2]), Number(m[3])];
+      return json(o.refsPaged ? refs.slice((page - 1) * size, page * size) : refs);
+    }
     m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\?per_page=30$/.exec(url);
     if (m) return json(o.releases?.[m[1]] ?? []);
     m = /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\/tags\/(.+)$/.exec(url);

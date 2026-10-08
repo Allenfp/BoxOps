@@ -13,7 +13,7 @@ import { cacheRoot } from "./cache";
 import type { LaunchContext } from "./context";
 import { doctorCommand, ghAttest, uncheckedBecause } from "./doctor";
 import { starterFiles } from "./embedded";
-import { gitHub } from "./github";
+import { gitHub, tags } from "./github";
 import { ensureApp, startPreview } from "./preview";
 import { fetchRelease, upgradeCommand } from "./upgrade";
 import { buildJsonText, openRelease, parseBuildJson, verifiedApp } from "./release";
@@ -472,6 +472,23 @@ describe("doctor", () => {
     await doctorCommand(repo.dir, { launcher: 1 }, io2, { attest: ok, cliFile: join(io2.cliDir, "boxops.mjs") });
     expect(io2.stdout).toContain("  problem  Launcher isn’t this release’s text: see what changed (`git log -p -- .boxops/boxops.mjs`), then run `node .boxops/boxops.mjs sync`");
     expect(io2.stdout).toContain("  ok       AGENTS.md’s BoxOps block 1, this release’s text");
+  });
+
+  it("reads each tag once, whether GitHub pages git/matching-refs or gives it whole every time (it documents no paging)", async () => {
+    // 150 tags besides the pin's: more than one page of 100.
+    const others = Object.fromEntries(Array.from({ length: 150 }, (_, i) => [`v0.0.${i}`, B]));
+    for (const refsPaged of [false, true]) {
+      const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { ...others, "v0.1.0": A } }, refsPaged });
+      const found = await tags(gitHub({ GH_TOKEN: "token" }, gh.fetch), "Allenfp/BoxOps");
+      expect([refsPaged, found.length, new Set(found.map((t) => t.tag)).size, found.filter((t) => t.commit === A)]).toEqual([refsPaged, 151, 151, [{ tag: "v0.1.0", commit: A }]]);
+      // Two pages: the second the rest of the list, or the same list again, which ends it.
+      const pages = [1, 2].map((p) => `https://api.github.com/repos/Allenfp/BoxOps/git/matching-refs/tags?per_page=100&page=${p}`);
+      expect(gh.calls).toEqual(pages);
+      const io = capture({ fetch: gh.fetch, env: { GH_TOKEN: "token" } });
+      await doctorCommand(adopter(A).dir, { launcher: 1 }, io, { attest: ok, cliFile: join(io.cliDir, "boxops.mjs") });
+      expect(io.stdout).toContain(`  ok       ${A.slice(0, 12)} is v0.1.0 of Allenfp/BoxOps`);
+      expect(gh.calls).toEqual([...pages, ...pages]);
+    }
   });
 
   it("offline, says it couldn't ask GitHub, and checks the rest", async () => {
