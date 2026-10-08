@@ -633,6 +633,30 @@ const noticeKey = (n: Notice) => `${n.level}:${n.text}`;
 /** `roadmap/people.yaml, line 12: …` */
 const issueText = (i: Issue) => `roadmap/${i.path}${i.line ? `, line ${i.line}` : ""}: ${i.message}`;
 
+/**
+ * The box or PTO editor, opened while its code is on its way (fetched a second after the roadmap
+ * shows): what would close it once it's here takes back its opening, Escape or a press outside it.
+ * A press on another box or PTO block (`cells`) doesn't: its click opens that one instead, as in
+ * the editor.
+ */
+function Opening({ cells, onCancel }: { cells: string; onCancel(): void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as Element).closest(cells)) onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown, true);
+    };
+  }, [cells, onCancel]);
+  return null;
+}
+
 function RoadmapView(props: ViewProps) {
   const { roadmap: base, issues, files, source, lastSave, remote } = props;
   // Read-only, like a branch preview: a roadmap in another data format, a copy
@@ -1821,7 +1845,7 @@ function RoadmapView(props: ViewProps) {
         )}
       </main>
       {view === "timeline" && !preview && selectedPto && ptoOf(selectedPto) && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<Opening cells="[data-pto-key]" onCancel={() => selectPto(null)} />}>
           <PtoEditor
             key={selectedPto.session}
             target={selectedPto}
@@ -1844,7 +1868,7 @@ function RoadmapView(props: ViewProps) {
         </Suspense>
       )}
       {view === "timeline" && !preview && selected && selectedBox && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<Opening cells="[data-box-id]" onCancel={() => select(null)} />}>
           <BoxEditor
             key={selected.session}
             box={selectedBox}

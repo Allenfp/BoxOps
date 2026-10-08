@@ -339,6 +339,87 @@ moveHeld.describe("keys pressed before a keyboard move's code is here", () => {
   });
 });
 
+/**
+ * The box and PTO editors' code held back from the page's first load (which fetches it a second
+ * after the roadmap shows) until `release()`. `arrived()`: it has come, and had the time to show an
+ * editor asked for meanwhile, were one still to show (React shows a part that comes within 300 ms
+ * of its fallback once those 300 ms are up).
+ */
+interface HeldEditors {
+  release(): void;
+  arrived(): Promise<void>;
+}
+const heldEditors = new WeakMap<Page, HeldEditors>();
+const editorsHeld = test.extend<{ editors: HeldEditors }>({
+  page: async ({ page }, use) => {
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => (release = resolve));
+    const code = /\/assets\/(BoxEditor|PtoEditor)-[\w-]+\.js$/;
+    const finished = new Set<string>();
+    page.on("requestfinished", (r) => void (code.test(r.url()) && finished.add(new URL(r.url()).pathname)));
+    await page.route(code, async (route) => {
+      await released;
+      await route.fallback();
+    });
+    const arrived = async () => {
+      await expect.poll(() => finished.size).toBe(2);
+      await page.waitForTimeout(500);
+    };
+    heldEditors.set(page, { release, arrived });
+    await use(page);
+  },
+  editors: async ({ page }, use) => use(heldEditors.get(page)!),
+});
+
+editorsHeld.describe("a box or PTO block opened before its editor's code is here", () => {
+  const editor = (page: Page) => page.getByRole("dialog", { name: /^Edit / });
+
+  editorsHeld("a click away takes the opening back: the editor doesn't open when its code comes", async ({ page, github: _, editors }) => {
+    await box(page, DAGSTER).click();
+    await page.locator(".tl-corner").click();
+    editors.release();
+    await editors.arrived();
+    await expect(editor(page)).toHaveCount(0);
+    // Here now: a click opens it at once.
+    await box(page, DAGSTER).click();
+    await expect(page.getByRole("dialog", { name: "Edit Dagster 2.x upgrade" })).toBeVisible();
+  });
+
+  editorsHeld("Esc takes the opening back, and focus stays on the box", async ({ page, github: _, editors }) => {
+    await box(page, DAGSTER).focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Escape");
+    editors.release();
+    await editors.arrived();
+    await expect(editor(page)).toHaveCount(0);
+    await expect(box(page, DAGSTER)).toBeFocused();
+  });
+
+  editorsHeld("a second click on the box doesn't: the editor opens when its code comes, once", async ({ page, github: _, editors }) => {
+    await box(page, DAGSTER).click();
+    await box(page, DAGSTER).click();
+    editors.release();
+    await expect(page.getByRole("dialog", { name: "Edit Dagster 2.x upgrade" })).toBeVisible();
+    await editors.arrived();
+    await expect(editor(page)).toHaveCount(1);
+    await expect(page.getByRole("dialog", { name: "Edit Dagster 2.x upgrade" })).toBeVisible();
+  });
+
+  editorsHeld("a click away takes a new PTO block's opening back; the block stays", async ({ page, github: _, editors }) => {
+    const row = page.locator('[data-pto-track="data-eng"]');
+    await row.scrollIntoViewIfNeeded();
+    const r = (await row.boundingBox())!;
+    await page.mouse.dblclick(r.x + r.width / 2, r.y + r.height / 2);
+    await expect(page.locator("[data-pto-key]")).toHaveCount(1);
+    await page.locator(".tl-corner").click();
+    editors.release();
+    await editors.arrived();
+    await expect(editor(page)).toHaveCount(0);
+    await expect(page.locator("[data-pto-key]")).toHaveCount(1);
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+  });
+});
+
 test("the key and the keyboard shortcuts are fetched when they first open", async ({ page, github: _ }) => {
   const asked = scripts(page);
   await page.reload();

@@ -599,8 +599,10 @@ against data the new code wrote.
   pointer or focus reaches their tab (the view on screen stays until the new
   one is ready, its tab marked busy); the box, PTO and department editors
   and team settings a second after the roadmap shows, unless it's
-  read-only; the GitHub client and reader once the roadmap shows, for the
-  check for newer saves (`remote.ts`; never for a private repository
+  read-only (a box or PTO block opened before its editor is here opens
+  once it is, unless Esc or a press outside it, which would have closed
+  it, came first); the GitHub client and reader once the roadmap shows,
+  for the check for newer saves (`remote.ts`; never for a private repository
   without a token); a keyboard move's code once the timeline is drawn, when
   the browser is next idle, or at once should the timeline have focus first
   (a box picked up before it's here is picked up once it is, if focus is
