@@ -595,7 +595,8 @@ export class FakeGitHub {
     this.beforeRefUpdate = undefined;
     hook?.();
     if (input.expectedHeadOid !== this.head) {
-      return error("STALE_DATA", `Expected branch to point to "${input.expectedHeadOid}" but it did not. Pull and try again.`);
+      // GitHub's words, two spaces before "Pull" and all, as it answered a stale save on 2026-10-06.
+      return error("STALE_DATA", `Expected branch to point to "${input.expectedHeadOid}" but it did not.  Pull and try again.`);
     }
     const at = this.commits[this.head];
     const files = { ...at.files };

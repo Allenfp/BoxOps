@@ -201,7 +201,7 @@ describe("createCommitOnBranch", () => {
 
   it("classifies GraphQL errors that arrive as HTTP 200", async () => {
     const cases: [object, Record<string, string>, Partial<GitHubFailure> & { detail?: object }][] = [
-      [{ type: "STALE_DATA", message: `Expected branch to point to "${SHA}" but it did not. Pull and try again.` }, {}, { kind: "stale" }],
+      [{ type: "STALE_DATA", message: `Expected branch to point to "${SHA}" but it did not.  Pull and try again.` }, {}, { kind: "stale" }],
       [{ type: "FORBIDDEN", message: "Resource not accessible by personal access token" }, {}, { kind: "read-only" }],
       [{ type: "FORBIDDEN", message: "Resource protected by organization SAML enforcement. You must grant your Personal Access token access to this organization." }, {}, { kind: "sso" }],
       [{ type: "NOT_FOUND", message: "Could not resolve to a Repository with the name 'acme/roadmap'." }, {}, { kind: "no-access" }],
