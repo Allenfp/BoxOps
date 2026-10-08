@@ -4,8 +4,8 @@
 // or Space drops it, one change; Escape or ⌘Z puts it back. Tab, a click
 // anywhere, ⌘S, another view or going read-only drop it too (Timeline.tsx).
 // Each step says the dates, and what they'd do (consequences.ts). While it
-// lasts, others' saves wait (App's polling). The timeline fetches this the
-// first time it has focus, so a move never waits for it.
+// lasts, others' saves wait (App's polling). The timeline fetches this once
+// it's drawn, so a move hardly ever waits for it.
 
 import { announce } from "../a11y/announce";
 import { APPLE, letter, undoHint } from "../a11y/keys";

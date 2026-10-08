@@ -50,7 +50,7 @@ web/
                             drag (moves in working days, where a dragged box
                             lands), keyboard (where the arrow keys go, names),
                             keyMove (moving a box or PTO block from the
-                            keyboard, fetched once the timeline has focus),
+                            keyboard, fetched once the timeline is drawn),
                             consequences (what a keyboard move would do),
                             rows (a department's rows and cells as data, and
                             what's near enough the screen to draw)
@@ -598,10 +598,12 @@ against data the new code wrote.
   and team settings a second after the roadmap shows, unless it's
   read-only; the GitHub client and reader once the roadmap shows, for the
   check for newer saves (`remote.ts`; never for a private repository
-  without a token); a keyboard move's code once the timeline has focus (a
-  box picked up before it's here is picked up once it is, if focus is still
-  on it, nothing was pressed and it came within 4 seconds, and the keys
-  pressed meanwhile move it, ⌘S among them saving it dropped, as mid-move;
+  without a token); a keyboard move's code once the timeline is drawn, when
+  the browser is next idle, or at once should the timeline have focus first
+  (a box picked up before it's here is picked up once it is, if focus is
+  still on it, nothing was pressed and it came within 4 seconds, and the
+  keys pressed meanwhile move it, ⌘S among them saving it dropped, as
+  mid-move;
   Tab meanwhile goes on, as it does mid-move, and the box is moved and
   dropped once the code is here; past 4 seconds, the keys are the
   timeline's again and it says to press Space again); the settings menu's

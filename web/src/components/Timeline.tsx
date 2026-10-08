@@ -71,7 +71,7 @@ export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
 const ALT_KEY = APPLE ? "Option" : "Alt";
 
 type MoveCode = typeof import("../timeline/keyMove");
-/** The code of a keyboard move, once fetched (the first time the timeline has focus); one for every timeline. */
+/** The code of a keyboard move, once fetched (once the timeline is drawn, or has focus); one for every timeline. */
 let moveCode: MoveCode | undefined;
 let moveCodeLoad: Promise<MoveCode> | undefined;
 /** Fetch the keyboard move's code; a failure isn't kept, so the next Space tries again. */
@@ -87,6 +87,15 @@ function loadMoveCode(): Promise<MoveCode> {
 }
 /** How long (ms) keys pressed after Space wait for a keyboard move's code before they're the timeline's again. */
 const MOVE_CODE_WAIT_MS = 4000;
+/** Calls `then` once the browser is next idle (Safari has no requestIdleCallback: a moment later); returns what calls it off. */
+function whenIdle(then: () => void): () => void {
+  if (typeof requestIdleCallback === "function") {
+    const id = requestIdleCallback(then, { timeout: 1000 });
+    return () => cancelIdleCallback(id);
+  }
+  const id = setTimeout(then, 0);
+  return () => clearTimeout(id);
+}
 
 /** The keys of a keyboard move, beside its dates while it lasts (said when it starts). */
 const moveKeysHint = (lanes: boolean) =>
@@ -715,9 +724,9 @@ export function Timeline(props: Props) {
 
   // ---- Moving from the keyboard -----------------------------------------------
   // Space picks a box or PTO block up, and the keys move it (timeline/keyMove.ts,
-  // fetched the first time the timeline has focus). Tab, a click anywhere, ⌘S,
-  // another view or going read-only drop it too; while it lasts, others' saves
-  // wait (App's polling).
+  // fetched once the timeline is drawn). Tab, a click anywhere, ⌘S, another
+  // view or going read-only drop it too; while it lasts, others' saves wait
+  // (App's polling).
 
   const move = useRef<Move | null>(null);
   const [keyMoving, setKeyMoving] = useState(false);
@@ -747,9 +756,14 @@ export function Timeline(props: Props) {
       return m;
     },
   };
-  // The move's code is fetched once the timeline has focus, so Space never waits for it.
+  // The move's code is fetched once the timeline is drawn, when the browser is next idle, or at
+  // once should the timeline have focus before that: Space hardly ever comes before it.
+  useEffect(() => {
+    if (readOnly || moveCode) return;
+    return whenIdle(() => void loadMoveCode().catch(() => {})); // Space tries again, and says if it can't
+  }, [readOnly]);
   const onGridFocus = () => {
-    if (!readOnly && !moveCode) loadMoveCode().catch(() => {}); // Space tries again, and says if it can't
+    if (!readOnly && !moveCode) loadMoveCode().catch(() => {});
   };
   /** Keys pressed after Space while the move's code is on its way: the move's, once it's here. */
   const waiting = useRef<KeyboardEvent[] | null>(null);
