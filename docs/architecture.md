@@ -627,8 +627,10 @@ against data the new code wrote.
   file that failed to load until the page reloads, so a fetch that fails
   after another had failed before it began offers Reload only (a preload
   that fails after it began, the pointer passing a view's tab again,
-  changes nothing). Tried on 2026-10-08, WebKit kept it across a reload
-  (⌘R) too, though not across the app's Reload, whose address is new. A
+  changes nothing). WebKit can keep it across a reload (⌘R) too, though
+  not across the app's Reload, whose address is new (tried on 2026-10-08
+  after a server's error: the reloaded page's first import of the file
+  failed, fetching nothing, and in one try of ten every one did). A
   keyboard move's code that can't be fetched is fetched again when the
   timeline next has focus or Space is pressed, under another address
   (`?try=1`, `?try=2`…, which the site's host ignores; `vite.config.ts`

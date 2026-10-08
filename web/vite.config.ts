@@ -90,8 +90,8 @@ function contentSecurityPolicy(): Plugin {
  * puts module x in (one fetched when it's needed, in a file of its own), relative to the file the
  * string ends up in; in dev, x's own address. The app fetches such a file again under another
  * address after a failure: WebKit and Chromium keep a module that failed to load for its address
- * until the page reloads, and WebKit across a reload too. A module the build puts in no file of
- * its own fails the build.
+ * until the page reloads, and WebKit can keep it across a reload too. A module the build puts in
+ * no file of its own fails the build.
  */
 function chunkAddresses(): Plugin {
   const marker = /boxops-chunk:([\w./-]+)/g;

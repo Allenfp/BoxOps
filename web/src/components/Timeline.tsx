@@ -83,8 +83,8 @@ const MOVE_CODE_FILE = "boxops-chunk:src/timeline/keyMove.ts";
 /**
  * Fetch the keyboard move's code. A failure isn't kept, so the next Space fetches it again: under
  * another address (`?try=1`, which the site's host ignores), as WebKit and Chromium keep a module
- * that failed to load for its address until the page reloads, and WebKit across a reload too. The
- * one that failed may have been the fetch once the timeline was drawn, unasked.
+ * that failed to load for its address until the page reloads, and WebKit can keep it across a
+ * reload too. The one that failed may have been the fetch once the timeline was drawn, unasked.
  */
 function loadMoveCode(): Promise<MoveCode> {
   moveCodeLoad ??= (
