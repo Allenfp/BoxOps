@@ -73,7 +73,10 @@ jobs:
           if ! pages=$(gh api "repos/$GITHUB_REPOSITORY/pages" 2>"$err"); then
             status=$(grep -oE 'HTTP [0-9]{3}' "$err" | tail -n1 | cut -d' ' -f2 || true)
             case "${status:-none}" in
-              404) echo "::error title=GitHub Pages isn't set up::Settings → Pages → Source: GitHub Actions, then Visibility: Private. Re-run this workflow afterwards. Nothing was published." ;;
+              404)
+                private=", then Visibility: Private"
+                if [ "$VISIBILITY" = "public" ]; then private=""; fi # a public repository's site is public
+                echo "::error title=GitHub Pages isn't set up::Settings → Pages → Source: GitHub Actions$private. Re-run this workflow afterwards. Nothing was published." ;;
               401|403) echo "::error title=Couldn't read the Pages settings (HTTP $status)::If your organization uses an IP allow list, run this workflow on a runner with an allowed IP address (README → Enterprise). Otherwise check this job still has pages: write. Nothing was published." ;;
               *) echo "::error title=GitHub API problem (${status:-no response})::Couldn't read the Pages settings: $(head -c 300 "$err" | tr '\n' ' ' | sed 's/ *$//'). Re-run later. Nothing was published." ;;
             esac

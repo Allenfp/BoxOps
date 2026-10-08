@@ -86,12 +86,12 @@ describe("the Pages guard (deploy.yml)", () => {
   });
 
   it("says Pages isn't set up (404), and tells that apart from no access (401, 403) and GitHub failing", () => {
-    expect(guard({ error: "gh: Not Found (HTTP 404)" }, "private")).toEqual({
-      code: 1,
-      stdout:
-        "::error title=GitHub Pages isn't set up::Settings → Pages → Source: GitHub Actions, then Visibility: Private. Re-run this workflow afterwards. Nothing was published.",
-      stderr: "",
-    });
+    const notSetUp = (then: string) => `::error title=GitHub Pages isn't set up::Settings → Pages → Source: GitHub Actions${then}. Re-run this workflow afterwards. Nothing was published.`;
+    expect(guard({ error: "gh: Not Found (HTTP 404)" }, "private")).toEqual({ code: 1, stdout: notSetUp(", then Visibility: Private"), stderr: "" });
+    expect(guard({ error: "gh: Not Found (HTTP 404)" }, "internal")).toMatchObject({ code: 1, stdout: notSetUp(", then Visibility: Private") });
+    // A public repository's site is public: no Visibility to set. Not knowing, the guard says to set it.
+    expect(guard({ error: "gh: Not Found (HTTP 404)" }, "public")).toEqual({ code: 1, stdout: notSetUp(""), stderr: "" });
+    expect(guard({ error: "gh: Not Found (HTTP 404)" }, "")).toMatchObject({ code: 1, stdout: notSetUp(", then Visibility: Private") });
     for (const status of [401, 403]) {
       expect(guard({ error: `gh: Resource not accessible by integration (HTTP ${status})` }, "private")).toMatchObject({
         code: 1,
