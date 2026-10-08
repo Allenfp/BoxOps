@@ -633,8 +633,8 @@ test("a view whose code can't load keeps Try again though a preload fails after 
   table.drop();
   const banner = page.locator(".banner", { hasText: "This part of BoxOps couldn’t load" });
   await expect(banner).toContainText(FIRST);
-  // The pointer leaves the tab and comes back: its preload fails too, as one begun the moment the
-  // view's own fetch failed can, before the banner is drawn (seen once in Firefox).
+  // The pointer leaves the tab and comes back: its preload fails too, after the banner is drawn
+  // (the next test has one fail before).
   const failed = await failedImports(page);
   await page.mouse.move(700, 600);
   await tab.hover();
@@ -645,6 +645,40 @@ test("a view whose code can't load keeps Try again though a preload fails after 
   await tab.click();
   await expect(banner).toContainText(FIRST);
   await expect(banner.getByRole("button", { name: "Try again" })).toBeVisible();
+});
+
+test("a view whose code can't load keeps Try again though a preload fails before its banner is drawn", async ({ page, github: _, browserName }) => {
+  test.skip(browserName !== "webkit", "only WebKit fails a module's import again before React's next task; elsewhere the preload fails after the banner is drawn, as in the test before");
+  // The race seen once in Firefox, made sure of. Once the view's own fetch has failed, and lazyPart
+  // has let go of it (a few microtasks on), the pointer reaches the table's tab again: its preload
+  // imports the file again, which WebKit, keeping the failure, fails at once, before React draws
+  // the banner. The order things came in is noted, to check it was that one.
+  await page.evaluate(() => {
+    const w = window as unknown as { order: string[] };
+    w.order = [];
+    addEventListener("vite:preloadError", () => {
+      w.order.push("failed import");
+      if (w.order.length > 1) return;
+      let later = Promise.resolve();
+      for (let i = 0; i < 8; i++) later = later.then(() => {});
+      void later.then(() => {
+        const tab = [...document.querySelectorAll(".segmented button")].find((b) => b.textContent === "Table")!;
+        tab.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, relatedTarget: document.body, pointerType: "mouse" }));
+      });
+    });
+    new MutationObserver((_, observer) => {
+      if (![...document.querySelectorAll(".banner")].some((b) => b.textContent!.includes("couldn’t load"))) return;
+      w.order.push("banner");
+      observer.disconnect();
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  const table = await failLater(page, /\/assets\/TableView-[\w-]+\.js$/);
+  await page.getByRole("button", { name: "Table", exact: true }).click();
+  table.drop();
+  const banner = page.locator(".banner", { hasText: "This part of BoxOps couldn’t load" });
+  await expect(banner).toContainText(FIRST);
+  await expect(banner.getByRole("button", { name: "Try again" })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { order: string[] }).order)).toEqual(["failed import", "failed import", "banner"]);
 });
 
 test("a view fetched ahead while offline: showing it fetches it again where the browser can, or says to reload", async ({ page, github: _, browserName }) => {
