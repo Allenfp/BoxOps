@@ -8,17 +8,20 @@
 //     with `/`, to the repository's top level): git must track that file, or
 //     a file in that folder, as GitHub shows only what's committed;
 //   - an anchor (`#…`, alone or after a path to a Markdown file): a heading
-//     of that file must make it, as GitHub makes anchors from headings
-//     (lowercase; spaces to hyphens; other punctuation dropped; `-1`, `-2`
-//     on repeats), or an HTML `id` or `name` give it. A file other than
-//     Markdown takes only line anchors (`#L12`, `#L12-L20`);
+//     of that file (`# Title`, or a paragraph underlined with `===` or
+//     `---`) must make it, as GitHub makes anchors from headings (lowercase;
+//     spaces to hyphens; other punctuation dropped; `-1`, `-2` on repeats),
+//     or an HTML `id` or `name` give it. A file other than Markdown takes
+//     only line anchors (`#L12`, `#L12-L20`);
 //   - in starter/, BoxOps' docs as the starter links to them,
 //     `https://github.com/Allenfp/BoxOps/(blob|tree)/<SOURCE_COMMIT_SHA>/…`
 //     (cli/starter.ts fills in the commit), are paths here too;
 //   - a link's text stays on one line: GitHub's docs say a link whose text
 //     spans lines won't work.
 // Other absolute links (https:, mailto:) aren't fetched. Code (fenced blocks,
-// `spans`), HTML comments and YAML front matter are skipped. Problems go to
+// blocks indented 4 columns past the list item they're in or the page,
+// `spans`), HTML comments, YAML front matter and footnotes' `[^1]:` are
+// skipped (a footnote's text isn't: its links are checked). Problems go to
 // stderr as FILE:LINE: …, and as error annotations in GitHub Actions. Exit 0
 // if every link resolves, 1 if not, 2 for a mistake in how it's run. Plain
 // JavaScript and git, as check-changelog.mjs.
@@ -35,34 +38,182 @@ const STARTER_DOCS = /^https:\/\/github\.com\/Allenfp\/BoxOps\/(blob|tree)\/<SOU
 /** `s` with every character but line ends made a space: offsets and line numbers stay. */
 const blank = (s) => s.replace(/[^\n]/g, " ");
 
+/** The `>` marks of the block quotes a line is in, and the spaces after them. */
+const QUOTES = /^(?: {0,3}>[ \t]?)*/;
+
 /** A line without the `>` marks of the block quotes it's in. */
-const unquoted = (line) => line.replace(/^(?: {0,3}>[ \t]?)+/, "");
+const unquoted = (line) => line.slice(QUOTES.exec(line)[0].length);
 
 /**
- * The text without what GitHub never reads as links or headings, blanked out
- * in place: YAML front matter, fenced code blocks and HTML comments.
+ * The width in columns of the spaces and tabs `text` starts with (a tab goes
+ * to the next multiple of 4, counting from column `from`), and where its text
+ * starts.
  */
-export function withoutBlocks(text) {
+function indentOf(text, from = 0) {
+  let column = from;
+  let at = 0;
+  for (; text[at] === " " || text[at] === "\t"; at++) column += text[at] === "\t" ? 4 - (column % 4) : 1;
+  return { width: column - from, at };
+}
+
+// What starts a block, matched on a line's text after its indentation.
+const ATX = /^(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
+const FENCE = /^(`{3,}|~{3,})(.*)$/;
+const BREAK = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
+const UNDERLINE = /^(?:=+|-+)[ \t]*$/;
+const ITEM = /^(?:[-+*]|(\d{1,9})[.)])(?=[ \t]|$)/;
+const FOOTNOTE = /^\[\^[^\]\n]+\]:[ \t]*/;
+const DELIMITER = /^\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
+
+/** A fence that opens a code block: three backticks or tildes (backticks with none in the info string). */
+const fenceOf = (rest) => {
+  const f = FENCE.exec(rest);
+  return f && !(f[1][0] === "`" && f[2].includes("`")) ? f[1] : null;
+};
+
+/**
+ * Whether a line's text, at most 3 columns into its container, ends the
+ * paragraph above it by starting a block. A list item does when it has text,
+ * and is a bullet, starts a list at 1 or is in a list already.
+ */
+function interrupts(rest, inList) {
+  if (ATX.test(rest) || BREAK.test(rest) || fenceOf(rest) || rest.startsWith("<!--")) return true;
+  const item = ITEM.exec(rest);
+  return item !== null && rest.slice(item[0].length).trim() !== "" && (item[1] === undefined || inList || Number(item[1]) === 1);
+}
+
+/**
+ * The text with what GitHub never reads as links or headings blanked out in
+ * place (YAML front matter, fenced and indented code blocks, HTML comments),
+ * and its headings, each { start, end, col, atx }: its first line, the line
+ * after its text (a setext heading's underline), and where its text starts on
+ * the first line. The blocks are read as GitHub reads them (CommonMark), as far
+ * as finding these needs: a line indented 4 or more columns past the list item
+ * it's in (or the page) is code, unless it goes on with a paragraph; a
+ * paragraph underlined with `===` or `---` is a heading.
+ */
+function scan(text) {
   let out = text.replace(/\r\n?/g, "\n");
   const front = /^---\n[\s\S]*?\n(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(out);
   if (front) out = blank(front[0]) + out.slice(front[0].length);
   const lines = out.split("\n");
+  const headings = [];
+  // The content columns of the list items (and footnotes) open, for each depth of block quotes.
+  const stacks = [[]];
+  let depth = 0;
+  // The block the line before was in: blank (or a container's start), para, table, code, html (a
+  // comment going on) or other (a heading, a fence or a break, ended).
+  let prev = "blank";
+  // The paragraph going on: { start, col, base (its container's content column), depth }.
+  let para = null;
   let fence = null;
   for (const [i, line] of lines.entries()) {
+    const inner = unquoted(line);
     if (fence) {
-      const close = /^\s*(`{3,}|~{3,})\s*$/.exec(unquoted(line));
-      if (close && close[1][0] === fence[0] && close[1].length >= fence.length) fence = null;
+      const close = /^\s*(`{3,}|~{3,})\s*$/.exec(inner);
+      if (close && close[1][0] === fence[0] && close[1].length >= fence.length) {
+        fence = null;
+        prev = "other";
+      }
       lines[i] = blank(line);
       continue;
     }
-    const open = /^\s*(`{3,}|~{3,})(.*)$/.exec(unquoted(line));
-    if (open && !(open[1][0] === "`" && open[2].includes("`"))) {
-      fence = open[1];
+    if (prev === "html") {
+      if (line.includes("-->")) prev = "other";
+      continue;
+    }
+    const empty = inner.trim() === "";
+    const quotes = QUOTES.exec(line)[0].split(">").length - 1;
+    if (quotes !== depth) {
+      if (quotes > depth) {
+        for (let d = depth + 1; d <= quotes; d++) stacks[d] = [];
+        prev = "blank"; // A block quote's first line starts its content.
+      } else if (prev !== "para" || empty) {
+        prev = "blank"; // The quote has ended (a line without its mark goes on with its paragraph only).
+      }
+      depth = quotes;
+    }
+    if (empty) {
+      prev = "blank";
+      continue;
+    }
+    const { width, at } = indentOf(inner);
+    const rest = inner.slice(at);
+    const stack = stacks[depth];
+    const base = stack.findLast((col) => col <= width) ?? 0;
+    if (prev === "para" || prev === "table") {
+      if (prev === "para" && para.depth === depth && width >= para.base && width - para.base <= 3 && UNDERLINE.test(rest)) {
+        headings.push({ start: para.start, end: i, col: para.col, atx: false });
+        prev = "other";
+        continue;
+      }
+      if (prev === "para" && para.start === i - 1 && rest.includes("|") && lines[para.start].includes("|") && DELIMITER.test(rest)) {
+        prev = "table";
+        continue;
+      }
+      // Anything else that doesn't start a block goes on with it, lazily too.
+      if (width - base > 3 || !interrupts(rest, stack.length > 0)) continue;
+    }
+    // A block starts: the line is in the list items whose content starts at or before it.
+    while (stack.length && stack.at(-1) > width) stack.pop();
+    if (width - base >= 4) {
       lines[i] = blank(line);
+      prev = "code";
+      continue;
+    }
+    // List items (one inside another on one line too), then what the innermost one's text starts.
+    const quoted = line.length - inner.length;
+    let pos = at;
+    let col = width;
+    let item;
+    let left = null; // What a list item left the line as, when its text doesn't start on it.
+    while (!BREAK.test(inner.slice(pos)) && (item = ITEM.exec(inner.slice(pos)))) {
+      const marker = pos + item[0].length;
+      const after = indentOf(inner.slice(marker), col + item[0].length);
+      if (marker + after.at === inner.length) {
+        stack.push(col + item[0].length + 1);
+        left = "blank"; // No text yet: its content may start on the next line, code too.
+        break;
+      }
+      if (after.width > 4) {
+        stack.push(col + item[0].length + 1);
+        lines[i] = line.slice(0, quoted + marker) + blank(line.slice(quoted + marker));
+        left = "code"; // Its text starts a column after the marker, with code.
+        break;
+      }
+      stack.push(col + item[0].length + after.width);
+      col += item[0].length + after.width;
+      pos = marker + after.at;
+    }
+    if (left) {
+      prev = left;
+      continue;
+    }
+    const first = inner.slice(pos);
+    const opened = fenceOf(first);
+    if (opened) {
+      fence = opened;
+      lines[i] = blank(line);
+      prev = "other";
+    } else if (ATX.test(first)) {
+      headings.push({ start: i, end: i + 1, col: quoted + pos, atx: true });
+      prev = "other";
+    } else if (BREAK.test(first)) {
+      prev = "other";
+    } else if (first.startsWith("<!--")) {
+      prev = first.includes("-->", 4) ? "other" : "html";
+    } else {
+      const note = pos === at ? FOOTNOTE.exec(first) : null;
+      if (note) stack.push(width + 4); // A footnote's lines go on 4 columns in, as a list item's do.
+      para = { start: i, col: quoted + pos + (note ? note[0].length : 0), base: stack.at(-1) ?? 0, depth };
+      prev = "para";
     }
   }
-  return lines.join("\n").replace(/<!--[\s\S]*?-->/g, blank);
+  return { plain: lines.join("\n").replace(/<!--[\s\S]*?-->/g, blank), headings };
 }
+
+/** The text without what GitHub never reads as links or headings, blanked out in place (`scan`). */
+export const withoutBlocks = (text) => scan(text).plain;
 
 /** The text with code spans blanked out (backticks and all); a span never runs past a blank line. */
 export function withoutSpans(text) {
@@ -115,14 +266,27 @@ export const slug = (text) =>
     .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, "")
     .replace(/ /g, "-");
 
-/** Every anchor a Markdown file has: its headings' (repeats numbered as GitHub numbers them), and HTML ids and names. */
+/**
+ * Every anchor a Markdown file has: its headings' (repeats numbered as GitHub
+ * numbers them), and HTML ids and names. A setext heading's lines are its
+ * text, the line breaks dropped as GitHub drops them (they're neither letters
+ * nor spaces).
+ */
 export function anchors(text) {
-  const plain = withoutBlocks(text);
+  const { plain, headings } = scan(text);
+  const lines = plain.split("\n");
   const out = new Set();
-  for (const line of plain.split("\n")) {
-    const m = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/.exec(unquoted(line));
-    if (!m) continue;
-    const base = slug(headingText(m[2] ?? ""));
+  for (const h of headings) {
+    // In an HTML comment, it isn't one.
+    if (!lines[h.end - (h.atx ? 1 : 0)].trim()) continue;
+    const raw = h.atx
+      ? (ATX.exec(lines[h.start].slice(h.col))?.[2] ?? "")
+      : lines
+          .slice(h.start, h.end)
+          .map((line, n) => (n ? unquoted(line) : line.slice(h.col)).trim())
+          .filter(Boolean)
+          .join("\n");
+    const base = slug(headingText(raw));
     let id = base;
     for (let n = 1; out.has(id); n++) id = `${base}-${n}`;
     out.add(id);
@@ -149,7 +313,8 @@ export function links(text) {
   const out = [];
   const inline = /(?<!\\)!?\[((?:[^[\]\\]|\\.|\[(?:[^[\]\\]|\\.)*\])*)\]\(\s*(<[^<>\n]*>|(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.)*\))*)(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?\s*\)/g;
   for (const m of plain.matchAll(inline)) out.push({ dest: m[2], line: lineOf(m.index), multiline: m[1].includes("\n") });
-  for (const m of plain.matchAll(/^ {0,3}\[((?:[^[\]\\]|\\.)+)\]:[ \t]*\n?[ \t]*(<[^<>\n]*>|\S+)/gm)) out.push({ dest: m[2], line: lineOf(m.index), multiline: false });
+  // `[label]: dest`, but not a footnote's `[^label]: text`.
+  for (const m of plain.matchAll(/^ {0,3}\[(?!\^)((?:[^[\]\\]|\\.)+)\]:[ \t]*\n?[ \t]*(<[^<>\n]*>|\S+)/gm)) out.push({ dest: m[2], line: lineOf(m.index), multiline: false });
   for (const m of plain.matchAll(/<[a-z][^>]*?\s(?:href|src)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) out.push({ dest: m[1] ?? m[2], line: lineOf(m.index), multiline: false });
   return out;
 }

@@ -1406,8 +1406,10 @@ a release must have none of.
   passing against it; its checks against a small tree made right and broken
   every way they look for), the changelog's check, the docs' link check
   (this repository's Markdown, and a small repository with a link of every
-  kind it reads, right and broken), the licence files, and
-  the rules every workflow keeps (`scripts/workflows.test.ts`: no
+  kind it reads, right and broken, and blocks read as GitHub reads them:
+  code indented in a list item or not, setext headings, footnotes), the
+  licence files, and the rules every workflow keeps
+  (`scripts/workflows.test.ts`: no
   permissions but each job's own, a time limit on each, checkouts that keep
   no credentials, each action pinned to one commit with its version beside
   it, and the release workflow's deploy key held only by its publish job,
