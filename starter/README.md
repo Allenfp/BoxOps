@@ -40,13 +40,15 @@ as of the release this repository was made with. In short:
   personal access token: resource owner the organization, only this
   repository, **Contents: Read and write** and nothing else. The app's link
   fills that in. If the organization approves tokens, an owner approves it
-  first. The token stays in that browser tab only.
+  first. The token stays in that browser tab only. Before that first Save,
+  each editor turns on **Keep my email addresses private** (GitHub's
+  Settings → Emails).
 
 Before you add real people: everything in `roadmap/` (names, emails,
 managers, notes, PTO and its notes) is in the site's `roadmap.json`, which
 anyone who can open the site can read; each save's commit shows the saver's
-GitHub name and email, unless they keep their email private; and PTO notes
-end up in commit messages, which history keeps. BoxOps'
+GitHub name and email address, unless they keep their email private; and
+PTO notes end up in commit messages. History keeps both. BoxOps'
 [docs/adopting.md](https://github.com/Allenfp/BoxOps/blob/<SOURCE_COMMIT_SHA>/docs/adopting.md#before-you-add-real-people-privacy) has
 more, with making a token and what each error means.
 

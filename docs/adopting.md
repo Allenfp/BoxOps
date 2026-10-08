@@ -79,12 +79,14 @@ Elsewhere:
 >   member of the organization when its base permission (Settings → Member
 >   privileges → Base permissions) is Read or higher, and everyone in the
 >   enterprise when the repository is internal.
-> - **Each save is a commit by the person who saved.** Its author is their
->   GitHub account: their name, and their email address unless they've
->   turned on **Keep my email addresses private** (profile picture →
->   Settings → Emails), which makes it a `…@users.noreply.github.com`
->   address. Everyone who can read the repository can read its history; for
->   a public repository, that's everyone.
+> - **Each save is a commit by the person who saved, with their email
+>   address.** Its author is their GitHub account: their name and their
+>   primary email address, unless they've turned on **Keep my email
+>   addresses private** (profile picture → Settings → Emails), which makes
+>   it `<id>+<username>@users.noreply.github.com`. History keeps it, and
+>   everyone who can read the repository can read its history (for a public
+>   repository, everyone): have each editor turn that setting on before
+>   their first save ([Editors](#editors)).
 > - **PTO notes end up in commit messages, and history keeps them.** The
 >   app writes each save's message from what changed. Booking PTO with a
 >   note writes a line like this one:
@@ -441,7 +443,15 @@ reach ([privacy](#before-you-add-real-people-privacy)).
 Each editor needs Write access to the repository and, at their first save,
 a fine-grained personal access token. Viewing needs neither.
 
-### 1. Create your token
+### 1. Keep your email address private
+
+Each save is a commit authored by your GitHub account, and the
+repository's history, which everyone who can read the repository can read,
+keeps it. Before your first save: profile picture → Settings → **Emails** →
+tick **Keep my email addresses private**. Your saves are then authored with
+`<id>+<username>@users.noreply.github.com`, not your primary email address.
+
+### 2. Create your token
 
 At your first **Save**, the app asks for a token, and its link, **Create a
 fine-grained token for `<org>/<repo>`**, opens GitHub's form filled in for
@@ -466,13 +476,13 @@ GitHub's form:
 
 **Generate token**, and copy it: GitHub shows it once.
 
-### 2. Wait for approval, if asked
+### 3. Wait for approval, if asked
 
 If the organization requires approval, the token is pending until an owner
 approves it (GitHub emails you either way). A pending token reads only
 public repositories, so the app says "This token can't see `<org>/<repo>`".
 
-### 3. Your first save
+### 4. Your first save
 
 Paste the token into the save dialog's **GitHub token** field and save. The
 app keeps it for that browser tab's session alone (it's gone when the tab
