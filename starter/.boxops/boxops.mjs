@@ -39,9 +39,27 @@ if ((process.env.HTTPS_PROXY || process.env.https_proxy) && !process.env.NODE_US
 }
 
 // Paths as the file system spells them (realpathSync.native): on a disk that ignores case (macOS's,
-// Windows'), /Users/me/ROADMAP is /Users/me/roadmap, and a cache there must be seen to be inside.
+// Windows'), /Users/me/ROADMAP is /Users/me/roadmap, and a cache there must be seen to be inside. And
+// folders by what they are, device and inode: one folder can have two paths that no spelling joins
+// (macOS's /System/Volumes/Data/Users/me/roadmap is /Users/me/roadmap; a bind mount on Linux).
 const root = realpathSync.native(join(dirname(fileURLToPath(import.meta.url)), ".."));
-const inRepo = (path) => path === root || path.startsWith(root + sep);
+const folderId = (path) => {
+  try {
+    const st = statSync(path, { bigint: true, throwIfNoEntry: false });
+    return st && st.ino !== 0n ? `${st.dev}:${st.ino}` : undefined; // 0: a file system without inode numbers
+  } catch {
+    return undefined;
+  }
+};
+const rootId = folderId(root);
+const inRepo = (path) => {
+  if (path === root || path.startsWith(root + sep)) return true;
+  for (let at = path; rootId; at = dirname(at)) {
+    if (folderId(at) === rootId) return true;
+    if (dirname(at) === at) break;
+  }
+  return false;
+};
 const read = (file) => {
   try {
     return readFileSync(file, "utf8");

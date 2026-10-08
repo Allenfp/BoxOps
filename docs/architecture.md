@@ -1312,7 +1312,10 @@ but a folder no one else can use, as the launcher makes it: never a symlink
 another user could have left there. One inside the repository is refused,
 since a file committed there would run as code: paths are compared as the
 file system spells them, so that on a disk that ignores case, as macOS's
-and Windows' do, the repository's path in another case is inside it too),
+and Windows' do, the repository's path in another case is inside it too,
+and folders by what they are (device and inode), so that a path to it no
+spelling joins, as macOS's `/System/Volumes/Data/…` is to its `/Users/…`
+or a bind mount on Linux, is inside it too),
 checking the tool against the `BUILD.json` again at each run. Offline it
 takes `$BOXOPS_CLI`, checked against its release's `BUILD.json` when there
 is one beside it, and says so when that's another release than the pin's
@@ -1367,8 +1370,10 @@ a release must have none of.
   rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
   `init` and `preview`'s fetch against a fake GitHub, the launcher run with
   Node (its download against a `fetch` answering from a table, the cache's
-  order and refusals (the repository's path in another case too, and in the
-  temp folder a symlink, or a folder others can read), `BUILD.json` checks,
+  order and refusals (the repository's path in another case, or by macOS's
+  `/System/Volumes/Data`, too, through each of `BOXOPS_CACHE`,
+  `XDG_CACHE_HOME`, `HOME` and `TMPDIR`, and in the temp folder a symlink,
+  or a folder others can read), `BUILD.json` checks,
   `BOXOPS_CLI` (a release other than the pin's, a folder), mirrors and
   tokens (github.com's from `gh`, never another host's), warnings on the
   tool's commands alone, `AGENTS.md` read only as a plain file, proxies and

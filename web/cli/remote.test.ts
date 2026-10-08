@@ -17,7 +17,7 @@ import { gitHub, tags } from "./github";
 import { ensureApp, startPreview } from "./preview";
 import { fetchRelease, upgradeCommand } from "./upgrade";
 import { buildJsonText, openRelease, parseBuildJson, verifiedApp } from "./release";
-import { APP_FILES, ID, IGNORES_CASE, capture, cleanUp, fakeGitHub, releaseFiles, sampleRepo, tempDir } from "./test-release";
+import { APP_FILES, FIRMLINKED, ID, IGNORES_CASE, capture, cleanUp, fakeGitHub, otherPath, releaseFiles, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
 import { SHELLS, block, paste, shellEnv, standIns } from "./test-shell";
 
@@ -358,10 +358,16 @@ describe("upgrade", () => {
     expect(readFileSync(join(dir, "boxops.mjs"))).toEqual(Buffer.from(files["dist/boxops.mjs"]));
   });
 
-  it("never caches inside the repository, whatever case names it on a disk that ignores case", async () => {
+  it("never caches inside the repository, whatever case names it on a disk that ignores case, or by another path to it", async () => {
     const repo = adopter(A);
     const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: newRelease(join(tempDir(), "x")) } });
-    const caches = [join(repo.dir, ".cache"), ...(IGNORES_CASE ? [join(repo.dir.toUpperCase(), ".cache"), join(repo.dir.toUpperCase(), "new", "cache")] : [])];
+    // macOS's /System/Volumes/Data/… path to it, which no spelling of its own joins.
+    const other = otherPath(realpathSync(repo.dir));
+    const caches = [
+      join(repo.dir, ".cache"),
+      ...(IGNORES_CASE ? [join(repo.dir.toUpperCase(), ".cache"), join(repo.dir.toUpperCase(), "new", "cache")] : []),
+      ...(other ? [join(other, ".cache"), join(other, "new", "cache")] : []),
+    ];
     for (const cache of caches) {
       const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: cache } });
       expect(await main(["upgrade", "v0.2.0"], { root: repo.dir }, io)).toBe(2);
@@ -374,6 +380,37 @@ describe("upgrade", () => {
 });
 
 describe("the cache (cli/cache.ts), as the launcher keeps it", () => {
+  it.skipIf(!IGNORES_CASE && !FIRMLINKED)("is never in the repository named in another case, or by another path to it: BOXOPS_CACHE refused, XDG_CACHE_HOME, HOME or TMPDIR passed over", () => {
+    const spellings = [...(IGNORES_CASE ? [(p: string) => p.toUpperCase()] : []), ...(FIRMLINKED ? [(p: string) => otherPath(p) ?? p] : [])];
+    const root = realpathSync(tempDir());
+    const base = realpathSync(tempDir());
+    writeFileSync(join(base, "file"), "");
+    mkdirSync(join(base, "home"));
+    mkdirSync(join(base, "tmp"));
+    const saved = { HOME: process.env.HOME, TMPDIR: process.env.TMPDIR };
+    try {
+      for (const spell of spellings) {
+        const there = spell(root);
+        process.env.HOME = join(base, "home");
+        process.env.TMPDIR = join(base, "tmp");
+        expect(() => cacheRoot({ BOXOPS_CACHE: join(there, ".cache") }, root)).toThrow("BOXOPS_CACHE must be outside this repository");
+        expect(cacheRoot({ XDG_CACHE_HOME: join(there, "cache") }, root)).toBe(join(base, "home", ".cache", "boxops"));
+        process.env.HOME = there;
+        expect(cacheRoot({}, root)).toBe(join(base, "tmp", `boxops-cache-${process.getuid?.() ?? "user"}`));
+        // ~/.cache out of reach (a file in the way), and the temp folder there: none.
+        process.env.HOME = join(base, "file", "home");
+        process.env.TMPDIR = there;
+        expect(() => cacheRoot({}, root)).toThrow("no writable cache folder outside this repository; set BOXOPS_CACHE");
+      }
+      expect(readdirSync(root)).toEqual([]);
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
   it("in the temp folder, which anyone can write to, is only a folder that no one else can use: never a symlink", () => {
     const root = realpathSync(tempDir());
     const base = realpathSync(tempDir());

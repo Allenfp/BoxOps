@@ -30,7 +30,33 @@ function realish(path: string): string {
   return join(realpathSync.native(at), ...rest);
 }
 
-const within = (path: string, top: string) => path === top || path.startsWith(top + sep);
+/** A folder's device and inode, as "dev:ino", which no other path to it changes; undefined if it isn't there (or its file system has no inode numbers). */
+function folderId(path: string): string | undefined {
+  try {
+    const st = statSync(path, { bigint: true, throwIfNoEntry: false });
+    return st && st.ino !== 0n ? `${st.dev}:${st.ino}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether `path` (made yet or not) is the folder `top` (as realpathSync.native
+ * spells it) or in it: by its own path, so spelled, or by a folder it would
+ * be in being `top` itself, by device and inode. One folder can have two
+ * paths that no spelling joins: macOS's /System/Volumes/Data/Users/me/roadmap
+ * is /Users/me/roadmap, and a bind mount on Linux is another.
+ */
+function within(path: string, top: string): boolean {
+  const at = realish(path);
+  if (at === top || at.startsWith(top + sep)) return true;
+  const id = folderId(top);
+  for (let p = at; id; p = dirname(p)) {
+    if (folderId(p) === id) return true;
+    if (dirname(p) === p) break;
+  }
+  return false;
+}
 
 /**
  * The cache folder: $BOXOPS_CACHE, $XDG_CACHE_HOME/boxops (an absolute
@@ -55,7 +81,7 @@ export function cacheRoot(env: Env, root: string): string {
   for (const [i, dir] of tries.entries()) {
     if (!dir) continue;
     try {
-      if (within(realish(dir), top)) {
+      if (within(dir, top)) {
         if (i === 0) throw new Error("BOXOPS_CACHE must be outside this repository");
         continue;
       }
@@ -84,7 +110,7 @@ export function cacheRoot(env: Env, root: string): string {
  */
 export function releaseCache(env: Env, root: string, repo: string, sha: string): string {
   const dir = join(cacheRoot(env, root), repo.replace("/", "__"), sha);
-  if (within(realish(dir), realpathSync.native(root))) throw new Error(`${dir} is inside this repository: set BOXOPS_CACHE to a folder outside it`);
+  if (within(dir, realpathSync.native(root))) throw new Error(`${dir} is inside this repository: set BOXOPS_CACHE to a folder outside it`);
   return dir;
 }
 

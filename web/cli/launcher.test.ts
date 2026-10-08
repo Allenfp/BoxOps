@@ -7,13 +7,13 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WARNING_COMMANDS } from "./boxops";
 import { type BuildJson, buildJsonText, makeBuildJson } from "./release";
 import { launcherText } from "./sync";
-import { ID, IGNORES_CASE, cleanUp, tempDir } from "./test-release";
+import { FIRMLINKED, ID, IGNORES_CASE, cleanUp, otherPath, tempDir } from "./test-release";
 
 // Each test starts Node with the launcher, some several times: over a second on a quiet machine,
 // and several times that under load, near or past vitest's 5.
@@ -358,22 +358,54 @@ describe("the launcher's cache", () => {
     expect(readdirSync(root).sort()).toEqual([".boxops", ".github"]);
   });
 
-  it.skipIf(!IGNORES_CASE)("is never inside the repository, whatever case names it, on a disk that ignores case: a tool planted there never runs", () => {
+  /**
+   * The launcher in a repository with a tool planted where each cache would keep the pinned release
+   * there (with a BUILD.json that describes it), and each of BOXOPS_CACHE, XDG_CACHE_HOME, HOME and
+   * TMPDIR naming a folder in the repository by `there`, its path spelled another way: the planted tool
+   * never runs, and nothing is made there.
+   */
+  function neverInRepository(there: (root: string) => string) {
     const root = launcherRepo();
-    // A tool in the repository where a cache there would keep it, with a BUILD.json that describes it.
-    const planted = "export async function main() { console.log('PLANTED TOOL RAN'); return 0; }\n";
-    const dir = join(root, ".cache", "Allenfp__BoxOps", A);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "boxops.mjs"), planted);
-    writeFileSync(join(dir, "BUILD.json"), buildJson(planted));
-    for (const cache of [join(root.toUpperCase(), ".cache"), join(root, ".CACHE"), join(root.toUpperCase(), "new", "cache")]) {
-      const r = launch(root, ["version"], { env: { BOXOPS_CACHE: cache }, github: raw("Allenfp/BoxOps", A) });
+    const ran = join(tempDir(), "ran");
+    const planted = `import { writeFileSync } from "node:fs";\nexport async function main() { writeFileSync(${JSON.stringify(ran)}, ""); return 0; }\n`;
+    for (const cache of [".cache", "cache/boxops", ".cache/boxops", `boxops-cache-${process.getuid?.() ?? "user"}`]) {
+      const dir = join(root, cache, "Allenfp__BoxOps", A);
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      writeFileSync(join(dir, "boxops.mjs"), planted);
+      writeFileSync(join(dir, "BUILD.json"), buildJson(planted));
+    }
+    const github = raw("Allenfp/BoxOps", A);
+    // BOXOPS_CACHE there: refused, before any download.
+    for (const cache of [join(there(root), ".cache"), join(there(root), "new", "cache")]) {
+      const r = launch(root, ["version"], { env: { BOXOPS_CACHE: cache }, github });
       expect([cache, r.code, r.stdout, r.stderr, r.calls]).toEqual([cache, 2, "", "boxops: BOXOPS_CACHE must be outside this repository", []]);
     }
-    // XDG_CACHE_HOME there: passed over for ~/.cache/boxops.
-    const xdg = launch(root, ["version"], { env: { XDG_CACHE_HOME: join(root.toUpperCase(), "cache") }, github: raw("Allenfp/BoxOps", A) });
-    expect([xdg.code, xdg.ran?.argv, xdg.calls.length]).toEqual([0, ["version"], 2]);
-    expect(readdirSync(root).sort()).toEqual([".boxops", ".cache", ".github"]);
+    // XDG_CACHE_HOME or HOME there: passed over, for ~/.cache/boxops or the temp folder's.
+    for (const env of [{ XDG_CACHE_HOME: join(there(root), "cache") }, { HOME: there(root) }] as Record<string, string>[]) {
+      const r = launch(root, ["version"], { env, github });
+      expect([env, r.code, r.ran?.argv, r.calls.length]).toEqual([env, 0, ["version"], 2]);
+    }
+    // TMPDIR there, with ~/.cache out of reach (a file in the way): no cache at all.
+    const file = join(tempDir(), "file");
+    writeFileSync(file, "");
+    const tmp = launch(root, ["version"], { env: { TMPDIR: there(root), HOME: join(file, "home") }, github });
+    expect([tmp.code, tmp.stderr, tmp.calls]).toEqual([2, "boxops: no writable cache folder outside this repository; set BOXOPS_CACHE (a folder of yours) or BOXOPS_CLI", []]);
+    expect(existsSync(ran)).toBe(false);
+    // Only what was planted: no .write-test, nothing downloaded.
+    const made = readdirSync(root, { recursive: true }).map(String).filter((p) => !p.includes("Allenfp__BoxOps") && !p.startsWith(".boxops") && !p.startsWith(".github"));
+    expect(made.sort()).toEqual([".cache", "cache", "cache/boxops", ".cache/boxops", `boxops-cache-${process.getuid?.() ?? "user"}`].map((p) => p.split("/").join(sep)).sort());
+  }
+
+  it.skipIf(!IGNORES_CASE)("is never inside the repository, whatever case names it, on a disk that ignores case: a tool planted there never runs", () => {
+    neverInRepository((root) => root.toUpperCase());
+    // The repository's own path, the cache's in another case.
+    const root = launcherRepo();
+    const r = launch(root, ["version"], { env: { BOXOPS_CACHE: join(root, ".CACHE") }, github: raw("Allenfp/BoxOps", A) });
+    expect([r.code, r.stderr, r.calls]).toEqual([2, "boxops: BOXOPS_CACHE must be outside this repository", []]);
+  });
+
+  it.skipIf(!FIRMLINKED)("is never inside the repository by a path no spelling of it joins (macOS's /System/Volumes/Data/…): a tool planted there never runs", () => {
+    neverInRepository((root) => otherPath(root) ?? "");
   });
 });
 

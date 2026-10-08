@@ -3,7 +3,7 @@
 // GitHub serving releases, a GitHub Actions environment around a TestRepo,
 // the starter's sample roadmap, and a reader for $GITHUB_OUTPUT.
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Io } from "./context";
@@ -23,6 +23,24 @@ export const APP_FILES: Record<string, string> = {
 
 /** Whether the temp folder's disk ignores case, as macOS's and Windows' do by default. */
 export const IGNORES_CASE = existsSync(tmpdir().toUpperCase()) && existsSync(tmpdir().toLowerCase());
+
+/**
+ * Another path to the folder `dir` that no spelling of it joins, as macOS's
+ * firmlinks give one: /System/Volumes/Data/private/var/… is /private/var/…,
+ * and realpath leaves each as it is. Undefined where there's none.
+ */
+export function otherPath(dir: string): string | undefined {
+  const other = join("/System/Volumes/Data", dir);
+  try {
+    const [a, b] = [statSync(dir, { bigint: true }), statSync(other, { bigint: true })];
+    return a.dev === b.dev && a.ino === b.ino && realpathSync.native(other) !== realpathSync.native(dir) ? other : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether the temp folder has another path that no spelling of it joins (macOS's firmlinks). */
+export const FIRMLINKED = otherPath(realpathSync(tmpdir())) !== undefined;
 
 /** Temp folders made here, removed by cleanUp(). */
 const temps: string[] = [];
