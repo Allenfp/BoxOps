@@ -492,9 +492,10 @@ a GitHub Enterprise Cloud organization with private Pages:
 - `GET /pages` works with the deploy job's token.
 - A fine-grained token's approval by the organization, and a save with it.
 - A signed-commit ruleset, and a save from the app.
-- The push ruleset (`.github/**/*`, `.boxops/**/*`, `AGENTS.md`,
-  `CLAUDE.md`) refuses an editor's workflow and launcher edits, and lets
-  Dependabot push.
+- The push ruleset ([adopting.md](adopting.md#4-rulesets): every path
+  but `roadmap/**/*`, the hidden ones too) refuses an editor's edits to a
+  workflow, the launcher, `README.md` and a new `.claude/settings.json`,
+  and lets the app's saves and Dependabot through.
 - Once, with the push ruleset off for it: whether an editor's fine-grained
   token (Contents alone) can commit a workflow file that's the same, path
   and contents, as one on another branch. GitHub documents that for the

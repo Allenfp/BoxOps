@@ -7,9 +7,9 @@ pull-request check and `node .boxops/boxops.mjs` (the launcher, which reads
 the pin in `deploy.yml`) all run that release, so upgrading is moving the
 pin, and sometimes doing what the new release asks: migrating the data or
 refreshing two files BoxOps manages. A repository admin does it, since the
-push ruleset ([adopting.md](adopting.md#4-rulesets)) keeps `.github/`,
-`.boxops/` and `AGENTS.md` to admins and Dependabot; an AI assistant can do
-the steps when asked.
+push ruleset ([adopting.md](adopting.md#4-rulesets)) keeps everything
+outside `roadmap/` to admins and Dependabot; an AI assistant can do the
+steps when asked.
 
 What's in a release, and how one is made and checked: [security.md](security.md).
 

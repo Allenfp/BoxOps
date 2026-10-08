@@ -362,25 +362,43 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
    team all editors are in on its bypass list as **Always allow**, if at
    all: a bypass covers every rule of its ruleset.
 2. **New push ruleset** (private and internal repositories), named
-   `boxops-files`: **Bypass list** → **Add bypass** → **Repository admin**
-   and **Dependabot**; under **Push protections**, **Restrict file paths**:
-   `.github/**/*`, `.boxops/**/*`, `AGENTS.md` and `CLAUDE.md`. **Create.**
-   - Why: an editor's token can change any file, and these decide what
-     runs: the workflows pin the release that builds your site, the
-     launcher runs on teammates' laptops, and `AGENTS.md` instructs their
-     AI assistants. Editors still change `roadmap/` freely.
+   `roadmap-only`: **Bypass list** → **Add bypass** → **Repository admin**
+   and **Dependabot**; under **Push protections**, tick **Restrict file
+   paths** and add three paths, `**/*`, `**/.*` and `**/.*/**/*`, then,
+   under its **Allowed exceptions**, `roadmap/**/*`. **Create.** Only
+   repository admins and Dependabot can then change anything outside
+   `roadmap/`; editors change `roadmap/` freely.
+   - Why: an editor's token can change any file, and many decide what
+     runs. The workflows pin the release that builds your site; the
+     launcher runs on teammates' laptops; `AGENTS.md` and `CLAUDE.md`
+     instruct their AI assistants. And other tools on a teammate's laptop
+     act on files a repository holds: Claude Code's `.claude/` (its
+     settings' hooks run commands) and `.mcp.json`, Cursor's `.cursor/`,
+     VS Code's `.vscode/` (a task in `tasks.json` can run when the folder
+     opens), JetBrains' `.idea/`, `.devcontainer/`, `.gitattributes` and
+     `.gitmodules`, git hook managers' files (`.husky/`, `lefthook.yml`,
+     `.pre-commit-config.yaml`), direnv's `.envrc`, `.npmrc`,
+     `package.json` and more. Allowing only `roadmap/` covers them all,
+     and whatever a new tool reads next.
+   - Why three: GitHub matches paths with Ruby's `fnmatch` and its
+     `FNM_PATHNAME` flag, where `*` and `**/` don't match a name that
+     starts with `.` (unless `FNM_DOTMATCH` is set too, which GitHub's docs
+     don't say). So `**/*` alone may leave out `.envrc` and `.github/`:
+     `**/.*` covers such files, and `**/.*/**/*` what's in such folders.
    - Dependabot must be on the bypass list, or it can't push the branch of
      its upgrade pull request (which changes the workflows). Push rulesets
      also apply to the repository's forks.
-   - GitHub matches these paths as `fnmatch` patterns, in which `**/` is
-     any number of folders: `.github/**` alone would cover
-     `.github/dependabot.yml` but not `.github/workflows/deploy.yml`.
-   - Check it: someone with Write but not Admin edits `AGENTS.md` on
-     GitHub's web page; the commit must be refused.
-   - Allowed exceptions to path rules are in public preview (since
-     2026-08-25). Once they're generally available, the stricter form is
-     to restrict every path and allow only `roadmap/`; check it the same
-     way, `.github/` and `.boxops/` included.
+   - Check it: someone with Write but not Admin, on GitHub's web page,
+     edits `README.md`, and adds a file `.claude/settings.json`: both
+     commits must be refused. A save from the app must still go through.
+   - Allowed exceptions are in public preview (since 2026-08-25). Without
+     them, restrict the paths themselves instead: `.github/**/*`,
+     `.boxops/**/*`, `AGENTS.md` and `CLAUDE.md`, and those of the files
+     above that your teammates' tools read, such as `.claude/**/*`,
+     `.mcp.json` and `.vscode/**/*` (in `fnmatch`, `**/` is any number of
+     folders: `.github/**` alone would cover `.github/dependabot.yml` but
+     not `.github/workflows/deploy.yml`). A list covers only the tools it
+     names.
 3. **Require signed commits** (optional): saves from the app should pass
    it, since GitHub signs each one and shows it as Verified (tried on
    2026-10-06 with a fine-grained token), but a save under this rule hasn't
@@ -411,9 +429,9 @@ then the role:
   single sign-on, if the organization uses it).
 - **Write** for editors: a token can't do more than its owner can, so each
   editor needs Write as well as a token ([Editors](#editors)).
-- **Admin** for whoever changes these settings, or merges the upgrade pull
-  requests that change files in `.github/` and `.boxops/` (the push ruleset
-  lets admins through).
+- **Admin** for whoever changes these settings, merges the upgrade pull
+  requests (they change `.github/workflows/`) or changes any other file
+  outside `roadmap/` (the push ruleset lets admins through).
 
 Remember the organization's base permission and an internal repository's
 reach ([privacy](#before-you-add-real-people-privacy)).
@@ -556,15 +574,16 @@ these differences:
 - Settings → Pages: Source **GitHub Actions**; there's no visibility to
   choose. The deploy publishes a public repository to a public site.
 - Push rulesets aren't available for public repositories. Anyone with
-  Write can change `.boxops/boxops.mjs` and `AGENTS.md`, with their token or
-  as themselves, and the workflows as themselves (on GitHub's web page, or
-  with git; their token can't, having no Workflows permission, except to
-  copy a workflow file that's already on another branch, unchanged:
-  [security.md](security.md#the-chain-of-trust)). Give Write only to people
-  you trust with those files, delete branches once they're merged
-  (Settings → General → **Automatically delete head branches** does it for
-  pull requests), and look over what changes there now and then:
-  `git log -p -- .github .boxops AGENTS.md CLAUDE.md`. Each deploy also
+  Write can change any file, with their token or as themselves:
+  `.boxops/boxops.mjs`, `AGENTS.md` and the other files teammates' tools
+  act on ([Rulesets](#4-rulesets) lists them), and the workflows as
+  themselves (on GitHub's web page, or with git; their token can't, having
+  no Workflows permission, except to copy a workflow file that's already
+  on another branch, unchanged: [security.md](security.md#the-chain-of-trust)).
+  Give Write only to people you trust with those files, delete branches
+  once they're merged (Settings → General → **Automatically delete head
+  branches** does it for pull requests), and look over what changes outside
+  `roadmap/` now and then: `git log -p -- . ':!roadmap'`. Each deploy also
   warns when the launcher or `AGENTS.md`'s BoxOps block isn't the
   release's text.
 - The token's **Resource owner** is the repository's owner: the

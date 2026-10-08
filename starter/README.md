@@ -23,9 +23,10 @@ as of the release this repository was made with. In short:
    only. Then Actions → Deploy roadmap → **Re-run all jobs**.
 4. **Settings → Rulesets:** a branch ruleset on `main` that restricts
    deletions and blocks force pushes (no required pull requests or checks:
-   saves go straight to `main`), and a push ruleset that restricts
-   `.github/**/*`, `.boxops/**/*`, `AGENTS.md` and `CLAUDE.md`, with
-   **Repository admin** and **Dependabot** allowed to bypass it. A new
+   saves go straight to `main`), and a push ruleset that lets only
+   **Repository admin** and **Dependabot**, its bypass list, change
+   anything outside `roadmap/`: Restrict file paths `**/*`, `**/.*` and
+   `**/.*/**/*`, with `roadmap/**/*` as its allowed exception. A new
    ruleset starts Disabled: make each Active.
 5. **Dependabot** brings each BoxOps upgrade as a pull request, as
    `.github/dependabot.yml` asks (keep it); with a private mirror of BoxOps,

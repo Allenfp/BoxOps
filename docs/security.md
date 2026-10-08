@@ -23,10 +23,10 @@ What a roadmap repository's site runs, and what each link rests on:
 
 1. **Its workflows**, `.github/workflows/deploy.yml` and `check.yml`. An
    editor's token can't change them (it has no Workflows permission), and
-   the push ruleset keeps them, the launcher and `AGENTS.md` to repository
-   admins and Dependabot ([adopting.md](adopting.md#4-rulesets)). Without
-   the push ruleset (a public repository can't have one), the token has
-   one way in: GitHub lets a workflow file be committed without that
+   the push ruleset keeps them, and every other file outside `roadmap/`, to
+   repository admins and Dependabot ([adopting.md](adopting.md#4-rulesets)).
+   Without the push ruleset (a public repository can't have one), the token
+   has one way in: GitHub lets a workflow file be committed without that
    permission if the same file, path and contents, is on another branch of
    the repository. GitHub documents this for its classic `workflow` scope,
    and it presumably holds for a fine-grained token's Workflows permission
@@ -53,7 +53,7 @@ What a roadmap repository's site runs, and what each link rests on:
 | Who | Can change the data? | Can change the code the site runs? | What stops it |
 |---|---|---|---|
 | A viewer | No | No | A private site opens only for people with read access. |
-| An editor's token (Contents: write, this repository) | Yes | No (without the push ruleset, only by copying a workflow that's already on another branch: [1 above](#the-chain-of-trust)) | No Workflows permission; the push ruleset keeps `.github/`, `.boxops/` and `AGENTS.md` to admins; the action reads the roadmap from git's objects and refuses symlinks and submodules. |
+| An editor's token (Contents: write, this repository) | Yes | No (without the push ruleset, only by copying a workflow that's already on another branch: [1 above](#the-chain-of-trust)) | No Workflows permission; the push ruleset keeps everything outside `roadmap/` to admins; the action reads the roadmap from git's objects and refuses symlinks and submodules. |
 | A writer as themselves (web page, git) | Yes | Only without the push ruleset | The push ruleset (its bypass: repository admins and Dependabot). |
 | A repository admin, Dependabot | Through a pull request | Admins merge pin changes | Dependabot proposes released tags only, 3 days after they're out; the release notes are in its pull request; **Check roadmap** runs the new release first. |
 | BoxOps' maintainer | No | Only for repositories that merge an upgrade | The `release` environment's approval, rulesets that let only the deploy key make release commits and tags, immutable releases, attestations. |
@@ -240,19 +240,25 @@ free of workflows that restore caches. The starter's use none.
    a token with admin rights for those settings alone
    ([releasing.md](releasing.md#one-off-settings)).
 4. **The launcher is code in your repository.** Only the push ruleset keeps
-   editors from changing it, and public repositories can't have one.
-   Without it, an editor could change what teammates' laptops run when they
-   use `node .boxops/boxops.mjs` (not what the site runs), or `AGENTS.md`'s
-   BoxOps block, which assistants follow. Every deploy warns when either
-   isn't the release's text, whatever number it gives: that check is the
-   release's own code, and runs neither. `doctor` and `sync --check`
-   compare them with the release's too, but they run through the launcher,
-   so a launcher changed to deceive has run before either reports, and
-   could make them say anything. Two checks run nothing of the
-   repository's: reading what changed, `git log -p -- .boxops AGENTS.md`;
-   and the release's own tool, run directly: download the `boxops.mjs` of
-   the release your workflows pin, check it
-   ([Checking a release](#checking-a-release)), and run
+   editors from changing it, and public repositories can't have one. Without
+   it, an editor could change what teammates' laptops run when they use
+   `node .boxops/boxops.mjs` (not what the site runs), or `AGENTS.md`'s
+   BoxOps block, which assistants follow, or any other file a teammate's
+   tools act on, of which BoxOps checks none: `.claude/` settings and hooks,
+   `.vscode/tasks.json`, `.devcontainer/`, git hook managers' files,
+   `.envrc`, `.npmrc` and the like. The push ruleset that lets only
+   `roadmap/` change keeps all of them to admins
+   ([adopting.md](adopting.md#4-rulesets)); without one, look over what
+   changes outside `roadmap/`: `git log -p -- . ':!roadmap'`. Every deploy
+   warns when the launcher or the block isn't the release's text, whatever
+   number it gives: that check is the release's own code, and runs neither.
+   `doctor` and `sync --check` compare them with the release's too, but they
+   run through the launcher, so a launcher changed to deceive has run before
+   either reports, and could make them say anything. Two checks run nothing
+   of the repository's: reading what changed,
+   `git log -p -- .boxops AGENTS.md`; and the release's own tool, run
+   directly: download the `boxops.mjs` of the release your workflows pin,
+   check it ([Checking a release](#checking-a-release)), and run
    `node <that file> sync --check` in the repository; then
    `node <that file> sync` puts the release's text back, again without
    running the repository's launcher.

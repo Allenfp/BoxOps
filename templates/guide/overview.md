@@ -87,9 +87,10 @@ a commit on `main`. So:
    keep. Never force-push.
 
 Don't open pull requests or create branches for roadmap edits unless asked:
-the team's convention is that saves go straight to `main`. Changes to
-`.github/`, `.boxops/`, `AGENTS.md` and `CLAUDE.md` are for a repository
-admin (a push rule may refuse them from anyone else).
+the team's convention is that saves go straight to `main`. Changes outside
+`roadmap/`, to `.github/`, `.boxops/`, `AGENTS.md` and `CLAUDE.md` above
+all, are for a repository admin (a push rule may refuse them from anyone
+else).
 
 ## The tools and the network
 
