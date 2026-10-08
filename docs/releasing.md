@@ -69,7 +69,10 @@ review. Its jobs:
    `X.Y.Z-rc.N`; `web/package.json` says `X.Y.Z`; `CHANGELOG.md` is in form
    and its top section is `X.Y.Z`'s, with no Unreleased section above it
    (`web/scripts/check-changelog.mjs --release`): that section becomes the
-   notes, so they cover all the release ships; the tag isn't there yet.
+   notes, so they cover all the release ships; the tag isn't there yet;
+   and, for `X.Y.Z` (a release candidate may go without), `SECURITY.md` and
+   `docs/security.md` name the security contact, not its placeholder
+   ([one-off step 7](#before-the-first-release)).
 2. **verify**: all of `ci.yml` on this commit, the release tree built as
    this version, and the numbers in `X.Y.Z`'s section (data format,
    AGENTS.md block, launcher, guard) checked against its `BUILD.json`.
@@ -221,7 +224,8 @@ them; use it for this and nothing else.
    managed user with no personal account, say) are told where to write.
    Choose the address, and put it in both in the release pull request:
    `git grep -n SECURITY_CONTACT -- SECURITY.md docs/security.md` must then
-   find nothing.
+   find nothing. Until then, the release workflow's preflight refuses
+   `X.Y.Z`, though not a release candidate.
 
 ### At the cutover
 

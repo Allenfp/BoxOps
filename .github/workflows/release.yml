@@ -2,7 +2,8 @@
 # X.Y.Z, or X.Y.Z-rc.N for a release candidate (a prerelease); and, to be
 # sure it releases what was reviewed, the commit of main reviewed.
 #   preflight  main is the commit reviewed, if given; the version,
-#              web/package.json and CHANGELOG.md agree; the tag is new
+#              web/package.json and CHANGELOG.md agree; the tag is new;
+#              X.Y.Z names the security contact
 #   verify     all of CI on this commit (ci.yml), which builds the release
 #              tree, checks it and tests it as built
 #   reproduce  the release tree built again, apart: a fresh install, no cache
@@ -55,7 +56,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - name: From main, at the commit reviewed if given; the version, web/package.json and CHANGELOG.md agree; the tag is new
+      - name: From main, at the commit reviewed if given; the version, web/package.json and CHANGELOG.md agree; the tag is new; X.Y.Z names the security contact
         id: versions
         env:
           V: ${{ inputs.version }}
@@ -88,6 +89,12 @@ jobs:
           pkg=$(jq -r .version web/package.json)
           if [ "$pkg" != "$base" ]; then
             echo "::error title=web/package.json says $pkg::Releasing $V needs web/package.json at $base: bump it in the release pull request."
+            exit 1
+          fi
+          # X.Y.Z waits for the security contact's address (docs/releasing.md,
+          # "Before the first release"); a release candidate may go without.
+          if [ "$V" = "$base" ] && grep -n -F '<SECURITY_CONTACT>' SECURITY.md docs/security.md; then
+            echo "::error title=No security contact::SECURITY.md or docs/security.md still has the placeholder <SECURITY_CONTACT>: put the address in both, in the release pull request."
             exit 1
           fi
           node web/scripts/check-changelog.mjs --release "$base" --notes "$RUNNER_TEMP/notes/notes.md"

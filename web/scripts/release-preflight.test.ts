@@ -1,9 +1,11 @@
 // The release workflow's first step, preflight's "From main, at the commit
 // reviewed if given; …" (.github/workflows/release.yml), run with bash as the
-// runner runs it, in a checkout of web/package.json, CHANGELOG.md and the
-// changelog's check, with a stand-in `gh` for the tag's lookup: it releases
-// main only, and only at the commit reviewed when one is given; the version,
-// web/package.json and the changelog's top section agree; the tag is new.
+// runner runs it, in a checkout of web/package.json, CHANGELOG.md, the
+// changelog's check, SECURITY.md and docs/security.md, with a stand-in `gh`
+// for the tag's lookup: it releases main only, and only at the commit
+// reviewed when one is given; the version, web/package.json and the
+// changelog's top section agree; the tag is new; and X.Y.Z, not a release
+// candidate, names the security contact rather than its placeholder.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -44,18 +46,27 @@ const changelog = (...headings: string[]) =>
     )
     .join("\n")}`;
 
+/** The security policy's files, which name the contact, or its placeholder before one's chosen. */
+const CONTACT_FILES = ["SECURITY.md", "docs/security.md"];
+
 /**
  * Runs the step for `version` (and the commit reviewed, `commit`) in a
  * checkout whose web/package.json says 0.2.0 and whose CHANGELOG.md is
- * `text`, on `ref` at SHA; the tag there if `tagged`. What it did.
+ * `text`, on `ref` at SHA; the tag there if `tagged`; the security
+ * contact's placeholder still in the files `placeholder` names. What it did.
  */
-function preflight(o: { version: string; commit?: string; text?: string; ref?: string; tagged?: boolean }) {
+function preflight(o: { version: string; commit?: string; text?: string; ref?: string; tagged?: boolean; placeholder?: string[] }) {
   expect(JQ, "jq, which the step uses, is installed").toBeDefined();
   const work = tempDir();
   mkdirSync(join(work, "web", "scripts"), { recursive: true });
+  mkdirSync(join(work, "docs"));
   writeFileSync(join(work, "web", "package.json"), JSON.stringify({ name: "boxops-roadmap", version: "0.2.0" }));
   copyFileSync(CHECK, join(work, "web", "scripts", "check-changelog.mjs"));
   writeFileSync(join(work, "CHANGELOG.md"), o.text ?? changelog("## 0.2.0 — 2026-11-02", "## 0.1.0 — 2026-10-20"));
+  for (const file of CONTACT_FILES) {
+    const contact = o.placeholder?.includes(file) ? "`<SECURITY_CONTACT>` (a placeholder)" : "security@example.com";
+    writeFileSync(join(work, file), `# Security\n\nReport a problem privately, or by email to ${contact}.\n`);
+  }
   const stand = join(work, "stand-in");
   mkdirSync(stand);
   const answer = o.tagged ? 'echo \'{"ref":"refs/tags/x"}\'' : "echo 'gh: Not Found (HTTP 404)' >&2; exit 1";
@@ -137,5 +148,21 @@ describe("the release workflow's preflight", () => {
     expect(unreleased.notes).toBeUndefined();
     const tagged = preflight({ version: "0.2.0", tagged: true });
     expect([tagged.code, tagged.stdout]).toEqual([1, expect.stringContaining("::error title=v0.2.0 exists::")]);
+  });
+
+  it("stops X.Y.Z while SECURITY.md or docs/security.md has the security contact's placeholder; a release candidate goes on", () => {
+    for (const placeholder of [["SECURITY.md"], ["docs/security.md"], CONTACT_FILES]) {
+      const r = preflight({ version: "0.2.0", placeholder });
+      expect([placeholder, r.code]).toEqual([placeholder, 1]);
+      // Where it is, then why it stops.
+      expect(r.stdout.trimEnd().split("\n")).toEqual([
+        ...placeholder.map((file) => `${file}:3:Report a problem privately, or by email to \`<SECURITY_CONTACT>\` (a placeholder).`),
+        "::error title=No security contact::SECURITY.md or docs/security.md still has the placeholder <SECURITY_CONTACT>: put the address in both, in the release pull request.",
+      ]);
+      expect([r.notes, r.gh]).toEqual([undefined, []]);
+    }
+    const candidate = preflight({ version: "0.2.0-rc.1", placeholder: CONTACT_FILES });
+    expect([candidate.code, candidate.stderr]).toEqual([0, ""]);
+    expect(candidate.stdout).toContain(`Releasing BoxOps 0.2.0-rc.1 from main@${SHA.slice(0, 12)}.`);
   });
 });
