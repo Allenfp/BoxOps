@@ -1123,11 +1123,12 @@ rest of what a release's `dist/` holds:
   and every file's SHA-256 (`sha256-<base64>`). Deterministic: no clocks or
   run ids. A release keeps it beside `dist/` (`cli/release.ts` looks in both
   places, and reads a path `dist/X` in it as the file `X` beside the tool).
-- `dist/THIRD_PARTY_LICENSES.txt`: the licences of what `boxops.mjs`
-  bundles (Vite's list: `yaml`). The app's `dist/app/licenses.txt` is
-  Vite's list of what it bundles (React, react-dom, scheduler, `yaml`), and
-  then the licences of its icons, Lucide's (ISC) and, for some, Feather's
-  (MIT), which no package brings in (`cli/licenses.ts`).
+- `dist/THIRD_PARTY_LICENSES.txt`: the licences of what `boxops.mjs` bundles
+  (Vite's list: `yaml`). A release keeps it at its top level, beside
+  `dist/`, not in it. The app's `dist/app/licenses.txt` is Vite's list of
+  what it bundles (React, react-dom, scheduler, `yaml`), and then the
+  licences of its icons, Lucide's (ISC) and, for some, Feather's (MIT),
+  which no package brings in (`cli/licenses.ts`).
 
 **The release tree** is what a release commit holds, built by
 `npm run release:build` (`scripts/release-tree.ts`) into `build/release` at
