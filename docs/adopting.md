@@ -110,9 +110,10 @@ organization can't change them.
 
 ### 1. Check the plan and the accounts
 
-- **Private Pages needs GitHub Enterprise Cloud.** On GitHub Free and Team,
-  sites are public, and the deploy refuses to publish a private
-  repository's roadmap to one: use a public repository
+- **Private Pages needs GitHub Enterprise Cloud.** On GitHub Team (and
+  Pro), a private repository's site is public, and the deploy refuses to
+  publish to it; on GitHub Free, a private repository can't have a Pages
+  site at all. Use a public repository
   ([Public repositories](#public-repositories)), or GitHub Enterprise Cloud.
 - **Enterprise Managed Users:** sites are always private (there's no
   visibility to choose), and making a repository from a template outside the
@@ -597,9 +598,10 @@ these differences:
 - The token's **Resource owner** is the repository's owner: the
   organization, or your own account for a repository you own.
 - A private repository on Team or Pro gets a public site, which the deploy
-  refuses. To publish it anyway, on purpose, set `ALLOW_PUBLIC_SITE: "true"`
-  in `deploy.yml`'s "Check the GitHub Pages settings" step (that edit
-  needs the Workflows permission and, with the push ruleset, an admin).
+  refuses (on Free, it gets no site at all). To publish it anyway, on
+  purpose, set `ALLOW_PUBLIC_SITE: "true"` in `deploy.yml`'s "Check the
+  GitHub Pages settings" step (that edit needs the Workflows permission and,
+  with the push ruleset, an admin).
 
 ## From a copy of BoxOps itself
 
