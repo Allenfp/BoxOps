@@ -281,6 +281,78 @@ describe("the docs' link check", () => {
     ]);
   });
 
+  it("ends blocks where GitHub does: a fence or HTML block with its quote or list item, a comment or code span with its paragraph", () => {
+    // A fence, or an HTML block (the whole of its lines), ends with the quote or list item it's in
+    // (and a fence at a closing line at most 3 columns into it);
+    // a line without the quote's `>` that goes on with its paragraph leaves the quote open, so the
+    // next line is in that paragraph still (4 columns in, not code); `<!--` in a paragraph is text
+    // unless `-->` follows in that paragraph, and backticks too unless as many close a code span in
+    // it; and a footnote's `[^2]:` ends a paragraph, its own lines going on 4 columns in, even when
+    // it's indented itself.
+    const text = [
+      "> ```",
+      "> [in the fence](missing-fenced.md)",
+      "[after the quote](missing-after-fence.md)",
+      "",
+      "- ```",
+      "  [in the fence](missing-item-fenced.md)",
+      "[after the item](missing-after-item-fence.md)",
+      "",
+      "<!-- a comment --> [on its line](missing-on-comment-line.md)",
+      "",
+      "> <!-- a comment in a quote, never closed",
+      "> [in it](missing-in-comment.md)",
+      "",
+      "[after the quote](missing-after-comment.md)",
+      "",
+      "> A quote's paragraph,",
+      "going on lazily",
+      ">     [still its paragraph](missing-lazy-quote.md)",
+      "",
+      "A paragraph with <!-- the start of no comment.",
+      "",
+      "[a link](missing-after-unclosed.md)",
+      "",
+      "And a --> later.",
+      "",
+      "A paragraph,",
+      "[^2]: ended by a footnote, whose lines go on 4 columns in.",
+      "",
+      "    [its second paragraph](missing-footnote-para.md)",
+      "",
+      "Its mark.[^2]",
+      "",
+      "  [^3]: An indented footnote.",
+      "",
+      "    [its second paragraph](missing-indented-footnote-para.md)",
+      "",
+      "Its mark.[^3]",
+      "",
+      "> ```",
+      ">     ```",
+      "> [in the fence still: that line is 4 columns in](missing-fence-closed-late.md)",
+      "> ```",
+      "",
+      "Another with <!-- the start of no comment,",
+      "# then a heading, [with a link](missing-in-heading.md) -->",
+      "",
+      "A third, its ``` text, [and a link](missing-between-backticks.md),",
+      "# then a heading with ``` too",
+      "",
+    ].join("\n");
+    expect(check(repo({ "ends.md": text })).stderr.trimEnd().split("\n")).toEqual([
+      "ends.md:3: links to missing-after-fence.md, which git doesn’t track (missing-after-fence.md)",
+      "ends.md:7: links to missing-after-item-fence.md, which git doesn’t track (missing-after-item-fence.md)",
+      "ends.md:14: links to missing-after-comment.md, which git doesn’t track (missing-after-comment.md)",
+      "ends.md:18: links to missing-lazy-quote.md, which git doesn’t track (missing-lazy-quote.md)",
+      "ends.md:22: links to missing-after-unclosed.md, which git doesn’t track (missing-after-unclosed.md)",
+      "ends.md:29: links to missing-footnote-para.md, which git doesn’t track (missing-footnote-para.md)",
+      "ends.md:35: links to missing-indented-footnote-para.md, which git doesn’t track (missing-indented-footnote-para.md)",
+      "ends.md:45: links to missing-in-heading.md, which git doesn’t track (missing-in-heading.md)",
+      "ends.md:47: links to missing-between-backticks.md, which git doesn’t track (missing-between-backticks.md)",
+    ]);
+  });
+
   it("makes a heading's anchor as GitHub does", () => {
     const text = [
       "# The command-line tool and the action",
