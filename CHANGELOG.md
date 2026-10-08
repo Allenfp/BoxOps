@@ -21,6 +21,7 @@ upgrade, then lists what changed. The form is in
 ### Changes
 
 - BoxOps is a release that a roadmap repository pins by commit, made from the starter repository: a prebuilt GitHub Action that checks the roadmap and assembles its Pages site from git objects alone (no network, no token, no build in the roadmap repository), and the command-line tool its launcher runs: `validate`, `report`, `preview`, `migrate`, `guide`, `sync`, `doctor`, `upgrade`, `init`, `build`.
+- A roadmap kept in a copy of BoxOps itself (the app and its roadmap in one repository, as before this release) moves onto the starter either way: into a new repository made from it, or in place, which keeps the repository's history and the tokens editors have (`docs/adopting.md`, "From a copy of BoxOps itself").
 - A roadmap has a data format, 1; the app opens a roadmap in another format read-only, and `migrate` moves one to this release's.
 - A save is one commit on `main`, made with GraphQL's `createCommitOnBranch` on top of the head it was checked against, authored by the saver's account and committed and signed by GitHub, which shows it as Verified (whether a *Require signed commits* rule lets it through isn't tried yet); edits by others to the same item are offered as keep mine or keep theirs.
 - Private repositories: the app reads newer saves through the API, fetching only files whose blob SHA changed, and previews a branch (`?ref=`) for those who can read it.
