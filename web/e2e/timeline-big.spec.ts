@@ -259,12 +259,18 @@ test("collapsed departments are a row each; as boxes, those on screen are drawn"
 });
 
 /**
+ * What dragIntoCorner sees every 50 ms: how many times it looked, how many of them the box was
+ * out of sight, and, once it's held in the corner, how many of them the point it's held at hit
+ * the timeline itself, over no lane (WebKit's overlay scrollbars).
+ */
+type Sight = { seen: number; out: number; overBars: number; held?: { x: number; y: number }; stop?: boolean };
+
+/**
  * A box of the first department on screen, pressed clear of the labels and dragged into the
  * timeline's bottom right corner, `inset` px in from its right and bottom edges, then held there:
  * the timeline scrolls down and on in time, through departments and days that weren't drawn,
- * carrying the box. Waited for until it's three screens down; meanwhile, every 50 ms, whether
- * the box is in sight (in the timeline's view, below its header) is counted. It's let go at
- * `release` (by default where it's held).
+ * carrying the box. Waited for until it's three screens down, looking every 50 ms (Sight). It's
+ * let go at `release` (by default where it's held).
  */
 async function dragIntoCorner(page: Page, inset: number, release?: { x: number; y: number }) {
   const timeline = page.locator(".timeline");
@@ -279,8 +285,7 @@ async function dragIntoCorner(page: Page, inset: number, release?: { x: number; 
   await page.mouse.move(Math.max(b.x, view.x + 300) + 20, b.y + b.height / 2);
   await page.mouse.down();
   await timeline.evaluate((el, key) => {
-    type Sight = { seen: number; out: number; stop?: boolean };
-    const sight: Sight = { seen: 0, out: 0 };
+    const sight: Sight = { seen: 0, out: 0, overBars: 0 };
     (window as unknown as { sight: Sight }).sight = sight;
     const look = () => {
       if (sight.stop) return;
@@ -289,11 +294,14 @@ async function dragIntoCorner(page: Page, inset: number, release?: { x: number; 
       const top = el.querySelector(".tl-head")!.getBoundingClientRect().bottom;
       sight.seen++;
       if (!r || r.bottom <= top || r.top >= view.top + el.clientHeight || r.right <= view.left || r.left >= view.left + el.clientWidth) sight.out++;
+      if (sight.held && document.elementFromPoint(sight.held.x, sight.held.y) === el) sight.overBars++;
       setTimeout(look, 50);
     };
     look();
   }, key!);
-  await page.mouse.move(view.x + view.width - inset, view.y + view.height - inset, { steps: 10 });
+  const corner = { x: view.x + view.width - inset, y: view.y + view.height - inset };
+  await page.mouse.move(corner.x, corner.y, { steps: 10 });
+  await page.evaluate((held) => ((window as unknown as { sight: Sight }).sight.held = held), corner);
   // However long that takes: it scrolls a step a frame, and a busy machine draws fewer frames.
   for (const depth of [1, 2, 3]) {
     await expect.poll(() => timeline.evaluate((el) => el.scrollTop), { timeout: 0 }).toBeGreaterThan(depth * view.height);
@@ -301,7 +309,7 @@ async function dragIntoCorner(page: Page, inset: number, release?: { x: number; 
     await expect(moved).toBeInViewport();
   }
   const sight = await page.evaluate(() => {
-    const w = window as unknown as { sight: { seen: number; out: number; stop?: boolean } };
+    const w = window as unknown as { sight: Sight };
     w.sight.stop = true;
     return w.sight;
   });
@@ -327,12 +335,15 @@ test("the box being dragged is drawn all the way as the timeline scrolls far und
 
 test("held over the timeline's last pixels (WebKit's overlay scrollbars), the box goes on into the lanes just inside, and lands there", async ({
   page,
+  browserName,
   github: _,
 }) => {
   // 6 px in: on WebKit's overlay scrollbars, which show while the timeline scrolls and hit as the
-  // timeline itself, over no lane. The box goes into the lane just inside them as they pass, in
-  // sight all the while (in the last one it was over, it would scroll out of sight); let go there.
+  // timeline itself, over no lane (checked: the point held at did so). The box goes into the lane
+  // just inside them as they pass, in sight all the while (in the last one it was over, it would
+  // scroll out of sight); let go there.
   const { moved, was, sight } = await dragIntoCorner(page, 6);
+  if (browserName === "webkit") expect(sight.overBars, "looks with the pointer on the scrollbars").toBeGreaterThan(0);
   expect(sight.seen).toBeGreaterThan(10);
   expect(sight.out).toBe(0);
   const now = await moved.evaluate((el) => el.closest("[data-dept-id]")?.getAttribute("data-dept-id"));
