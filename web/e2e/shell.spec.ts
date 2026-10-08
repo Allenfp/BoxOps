@@ -133,8 +133,10 @@ test("the theme is applied before the app's JavaScript runs", async ({ page, git
 });
 
 test("an app file that fails to load (a stale cached page) reloads once from a fresh URL", async ({ page, github: _ }) => {
+  // The main file, as a stale copy of the page names one that's gone. (Not the first file asked for: the page
+  // open before the reload may still be fetching one ahead, a keyboard move's say, and take the failure.)
   let failed = 0;
-  await page.route("**/assets/*.js", (route) => {
+  await page.route("**/assets/index-*.js", (route) => {
     if (failed++) return route.fallback();
     return route.fulfill({ status: 404, contentType: "text/html", body: "<h1>404</h1>" });
   });
