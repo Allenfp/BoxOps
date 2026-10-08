@@ -9,6 +9,9 @@ import type { FakeGitHub } from "./fake-github";
 /** These computed style properties of `el`. */
 const css = (el: Locator, ...props: string[]) =>
   el.evaluate((e, ps) => Object.fromEntries(ps.map((p) => [p, getComputedStyle(e).getPropertyValue(p)])), props);
+const rect = (l: Locator) => l.evaluate((e) => e.getBoundingClientRect().toJSON() as DOMRect);
+/** How far below `a`'s foot `b`'s top is (px). */
+const between = async (a: Locator, b: Locator) => (await rect(b)).top - (await rect(a)).bottom;
 
 test("the box editor's title is its own: big and borderless, a field only when pointed at or focused", async ({ page, github: _ }) => {
   await box(page, DAGSTER).click();
@@ -68,8 +71,6 @@ test("the pre-save check lists others' saves in the text column, bullets too, as
 });
 
 test("the token form is spaced as the other dialogs are: its lead as far under the title bar, its parts a gap apart", async ({ page, github }) => {
-  const rect = (l: Locator) => l.evaluate((e) => e.getBoundingClientRect().toJSON() as DOMRect);
-  const between = async (a: Locator, b: Locator) => (await rect(b)).top - (await rect(a)).bottom;
   // The pre-save check's lead, under its title bar.
   await dragDays(page, DAGSTER, 10);
   github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC v2") }, "Sam Lee", "CDC pipeline: renamed");
@@ -87,6 +88,17 @@ test("the token form is spaced as the other dialogs are: its lead as far under t
   const gap = Number.parseFloat((await css(form, "row-gap"))["row-gap"]);
   const parts = [".lead", ".field", ".token-help", ".files"].map((s) => form.locator(`:scope > ${s}`));
   for (let i = 1; i < parts.length; i++) expect(await between(parts[i - 1], parts[i])).toBe(gap);
+});
+
+test("the department editor's question before a delete keeps its own room under the lanes: the token form's spacing is its own", async ({ page, github: _ }) => {
+  await page.getByRole("button", { name: "Edit Analytics" }).click();
+  const form = page.getByRole("dialog", { name: "Edit Analytics" }).locator(".form");
+  await form.getByRole("button", { name: "Delete department…" }).click();
+  const question = form.locator(":scope > .remove-callout");
+  await expect(question).toBeVisible();
+  // The column's gap, and its own 6 px.
+  const gap = Number.parseFloat((await css(form, "row-gap"))["row-gap"]);
+  expect(await between(question.locator("xpath=preceding-sibling::*[1]"), question)).toBe(gap + 6);
 });
 
 test("a box's scale card casts a tight shadow in the dark theme, which doesn't dim the box below it", async ({ page, github: _ }) => {

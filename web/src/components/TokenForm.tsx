@@ -90,7 +90,7 @@ export function TokenForm({
   const broad = isBroadToken(value);
   return (
     <form
-      className="form"
+      className="form token-form"
       onSubmit={(e) => {
         e.preventDefault();
         if (valid) onSubmit(value);
