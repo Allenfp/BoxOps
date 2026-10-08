@@ -93,8 +93,8 @@ to only by the release workflow (such as `Allenfp/boxops-action`), before
   holds the deploy key and runs only git, jq, tar, the GitHub CLI and
   GitHub's own actions. It waits for the maintainer's approval, attests the
   files, then pushes the commit and its tag in one step.
-- **Signed and fixed.** Every file of the release, and its tarball, get a
-  provenance attestation (a signed statement of which workflow run built
+- **Signed and fixed.** Every file of the release tree, and its tarball, get
+  a provenance attestation (a signed statement of which workflow run built
   them, from which commit); the tarball an SBOM attestation too: a signed
   copy of its SBOM (software bill of materials), `sbom.spdx.json`, the list
   of the packages inside, each at its version. The GitHub release is
