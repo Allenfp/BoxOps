@@ -18,9 +18,10 @@
 // anything else is an error naming it. Only git can see a submodule, though:
 // on disk it's a folder, walked like any other (its .git is hidden), and an
 // empty one if it isn't checked out. Roadmap files (model/paths.ts) are
-// read; other files are listed as `ignored`. Limits: 20,000 files, 1 MiB per
-// roadmap file, 64 MiB in all. Text must be UTF-8; a BOM is kept, so a file's
-// text hashes to its git blob SHA.
+// read; other files are listed as `ignored`. Limits: READ_LIMITS
+// (model/paths.ts), on the files, each roadmap file's bytes and all of them.
+// Text must be UTF-8; a BOM is kept, so a file's text hashes to its git blob
+// SHA.
 
 import { execFileSync } from "node:child_process";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";

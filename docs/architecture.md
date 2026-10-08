@@ -1111,7 +1111,7 @@ rest of what a release's `dist/` holds:
   roadmap readers, `roadmap.json`), every command, and what they carry (the
   files git tracks in `templates/` and `starter/`; nothing untracked), the
   `yaml` library inside: no npm, no `node_modules`.
-  Unminified, about 450 kB. Node 22.12 or later.
+  Unminified, about half a megabyte. Node 22.12 or later.
 - `dist/action.mjs`: a few lines that import `boxops.mjs` and run the action.
 - `dist/BUILD.json`: the build id (the app's, compiled into both), the commit
   it was built from, the data format, the contract numbers (`bundle`, the

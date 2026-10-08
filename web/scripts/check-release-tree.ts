@@ -40,7 +40,11 @@ export const TOP_FILES = ["action.yml", "BUILD.json", "LICENSE", "README.md", "T
 /** Files every release has besides those. */
 const REQUIRED = ["dist/action.mjs", "dist/boxops.mjs", "dist/app/index.html", "dist/app/licenses.txt"];
 
-/** Sizes a release keeps under: about twice 0.1.0's (one file 485 kB, all 1.3 MB, 46 files). */
+/**
+ * Sizes a release keeps under, with room to grow over 0.1.0's (its biggest
+ * file is the tool, dist/boxops.mjs): a release past one has grown a lot,
+ * worth a look before it ships.
+ */
 export const LIMITS = { fileBytes: 1024 * 1024, totalBytes: 3 * 1024 * 1024, files: 200 };
 
 /** Paths a release must never hold, wherever in it: what would be source, dependencies, workflows or build leftovers. */
