@@ -329,7 +329,7 @@ jobs:
             echo
             echo "$made"
             echo "What runs in a roadmap repository's workflow: \`dist/action.mjs\`, \`dist/boxops.mjs\` (unminified) and git. No network, no token, no npm, no build."
-            echo "Check a file came from this workflow: \`gh attestation verify <file> -R $GITHUB_REPOSITORY --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml\`"
+            echo "Check that \`boxops.mjs\`, the tarball or any file of the release commit came from this workflow: \`gh attestation verify <file> -R $GITHUB_REPOSITORY --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml\`"
             echo
             cat notes/notes.md
           } >"$RUNNER_TEMP/body.md"

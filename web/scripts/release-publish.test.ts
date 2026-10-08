@@ -200,7 +200,7 @@ describe("the release workflow's publish step", () => {
         "",
         `The release commit \`${COMMIT}\` (branch \`releases\`), built from main at \`${SOURCE}\` by https://github.com/Allenfp/BoxOps/actions/runs/4242.`,
         "What runs in a roadmap repository's workflow: `dist/action.mjs`, `dist/boxops.mjs` (unminified) and git. No network, no token, no npm, no build.",
-        "Check a file came from this workflow: `gh attestation verify <file> -R Allenfp/BoxOps --signer-workflow Allenfp/BoxOps/.github/workflows/release.yml`",
+        "Check that `boxops.mjs`, the tarball or any file of the release commit came from this workflow: `gh attestation verify <file> -R Allenfp/BoxOps --signer-workflow Allenfp/BoxOps/.github/workflows/release.yml`",
         "",
         readFileSync(join(work, "notes", "notes.md"), "utf8"),
       ].join("\n"),
