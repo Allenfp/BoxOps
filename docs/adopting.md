@@ -48,7 +48,9 @@ Elsewhere:
   app, BoxOps' command-line tool and its GitHub Action. Your two workflows
   name one release by its commit SHA (its 40-character id), on a line like
   `uses: Allenfp/BoxOps@<commit SHA> # v0.1.0`: **the pin**. Nothing else
-  in your repository names a version.
+  in your repository names a version but its `README.md`, whose copy of
+  Path B's step, like its links to BoxOps' docs, is as of the release the
+  repository was made with (no upgrade changes `README.md`).
 - **GitHub Pages**: GitHub's hosting for static websites. A **private**
   Pages site, which GitHub Enterprise Cloud alone offers, opens only for
   people with read access to its repository, at an address of its own:
