@@ -1746,7 +1746,7 @@ function BandCell({ seg, scale }: { seg: Segment; scale: Scale }) {
   const width = scale.x(seg.end) - scale.x(seg.start);
   if (width <= 0) return null;
   return (
-    <div className="band-cell" style={{ left: scale.x(seg.start), width }}>
+    <div className="band-cell" style={{ left: scale.x(seg.start), "--width": `${width}px` } as CSSProperties}>
       <span>{seg.label}</span>
     </div>
   );

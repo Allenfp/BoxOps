@@ -249,6 +249,42 @@ test("the table's and People's column headers are shown whole, none running unde
   }
 });
 
+test("a month's or quarter's name along the top stays whole at the label column's edge as its days scroll by, till the next one's covers it", async ({
+  page,
+  github: _,
+}) => {
+  const timeline = page.locator(".timeline");
+  for (const zoom of ["Months", "Quarters"]) {
+    await page.getByRole("button", { name: zoom, exact: true }).click();
+    // A month (quarter) starting 100 px right of the label column, then scrolled on 8 px at a time till it's past it.
+    await timeline.evaluate((el) => {
+      const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
+      const next = [...el.querySelectorAll(".band-0 .band-cell")].map((c) => c.getBoundingClientRect().left).find((x) => x > edge + 100)!;
+      el.scrollBy(next - edge - 100, 0);
+    });
+    for (let step = 0; step < 30; step++) {
+      const wrong = await timeline.evaluate((el) => {
+        const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
+        const cells = [...el.querySelectorAll<HTMLElement>(".band-0 .band-cell")];
+        return cells.flatMap((cell, i) => {
+          const name = cell.querySelector("span")!;
+          const r = name.getBoundingClientRect();
+          // What shows of it: right of the column, left of the next one (which, coming, is drawn over it).
+          const next = cells[i + 1]?.getBoundingClientRect().left ?? Infinity;
+          if (Math.min(r.right, next) <= Math.max(r.left, edge)) return [];
+          // Whole: never pushed in under the column.
+          if (r.left < edge - 0.5) return [`${name.textContent} starts under the column, at ${r.left} (its edge ${edge})`];
+          if (next >= r.right - 1) return [];
+          const hit = document.elementFromPoint((Math.max(next, edge) + r.right) / 2, (r.top + r.bottom) / 2);
+          return cells[i + 1].contains(hit) ? [] : [`${name.textContent} shows over the next one`];
+        });
+      });
+      expect(wrong, `${zoom}, step ${step}`).toEqual([]);
+      await timeline.evaluate((el) => el.scrollBy(8, 0));
+    }
+  }
+});
+
 test("a warning longer than the warnings menu wraps, read in full rather than cut off", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();
   const panel = page.getByRole("dialog", { name: /^\d+ warnings?$/ });
