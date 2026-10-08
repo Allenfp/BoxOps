@@ -1,4 +1,4 @@
-import { relative, resolve, sep } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
@@ -85,6 +85,34 @@ function contentSecurityPolicy(): Plugin {
   };
 }
 
+/**
+ * `boxops-chunk:src/x.ts`, in a string in the app's code, becomes the address of the file the build
+ * puts module x in (one fetched when it's needed, in a file of its own), relative to the file the
+ * string ends up in; in dev, x's own address. The app fetches such a file again under another
+ * address after a failure: WebKit and Chromium keep a module that failed to load for its address
+ * until the page reloads, and WebKit across a reload too. A module the build puts in no file of
+ * its own fails the build.
+ */
+function chunkAddresses(): Plugin {
+  const marker = /boxops-chunk:([\w./-]+)/g;
+  let dev = false;
+  return {
+    name: "boxops-chunk-addresses",
+    configResolved: (config) => void (dev = config.command === "serve"),
+    transform: (code, id) =>
+      dev && id.startsWith(resolve(WEB_DIR, "src") + sep) && code.includes("boxops-chunk:") ? code.replace(marker, (_, path: string) => `/${path}`) : null,
+    renderChunk(code, chunk, _options, { chunks }) {
+      if (!code.includes("boxops-chunk:")) return null;
+      return code.replace(marker, (_, path: string) => {
+        // Its name as it is here, a placeholder for the hash, which the build fills in afterwards.
+        const file = Object.values(chunks).find((c) => c.facadeModuleId === resolve(WEB_DIR, path))?.fileName;
+        if (!file) throw new Error(`boxops-chunk: the build puts ${path} in no file of its own`);
+        return `./${relative(dirname(chunk.fileName), file)}`;
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // Relative asset paths so the site works under https://<user>.github.io/BoxOps/.
   base: "./",
@@ -96,7 +124,7 @@ export default defineConfig({
     license: { fileName: "licenses.txt" },
   },
   define: { __BOXOPS_BUILD__: JSON.stringify(APP.build) },
-  plugins: [react(), roadmapData(), contentSecurityPolicy(), licenseFile("licenses.txt", { append: ICONS_NOTICE })],
+  plugins: [react(), roadmapData(), contentSecurityPolicy(), chunkAddresses(), licenseFile("licenses.txt", { append: ICONS_NOTICE })],
   test: {
     environment: "node",
     // .tsx too, so a component's test is never skipped without a word.

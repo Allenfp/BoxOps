@@ -627,7 +627,12 @@ against data the new code wrote.
   file that failed to load until the page reloads, so a fetch that fails
   after another had failed before it began offers Reload only (a preload
   that fails after it began, the pointer passing a view's tab again,
-  changes nothing).
+  changes nothing). Tried on 2026-10-08, WebKit kept it across a reload
+  (⌘R) too, though not across the app's Reload, whose address is new. A
+  keyboard move's code that can't be fetched is fetched again when the
+  timeline next has focus or Space is pressed, under another address
+  (`?try=1`, `?try=2`…, which the site's host ignores; `vite.config.ts`
+  gives the app its file's): the timeline says to press Space again.
 - **Screens.** The app is as tall as the window as it is (`100dvh`: a
   phone's browser bars shown or not). Short of room, the toolbar's title
   gives way first, cut short with … (whole in its tooltip), so Save and the

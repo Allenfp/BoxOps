@@ -76,12 +76,26 @@ type MoveCode = typeof import("../timeline/keyMove");
 /** The code of a keyboard move, once fetched (once the timeline is drawn, or has focus); one for every timeline. */
 let moveCode: MoveCode | undefined;
 let moveCodeLoad: Promise<MoveCode> | undefined;
-/** Fetch the keyboard move's code; a failure isn't kept, so the next Space tries again. */
+/** Fetches of the move's code that failed. */
+let moveCodeFailures = 0;
+/** Its file's address, relative to this one's (vite.config.ts's chunkAddresses). */
+const MOVE_CODE_FILE = "boxops-chunk:src/timeline/keyMove.ts";
+/**
+ * Fetch the keyboard move's code. A failure isn't kept, so the next Space fetches it again: under
+ * another address (`?try=1`, which the site's host ignores), as WebKit and Chromium keep a module
+ * that failed to load for its address until the page reloads, and WebKit across a reload too. The
+ * one that failed may have been the fetch once the timeline was drawn, unasked.
+ */
 function loadMoveCode(): Promise<MoveCode> {
-  moveCodeLoad ??= import("../timeline/keyMove").then(
+  moveCodeLoad ??= (
+    moveCodeFailures
+      ? (import(/* @vite-ignore */ `${new URL(MOVE_CODE_FILE, import.meta.url).href}?try=${moveCodeFailures}`) as Promise<MoveCode>)
+      : import("../timeline/keyMove")
+  ).then(
     (m) => (moveCode = m),
     (e: unknown) => {
       moveCodeLoad = undefined;
+      moveCodeFailures++;
       throw e;
     },
   );
@@ -852,7 +866,7 @@ export function Timeline(props: Props) {
       },
       () => {
         stop();
-        say("Moving from the keyboard couldn’t load. Check your connection, then press Space again.");
+        say("Moving from the keyboard couldn’t load. Check your connection, then press Space again; if the site was updated since this page opened, reload.");
       },
     );
   };

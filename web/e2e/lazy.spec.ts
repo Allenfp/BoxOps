@@ -339,6 +339,70 @@ moveHeld.describe("keys pressed before a keyboard move's code is here", () => {
   });
 });
 
+/** In the page: count each import of the app's code that fails, which Vite's loader says (vite:preloadError). */
+function countFailedImports() {
+  const w = window as unknown as { failedImports: number };
+  w.failedImports = 0;
+  addEventListener("vite:preloadError", () => w.failedImports++);
+}
+/** How many have failed since countFailedImports(). */
+const failedImports = (page: Page) => page.evaluate(() => (window as unknown as { failedImports: number }).failedImports);
+
+/**
+ * A keyboard move's code that can't be fetched the first `fails` times (the first once the
+ * timeline is drawn), and can be after; `fetches`, the query of each fetch of it. Failed imports
+ * are counted from the page's first load.
+ */
+const moveFetches = new WeakMap<Page, string[]>();
+const moveFails = test.extend<{ fails: number; fetches: string[] }>({
+  fails: [1, { option: true }],
+  page: async ({ page, fails }, use) => {
+    const fetches: string[] = [];
+    await page.route(/\/assets\/keyMove-[\w-]+\.js(\?.*)?$/, (route) => {
+      fetches.push(new URL(route.request().url()).search);
+      return fetches.length > fails ? route.fallback() : route.abort("connectionreset");
+    });
+    await page.addInitScript(countFailedImports);
+    moveFetches.set(page, fetches);
+    await use(page);
+  },
+  fetches: async ({ page }, use) => use(moveFetches.get(page)!),
+});
+
+moveFails("a keyboard move's code that couldn't load is fetched again under another address, which works where the browser keeps the failure", async ({
+  page,
+  github: _,
+  fetches,
+}) => {
+  await expect.poll(() => failedImports(page)).toBe(1); // once the timeline was drawn
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("Space");
+  await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
+  // WebKit and Chromium keep a module that failed to load for its address until the page reloads.
+  expect(fetches).toEqual(["", "?try=1"]);
+  await page.keyboard.press("Escape");
+  await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
+  await expect(toolbar(page)).toContainText("No changes");
+});
+
+moveFails.describe("failing again", () => {
+  moveFails.use({ fails: 3 });
+
+  moveFails("a keyboard move's code that couldn't load when Space asked for it: Space again picks the box up", async ({ page, github: _, fetches }) => {
+    await expect.poll(() => failedImports(page)).toBe(1); // once the timeline was drawn
+    await box(page, DAGSTER).focus();
+    await expect.poll(() => failedImports(page)).toBe(2); // once it had focus
+    await page.keyboard.press("Space");
+    await expect.poll(() => heard(page)).toContain(
+      "Moving from the keyboard couldn’t load. Check your connection, then press Space again; if the site was updated since this page opened, reload.",
+    );
+    await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
+    await page.keyboard.press("Space");
+    await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
+    expect(fetches).toEqual(["", "?try=1", "?try=2", "?try=3"]);
+  });
+});
+
 /**
  * The box and PTO editors' code held back from the page's first load (which fetches it a second
  * after the roadmap shows) until `release()`. `arrived()`: it has come, and had the time to show an
@@ -562,13 +626,7 @@ test("a view whose code can't load (offline, or a deploy replaced it) says so; T
 });
 
 test("a view whose code can't load keeps Try again though a preload fails after its own fetch began", async ({ page, github: _ }) => {
-  // Each import of the app's code that fails, Vite's loader says (vite:preloadError): counted.
-  await page.evaluate(() => {
-    const w = window as unknown as { failedImports: number };
-    w.failedImports = 0;
-    addEventListener("vite:preloadError", () => w.failedImports++);
-  });
-  const failedImports = () => page.evaluate(() => (window as unknown as { failedImports: number }).failedImports);
+  await page.evaluate(countFailedImports);
   const table = await failLater(page, /\/assets\/TableView-[\w-]+\.js$/);
   const tab = page.getByRole("button", { name: "Table", exact: true });
   await tab.click();
@@ -577,10 +635,10 @@ test("a view whose code can't load keeps Try again though a preload fails after 
   await expect(banner).toContainText(FIRST);
   // The pointer leaves the tab and comes back: its preload fails too, as one begun the moment the
   // view's own fetch failed can, before the banner is drawn (seen once in Firefox).
-  const failed = await failedImports();
+  const failed = await failedImports(page);
   await page.mouse.move(700, 600);
   await tab.hover();
-  await expect.poll(failedImports).toBe(failed + 1);
+  await expect.poll(() => failedImports(page)).toBe(failed + 1);
   // Drawn again, the banner is still the view's own fetch's: the first failure, with Try again.
   await page.getByRole("button", { name: "Timeline", exact: true }).click();
   await expect(page.locator(".box").first()).toBeVisible();
