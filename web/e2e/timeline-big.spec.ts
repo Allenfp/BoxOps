@@ -80,6 +80,9 @@ function wholeTab(page: Page, github: FakeGitHub): Promise<Page> {
 }
 
 test("only what's near the screen is drawn; the grid counts every row, and what isn't drawn takes its room", async ({ page, github }) => {
+  // Two tabs, one drawing all 603 boxes, and axe over the timeline: in WebKit, up to 27 seconds
+  // with eight workers busy at once, so three times the 30 allowed.
+  test.slow();
   const whole = await wholeTab(page, github);
   const all = await whole.locator(".box").count();
   expect(all).toBe(603);
@@ -230,6 +233,9 @@ test("a box moved by keyboard stays drawn and on screen, wherever it goes", asyn
 });
 
 test("collapsed departments are a row each; as boxes, those on screen are drawn", async ({ page, github }) => {
+  // Two tabs, one drawing all 603 boxes, each loaded twice: in WebKit, 8 seconds on its own, up
+  // to 33 with eight workers busy at once, so three times the 30 allowed.
+  test.slow();
   const whole = await wholeTab(page, github);
   const grid = page.getByRole("grid", { name: "Timeline" });
   for (const p of [page, whole]) await p.getByRole("button", { name: "Collapse all" }).click();
