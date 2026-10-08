@@ -818,7 +818,7 @@ button.collapse-all:hover {
   border-radius: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-float);
+  box-shadow: var(--shadow-card);
   font-size: 12px;
   line-height: 18px;
   color: var(--text);

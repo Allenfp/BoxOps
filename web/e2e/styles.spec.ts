@@ -89,6 +89,18 @@ test("the token form is spaced as the other dialogs are: its lead as far under t
   for (let i = 1; i < parts.length; i++) expect(await between(parts[i - 1], parts[i])).toBe(gap);
 });
 
+test("a box's scale card casts a tight shadow in the dark theme, which doesn't dim the box below it", async ({ page, github: _ }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await box(page, DAGSTER).focus();
+  await page.keyboard.press("i");
+  const card = page.getByRole("tooltip");
+  await expect(card).toBeVisible();
+  // "rgba(0, 0, 0, 0.45) 0px 1px 4px 0px": how far below the card it reaches (its offset and blur).
+  const [, y, blur] = (await css(card, "box-shadow"))["box-shadow"].replace(/rgba?\([^)]*\)/, "").trim().split(/\s+/).map(Number.parseFloat);
+  expect(y + blur).toBeLessThanOrEqual(6);
+});
+
 test("the Engineers list's names are list items, not the editor's field labels", async ({ page, github: _ }) => {
   await box(page, DAGSTER).click();
   await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ }).click();

@@ -39,11 +39,15 @@
      switched off (exempt from contrast). */
   --quiet: 0.75;
   --disabled: 0.4;
-  /* Elevation: a raised control, a field's popup, what's being dragged, panels and popups, dialogs. */
+  /*
+   * Elevation: a raised control, a field's popup, what's being dragged, panels and popups, a box's scale card
+   * (over the boxes below it: tight in the dark theme, where a wide shadow dims the text it falls on), dialogs.
+   */
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.1), 0 0 0 0.5px rgba(16, 24, 40, 0.06);
   --shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.15);
   --shadow-drag: 0 6px 18px rgba(16, 24, 40, 0.25);
   --shadow-float: 0 12px 32px rgba(16, 24, 40, 0.2);
+  --shadow-card: 0 12px 32px rgba(16, 24, 40, 0.2);
   --shadow-dialog: 0 24px 64px rgba(16, 24, 40, 0.3);
   /* Behind a dialog; older browsers' copy is in dialogs.css, so a change goes there too. */
   --backdrop: rgba(16, 24, 40, 0.35);
@@ -120,6 +124,7 @@
     --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.45);
     --shadow-drag: 0 6px 18px rgba(0, 0, 0, 0.55);
     --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.55);
+    --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.45);
     --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.6);
     --backdrop: rgba(0, 0, 0, 0.55);
   }
