@@ -478,9 +478,12 @@ test("Undo and Redo keep focus once there's nothing left to undo or redo; discar
 
 test("an undo or redo that takes the Save button away from under focus puts focus on Undo", async ({ page, github: _ }) => {
   const undo = toolbar(page).getByRole("button", { name: "Undo" });
-  // Dagster moved a day later, then back: two steps, and no changes.
+  // Dagster moved a day later, then back: two steps, and no changes. Waited for as they're dropped:
+  // keys pressed before a keyboard move's code has come are played once it has, and until then the
+  // toolbar says "No changes" too.
   await box(page, DAGSTER).focus();
   for (const key of ["Space", "ArrowRight", "Enter", "Space", "ArrowLeft", "Enter"]) await page.keyboard.press(key);
+  await expect.poll(async () => (await heard(page)).split("Dropped: Dagster 2.x upgrade").length - 1).toBe(2);
   await expect(toolbar(page)).toContainText("No changes");
   await page.keyboard.press("ControlOrMeta+z");
   await expect(toolbar(page)).toContainText("Save · 1 change");

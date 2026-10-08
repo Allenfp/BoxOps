@@ -165,30 +165,6 @@ moveHeld.describe("a keyboard move before its code is here", () => {
     await expect(toolbar(page)).toContainText("No changes");
   });
 
-  moveHeld("Tab before it's here goes on, as it does mid-move: the box is moved once it's here, and dropped", async ({ page, github: _, moveCode }) => {
-    await box(page, DAGSTER).focus();
-    await page.keyboard.press("Space");
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("Tab");
-    await expect(box(page, DAGSTER)).not.toBeFocused();
-    moveCode.release();
-    await expect(toolbar(page)).toContainText("Save · 1 change");
-    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
-    await expect(page.locator(".dragging")).toHaveCount(0);
-  });
-
-  moveHeld("⌘S before it's here saves the box, moved by the keys before it, as mid-move", async ({ page, github, moveCode }) => {
-    await box(page, DAGSTER).focus();
-    await page.keyboard.press("Space");
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ControlOrMeta+s");
-    await expect(box(page, DAGSTER)).toBeFocused();
-    moveCode.release();
-    await expect.poll(() => github.file(boxFile(DAGSTER))).toContain("start: 2026-09-15\nend: 2026-10-26\n");
-    await expect(toolbar(page)).toContainText("No changes");
-    await expect(page.locator(".dragging")).toHaveCount(0);
-  });
-
   moveHeld("a press before it's here leaves the box where it is", async ({ page, github: _, moveCode }) => {
     await box(page, DAGSTER).focus();
     await page.keyboard.press("Space");
@@ -197,6 +173,169 @@ moveHeld.describe("a keyboard move before its code is here", () => {
     await page.waitForTimeout(300);
     await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
     await expect(toolbar(page)).toContainText("No changes");
+  });
+});
+
+// Every key pressed after Space is held till the code is here (none reaches the grid or the app
+// before), then goes where it would have gone had the code been here: each once, in order. Each
+// test waits for what only that can do.
+moveHeld.describe("keys pressed before a keyboard move's code is here", () => {
+  /**
+   * Press `keys` with the code held back: each is held for it, so none has done anything yet,
+   * nor reached the grid early: focus is still on Dagster, nothing is picked up, opened, added
+   * or changed.
+   */
+  async function pressHeld(page: Page, ...keys: string[]) {
+    const boxes = await page.locator("[data-box-id]").count();
+    await box(page, DAGSTER).focus();
+    for (const key of keys) await page.keyboard.press(key);
+    await expect(box(page, DAGSTER)).toBeFocused();
+    await expect(page.locator(".dragging")).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(toolbar(page)).toContainText("No changes");
+    expect(await page.locator("[data-box-id]").count()).toBe(boxes);
+  }
+  /** How many times the app has said `text` so far (messages asked for together are read as one). */
+  const times = async (page: Page, text: string) => (await heard(page)).split(text).length - 1;
+
+  moveHeld("Space, →, →, →, Enter: moved three working days, once each, and dropped", async ({ page, github: _, moveCode }) => {
+    await pressHeld(page, "Space", "ArrowRight", "ArrowRight", "ArrowRight", "Enter");
+    moveCode.release();
+    await expect.poll(() => heard(page)).toContain("Dropped: Dagster 2.x upgrade, 2026-09-17 to 2026-10-28, Data Engineering / FTE 2.");
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-17 – 2026-10-28");
+    await expect(box(page, DAGSTER)).toBeFocused();
+    await expect(page.locator(".dragging")).toHaveCount(0);
+  });
+
+  moveHeld("Space, ←, Enter: moved a day earlier and dropped; ← never reached the grid, so Enter added no box with its lane's +", async ({
+    page,
+    github: _,
+    moveCode,
+  }) => {
+    const boxes = await page.locator("[data-box-id]").count();
+    await pressHeld(page, "Space", "ArrowLeft", "Enter");
+    moveCode.release();
+    await expect.poll(() => heard(page)).toContain("Dropped: Dagster 2.x upgrade, 2026-09-11 to 2026-10-22, Data Engineering / FTE 2.");
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-11 – 2026-10-22");
+    await expect(box(page, DAGSTER)).toBeFocused();
+    expect(await page.locator("[data-box-id]").count()).toBe(boxes);
+  });
+
+  moveHeld("Space, →, ←, →, Enter: each step in order, and dropped a day later", async ({ page, github: _, moveCode }) => {
+    await pressHeld(page, "Space", "ArrowRight", "ArrowLeft", "ArrowRight", "Enter");
+    moveCode.release();
+    await expect.poll(() => heard(page)).toContain("Dropped: Dagster 2.x upgrade, 2026-09-15 to 2026-10-26, Data Engineering / FTE 2.");
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
+  });
+
+  moveHeld("Space, →, ⌘S: the box moved, dropped and saved, once, as mid-move", async ({ page, github, moveCode }) => {
+    const saves = github.calls("graphql");
+    await pressHeld(page, "Space", "ArrowRight", "ControlOrMeta+s");
+    moveCode.release();
+    await expect.poll(() => github.file(boxFile(DAGSTER))).toContain("start: 2026-09-15\nend: 2026-10-26\n");
+    await expect(toolbar(page)).toContainText("No changes");
+    await expect(page.locator(".dragging")).toHaveCount(0);
+    expect(github.calls("graphql") - saves).toBe(1);
+  });
+
+  moveHeld("Space, Tab: Tab goes on at once, as it does mid-move; the box is dropped where it was once the code is here", async ({
+    page,
+    github: _,
+    moveCode,
+  }) => {
+    await box(page, DAGSTER).focus();
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Tab");
+    await expect(box(page, DAGSTER)).not.toBeFocused();
+    const focused = await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80));
+    moveCode.release();
+    await expect.poll(() => heard(page)).toContain("Dropped where it was: Dagster 2.x upgrade.");
+    await expect(page.locator(".dragging")).toHaveCount(0);
+    await expect(toolbar(page)).toContainText("No changes");
+    // Focus stayed where Tab took it.
+    expect(await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80))).toBe(focused);
+  });
+
+  moveHeld("Space, →, Tab: Tab goes on at once; the box is moved once the code is here, and dropped", async ({ page, github: _, moveCode }) => {
+    await box(page, DAGSTER).focus();
+    await page.keyboard.press("Space");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Tab");
+    await expect(box(page, DAGSTER)).not.toBeFocused();
+    moveCode.release();
+    await expect.poll(() => heard(page)).toContain("Dropped: Dagster 2.x upgrade, 2026-09-15 to 2026-10-26, Data Engineering / FTE 2.");
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
+    await expect(page.locator(".dragging")).toHaveCount(0);
+    await expect(box(page, DAGSTER)).not.toBeFocused();
+  });
+
+  moveHeld("Space, →, Escape: put back where it was once the code is here", async ({ page, github: _, moveCode }) => {
+    await pressHeld(page, "Space", "ArrowRight", "Escape");
+    moveCode.release();
+    await expect.poll(() => heard(page)).toContain("Move cancelled: Dagster 2.x upgrade is back at 2026-09-14 to 2026-10-23.");
+    await expect(page.locator(".dragging")).toHaveCount(0);
+    await expect(toolbar(page)).toContainText("No changes");
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-14 – 2026-10-23");
+    await expect(box(page, DAGSTER)).toBeFocused();
+  });
+
+  moveHeld("keys after a drop are the grid's: Space, →, Enter, Space, ←, Enter moves it a day and back, two steps", async ({
+    page,
+    github: _,
+    moveCode,
+  }) => {
+    await pressHeld(page, "Space", "ArrowRight", "Enter", "Space", "ArrowLeft", "Enter");
+    moveCode.release();
+    await expect.poll(() => times(page, "Dropped: Dagster 2.x upgrade")).toBe(2);
+    await expect(toolbar(page)).toContainText("No changes");
+    await expect(box(page, DAGSTER)).toBeFocused();
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-15 – 2026-10-26");
+  });
+
+  moveHeld("keys after a drop are the grid's: Space, ←, Enter, →, Enter drops it, then opens the box after it", async ({ page, github: _, moveCode }) => {
+    await pressHeld(page, "Space", "ArrowLeft", "Enter", "ArrowRight", "Enter");
+    moveCode.release();
+    await expect(page.getByRole("dialog", { name: "Edit CDC pipeline for orders DB" })).toBeVisible();
+    await expect(toolbar(page)).toContainText("Save · 1 change");
+    await expect.poll(() => boxDates(page, DAGSTER)).toBe("2026-09-11 – 2026-10-22");
+  });
+
+  moveHeld("released part way, Space, →, Enter, Space held, then ← and Enter as it's picked up again: moved and back, no box added", async ({
+    page,
+    github: _,
+    moveCode,
+  }) => {
+    const boxes = await page.locator("[data-box-id]").count();
+    await pressHeld(page, "Space", "ArrowRight", "Enter", "Space");
+    moveCode.release();
+    // Dropped, then picked up again by the Space after it: ← is the move's, not the grid's.
+    await expect.poll(() => times(page, "Dropped: Dagster 2.x upgrade")).toBe(1);
+    await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Enter");
+    await expect.poll(() => times(page, "Dropped: Dagster 2.x upgrade")).toBe(2);
+    await expect(toolbar(page)).toContainText("No changes");
+    await expect(box(page, DAGSTER)).toBeFocused();
+    expect(await page.locator("[data-box-id]").count()).toBe(boxes);
+  });
+
+  moveHeld("the browser's own shortcuts aren't held: ⌘F or Ctrl+F reaches the page as pressed", async ({ page, github: _, moveCode }) => {
+    await page.evaluate(() => {
+      const w = window as unknown as { found?: boolean };
+      document.addEventListener("keydown", (e) => (w.found ||= e.key === "f" && (e.metaKey || e.ctrlKey) && e.isTrusted));
+    });
+    await box(page, DAGSTER).focus();
+    await page.keyboard.press("Space");
+    await page.keyboard.press("ControlOrMeta+f");
+    expect(await page.evaluate(() => (window as unknown as { found?: boolean }).found)).toBe(true);
+    moveCode.release();
+    await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
   });
 });
 

@@ -601,10 +601,13 @@ against data the new code wrote.
   without a token); a keyboard move's code once the timeline is drawn, when
   the browser is next idle, or at once should the timeline have focus first
   (a box picked up before it's here is picked up once it is, if focus is
-  still on it, nothing was pressed and it came within 4 seconds, and the
-  keys pressed meanwhile move it, ⌘S among them saving it dropped, as
-  mid-move;
-  Tab meanwhile goes on, as it does mid-move, and the box is moved and
+  still on it, nothing was pressed and it came within 4 seconds; each key
+  pressed meanwhile is held till then, kept from the grid and the app, and
+  then goes where it would have gone, in order, once: the move's keys move
+  it, ⌘S saves it dropped, Esc puts it back, and after a drop the keys are
+  the grid's, Enter on a button pressing it, though text typed into a field
+  one of them opens isn't typed; the browser's own shortcuts, ⌘F say, aren't
+  held; Tab meanwhile goes on, as it does mid-move, and the box is moved and
   dropped once the code is here; past 4 seconds, the keys are the
   timeline's again and it says to press Space again); the settings menu's
   contents when the pointer reaches the gear; the key, the keyboard

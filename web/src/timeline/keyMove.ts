@@ -5,8 +5,10 @@
 // anywhere, ⌘S, another view or going read-only drop it too (Timeline.tsx).
 // Each step says the dates, and what they'd do (consequences.ts). While it
 // lasts, others' saves wait (App's polling). The timeline fetches this once
-// it's drawn, so a move hardly ever waits for it.
+// it's drawn, so a move hardly ever waits for it; keys pressed after Space
+// before it's here are held for it, and played once it is (replay).
 
+import { flushSync } from "react-dom";
 import { announce } from "../a11y/announce";
 import { APPLE, letter, undoHint } from "../a11y/keys";
 import { type Day, prettyDay } from "../model/dates";
@@ -203,6 +205,41 @@ export function onMoveKey(host: MoveHost, e: KeyboardEvent, dropAtOnce: () => vo
   else if (arrow && !mod && !e.altKey && !e.shiftKey) stepLane(host, m, arrow);
   // Any other key (⌘←, Home, Delete…) does nothing: it says what does.
   else if (!e.repeat) say(`Moving ${movingName(host, m)}: Enter to drop, Escape to cancel.`);
+}
+
+/**
+ * The keys pressed after Space before this code was here, which the timeline held for it (its
+ * pickUp), now that it is. What Space was pressed on (`cell`, its key) is picked up, then each
+ * key, in order, goes where it would have gone had this been here: a copy of it (the browser's
+ * own can't be sent again) is sent to what has focus then, and drawn before the next. So the
+ * move's keys move it (its listener, the timeline's keyMoving effect, hears them first), ⌘S
+ * saves it dropped, Esc puts it back, and once it's dropped the keys are the grid's and the
+ * app's, Enter or Space on a button pressing it, as the browser does. `tabbed`: Tab went on at
+ * once, as it does mid-move, so the keys before it go to the cell they were pressed on in `grid`;
+ * then it's dropped, and focus is where Tab took it, should one of them have brought it back to
+ * the grid. (Text typed into a field one of them opened, a lane's name, isn't typed: only the
+ * browser types.)
+ */
+export function replay(host: MoveHost, grid: HTMLElement, cell: string, keys: KeyboardEvent[], tabbed: boolean): void {
+  const i = cell.indexOf(":");
+  const tabbedTo = tabbed ? document.activeElement : null;
+  const inGrid = () => grid.contains(document.activeElement);
+  // Drawn now, and so listening for the move's keys (the keyMoving effect) before any more come:
+  // a key pressed before React's next render would otherwise reach neither that nor the grid.
+  flushSync(() => pickUp(host, cell.slice(0, i), cell.slice(i + 1)));
+  for (const e of keys) {
+    const to = (tabbed && !inGrid() && grid.querySelector(`[data-cell="${CSS.escape(cell)}"]`)) || document.activeElement || document.body;
+    const plain = !e.metaKey && !e.ctrlKey && !e.altKey;
+    flushSync(() => {
+      const unhandled = to.dispatchEvent(new KeyboardEvent("keydown", e));
+      if (unhandled && plain && (e.key === "Enter" || e.key === " ") && to instanceof HTMLButtonElement) to.click();
+    });
+  }
+  if (!tabbed) return;
+  if (host.current()) flushSync(() => drop(host));
+  if (!inGrid()) return;
+  if (tabbedTo instanceof HTMLElement && tabbedTo !== document.body && tabbedTo.isConnected) tabbedTo.focus();
+  else (document.activeElement as HTMLElement).blur();
 }
 
 /** The lanes a box moves through with up and down, top to bottom: those of the departments that are open. */

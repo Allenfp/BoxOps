@@ -96,6 +96,12 @@ function whenIdle(then: () => void): () => void {
   const id = setTimeout(then, 0);
   return () => clearTimeout(id);
 }
+/**
+ * The browser's own shortcut, which no part of the app takes, a keyboard move's or not: ⌘ or Ctrl
+ * with any key but S, Z or Y (save, undo, redo), an arrow, Home or End. Find, reload, zoom, copy…
+ * Keys held for a move's code (Timeline's pickUp) let it by, as a move does.
+ */
+const browsersKey = (e: KeyboardEvent) => (e.metaKey || e.ctrlKey) && !["s", "z", "y"].includes(letter(e) ?? "") && !/^(Arrow|Home$|End$)/.test(e.key);
 
 /** The keys of a keyboard move, beside its dates while it lasts (said when it starts). */
 const moveKeysHint = (lanes: boolean) =>
@@ -765,20 +771,24 @@ export function Timeline(props: Props) {
   const onGridFocus = () => {
     if (!readOnly && !moveCode) loadMoveCode().catch(() => {});
   };
-  /** Keys pressed after Space while the move's code is on its way: the move's, once it's here. */
-  const waiting = useRef<KeyboardEvent[] | null>(null);
+  /** A box or PTO block picked up before the move's code was here: the keys pressed since, held for it (pickUp). */
+  const waiting = useRef<{ keys: KeyboardEvent[]; stop(): void } | null>(null);
+  // The timeline going (another view) ends it: the keys held are no one's.
+  useEffect(() => () => waiting.current?.stop(), []);
   /**
    * Space on a box or PTO block (`cell`): pick it up. Before the move's code is here, it's picked
    * up once it is (if focus is still on it, nothing was pressed meanwhile, and it came within
-   * MOVE_CODE_WAIT_MS), and the keys pressed in between move it then (⌘S among them saving it
-   * dropped, as mid-move). Tab meanwhile goes on, as it does mid-move: the keys before it move it
-   * once its code is here, and it's dropped there.
+   * MOVE_CODE_WAIT_MS), and the keys pressed in between are held till then, kept from the grid
+   * and the app: then each goes where it would have gone had the code been here (keyMove.ts's
+   * replay). Tab meanwhile goes on, as it does mid-move: the keys before it are played once the
+   * code is here, and the box is dropped where they take it.
    */
   const pickUp = (cell: HTMLElement, kind: string, id: string) => {
     if (readOnly) return say(readOnlyWhy);
     if (endDrag.current || move.current || waiting.current) return;
     if (moveCode) return moveCode.pickUp(host, kind, id);
-    const keys: KeyboardEvent[] = (waiting.current = []);
+    const key = cell.dataset.cell!;
+    const keys: KeyboardEvent[] = [];
     let tabbed = false;
     const hold = (e: KeyboardEvent) => {
       if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
@@ -787,8 +797,9 @@ export function Timeline(props: Props) {
         window.removeEventListener("keydown", hold, true);
         return;
       }
+      if (browsersKey(e)) return;
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       keys.push(e);
     };
     // A fetch that hangs doesn't keep the keyboard from the page: the keys are the timeline's again.
@@ -800,27 +811,19 @@ export function Timeline(props: Props) {
       clearTimeout(late);
       window.removeEventListener("keydown", hold, true);
       window.removeEventListener("pointerdown", stop, true);
-      if (waiting.current === keys) waiting.current = null;
+      if (waiting.current === held) waiting.current = null;
     };
+    const held = (waiting.current = { keys, stop });
     window.addEventListener("keydown", hold, true);
     window.addEventListener("pointerdown", stop, true);
     loadMoveCode().then(
       (code) => {
-        const still = waiting.current === keys;
+        const still = waiting.current === held;
         stop();
-        if (!still || (!tabbed && document.activeElement !== cell) || endDrag.current || latest.current.props.readOnly) return;
-        // Drawn now, and so listening for the move's keys (the keyMoving effect) before any more come:
-        // a key pressed before React's next render would otherwise reach neither that nor onGridKey.
-        flushSync(() => code.pickUp(host, kind, id));
-        for (const e of keys) {
-          if (!move.current) break;
-          code.onMoveKey(host, e, () => {
-            flushSync(() => code.drop(host));
-            // ⌘S: dropped, then the app's own ⌘S saves it, as mid-move; held back here, so it's sent again.
-            window.dispatchEvent(new KeyboardEvent(e.type, e));
-          });
-        }
-        if (tabbed) code.drop(host);
+        // Focus still on it (or on its cell drawn again), unless Tab took it on.
+        const here = tabbed || cellOf(document.activeElement)?.dataset.cell === key;
+        const grid = gridRef.current;
+        if (still && here && grid && !endDrag.current && !latest.current.props.readOnly) code.replay(host, grid, key, keys, tabbed);
       },
       () => {
         stop();
