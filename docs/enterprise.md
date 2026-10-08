@@ -23,6 +23,7 @@ Nothing in the roadmap repository is built or installed.
 | GitHub's own actions only | Path B: BoxOps fetched by commit with git and run with Node.js ([Path B](#path-b-githubs-own-actions-only)). |
 | npm, package proxies | Not involved: roadmap repositories have no `package.json`, and nothing installs packages, in CI or on laptops. |
 | IP allow list | GitHub's standard runners can't be allow-listed: larger runners with static addresses, or self-hosted runners. Editors save from allowed networks ([IP allow lists](#ip-allow-lists)). |
+| Network filters, proxies | Browsers need the site (`*.github.io`, or its custom domain), `github.com` with what its pages load (`*.githubassets.com`, `*.githubusercontent.com`), and `api.github.com`; self-hosted runners, GitHub's list for them, and for Path B a Node.js 24 download ([Network access](#network-access)). |
 | Self-hosted runners | Linux or macOS, runner v2.327.1 or later, git 2.18 or later, `bash`, `gh`, `jq`, and GNU tar (`gtar` on macOS) ([Self-hosted runners](#self-hosted-runners)). |
 | Enterprise Managed Users | Sites are always private. `init` if a template outside the enterprise can't be used ([Enterprise Managed Users](#enterprise-managed-users)). |
 | Rulesets | Rules a browser save can't meet need editors on the bypass list, or the repository excluded ([Rulesets](#rulesets)). |
@@ -226,6 +227,25 @@ included, from an address not on the list:
   office, or a VPN. The app says "only allows GitHub access from approved
   networks" when it's refused.
 
+## Network access
+
+What a web proxy or a network filter must let through:
+
+- **Browsers** that view or edit the roadmap: the site, a private site's
+  `https://<random name>.pages.github.io/` or a public one's
+  `https://<owner>.github.io/<repository>/` (so `*.github.io`), and its
+  custom domain if it has one; `github.com`, where a private site's viewers
+  sign in and editors make tokens, with what its pages load,
+  `*.githubassets.com` and `*.githubusercontent.com`; and the two hosts the
+  app calls, `api.github.com` and, for a public repository's files without
+  a token, `raw.githubusercontent.com`. Its Content-Security-Policy allows
+  no other.
+- **Laptops** that run `node .boxops/boxops.mjs`: `raw.githubusercontent.com`,
+  `api.github.com` and `github.com`.
+- **Runners**: GitHub's own need nothing from you. Self-hosted ones need
+  what GitHub lists for them, and with Path B a Node.js 24 download:
+  [Self-hosted runners](#self-hosted-runners).
+
 ## Self-hosted runners
 
 - **Linux or macOS.** The action refuses Windows ("BoxOps 0.1 runs on Linux
@@ -253,7 +273,12 @@ included, from an address not on the list:
   `*.actions.githubusercontent.com`, `codeload.github.com` (to download
   actions), and `results-receiver.actions.githubusercontent.com` with
   `*.blob.core.windows.net` (artifacts: the site travels from one job to the
-  next as one). The BoxOps step itself makes no network call.
+  next as one). The BoxOps step itself makes no network call. With Path B,
+  `actions/setup-node` downloads Node.js 24 unless it's in the runner's tool
+  cache: from GitHub's `actions/node-versions` releases (which it finds
+  through `api.github.com`, and which `github.com` sends on to
+  `release-assets.githubusercontent.com`), or, failing that, from
+  `nodejs.org`.
 - Like any runner that runs a repository's workflows, keep it for trusted
   repositories: a self-hosted runner isn't wiped between jobs unless you
   make it ephemeral.

@@ -218,10 +218,14 @@ checks addresses):
 
 Browsers that view or edit the roadmap need:
 
-- the site's address, `https://<random name>.pages.github.io/` (a private
-  site's own host under `pages.github.io`; Settings → Pages shows it);
+- the site: a private site's own host, `https://<random name>.pages.github.io/`
+  (Settings → Pages shows it), or a public one's
+  `https://<owner>.github.io/<repository>/`, so `*.github.io`; and its
+  custom domain, if you give it one (Settings → Pages → Custom domain);
 - `github.com`, where a private site's viewers sign in and editors make
-  tokens;
+  tokens, with what its pages load: `*.githubassets.com` (their scripts,
+  styles and fonts) and `*.githubusercontent.com` (pictures, such as
+  avatars);
 - `api.github.com`, which the app calls (with an editor's token, or none on
   a public repository), and `raw.githubusercontent.com`, from which it reads
   a public repository's files without a token. Its Content-Security-Policy
@@ -233,7 +237,11 @@ People who run BoxOps' command-line tool in a clone
 "Self-hosted runners reference" lists for them (`github.com`,
 `api.github.com`, `*.actions.githubusercontent.com`, `codeload.github.com`,
 `results-receiver.actions.githubusercontent.com`, `*.blob.core.windows.net`
-and more); the BoxOps action itself makes no network calls.
+and more); the BoxOps action itself makes no network calls. With Path B
+([enterprise.md](enterprise.md#self-hosted-runners)), `actions/setup-node`
+downloads Node.js 24 unless the runner's tool cache has it: from GitHub's
+`actions/node-versions` releases (`github.com`, which sends the download on
+to `release-assets.githubusercontent.com`), or, failing that, `nodejs.org`.
 
 ### 7. Organization rulesets
 
