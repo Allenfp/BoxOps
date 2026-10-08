@@ -26,9 +26,23 @@ test.use({ files: FILES });
 const cell = (page: Page, key: string) => page.locator(`[data-cell="${key}"]`);
 const dept = (n: number) => `dept-${String(n).padStart(2, "0")}`;
 
-/** Scroll the timeline to these fractions of the way across and down. */
+/**
+ * Scroll the timeline to these fractions of the way across and down, and wait till it has
+ * heard of it (its scroll event, which the app's handler hears first): what it draws has
+ * followed by then.
+ */
 const scrollTo = (page: Page, x: number, y: number) =>
-  page.locator(".timeline").evaluate((el, [x, y]) => el.scrollTo((el.scrollWidth - el.clientWidth) * x, (el.scrollHeight - el.clientHeight) * y), [x, y]);
+  page.locator(".timeline").evaluate(
+    (el, [x, y]) =>
+      new Promise<void>((done) => {
+        const was = [el.scrollLeft, el.scrollTop];
+        el.scrollTo((el.scrollWidth - el.clientWidth) * x, (el.scrollHeight - el.clientHeight) * y);
+        // Already there: no scroll event comes.
+        if (el.scrollLeft === was[0] && el.scrollTop === was[1]) return done();
+        el.addEventListener("scroll", () => done(), { once: true });
+      }),
+    [x, y],
+  );
 
 /** The cells (`data-cell`) on screen: in the timeline's view, below its header. */
 const onScreen = (page: Page) =>
@@ -97,7 +111,9 @@ test("only what's near the screen is drawn; the grid counts every row, and what 
 
 test("nothing on screen is missing, wherever it's scrolled, at every zoom, and after Today", async ({ page, github }) => {
   // Fifteen places at three zooms, Today and a bigger window, each in this tab and in one that
-  // draws all 603 boxes: in WebKit, in a full run, 17 to 27 seconds, now and then past the 30 allowed.
+  // draws all 603 boxes, compared as soon as both have heard of the scroll (scrollTo): what's
+  // drawn has followed by then. That's a lot of drawing: in WebKit, 18 to 22 seconds on its own,
+  // up to 45 with eight workers busy at once, so three times the 30 allowed.
   test.slow();
   const whole = await wholeTab(page, github);
   for (const zoom of ["Months", "Weeks", "Quarters"]) {
@@ -106,7 +122,7 @@ test("nothing on screen is missing, wherever it's scrolled, at every zoom, and a
       for (const p of [page, whole]) await scrollTo(p, x, y);
       const expected = await onScreen(whole);
       expect(expected.length).toBeGreaterThan(0);
-      await expect.poll(() => onScreen(page), { message: `${zoom} at ${x}, ${y}` }).toEqual(expected);
+      expect(await onScreen(page), `${zoom} at ${x}, ${y}`).toEqual(expected);
     }
   }
   // The long box, though it starts and ends far off screen, at weeks zoom.
@@ -114,8 +130,8 @@ test("nothing on screen is missing, wherever it's scrolled, at every zoom, and a
     await p.getByRole("button", { name: "Weeks", exact: true }).click();
     await scrollTo(p, 0.5, 0);
   }
-  await expect.poll(() => onScreen(whole)).toContain(`box:${LONG}`);
-  await expect.poll(() => onScreen(page)).toContain(`box:${LONG}`);
+  expect(await onScreen(whole)).toContain(`box:${LONG}`);
+  expect(await onScreen(page)).toContain(`box:${LONG}`);
 
   // Today, from the far end: the timeline scrolls back, smoothly, drawing what it comes to.
   // Compared once both tabs have got there and stopped, in the same place: mid-scroll, or
@@ -226,7 +242,7 @@ test("collapsed departments are a row each; as boxes, those on screen are drawn"
   await page.evaluate(() => localStorage.setItem("boxops-prefs", JSON.stringify({ ...JSON.parse(localStorage.getItem("boxops-prefs")!), collapsedView: "boxes" })));
   for (const p of [page, whole]) {
     await p.reload();
-    await expect(p.locator(".box.compact").first()).toBeVisible();
+    await p.locator(".box.compact").first().waitFor(); // however long it takes, as the fixture's first load
   }
   expect(await page.locator(".box.compact").count()).toBeLessThan((await whole.locator(".box.compact").count()) / 2);
   for (const [x, y] of [[0, 0], [0.6, 0], [1, 1]]) {
@@ -278,8 +294,9 @@ async function dragIntoCorner(page: Page, inset: number, release?: { x: number; 
     look();
   }, key!);
   await page.mouse.move(view.x + view.width - inset, view.y + view.height - inset, { steps: 10 });
+  // However long that takes: it scrolls a step a frame, and a busy machine draws fewer frames.
   for (const depth of [1, 2, 3]) {
-    await expect.poll(() => timeline.evaluate((el) => el.scrollTop), { timeout: 15_000 }).toBeGreaterThan(depth * view.height);
+    await expect.poll(() => timeline.evaluate((el) => el.scrollTop), { timeout: 0 }).toBeGreaterThan(depth * view.height);
     await expect(moved).toHaveCount(1);
     await expect(moved).toBeInViewport();
   }

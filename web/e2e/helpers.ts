@@ -100,11 +100,13 @@ export const test = base.extend<{
       }
     });
     await page.goto("./?zoom=months");
-    await expect(page.locator(".box, .empty-roadmap").first()).toBeVisible();
+    // However long it takes: a big roadmap on a busy machine can take more than an assertion's
+    // 5 s to show. The test's own time limit is the only one.
+    await page.locator(".box, .empty-roadmap").first().waitFor();
     // The deployed copy is painted first; then the app asks GitHub for newer saves (when it
     // may: with a token, or a public repository). Let that start, so it can't take a failure
     // a test sets up for its save.
-    if (signedIn || visibility === "public") await expect.poll(() => github.calls("ref")).toBe(1);
+    if (signedIn || visibility === "public") await expect.poll(() => github.calls("ref"), { timeout: 0 }).toBe(1);
     await use(github);
     expect(github.forbidden, "calls GitHub would refuse, or a correct app never makes").toEqual([]);
   },
@@ -317,7 +319,7 @@ export async function openTab(context: BrowserContext, github: FakeGitHub, at = 
     { [`boxops-github-token:${REPO}`]: TOKEN, ...session },
   );
   await tab.goto("./?zoom=months");
-  await expect(tab.locator(".box").first()).toBeVisible();
+  await tab.locator(".box").first().waitFor(); // however long it takes, as the first tab
   return tab;
 }
 
