@@ -5,7 +5,7 @@ import { buildReport, formatReport } from "../src/model/report";
 import { loadRoadmap } from "../src/model/parse";
 import { main } from "./boxops";
 import type { Io, LaunchContext } from "./context";
-import { ID, NASTY, NASTY_SHOWN, NASTY_YAML, SAMPLE, capture, cleanUp, makeRelease, obeyed, sampleRepo, tempDir } from "./test-release";
+import { ID, NASTY, NASTY_SHOWN, NASTY_YAML, SAMPLE, capture, cleanUp, makeRelease, obeyed, runnerCommand, sampleRepo, tempDir } from "./test-release";
 import { type Entry, TestRepo } from "./test-repo";
 
 // Most tests make a repository and run commands that read it with git, some many times: over a
@@ -312,6 +312,37 @@ describe("roadmap text in the terminal", () => {
     // The title, in the report as text, and as itself in its JSON, which stays JSON.
     expect(runs.report.stdout).toContain(`FTE  ${NASTY_SHOWN} (ENG-K7P)`);
     expect(JSON.parse(runs.json.stdout).people[0].bookings[0].box.title).toBe(NASTY);
+  });
+
+  it("in GitHub Actions, prints no problem the runner would read as a workflow command; report's text is as it is", async () => {
+    // A value holding `##[` (read anywhere in a line), and a file whose name starts with `::` (read at a line's start).
+    const box = SAMPLE["boxes/bx-1a2b-example-project.yaml"].replace("type: project", 'type: "##[stop-commands]x"').replace("title: Example project (delete me)", 'title: "::set-output name=x::y"');
+    const repo = checkout(sampleRepo({ "roadmap/boxes/bx-1a2b-example-project.yaml": box, "roadmap/::set-output name=x::y": "x\n", "roadmap/boxes/bx-ffff-##[stop-commands]x.yaml": "id: bx-ffff-x\n" }));
+    const here = join(repo.dir, "roadmap");
+    const env = { GITHUB_ACTIONS: "true", GITHUB_SERVER_URL: "https://github.com", GITHUB_REPOSITORY: "acme/roadmap" };
+    const runs = {
+      validate: await run(["validate"], { cwd: here, env }, { root: repo.dir }),
+      report: await run(["report"], { cwd: here, env }, { root: repo.dir }),
+      migrate: await run(["migrate"], { cwd: here, env }, { root: repo.dir }),
+      build: await run(["build", "--out", join(tempDir(), "site"), "--commit", "HEAD"], { cwd: here, env }, { root: repo.dir }),
+    };
+    for (const [name, r] of Object.entries(runs)) {
+      const lines = r.stderr.split("\n");
+      expect([name, lines.length > 2, lines.filter((l) => runnerCommand(l) !== null)]).toEqual([name, true, []]);
+    }
+    // Said all the same: the runner's syntax broken by a space, as the action's log has it.
+    expect(runs.validate.stderr.split("\n")).toEqual(
+      expect.arrayContaining([
+        'boxes/bx-1a2b-example-project.yaml:7: type: "## [stop-commands]x" is not defined in settings.yaml',
+        ": :set-output name=x::y: unexpected file; roadmap files live in departments/ or boxes/",
+        expect.stringMatching(/^boxes\/bx-ffff-## \[stop-commands\]x\.yaml:1: /),
+      ]),
+    );
+    // Outside Actions, as they are; and report's text, on stdout, the same byte for byte either way.
+    const outside = await run(["validate"], { cwd: here }, { root: repo.dir });
+    expect(outside.stderr.split("\n")).toContain('boxes/bx-1a2b-example-project.yaml:7: type: "##[stop-commands]x" is not defined in settings.yaml');
+    expect(runs.report.stdout).toBe((await run(["report"], { cwd: here }, { root: repo.dir })).stdout);
+    expect(runs.report.stdout).toContain("::set-output name=x::y");
   });
 });
 

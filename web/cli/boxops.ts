@@ -19,6 +19,7 @@ import { type Report, buildReport, formatReport } from "../src/model/report.ts";
 import { FormatError, checkFormat, runAction } from "./action.ts";
 import { type Args, EXIT, type Io, type LaunchContext, UsageError, defaultIo, flag, parseArgs, roadmapOf, rootOf } from "./context.ts";
 import { doctorCommand } from "./doctor.ts";
+import { logLine } from "./gha.ts";
 import { RoadmapReadError } from "./git.ts";
 import { TOPICS, type Topic, guideTopic, wholeGuide } from "./guide.ts";
 import { initCommand } from "./init.ts";
@@ -279,9 +280,15 @@ export const WARNING_COMMANDS = Object.keys(COMMANDS).filter((name) => !["sync",
  * environment, 3 data format mismatch). The launcher's contract: frozen.
  * What it prints shows the control characters in it as escapes
  * (terminal.ts): a roadmap's values and file names are anyone's who can save.
+ * In GitHub Actions (a workflow running validate, say), each line it prints
+ * to stderr, where the problems go, is one the runner reads as text, never
+ * as a workflow command (gha.ts's logLine: no `##[`, no `::` at its start).
+ * stdout stays as it is: report's text, byte for byte, and JSON.
  */
 export async function main(argv: string[], ctx: LaunchContext = {}, given: Io = defaultIo()): Promise<number> {
-  const io: Io = { ...given, out: (text) => given.out(visible(text, true)), err: (text) => given.err(visible(text, true)) };
+  const actions = given.env.GITHUB_ACTIONS === "true";
+  const err = (text: string) => given.err(actions ? text.split("\n").map((line) => logLine(visible(line))).join("\n") : visible(text, true));
+  const io: Io = { ...given, out: (text) => given.out(visible(text, true)), err };
   const [name, ...rest] = argv;
   if (name === "action") return runAction({ argv: rest, env: io.env, out: io.out, cliDir: io.cliDir, identity: io.identity() });
   if (name === undefined || name === "help" || name === "--help" || name === "-h") {

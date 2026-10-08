@@ -1197,7 +1197,11 @@ shows its control characters as escapes, as JSON writes them (`\r`,
 roadmap's values and file names are anyone's who can save, and a terminal
 obeys ESC's sequences (a line erased, the window's title, in some terminals
 the clipboard), CR and a right-to-left override. JSON output stays JSON,
-meaning the same.
+meaning the same. In GitHub Actions (`GITHUB_ACTIONS=true`: a workflow that
+runs `validate`, say), each line on stderr, where the problems go, is one
+the runner reads as text, never as a workflow command (`cli/gha.ts`'s
+`logLine`, as the action's log: `##[` and a leading `::` broken by a
+space); stdout stays as it is, `report`'s text byte for byte.
 
 **The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
 `path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;
@@ -1357,7 +1361,8 @@ a release must have none of.
   action against such repositories and a fake release: every command, each of
   the action's checks with its message, outputs and summary (a huge value,
   and values and file names holding ESC, CR or a right-to-left override,
-  printed as escapes by every command and in the log), migrations
+  printed as escapes by every command and in the log, or `##[` and `::`,
+  which no command prints as a workflow command in Actions), migrations
   (comments and line ends kept, idempotent), `sync`, `upgrade` and `init`
   rewriting sample repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`,
   `init` and `preview`'s fetch against a fake GitHub, the launcher run with
