@@ -1,7 +1,7 @@
-import { dirname, relative, resolve, sep } from "node:path";
+import { posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
-import type { Plugin } from "vite";
+import { type Plugin, normalizePath } from "vite";
 import { defineConfig } from "vitest/config";
 import { withContentSecurityPolicy } from "./cli/csp.ts";
 import { ICONS_NOTICE, licenseFile } from "./cli/licenses.ts";
@@ -100,14 +100,17 @@ function chunkAddresses(): Plugin {
     name: "boxops-chunk-addresses",
     configResolved: (config) => void (dev = config.command === "serve"),
     transform: (code, id) =>
-      dev && id.startsWith(resolve(WEB_DIR, "src") + sep) && code.includes("boxops-chunk:") ? code.replace(marker, (_, path: string) => `/${path}`) : null,
+      dev && id.startsWith(normalizePath(resolve(WEB_DIR, "src")) + "/") && code.includes("boxops-chunk:")
+        ? code.replace(marker, (_, path: string) => `/${path}`)
+        : null,
     renderChunk(code, chunk, _options, { chunks }) {
       if (!code.includes("boxops-chunk:")) return null;
       return code.replace(marker, (_, path: string) => {
         // Its name as it is here, a placeholder for the hash, which the build fills in afterwards.
-        const file = Object.values(chunks).find((c) => c.facadeModuleId === resolve(WEB_DIR, path))?.fileName;
+        // Module ids are Vite's: with / between names, on Windows too.
+        const file = Object.values(chunks).find((c) => c.facadeModuleId === normalizePath(resolve(WEB_DIR, path)))?.fileName;
         if (!file) throw new Error(`boxops-chunk: the build puts ${path} in no file of its own`);
-        return `./${relative(dirname(chunk.fileName), file)}`;
+        return `./${posix.relative(posix.dirname(chunk.fileName), file)}`;
       });
     },
   };
