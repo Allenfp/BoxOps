@@ -19,8 +19,8 @@
 //   - a link's text stays on one line: GitHub's docs say a link whose text
 //     spans lines won't work.
 // Other absolute links (https:, mailto:) aren't fetched. Code (fenced blocks,
-// blocks indented 4 columns past the list item they're in or the page,
-// `spans`), HTML comments, YAML front matter and footnotes' `[^1]:` are
+// blocks indented 4 columns past the list item or quote they're in, or the
+// page, `spans`), HTML comments, YAML front matter and footnotes' `[^1]:` are
 // skipped (a footnote's text isn't: its links are checked). Problems go to
 // stderr as FILE:LINE: …, and as error annotations in GitHub Actions. Exit 0
 // if every link resolves, 1 if not, 2 for a mistake in how it's run. Plain
@@ -45,9 +45,32 @@ const QUOTES = /^(?: {0,3}>[ \t]?)*/;
 const unquoted = (line) => line.slice(QUOTES.exec(line)[0].length);
 
 /**
- * The width in columns of the spaces and tabs `text` starts with (a tab goes
- * to the next multiple of 4, counting from column `from`), and where its text
- * starts.
+ * A line's block quotes: how many (`depth`); where the text in them starts
+ * (`at`) and at what column of the line (`start`); the column its indentation
+ * counts from (`zero`), the innermost quote's content, which starts past its
+ * `>` and the space or tab after it (a tab's other columns are the text's
+ * indentation); and each `>`'s column in the quote it's in, or the page
+ * (`marks`).
+ */
+function quoteOf(line) {
+  const prefix = QUOTES.exec(line)[0];
+  const marks = [];
+  let column = 0;
+  let zero = 0;
+  for (let i = 0; i < prefix.length; i++) {
+    if (prefix[i] === ">") {
+      marks.push(column - zero);
+      zero = column + (prefix[i + 1] === " " || prefix[i + 1] === "\t" ? 2 : 1);
+      column += 1;
+    } else column += prefix[i] === "\t" ? 4 - (column % 4) : 1;
+  }
+  return { depth: marks.length, at: prefix.length, start: column, zero, marks };
+}
+
+/**
+ * The width in columns of the spaces and tabs `text` starts with, and where
+ * its text starts: `text` starts at column `from` of its line, and a tab goes
+ * to the line's next multiple of 4.
  */
 function indentOf(text, from = 0) {
   let column = from;
@@ -89,8 +112,8 @@ function interrupts(rest, inList) {
  * after its text (a setext heading's underline), and where its text starts on
  * the first line. The blocks are read as GitHub reads them (CommonMark), as far
  * as finding these needs: a line indented 4 or more columns past the list item
- * it's in (or the page) is code, unless it goes on with a paragraph; a
- * paragraph underlined with `===` or `---` is a heading.
+ * or block quote it's in (or the page) is code, unless it goes on with a
+ * paragraph; a paragraph underlined with `===` or `---` is a heading.
  */
 function scan(text) {
   let out = text.replace(/\r\n?/g, "\n");
@@ -108,7 +131,8 @@ function scan(text) {
   let para = null;
   let fence = null;
   for (const [i, line] of lines.entries()) {
-    const inner = unquoted(line);
+    const quote = quoteOf(line);
+    const inner = line.slice(quote.at);
     if (fence) {
       const close = /^\s*(`{3,}|~{3,})\s*$/.exec(inner);
       if (close && close[1][0] === fence[0] && close[1].length >= fence.length) {
@@ -123,9 +147,12 @@ function scan(text) {
       continue;
     }
     const empty = inner.trim() === "";
-    const quotes = QUOTES.exec(line)[0].split(">").length - 1;
+    const quotes = quote.depth;
     if (quotes !== depth) {
       if (quotes > depth) {
+        // A quote that starts left of a list item's (or footnote's) content ends it.
+        const outer = stacks[depth];
+        while (outer.length && outer.at(-1) > quote.marks[depth]) outer.pop();
         for (let d = depth + 1; d <= quotes; d++) stacks[d] = [];
         prev = "blank"; // A block quote's first line starts its content.
       } else if (prev !== "para" || empty) {
@@ -137,7 +164,10 @@ function scan(text) {
       prev = "blank";
       continue;
     }
-    const { width, at } = indentOf(inner);
+    // Columns count from the quote's content (or the page's); a tab's, from the line's start.
+    const lead = indentOf(inner, quote.start);
+    const width = quote.start - quote.zero + lead.width;
+    const at = lead.at;
     const rest = inner.slice(at);
     const stack = stacks[depth];
     const base = stack.findLast((col) => col <= width) ?? 0;
@@ -169,7 +199,7 @@ function scan(text) {
     let left = null; // What a list item left the line as, when its text doesn't start on it.
     while (!BREAK.test(inner.slice(pos)) && (item = ITEM.exec(inner.slice(pos)))) {
       const marker = pos + item[0].length;
-      const after = indentOf(inner.slice(marker), col + item[0].length);
+      const after = indentOf(inner.slice(marker), quote.zero + col + item[0].length);
       if (marker + after.at === inner.length) {
         stack.push(col + item[0].length + 1);
         left = "blank"; // No text yet: its content may start on the next line, code too.

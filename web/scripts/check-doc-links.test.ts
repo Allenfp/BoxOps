@@ -1,8 +1,8 @@
 // The docs' link check (scripts/check-doc-links.mjs), run as CI runs it: the
 // repository's Markdown as it is, then a small repository with a link of
 // every kind it reads, right and broken, blocks read as GitHub reads them
-// (indented code, setext headings, footnotes), and anchors made as GitHub
-// makes them.
+// (indented code, setext headings, footnotes, block quotes), and anchors made
+// as GitHub makes them.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -233,6 +233,51 @@ describe("the docs' link check", () => {
     expect(check(repo({ "tabs.md": tabs })).stderr.trimEnd().split("\n")).toEqual([
       "tabs.md:5: links to tab-para.md, which git doesn’t track (tab-para.md)",
       "tabs.md:11: links to #hidden, which no heading of tabs.md makes (#hidden)",
+    ]);
+  });
+
+  it("reads block quotes as GitHub does: a tab after `>` from the line's start, and a quote ends the list before it", () => {
+    // After `> `, a tab goes to column 4, two columns into the quote: not code; after `>`, two tabs
+    // go to column 8, six in: code; after a list item's marker in a quote, a tab goes to column 4
+    // too, so its content starts 2 columns into the quote. A quote left of a list item's content
+    // (or a footnote's) ends it, so a line 4 columns in after the quote is code, and an HTML
+    // comment in it is code too; a quote in the item's content doesn't.
+    const text = [
+      "> \t[quoted, not code](missing-quote-tab.md)",
+      "",
+      ">\t\t[code in a quote](missing-quote-code.md)",
+      "",
+      "> -\tAn item in a quote.",
+      ">",
+      ">       [code in the item](missing-quoted-item-code.md)",
+      "",
+      "- An item.",
+      "",
+      "> A quote ends it.",
+      "",
+      "    [code](missing-after-quote.md)",
+      "",
+      "[^1]: A footnote.",
+      "",
+      "> A quote ends it too.",
+      "",
+      "    <!-- code, not a comment",
+      "",
+      "[after the code](missing-after-footnote.md)",
+      "",
+      "-->",
+      "",
+      "- Another item.",
+      "",
+      "  > A quote in it.",
+      "",
+      "  [the item's own paragraph](missing-item-para.md)",
+      "",
+    ].join("\n");
+    expect(check(repo({ "quotes.md": text })).stderr.trimEnd().split("\n")).toEqual([
+      "quotes.md:1: links to missing-quote-tab.md, which git doesn’t track (missing-quote-tab.md)",
+      "quotes.md:21: links to missing-after-footnote.md, which git doesn’t track (missing-after-footnote.md)",
+      "quotes.md:29: links to missing-item-para.md, which git doesn’t track (missing-item-para.md)",
     ]);
   });
 
