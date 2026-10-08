@@ -217,6 +217,10 @@ describe("platform and inputs (step 1)", () => {
     expect(failed(branch)).toEqual([1, line(branch.outputs.result), expect.stringMatching(/^failed: BoxOps builds the site from the default branch \(main\) only/)]);
     const input = await run({ repo: workspace().repo, env: { INPUT_MODE: "deploy" } });
     expect(failed(input)).toEqual([1, line('failed: Input mode is "deploy"; it must be "build" or "check"'), 'failed: Input mode is "deploy"; it must be "build" or "check"']);
+    // A message of several lines (git's errors can be): one line in the result and the summary, all of them in the annotation.
+    const lines = await run({ repo: workspace().repo, env: { INPUT_MODE: "deploy\n  now" } });
+    const joined = 'failed: Input mode is "deploy now"; it must be "build" or "check"';
+    expect([...failed(lines), errors(lines)]).toEqual([1, line(joined), joined, ['error: Input mode is "deploy\n  now"; it must be "build" or "check"']]);
     // A summary that can't be written to: the annotation and the result all the same, and no throw.
     const env = { ...actionsEnv(workspace().repo.dir), INPUT_MODE: "deploy", GITHUB_STEP_SUMMARY: join(tempDir(), "no", "summary") };
     const log: string[] = [];

@@ -395,10 +395,12 @@ export async function runAction(o: ActionOptions = {}): Promise<number> {
     const line = e instanceof ActionError ? e.line : undefined;
     const message = e instanceof Error ? e.message : String(e);
     runner.annotate("error", message, { title: TITLE, ...(file !== undefined && { file }), ...(line !== undefined && { line }) });
-    runner.setOutput("result", `failed: ${message}`);
+    // One line, as the result is (git's errors can run to several); the annotation has them all.
+    const failed = `failed: ${message.split("\n").map((l) => l.trim()).filter(Boolean).join(" ")}`;
+    runner.setOutput("result", failed);
     try {
       const version = (o.identity ?? identity()).version;
-      runner.summary(`### ${TITLE} ${version}\n\n${codeBlock(clip(`failed: ${message}`))}`);
+      runner.summary(`### ${TITLE} ${version}\n\n${codeBlock(clip(failed))}`);
     } catch {
       // No summary to write to (an unwritable $GITHUB_STEP_SUMMARY): the annotation and the output say it.
     }
