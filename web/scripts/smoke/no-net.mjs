@@ -7,8 +7,10 @@
 // without the network, so a server on 127.0.0.1 is still reached. fetch
 // answers from $BOXOPS_NO_NET_TABLE (a JSON file: URL → the file to answer
 // with), if it's set, noting each URL it answered in $BOXOPS_NO_NET_ANSWERED.
-// The smoke tests (no-net.sh) and the starter's dry run use it. Plain
-// JavaScript: it runs where npm never did.
+// Once all that's in place, it notes its process id in $BOXOPS_NO_NET_LOADED,
+// if that's set, so a check can tell it was loaded. The smoke tests
+// (no-net.sh) and the starter's dry run use it. Plain JavaScript: it runs
+// where npm never did.
 import dgram from "node:dgram";
 import dns from "node:dns";
 import http from "node:http";
@@ -66,3 +68,4 @@ globalThis.fetch = async (input) => {
   note(`fetch ${url}`);
   throw new TypeError("no network here");
 };
+if (process.env.BOXOPS_NO_NET_LOADED) appendFileSync(process.env.BOXOPS_NO_NET_LOADED, `${process.pid}\n`);

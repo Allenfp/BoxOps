@@ -5,7 +5,9 @@
 // usual and nothing is noted. Git, the one program the action starts, is
 // told to use no transport (cli/git.ts) and never fetches what a clone lacks.
 // And scripts/smoke/no-net.mjs, which cuts a Node process off the same way
-// for the smoke tests and the starter's dry run, stops and notes each way.
+// for the smoke tests and the starter's dry run, stops and notes each way;
+// no-net.sh, which runs a release's action under it, trusts no run, its
+// control's included, that didn't load it.
 
 import { spawnSync } from "node:child_process";
 import dgram, { createSocket } from "node:dgram";
@@ -15,7 +17,7 @@ import https from "node:https";
 import { syncBuiltinESMExports } from "node:module";
 import net from "node:net";
 import tls from "node:tls";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -199,5 +201,44 @@ process.exit(0);
       "fetch https://github.invalid/",
       "",
     ]);
+  });
+});
+
+describe("scripts/smoke/no-net.sh", () => {
+  const script = fileURLToPath(new URL("../scripts/smoke/no-net.sh", import.meta.url));
+
+  /** A release whose dist/action.mjs runs `body`, then says the roadmap is OK and, in build mode, writes the site's roadmap.json. */
+  function release(body = ""): string {
+    const dir = tempDir();
+    mkdirSync(join(dir, "dist"));
+    const site = 'const site = process.env.RUNNER_TEMP + "/boxops-site";\nif (process.env.INPUT_MODE === "build") { mkdirSync(site, { recursive: true }); writeFileSync(site + "/roadmap.json", "{}"); }';
+    writeFileSync(join(dir, "dist", "action.mjs"), `import { mkdirSync, writeFileSync } from "node:fs";\n${body}\n${site}\nconsole.log("1 departments, 2 lanes, 2 boxes — OK");\n`);
+    return dir;
+  }
+
+  /** Runs no-net.sh on that release with this PATH. */
+  function noNet(dir: string, path = process.env.PATH ?? "") {
+    const repo = join(tempDir(), "roadmap");
+    mkdirSync(repo);
+    const r = spawnSync("bash", [script, dir, repo], { encoding: "utf8", env: { ...process.env, PATH: path } });
+    return { code: r.status, stdout: r.stdout, stderr: r.stderr };
+  }
+
+  it("passes an action that makes no network call, and fails one that tries", () => {
+    const ok = "ok: check mode, no network call (1 departments, 2 lanes, 2 boxes — OK)\nok: build mode, no network call (1 departments, 2 lanes, 2 boxes — OK)\n";
+    expect(noNet(release())).toEqual({ code: 0, stdout: ok, stderr: "" });
+    expect(noNet(release('try { await fetch("https://api.github.com/"); } catch {}'))).toEqual({
+      code: 1,
+      stdout: "",
+      stderr: "no-net.sh: the action tried the network in check mode:\n    | fetch https://api.github.com/\n",
+    });
+  });
+
+  it("stops where no-net.mjs wasn't loaded, the control first: a run without it proves nothing", () => {
+    // A node that drops NODE_OPTIONS, as each run is given no-net.mjs, the control's too.
+    const bin = tempDir();
+    writeFileSync(join(bin, "node"), `#!/bin/sh\nunset NODE_OPTIONS\nexec "${process.execPath}" "$@"\n`, { mode: 0o755 });
+    const r = noNet(release(), `${bin}:${process.env.PATH}`);
+    expect([r.code, r.stdout, r.stderr.split("\n")[0]]).toEqual([1, "", "no-net.sh: no-net.mjs wasn't loaded in the control, so nothing was cut off:"]);
   });
 });
