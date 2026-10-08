@@ -509,10 +509,11 @@ a GitHub Enterprise Cloud organization with private Pages:
 - A fine-grained token's approval by the organization, and a save with it.
 - A signed-commit ruleset, and a save from the app.
 - The push ruleset ([adopting.md](adopting.md#4-rulesets): every path
-  but `roadmap/**/*`, the hidden ones too) refuses an editor's edits to a
-  workflow, the launcher and `README.md`, and a new `.envrc`,
-  `.claude/settings.json` or `.devcontainer/.env`; and lets the app's
-  saves and Dependabot through.
+  but the files a save writes, hidden ones too) refuses an editor's edits
+  to a workflow, the launcher and `README.md`, and a new `.envrc`,
+  `.claude/settings.json`, `.devcontainer/.env` or `roadmap/AGENTS.md`;
+  and lets through the app's saves (settings, people, a department, a box,
+  and a box deleted) and Dependabot.
 - Once, a push ruleset that restricts `**/*` alone: whether it refuses a
   new `.envrc` and `.devcontainer/.env`. If it does, GitHub's `*` matches
   names that start with `.`, and adopting.md can say `**/*` is enough.

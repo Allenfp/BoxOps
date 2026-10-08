@@ -1,11 +1,11 @@
 // The push ruleset docs/adopting.md has an admin make ("Rulesets"), as it and
 // the starter's README give it: its restricted paths cover every path with up
 // to two parts whose names start with "." (each further pair of paths the
-// docs offer, one more), and its allowed exception lets through the files a
-// save writes (isRoadmapPath). GitHub matches with Ruby's File.fnmatch and
-// FNM_PATHNAME, its docs say; whether with FNM_DOTMATCH, under which `*` and
-// `**/` match a name starting with ".", they don't, so both are checked, with
-// Ruby's fnmatch ported.
+// docs offer, one more), and its allowed exceptions let through the files a
+// save writes (isRoadmapPath) and no other. GitHub matches with Ruby's
+// File.fnmatch and FNM_PATHNAME, its docs say; whether with FNM_DOTMATCH,
+// under which `*` and `**/` match a name starting with ".", they don't, so
+// both are checked, with Ruby's fnmatch ported.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -18,8 +18,15 @@ const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta
 const RESTRICTED = ["**/*", "**/.*", "**/.*/**/*", "**/.*/**/.*", "**/.*/**/.*/**/*"];
 /** The pair adopting.md offers for paths with three parts starting with ".". */
 const THIRD = ["**/.*/**/.*/**/.*", "**/.*/**/.*/**/.*/**/*"];
-/** Its allowed exception. */
-const EXCEPTIONS = ["roadmap/**/*"];
+/** Its allowed exceptions: the files a save writes. */
+const EXCEPTIONS = [
+  "roadmap/settings.yaml",
+  "roadmap/people.yaml",
+  "roadmap/departments/*.yaml",
+  "roadmap/departments/*.yml",
+  "roadmap/boxes/*.yaml",
+  "roadmap/boxes/*.yml",
+];
 
 // Ruby's `File.fnmatch(pattern, path, File::FNM_PATHNAME)`, with
 // `File::FNM_DOTMATCH` too when `dotmatch` (dir.c's fnmatch and
@@ -124,6 +131,7 @@ describe("the push ruleset", () => {
       ["starter/README.md", starter],
     ]) {
       for (const p of [...RESTRICTED, ...EXCEPTIONS]) expect(text, `${name} gives ${p}`).toContain(`\`${p}\``);
+      expect(text, `${name} lets all of roadmap/ through`).not.toContain("roadmap/**");
     }
     for (const p of THIRD) expect(adopting, `adopting.md offers ${p}`).toContain(`\`${p}\``);
   });
@@ -179,13 +187,25 @@ describe("the push ruleset", () => {
       ".devcontainer/.env",
       ".config/.husky/pre-commit",
       "docs/.claude/skills/x/SKILL.md",
+      "roadmap/AGENTS.md",
+      "roadmap/CLAUDE.md",
+      "roadmap/README.md",
+      "roadmap/.envrc",
+      "roadmap/.claude/settings.json",
+      "roadmap/boxes/AGENTS.md",
+      "roadmap/boxes/sub/b1.yaml",
+      "roadmap/settings.yml",
     ];
     for (const path of tools) expect([path, refused(path, false), refused(path, true)]).toEqual([path, true, true]);
   });
 
-  it("lets through every file a save writes", () => {
-    for (const path of ["settings.yaml", "people.yaml", "departments/eng.yaml", "departments/eng.yml", "boxes/bx-1a2b-x.yaml", "boxes/b1.yml"]) {
-      expect([path, isRoadmapPath(path), refused(`roadmap/${path}`, false), refused(`roadmap/${path}`, true)]).toEqual([path, true, false, false]);
-    }
+  it("lets through every file a save writes, and no other", () => {
+    const yes = ["settings.yaml", "people.yaml", "departments/eng.yaml", "departments/eng.yml", "boxes/bx-1a2b-x.yaml", "boxes/b1.yml"];
+    const no = ["settings.yml", "people.yml", "README.md", "AGENTS.md", ".envrc", "notes/x.yaml", "boxes/sub/b1.yaml", "boxes/b1.json", "boxes/b1.YAML", "Boxes/b1.yaml"];
+    // Hidden ones, which BoxOps' readers skip: through only if GitHub's `*` matches a leading ".".
+    const dotted = ["boxes/.b1.yaml", "departments/.eng.yml", "boxes/.yaml"];
+    for (const path of yes) expect([path, isRoadmapPath(path), refused(`roadmap/${path}`, false), refused(`roadmap/${path}`, true)]).toEqual([path, true, false, false]);
+    for (const path of no) expect([path, isRoadmapPath(path), refused(`roadmap/${path}`, false), refused(`roadmap/${path}`, true)]).toEqual([path, false, true, true]);
+    for (const path of dotted) expect([path, isRoadmapPath(path), refused(`roadmap/${path}`, false), refused(`roadmap/${path}`, true)]).toEqual([path, false, true, false]);
   });
 });

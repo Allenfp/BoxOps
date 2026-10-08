@@ -143,4 +143,9 @@ stricter validation rule) needs the next number, in a minor release only
 - `FORMAT` raised, and the guide's file format
   (`templates/guide/format.md`) and the validator's tests
   (`web/src/model/load.test.ts`) saying what changed;
-- release notes that say to run `migrate` on the upgrade's pull request.
+- for a new kind of file in `roadmap/`, `isRoadmapPath`
+  (`web/src/model/paths.ts`) taking it, and the push ruleset's allowed
+  exceptions naming it ([adopting.md](adopting.md#4-rulesets) and the
+  starter's `README.md`), or editors' saves of it are refused;
+- release notes that say to run `migrate` on the upgrade's pull request
+  (and to add any new allowed exception to the push ruleset).

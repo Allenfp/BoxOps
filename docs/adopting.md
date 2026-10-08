@@ -377,10 +377,13 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
    `roadmap-only`: **Bypass list** → **Add bypass** → **Repository admin**
    and **Dependabot**; under **Push protections**, tick **Restrict file
    paths** and add five paths, `**/*`, `**/.*`, `**/.*/**/*`, `**/.*/**/.*`
-   and `**/.*/**/.*/**/*`, then, under its **Allowed exceptions**,
-   `roadmap/**/*`. **Create.** Only repository admins and Dependabot can
-   then change anything outside `roadmap/`; editors change `roadmap/`
-   freely.
+   and `**/.*/**/.*/**/*`, then, under its **Allowed exceptions**, these
+   six, the files a save writes: `roadmap/settings.yaml`,
+   `roadmap/people.yaml`, `roadmap/departments/*.yaml`,
+   `roadmap/departments/*.yml`, `roadmap/boxes/*.yaml` and
+   `roadmap/boxes/*.yml`. **Create.** Only repository admins and
+   Dependabot can then change any other file; editors change the
+   roadmap's files freely.
    - Why: an editor's token can change any file, and many decide what
      runs. The workflows pin the release that builds your site; the
      launcher runs on teammates' laptops; `AGENTS.md` and `CLAUDE.md`
@@ -391,9 +394,15 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
      opens), JetBrains' `.idea/`, `.devcontainer/`, `.gitattributes` and
      `.gitmodules`, git hook managers' files (`.husky/`, `lefthook.yml`,
      `.pre-commit-config.yaml`), direnv's `.envrc`, `.npmrc`,
-     `package.json` and more. Allowing only `roadmap/` covers them all,
-     and whatever a new tool reads next, as far as the five paths reach
-     (below).
+     `package.json` and more. Allowing only the roadmap's files covers
+     them all, and whatever a new tool reads next, as far as the five
+     paths reach (below).
+   - Why not all of `roadmap/`: a `roadmap/AGENTS.md` or
+     `roadmap/CLAUDE.md` would instruct the AI assistants that edit the
+     roadmap (many read the one nearest the files they work on), and
+     BoxOps skips a hidden file there, such as `roadmap/.envrc`, without a
+     word. The deploy reports any other file in `roadmap/` as unexpected,
+     but only once it's in.
    - Why five: GitHub matches paths with Ruby's `fnmatch` and its
      `FNM_PATHNAME` flag, where `*` and `**/` don't match a name that
      starts with `.` (unless `FNM_DOTMATCH` is set too, which GitHub's docs
@@ -412,9 +421,9 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
      also apply to the repository's forks.
    - Check it: someone with Write but not Admin, on GitHub's web page,
      edits `README.md`, then adds each of `.envrc`,
-     `.claude/settings.json` and `.devcontainer/.env` as a new file: all
-     four commits must be refused. A save from the app must still go
-     through.
+     `.claude/settings.json`, `.devcontainer/.env` and `roadmap/AGENTS.md`
+     as a new file: all five commits must be refused. A save from the app
+     must still go through.
    - Allowed exceptions are in public preview (since 2026-08-25). Without
      them, restrict the paths themselves instead: `.github/**/*`,
      `.boxops/**/*`, `AGENTS.md` and `CLAUDE.md`, and those of the files
@@ -455,8 +464,8 @@ then the role:
 - **Write** for editors: a token can't do more than its owner can, so each
   editor needs Write as well as a token ([Editors](#editors)).
 - **Admin** for whoever changes these settings, merges the upgrade pull
-  requests (they change `.github/workflows/`) or changes any other file
-  outside `roadmap/` (the push ruleset lets admins through).
+  requests (they change `.github/workflows/`) or changes any file but the
+  roadmap's (the push ruleset lets admins through).
 
 Remember the organization's base permission and an internal repository's
 reach ([privacy](#before-you-add-real-people-privacy)).

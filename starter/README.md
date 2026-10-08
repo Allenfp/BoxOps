@@ -25,11 +25,13 @@ as of the release this repository was made with. In short:
 4. **Settings → Rulesets:** a branch ruleset on `main` that restricts
    deletions and blocks force pushes (no required pull requests or checks:
    saves go straight to `main`), and a push ruleset that lets only
-   **Repository admin** and **Dependabot**, its bypass list, change
-   anything outside `roadmap/`: Restrict file paths `**/*`, `**/.*`,
-   `**/.*/**/*`, `**/.*/**/.*` and `**/.*/**/.*/**/*`, with `roadmap/**/*`
-   as its allowed exception. A new ruleset starts Disabled: make each
-   Active.
+   **Repository admin** and **Dependabot**, its bypass list, change any
+   file but the roadmap's: Restrict file paths `**/*`, `**/.*`,
+   `**/.*/**/*`, `**/.*/**/.*` and `**/.*/**/.*/**/*`, with the files a
+   save writes as its allowed exceptions, `roadmap/settings.yaml`,
+   `roadmap/people.yaml`, `roadmap/departments/*.yaml`,
+   `roadmap/departments/*.yml`, `roadmap/boxes/*.yaml` and
+   `roadmap/boxes/*.yml`. A new ruleset starts Disabled: make each Active.
 5. **Dependabot** brings each BoxOps upgrade as a pull request, as
    `.github/dependabot.yml` asks (keep it); with a private mirror of BoxOps,
    an organization owner gives Dependabot access to the mirror.

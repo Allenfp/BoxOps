@@ -114,8 +114,9 @@ Tests catch most of these; change the files together anyway.
 - The validator (`web/src/model/parse.ts`, `load.ts`),
   `templates/guide/format.md` ("What the validator checks") and
   `web/src/model/load.test.ts`.
-- The push ruleset in `docs/adopting.md` and `starter/README.md`
-  (`web/scripts/push-ruleset.test.ts`).
+- The files a save writes (`isRoadmapPath` in `web/src/model/paths.ts`)
+  and the push ruleset's allowed exceptions, in `docs/adopting.md` and
+  `starter/README.md` (`web/scripts/push-ruleset.test.ts`).
 - `FORMAT`, the migrations (`web/src/model/migrations/`) and
   `docs/data-format.md` ("Changing the format").
 - An action used in several workflows: the same commit and `# vX.Y.Z`
