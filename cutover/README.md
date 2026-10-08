@@ -56,28 +56,36 @@ of the work until then, so the cutover commit makes their changes itself
 
    ```sh
    git clone --no-local https://github.com/Allenfp/BoxOps.git boxops-demo && cd boxops-demo &&
-     git log --format='%ae%n%ce' -- roadmap/ | sort -u | grep -iE '@(gmail\.com|veryboringdata\.co)$' |
+     git log --all --format='%ae%n%ce' | sort -u | grep -iE '@(gmail\.com|veryboringdata\.co)$' |
        sed 's/.*/<29790605+Allenfp@users.noreply.github.com> <&>/' > ../demo-mailmap &&
-     cat ../demo-mailmap &&
-     git filter-repo --path roadmap/ --mailmap ../demo-mailmap &&
+     cat ../demo-mailmap
+   ```
+
+   The mailmap maps each Gmail or veryboringdata.co address that authored or
+   committed any commit of the clone, on any branch, whatever it changed, to
+   `29790605+Allenfp@users.noreply.github.com`, so every commit
+   `--path roadmap/` keeps is covered. (`git log -- roadmap/` lists fewer,
+   `--full-history` or not: it leaves out a merge that changes nothing in
+   `roadmap/`, which filter-repo keeps while it joins two lines of history,
+   and by default the line it doesn't follow too.) Check it lists the
+   maintainer's addresses alone: today their Gmail address, written two ways
+   (its first letter in either case), which git counts as two, and their
+   veryboringdata.co one. Then:
+
+   ```sh
+   git filter-repo --path roadmap/ --mailmap ../demo-mailmap &&
      git log --format='%ae%n%ce' | sort -u |
        awk '!/@users\.noreply\.github\.com$/ && $0 != "noreply@github.com" { print "still in the history: " $0; left = 1 } END { exit left }'
    ```
 
-   The mailmap maps each Gmail or veryboringdata.co address that authored or
-   committed a change to `roadmap/` to
-   `29790605+Allenfp@users.noreply.github.com`. Today that's the maintainer's
-   Gmail address, written two ways (its first letter in either case), which
-   git counts as two addresses; the veryboringdata.co one is only on commits
-   outside `roadmap/`, which `--path roadmap/` drops. The last command fails,
-   naming the address, if any is left but a GitHub no-reply one
-   (`…@users.noreply.github.com`, or `noreply@github.com`, the committer
-   GitHub writes on what's made on its site): then stop, and run it again in
-   a fresh clone once the `grep` takes that address in. Then, in that clone,
-   the starter's files as the release candidate's `init` writes them (its
-   pins on rc.1's commit), but for the starter's sample roadmap; the demo's
-   data stamped `format: 1`; a commit of those, as the no-reply address (a
-   fresh clone commits as your global git identity); the same check, which
+   The last command fails, naming the address, if any is left but a GitHub
+   no-reply one (`…@users.noreply.github.com`, or `noreply@github.com`, the
+   committer GitHub writes on what's made on its site): then stop, and start
+   again in a fresh clone once the `grep` takes that address in. Then, in that
+   clone, the starter's files as the release candidate's `init` writes them
+   (its pins on rc.1's commit), but for the starter's sample roadmap; the
+   demo's data stamped `format: 1`; a commit of those, as the no-reply address
+   (a fresh clone commits as your global git identity); the same check, which
    now takes in that commit; and the demo's own repository (pushing workflow
    files takes SSH, or a token with the workflow scope):
 
