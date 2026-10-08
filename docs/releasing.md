@@ -22,17 +22,18 @@ release, and what to do when a release goes wrong.
 - **The tag**, `vX.Y.Z`, or `vX.Y.Z-rc.N` for a release candidate, on that
   commit. No floating tags (`v0`, `v0.1`): roadmap repositories pin commits,
   and Dependabot proposes exact versions.
-- **The GitHub release**, immutable once published, with notes from
-  `CHANGELOG.md` and four files: `boxops-X.Y.Z.tar.gz` (the tree),
-  `boxops.mjs` (the command-line tool, for setting up without the template),
-  `SHA256SUMS` (every file of the tree) and `sbom.spdx.json`, the SBOM
-  (SPDX) of the packages the app and the tool bundle, each at its version,
-  and of BoxOps itself at the release's: npm's, cut down to the production
-  packages `npm ls --omit dev` lists (`npm sbom --omit dev` alone leaves
-  out `yaml`, which a dev dependency names too), and checked against the
-  release's licence files, which must name the same packages. It isn't in
-  the tree, since an SPDX document carries a time and a random id. A
-  release candidate is a prerelease.
+- **The GitHub release**, immutable once published (its tag and files; its
+  title and notes stay editable), with notes from `CHANGELOG.md` and four
+  files: `boxops-X.Y.Z.tar.gz` (the tree), `boxops.mjs` (the command-line
+  tool, for setting up without the template), `SHA256SUMS` (every file of
+  the tree) and `sbom.spdx.json`, the SBOM (SPDX) of the packages the app
+  and the tool bundle, each at its version, and of BoxOps itself at the
+  release's: npm's, cut down to the production packages `npm ls --omit dev`
+  lists (`npm sbom --omit dev` alone leaves out `yaml`, which a dev
+  dependency names too), and checked against the release's licence files,
+  which must name the same packages. It isn't in the tree, since an SPDX
+  document carries a time and a random id. A release candidate is a
+  prerelease.
 - **Attestations**, signed by the release workflow: provenance for every
   file of the tree and for the tarball, and the SBOM's, for the tarball.
   Check a file with

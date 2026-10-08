@@ -23,7 +23,8 @@ What's in a release, and how one is made and checked: [security.md](security.md)
 - Release candidates, `vX.Y.Z-rc.N`, are GitHub prereleases: Dependabot
   never offers one to a repository on a release.
 - There are no moving tags such as `v0` or `v0.1`: a pin is always a
-  commit, and each release is published once and never changed.
+  commit, and each release is published once: its tag and files never
+  change (its title can, to mark it withdrawn).
 
 Every release's notes (on its GitHub release, and in Dependabot's pull
 request) open with the same lines, saying what upgrading to it asks:
@@ -173,14 +174,14 @@ patch, the deploy no longer warns of the newer minor's fix, which the patch
 carries (the lookup lists when each release came out); the newer minor
 stays a quiet note until you move to it.
 
-A release found to be bad is **withdrawn**, not deleted (a published release
-can't change, and your pin names its commit): its title starts "Withdrawn:",
-each deploy still running it warns, and the site says "This site runs
-BoxOps v0.1.0, which was withdrawn. Ask a repository admin to upgrade it."
-Upgrade to the release that fixes it. No deploy offers a withdrawn release,
-though it may be the newest until that one's out, and `upgrade` won't move
-to one. Dependabot doesn't read titles, so it may still propose one: don't
-merge that pull request.
+A release found to be bad is **withdrawn**, not deleted (a published
+release's tag and files can't change, and your pin names its commit): its
+title starts "Withdrawn:", each deploy still running it warns, and the site
+says "This site runs BoxOps v0.1.0, which was withdrawn. Ask a repository
+admin to upgrade it." Upgrade to the release that fixes it. No deploy offers
+a withdrawn release, though it may be the newest until that one's out, and
+`upgrade` won't move to one. Dependabot doesn't read titles, so it may still
+propose one: don't merge that pull request.
 
 With a mirror, keep `BOXOPS_UPSTREAM` (in `deploy.yml`'s lookup step) on
 `Allenfp/BoxOps` if your runners can reach github.com: the notices come
