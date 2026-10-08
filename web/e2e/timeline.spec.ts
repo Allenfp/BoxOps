@@ -35,6 +35,38 @@ test("shows departments, lanes, boxes and today", async ({ page, github: _, cull
   await expect(page).toHaveURL(/collapsed=(&|$)/);
 });
 
+/**
+ * Safari can run the app before its stylesheet is in, and draw the timeline without it: here the
+ * stylesheet is taken out as the page is read, kept as `window.lateStyles`, to be put back later.
+ */
+const lateStyles = test.extend({
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      new MutationObserver((records, observer) => {
+        for (const node of records.flatMap((r) => [...r.addedNodes])) {
+          if (node instanceof HTMLLinkElement && node.rel === "stylesheet") {
+            node.remove();
+            (window as unknown as { lateStyles: HTMLLinkElement }).lateStyles = node;
+            observer.disconnect();
+          }
+        }
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await use(page);
+  },
+});
+
+lateStyles("the timeline opens at today though its stylesheet comes in after it's drawn", async ({ page, github: _ }) => {
+  const timeline = page.locator(".timeline");
+  const scrolls = () => timeline.evaluate((el) => getComputedStyle(el).overflowX === "auto");
+  // Drawn without it, the timeline doesn't scroll: opening at today did nothing.
+  expect(await scrolls()).toBe(false);
+  await page.evaluate(() => document.head.append((window as unknown as { lateStyles: HTMLLinkElement }).lateStyles));
+  await expect.poll(scrolls).toBe(true);
+  await expect(page.locator(".today-line")).toBeInViewport();
+  await expect(box(page, DAGSTER)).toBeInViewport();
+});
+
 test("the timeline says over capacity when the warnings do: by a lane's dates, not for the past or boxes that don't fit side by side", async ({
   page,
   github,

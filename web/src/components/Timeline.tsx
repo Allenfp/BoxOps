@@ -279,6 +279,12 @@ export function Timeline(props: Props) {
   });
   const centerDay = useRef<Day | null>(null);
   const trackWidth = () => (scrollRef.current?.clientWidth ?? 0) - LABEL_W;
+  /**
+   * Today a third of the way in, as the timeline opens. Safari can run the app before its
+   * stylesheet is in, when the timeline doesn't scroll yet and this does nothing: so until
+   * something has scrolled it, a change in its size (the stylesheet coming in) does it again.
+   */
+  const opening = useRef(() => {});
 
   // On a big roadmap, only the part of the timeline near the screen is drawn: `area`, in pixels
   // down the rows and across the dates (rows.ts's drawRange), measured as the timeline scrolls
@@ -295,7 +301,10 @@ export function Timeline(props: Props) {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const resized = new ResizeObserver(measure);
+    const resized = new ResizeObserver(() => {
+      if (centerDay.current === null) opening.current();
+      measure();
+    });
     resized.observe(el);
     return () => resized.disconnect();
   }, [measure]);
@@ -502,9 +511,10 @@ export function Timeline(props: Props) {
     if (!el) return;
     el.scrollTo({ left: scale.x(day) - trackWidth() * fraction, behavior: smooth ? scrollBehavior() : "auto" });
   };
+  opening.current = () => scrollToDay(now, 1 / 3);
 
   useLayoutEffect(() => {
-    if (centerDay.current === null) scrollToDay(now, 1 / 3);
+    if (centerDay.current === null) opening.current();
     else scrollToDay(centerDay.current, 1 / 2);
     // What's drawn follows at once, before it's painted (the scroll event comes later).
     measure();
