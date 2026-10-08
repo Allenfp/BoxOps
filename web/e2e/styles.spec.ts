@@ -67,6 +67,28 @@ test("the pre-save check lists others' saves in the text column, bullets too, as
   expect(icon.x).toBeGreaterThan(words.x + words.width);
 });
 
+test("the token form is spaced as the other dialogs are: its lead as far under the title bar, its parts a gap apart", async ({ page, github }) => {
+  const rect = (l: Locator) => l.evaluate((e) => e.getBoundingClientRect().toJSON() as DOMRect);
+  const between = async (a: Locator, b: Locator) => (await rect(b)).top - (await rect(a)).bottom;
+  // The pre-save check's lead, under its title bar.
+  await dragDays(page, DAGSTER, 10);
+  github.otherSave({ [boxFile(CDC)]: (t) => t.replace("CDC pipeline for orders DB", "CDC v2") }, "Sam Lee", "CDC pipeline: renamed");
+  await save(page);
+  const check = page.locator(".save-dialog[open]");
+  await expect(check.locator(".save-list")).toBeVisible();
+  const lead = await between(check.locator(".dialog-head"), check.locator(".lead").first());
+  await check.getByRole("button", { name: "Review changes" }).click();
+  // Signed out: the token form's, as far under its title bar; then a gap between each of its parts.
+  await page.evaluate(() => sessionStorage.clear());
+  await save(page);
+  const form = page.locator(".save-dialog[open] .form");
+  await expect(form.locator(".token-help")).toBeVisible();
+  expect(await between(page.locator(".save-dialog[open] .dialog-head"), form.locator(".lead"))).toBe(lead);
+  const gap = Number.parseFloat((await css(form, "row-gap"))["row-gap"]);
+  const parts = [".lead", ".field", ".token-help", ".files"].map((s) => form.locator(`:scope > ${s}`));
+  for (let i = 1; i < parts.length; i++) expect(await between(parts[i - 1], parts[i])).toBe(gap);
+});
+
 test("the Engineers list's names are list items, not the editor's field labels", async ({ page, github: _ }) => {
   await box(page, DAGSTER).click();
   await page.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: /^Engineers/ }).click();

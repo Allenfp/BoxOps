@@ -191,7 +191,7 @@ dialog > .dialog-head {
   padding-left: 20px;
 }
 .token-help .hint {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
 }
 .broad-token,
 .not-token {
@@ -215,9 +215,10 @@ dialog > .dialog-head {
   margin-top: 14px;
   margin-bottom: 4px;
 }
-.save-dialog .form .lead {
-  margin-left: 0;
-  margin-right: 0;
+/* In a form, the column's gap is what's between its parts: none of their own margins (a flex column doesn't
+   fold them into it), so the lead is as far under the title bar as other dialogs' are. */
+.save-dialog .form > :is(.lead, .callout, .files) {
+  margin: 0;
 }
 .save-dialog > :where(.hint) {
   display: block;
