@@ -134,8 +134,13 @@ export async function boxDates(page: Page, id: string): Promise<string> {
 /** Pixels per working day at months zoom, where tests run. */
 export const MONTH_PX = PX_PER_DAY.months;
 
-/** Drag a box (or one of its edge handles) by dx/dy pixels. */
+/**
+ * Drag a box (or one of its edge handles) by dx/dy pixels, once it's on screen: the timeline opens
+ * at today, but WebKit may draw it before its stylesheet is in and scroll there only once that is
+ * (Timeline.tsx's `opening`), possibly after the page has loaded. A press off screen moves nothing.
+ */
 export async function drag(page: Page, id: string, dx: number, dy = 0, grip: "middle" | "start" | "end" = "middle") {
+  await expect(box(page, id)).toBeInViewport();
   const b = (await box(page, id).boundingBox())!;
   const x = grip === "start" ? b.x + 3 : grip === "end" ? b.x + b.width - 3 : b.x + Math.min(b.width / 2, 60);
   const y = b.y + b.height / 2;
