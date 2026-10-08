@@ -338,40 +338,87 @@ describe("tree, entries and blobs (steps 4–7)", () => {
     expect([r.code, r.outputs.site]).toEqual([1, undefined]);
     return errors(r);
   }
-  const unreadable = (n: number) => `error: roadmap/ can’t be read as it is (${n === 1 ? "see the problem above" : `${n} problems above`}): nothing was built`;
+  /** The error that stops the action, after each problem's: the first problem, and how many more. */
+  const unreadable = (first: string, more = 0) =>
+    `error: ${first}${more ? ` (and ${more} more problem${more === 1 ? "" : "s"}, above)` : ""}: roadmap/ can’t be read as it is, so nothing was built`;
 
   it("refuses symlinks and submodules, naming each", async () => {
     expect(await readErrors({ "boxes/b2.yaml": { mode: "120000", content: "../../../.ssh/id_rsa" }, "departments/x": { mode: "160000", sha: "a".repeat(40) } })).toEqual([
       "error: roadmap/boxes/b2.yaml is a symlink; a roadmap folder holds plain files only [roadmap/boxes/b2.yaml]",
       "error: roadmap/departments/x is a submodule; a roadmap folder holds plain files only [roadmap/departments/x]",
-      unreadable(2),
+      unreadable("roadmap/boxes/b2.yaml is a symlink; a roadmap folder holds plain files only", 1),
     ]);
+  });
+
+  it("says in its result which problem stopped it, the first: a symlink, a submodule, or another", async () => {
+    const stopped = (said: string) => `failed: ${said}: roadmap/ can’t be read as it is, so nothing was built`;
+    for (const [entries, said] of [
+      [{ "boxes/link.yaml": { mode: "120000", content: "../people.yaml" } }, "roadmap/boxes/link.yaml is a symlink; a roadmap folder holds plain files only"],
+      [{ "boxes/sub": { mode: "160000", sha: "a".repeat(40) } }, "roadmap/boxes/sub is a submodule; a roadmap folder holds plain files only"],
+      [{ "boxes/b2.yaml": Uint8Array.from([0xe9, 0x0a]) }, "roadmap/boxes/b2.yaml isn’t UTF-8 text"],
+      [
+        { "boxes/link.yaml": { mode: "120000", content: "x" }, "boxes/sub": { mode: "160000", sha: "a".repeat(40) } },
+        "roadmap/boxes/link.yaml is a symlink; a roadmap folder holds plain files only (and 1 more problem, above)",
+      ],
+    ] as [Record<string, Entry>, string][]) {
+      const { repo } = workspace(sampleRepo(Object.fromEntries(Object.entries(entries).map(([p, e]) => [`roadmap/${p}`, e]))));
+      const r = await run({ repo, env: { INPUT_MODE: "check" } });
+      expect([r.code, r.outputs.result]).toEqual([1, stopped(said)]);
+    }
+  });
+
+  it("gives the results CI's smoke job expects of its refusals through uses: (ci.yml's, and the cutover's)", async () => {
+    // The repositories ci.yml makes: the starter's roadmap with a symlink, a submodule, data format 2, no settings.yaml.
+    const made: Record<string, Record<string, Entry | null>> = {
+      SYMLINK: { "roadmap/boxes/link.yaml": { mode: "120000", content: "../people.yaml" } },
+      SUBMODULE: { "roadmap/boxes/sub": { mode: "160000", sha: "a".repeat(40) } },
+      FORMAT: { "roadmap/settings.yaml": SAMPLE["settings.yaml"].replace("format: 1", "format: 2") },
+      NO_SETTINGS: { "roadmap/settings.yaml": null },
+    };
+    for (const path of [".github/workflows/ci.yml", "cutover/.github/workflows/ci.yml"]) {
+      const ci = parse(readFileSync(new URL(`../../${path}`, import.meta.url), "utf8")) as { jobs: { smoke: { steps: { name?: string; run?: string }[] } } };
+      const check = ci.jobs.smoke.steps.find((s) => s.name === "Each refusal failed its step, and its result says why")?.run ?? "";
+      const expected = Object.fromEntries([...check.matchAll(/^ *refused "[^"]*" "\$(\w+)" "([^"]+)"$/gm)].map((m) => [m[1], m[2]]));
+      expect([path, Object.keys(expected).sort()]).toEqual([path, ["FORMAT", "NO_SETTINGS", "OFF_MAIN", "SUBMODULE", "SYMLINK"]]);
+      for (const [name, entries] of Object.entries(made)) {
+        const files = { ...sampleRepo(), ...entries };
+        const { repo } = workspace(Object.fromEntries(Object.entries(files).filter((e): e is [string, Entry] => e[1] !== null)));
+        const r = await run({ repo, env: { INPUT_MODE: "check" } });
+        expect([path, name, r.code, r.outputs.result.startsWith(`failed: ${expected[name]}`)]).toEqual([path, name, 1, true]);
+      }
+    }
   });
 
   it("refuses a roadmap folder that's a symlink, a submodule or missing", async () => {
     const base = { "README.md": "x\n" };
-    expect(await readErrors({}, { ...base, roadmap: { mode: "120000", content: "/etc" } })).toEqual(["error: roadmap is a file or a symlink, not a folder [roadmap]", unreadable(1)]);
-    expect(await readErrors({}, { ...base, roadmap: { mode: "160000", sha: "b".repeat(40) } })).toEqual(["error: roadmap is a submodule, not a folder [roadmap]", unreadable(1)]);
+    expect(await readErrors({}, { ...base, roadmap: { mode: "120000", content: "/etc" } })).toEqual([
+      "error: roadmap is a file or a symlink, not a folder [roadmap]",
+      unreadable("roadmap is a file or a symlink, not a folder"),
+    ]);
+    expect(await readErrors({}, { ...base, roadmap: { mode: "160000", sha: "b".repeat(40) } })).toEqual([
+      "error: roadmap is a submodule, not a folder [roadmap]",
+      unreadable("roadmap is a submodule, not a folder"),
+    ]);
     expect((await readErrors({}, base))[0]).toMatch(/^error: roadmap isn’t in commit [0-9a-f]{12} \[roadmap\]$/);
   });
 
   it("refuses text that isn't UTF-8", async () => {
     expect(await readErrors({ "boxes/b2.yaml": Uint8Array.from([0x69, 0x64, 0x3a, 0x20, 0xe9, 0x0a]) })).toEqual([
       "error: roadmap/boxes/b2.yaml isn’t UTF-8 text [roadmap/boxes/b2.yaml]",
-      unreadable(1),
+      unreadable("roadmap/boxes/b2.yaml isn’t UTF-8 text"),
     ]);
   });
 
   it("enforces the limits", async () => {
     LIMITS.files = 3;
-    expect(await readErrors({})).toEqual(["error: roadmap holds more than 3 files [roadmap]", unreadable(1)]);
+    expect(await readErrors({})).toEqual(["error: roadmap holds more than 3 files [roadmap]", unreadable("roadmap holds more than 3 files")]);
     LIMITS.files = 20_000;
     LIMITS.fileBytes = 100;
     expect(await readErrors({})).toEqual([
       "error: roadmap/boxes/bx-1a2b-example-project.yaml is 160 bytes; a roadmap file can be at most 100 bytes [roadmap/boxes/bx-1a2b-example-project.yaml]",
       "error: roadmap/departments/engineering.yaml is 105 bytes; a roadmap file can be at most 100 bytes [roadmap/departments/engineering.yaml]",
       "error: roadmap/settings.yaml is 301 bytes; a roadmap file can be at most 100 bytes [roadmap/settings.yaml]",
-      unreadable(3),
+      unreadable("roadmap/boxes/bx-1a2b-example-project.yaml is 160 bytes; a roadmap file can be at most 100 bytes", 2),
     ]);
   });
 
@@ -383,7 +430,8 @@ describe("tree, entries and blobs (steps 4–7)", () => {
     const forged = "people: []\n";
     writeFileSync(object, deflateSync(Buffer.from(`blob ${Buffer.byteLength(SAMPLE["people.yaml"])}\0${forged.padEnd(Buffer.byteLength(SAMPLE["people.yaml"]))}`)));
     const r = await run({ repo });
-    expect(errors(r)).toEqual([`error: roadmap/people.yaml doesn’t match its git object id ${sha} (a damaged repository?) [roadmap/people.yaml]`, unreadable(1)]);
+    const damaged = `roadmap/people.yaml doesn’t match its git object id ${sha} (a damaged repository?)`;
+    expect(errors(r)).toEqual([`error: ${damaged} [roadmap/people.yaml]`, unreadable(damaged)]);
   });
 
   it("reads an executable roadmap file, with a warning", async () => {

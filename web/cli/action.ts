@@ -433,11 +433,16 @@ async function steps(runner: Runner, env: Env, o: ActionOptions): Promise<number
     });
   } catch (e) {
     if (!(e instanceof RoadmapReadError)) throw e;
-    for (const p of e.problems) {
+    const problems = e.problems.map((p) => {
       const file = p.path ? `${inputs.roadmap}/${p.path}` : inputs.roadmap;
-      runner.annotate("error", `${file} ${p.message}`, { title: TITLE, file });
-    }
-    throw new ActionError(`${inputs.roadmap}/ can’t be read as it is (${e.problems.length === 1 ? "see the problem above" : `${e.problems.length} problems above`}): nothing was built`);
+      return { file, text: `${file} ${p.message}` };
+    });
+    for (const p of problems) runner.annotate("error", p.text, { title: TITLE, file: p.file });
+    // The first problem named, so the `result` output says what it is (a symlink, a submodule…).
+    const more = problems.length - 1;
+    throw new ActionError(
+      `${problems[0].text}${more ? ` (and ${more} more problem${more === 1 ? "" : "s"}, above)` : ""}: ${inputs.roadmap}/ can’t be read as it is, so nothing was built`,
+    );
   }
 
   // 8. Format gate.

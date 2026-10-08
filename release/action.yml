@@ -71,7 +71,10 @@ outputs:
   problems:
     description: Number of roadmap problems found (0 when clean).
   result:
-    description: 'One-line result, e.g. "1 departments, 2 lanes, 2 boxes — OK".'
+    description: >-
+      One-line result, e.g. "1 departments, 2 lanes, 2 boxes — OK"; when a hard error
+      stops the action, "failed: " and why, e.g. "failed: roadmap/boxes/link.yaml is a
+      symlink; …".
 
 runs:
   using: node24

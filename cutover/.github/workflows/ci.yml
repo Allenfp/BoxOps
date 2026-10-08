@@ -443,8 +443,8 @@ jobs:
           if [ "${OFF_MAIN%% *}" != skipped ]; then
             refused "build mode on $REF" "$OFF_MAIN" "BoxOps builds the site from the default branch (main) only, and this run is for $REF:"
           fi
-          refused "a symlink in the roadmap" "$SYMLINK" "roadmap/ can"
-          refused "a submodule in the roadmap" "$SUBMODULE" "roadmap/ can"
+          refused "a symlink in the roadmap" "$SYMLINK" "roadmap/boxes/link.yaml is a symlink;"
+          refused "a submodule in the roadmap" "$SUBMODULE" "roadmap/boxes/sub is a submodule;"
           refused "data format 2" "$FORMAT" "This roadmap is in data format 2;"
           refused "no settings.yaml" "$NO_SETTINGS" "roadmap/settings.yaml is missing:"
       - name: Bad repositories fail as they should, each with its error
