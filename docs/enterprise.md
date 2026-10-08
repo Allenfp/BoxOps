@@ -190,8 +190,9 @@ and runs its `dist/action.mjs` (the same file `uses:` runs) with Node.js:
           BOXOPS_ACTION: Allenfp/BoxOps@<release commit SHA> # v0.1.0
 ```
 
-- git checks every object it fetches against the commit, as `uses:` does,
-  so the code is that release's, byte for byte.
+- git checks every object it fetches against the commit's SHA, so the code
+  is that release's, byte for byte: the files `uses:` runs, which the runner
+  takes from GitHub's archive of the commit as GitHub sends it.
 - It fetches from github.com without a token, so `BOXOPS_ACTION` must name
   a public repository: `Allenfp/BoxOps`, or a public mirror.
 - `actions/setup-node` is told to read nothing in the workspace:
