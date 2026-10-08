@@ -925,7 +925,8 @@ when a focused element is removed.
   edge while its days scroll by. It's never shown cut off: where what's on
   screen of its cell, up to the next one's or the screen's edge, hasn't room
   for it, it's short ("Aug", "Q3"), or not shown at all (`labelsCut` in
-  `timeline/scale.ts`, fitted as the timeline scrolls).
+  `timeline/scale.ts`, fitted as the timeline scrolls or changes size,
+  before that frame is painted).
 - **Lanes and FTE.** A department is a stack of half-FTE slots (a 1-FTE lane is
   two). A box is as tall as its FTE. It goes in its own lane when there's room,
   else in the nearest free space in the department. Several placement orders

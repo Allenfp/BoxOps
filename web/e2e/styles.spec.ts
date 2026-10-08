@@ -274,9 +274,15 @@ const scrollAcross = (timeline: Locator, dx: number) =>
     dx,
   );
 
-/** Each name shown along the top, by its cell's place in the row: its text, and whether it's all on screen, within its cell. */
-const namesShown = (timeline: Locator) =>
-  timeline.evaluate((el) => {
+/**
+ * In the page, of the timeline `el`: each name shown along the top, by its cell's place in the row,
+ * its text, and whether it's all on screen, within its cell. `watch`: from now on, each time the
+ * timeline's size is observed too, the names then not whole go in `window.cutAtResize`, and its
+ * width in `window.observedWidth`. Observers are called in the order they were made, so this one
+ * comes after the app's, in the same frame, before it's painted: what it sees is what's painted.
+ */
+function namesOf(el: Element, watch?: boolean) {
+  const shown = () => {
     const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
     const right = el.getBoundingClientRect().left + el.clientWidth;
     const cells = [...el.querySelectorAll<HTMLElement>(".band-0 .band-cell")];
@@ -291,7 +297,22 @@ const namesShown = (timeline: Locator) =>
       if (!text.textContent || Math.min(r.right, to) <= Math.max(r.left, from)) return [];
       return [{ i, text: text.textContent, whole: r.left >= from - 0.5 && r.right <= to + 0.5 }];
     });
-  });
+  };
+  if (watch) {
+    const w = window as unknown as Watched;
+    w.cutAtResize = [];
+    new ResizeObserver(() => {
+      w.observedWidth = el.clientWidth;
+      w.cutAtResize.push(...shown().flatMap((n) => (n.whole ? [] : [n.text])));
+    }).observe(el);
+  }
+  return shown();
+}
+interface Watched {
+  cutAtResize: string[];
+  observedWidth: number;
+}
+const namesShown = (timeline: Locator) => timeline.evaluate(namesOf);
 
 test("a month's or quarter's name along the top is never cut off: whole where its cell has room on screen, else short, else not shown", async ({
   page,
@@ -323,6 +344,37 @@ test("a month's or quarter's name along the top is never cut off: whole where it
     expect(seen, zoom).toEqual([expect.stringMatching(/^\S+ \d{4}$/), seen[0].split(" ")[0], ""]);
   }
 });
+
+for (const zoom of ["Months", "Quarters"]) {
+  test(`a name along the top is fitted to a narrower window before it's painted, never shown cut (${zoom} zoom)`, async ({ page, github: _ }) => {
+    const timeline = page.locator(".timeline");
+    await page.getByRole("button", { name: zoom, exact: true }).click();
+    await expect.poll(async () => (await namesShown(timeline)).filter((n) => !n.whole)).toEqual([]);
+    await timeline.evaluate(namesOf, true);
+    // Narrowed till the screen's edge is 5 px into the last name on it.
+    const [width, into] = await timeline.evaluate((el) => {
+      const right = el.getBoundingClientRect().left + el.clientWidth;
+      const ends = [...el.querySelectorAll(".band-0 .band-cell span")].flatMap((name) => {
+        const range = document.createRange();
+        range.selectNodeContents(name);
+        const end = range.getBoundingClientRect().right;
+        return name.textContent && end <= right ? [end] : [];
+      });
+      return [el.clientWidth, Math.ceil(right - Math.max(...ends) + 5)];
+    });
+    const watched = () =>
+      page.evaluate(() => {
+        const { observedWidth, cutAtResize } = window as unknown as Watched;
+        return { observedWidth, cutAtResize };
+      });
+    const { width: before, height } = page.viewportSize()!;
+    await page.setViewportSize({ width: before - into, height });
+    await expect.poll(async () => (await watched()).observedWidth).toBe(width - into);
+    // Short, or not shown, from the first frame painted narrower.
+    expect((await watched()).cutAtResize).toEqual([]);
+    expect((await namesShown(timeline)).filter((n) => !n.whole)).toEqual([]);
+  });
+}
 
 test("a warning longer than the warnings menu wraps, read in full rather than cut off", async ({ page, github: _ }) => {
   await page.getByRole("button", { name: /^\d+ warnings?$/ }).click();

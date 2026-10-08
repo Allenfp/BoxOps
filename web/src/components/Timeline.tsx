@@ -334,10 +334,13 @@ export function Timeline(props: Props) {
     if (!el) return;
     const resized = new ResizeObserver(() => {
       if (centerDay.current === null) opening.current();
-      measure();
       // Its stylesheet in (Safari can draw the timeline first), the labels' font may be too.
       labelWidth.current = null;
-      fitLabels.current();
+      // Drawn before the frame is painted, as on a scroll.
+      flushSync(() => {
+        measure();
+        fitLabels.current();
+      });
     });
     resized.observe(el);
     return () => resized.disconnect();
