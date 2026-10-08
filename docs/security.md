@@ -89,7 +89,7 @@ can't change after.
   cache), and publishes only if git's id for the tree is the same all three
   ways: CI's, the rebuild's, and the files it's about to commit.
 - **Published by a job that runs none of BoxOps' code.** The publish job
-  holds the deploy key and runs only git, curl, jq, tar, the GitHub CLI and
+  holds the deploy key and runs only git, jq, tar, the GitHub CLI and
   GitHub's own actions. It waits for the maintainer's approval, attests the
   files, then pushes the commit and its tag in one step.
 - **Signed and fixed.** Every file of the release, and its tarball, get a

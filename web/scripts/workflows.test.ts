@@ -257,4 +257,15 @@ describe("the release workflow", () => {
     // Every other job reads only.
     for (const [id, job] of Object.entries(release.jobs)) if (id !== "publish") expect(job.permissions, id).toEqual({ contents: "read" });
   });
+
+  it("pushes over SSH to the host keys GitHub's API gives, asked for with the job's token", () => {
+    const steps = release.jobs.publish.steps ?? [];
+    const push = steps.find((s) => s.env?.DEPLOY_KEY);
+    // Without a token, the call counts against the runner's address, which other jobs share, and can be refused.
+    expect(push?.env?.GH_TOKEN).toBe("${{ github.token }}");
+    expect(push?.run).toContain(`gh api meta --jq '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"`);
+    expect(push?.run).toContain("-o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts");
+    // git, jq, tar and gh: no curl, as the workflow's first comment says.
+    expect(steps.map((s) => s.run ?? "").join("\n")).not.toMatch(/\bcurl\b/);
+  });
 });

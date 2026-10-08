@@ -78,7 +78,7 @@ review. Its jobs:
    reviewed: its page names the commit, and so does preflight's log
    ("Releasing BoxOps X.Y.Z from main@…"); without `commit`, anything merged
    since the review would ship too. It runs nothing from this repository,
-   only git, curl, jq, tar, gh and GitHub's own actions: it downloads the
+   only git, jq, tar, gh and GitHub's own actions: it downloads the
    tested tree, checks its tree id and its `SHA256SUMS` against what CI's
    release tree job and the rebuild gave as their jobs' outputs (no later
    job can change those, while any job of the run could replace an

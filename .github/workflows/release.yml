@@ -12,7 +12,7 @@
 #              tagged vX.Y.Z in one push with the release deploy key; and
 #              published as an immutable GitHub release, its notes the
 #              changelog's section. It runs no code from this repository:
-#              only git, curl, jq, tar, gh and GitHub's own actions.
+#              only git, jq, tar, gh and GitHub's own actions.
 # It can't run until the repository has its release settings (the `release`
 # environment with the RELEASE_DEPLOY_KEY secret, the rulesets: see
 # docs/releasing.md, "One-off settings").
@@ -237,14 +237,17 @@ jobs:
       - name: Commit the tree to releases and tag it, in one push, with the release deploy key
         env:
           DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }} # GitHub's API, for its SSH host keys
         run: |
           set -euo pipefail
           umask 077
           key="$RUNNER_TEMP/release_key"
           printf '%s\n' "$DEPLOY_KEY" >"$key"
           trap 'rm -f "$key"' EXIT
-          # github.com's SSH host keys, from its API over HTTPS.
-          curl -fsSL https://api.github.com/meta | jq -r '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"
+          # github.com's SSH host keys, from its API over HTTPS, asked with
+          # the job's token: without one, the call counts against the
+          # runner's address, which other jobs share, and can be refused.
+          gh api meta --jq '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts"
           export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_DIR="$RUNNER_TEMP/release.git"
           # GitHub's own identity for what a workflow commits, which no account can take.
