@@ -25,7 +25,7 @@ Elsewhere:
   [security.md](security.md).
 - GitHub Enterprise Server and GHE.com (GitHub Enterprise Cloud with data
   residency, on `*.ghe.com`) aren't supported. On GHE.com the deploy stops
-  with "GitHub Enterprise Server and GHE.com aren't supported in BoxOps
+  with "GitHub Enterprise Server and GHE.com aren’t supported in BoxOps
   0.1". On GitHub Enterprise Server the starter's jobs usually never get
   that far: they ask for `ubuntu-24.04`, one of GitHub's hosted runners,
   which an Enterprise Server doesn't have, so they wait for a runner; and
@@ -252,7 +252,7 @@ Settings → Repository → **Rulesets**. A ruleset aimed at the roadmap
 repository's `main` that a save from the browser can't meet refuses every
 save: requiring a pull request, status checks, a merge queue or successful
 deployments, restricting updates, or restricting commit metadata (message,
-author or committer email) to patterns. The app then says "GitHub's rules
+author or committer email) to patterns. The app then says "GitHub’s rules
 for main blocked this save" and quotes the rule. For each such ruleset,
 either:
 
@@ -511,7 +511,7 @@ GitHub's form:
 
 If the organization requires approval, the token is pending until an owner
 approves it (GitHub emails you either way). A pending token reads only
-public repositories, so the app says "This token can't see `<org>/<repo>`".
+public repositories, so the app says "This token can’t see `<org>/<repo>`".
 
 ### 4. Your first save
 
@@ -533,21 +533,27 @@ member instead.
 
 ### When saving
 
-What the app says, and what to do. Where it names an HTTP status, that's
-GitHub's answer.
+What the app says when it saves (or shows a branch preview, `?ref=`), and
+what to do. Where it names an HTTP status, that's GitHub's answer.
 
 | The app says | Why | What to do |
 |---|---|---|
 | "GitHub rejected this token" (401) | The token was mistyped, has expired or was revoked. | Make a new one. |
-| "This token can't see `<org>/<repo>`" (404) | Its resource owner is your account, not the organization; the repository isn't selected; approval is pending; its lifetime is over the organization's maximum; or you're an outside collaborator with a fine-grained token. | Check the token on GitHub (Settings → Developer settings → Fine-grained tokens), or wait for approval. |
-| "This token can see `<repo>` but can't save to it", or "can read `<repo>` but not write to it" (403) | Contents is Read-only. | Edit the token: Contents → Read and write. |
-| "Your GitHub account can't write to `<repo>`" | Your account has Read, not Write. | Ask a repository admin for Write. |
+| "This token can’t see `<org>/<repo>`" (404) | Its resource owner is your account, not the organization; the repository isn't selected; approval is pending; its lifetime is over the organization's maximum; or you're an outside collaborator with a fine-grained token. | Check the token on GitHub (Settings → Developer settings → Fine-grained tokens), or wait for approval. |
+| "This token can see `<org>/<repo>` but not read its files" (403) | It has no Contents permission, only Metadata. | Edit the token: Contents → Read and write. |
+| "This token can see `<org>/<repo>` but can’t save to it", or "can read `<org>/<repo>` but not write to it" (403) | Contents is Read-only. | Edit the token: Contents → Read and write. |
+| "Your GitHub account can’t write to `<org>/<repo>`" | Your account has Read, not Write. | Ask a repository admin for Write. |
+| "`<org>/<repo>` has no branch “main”" | The branch the site was built from isn't there any more (renamed or deleted); in a preview, `?ref=` names a branch that isn't there. | Reload once the site has deployed again: if the default branch was renamed, an admin first changes `main` in `deploy.yml` and in the `github-pages` environment's rule. In a preview, check the branch's name. |
 | "`<org>` uses single sign-on. Authorize this token" | A member's classic token not authorized for SAML. | Configure SSO → Authorize, next to the token. |
-| "`<org>` doesn't accept this token" | The organization forbids this kind of token, or its lifetime is over the maximum. | Make the kind it allows, expiring within its limit. |
+| "`<org>` doesn’t accept this token" | The organization forbids this kind of token, or its lifetime is over the maximum. | Make the kind it allows, expiring within its limit. |
 | "`<org>` only allows GitHub access from approved networks" | An IP allow list or Conditional Access policy. | Save from the office network or VPN. |
-| "GitHub's rules for main blocked this save" | A ruleset (pull requests, checks, signed commits, commit metadata). | An admin lets editors through: [Organization rulesets](#7-organization-rulesets), [Rulesets](#4-rulesets). |
+| "GitHub’s rules for main blocked this save" | A ruleset (pull requests, checks, signed commits, commit metadata). | An admin lets editors through: [Organization rulesets](#7-organization-rulesets), [Rulesets](#4-rulesets). |
+| "This token has used up GitHub’s hourly allowance" | Your account has made as many GitHub API calls this hour as GitHub allows it, with all its tokens and tools. | Try again at the time the app gives. |
+| "This network has used up GitHub’s hourly allowance for calls without a token (60 an hour per IP address)" | Without a token (a branch preview of a public repository, say), the app's calls count against your network's address, which everyone behind it shares. | Try again at the time the app gives, or with a token. |
+| "GitHub asked BoxOps to slow down" | Too many calls in a short time (GitHub's secondary rate limits). | Wait as long as the app says, then try again. |
+| "GitHub had a problem" (5xx) | An error or an outage at GitHub. | Try again in a minute. A save that may have gone through is checked before it's made again. |
 | "BoxOps is being upgraded; reload in a minute" | An upgrade to a newer data format was merged and is deploying. | Reload in a minute. |
-| "Couldn't reach GitHub" | Offline, or a network filter blocks `api.github.com`. | Reconnect, or ask for `api.github.com` to be allowed. |
+| "Couldn’t reach GitHub" | Offline, or a network filter blocks `api.github.com`. | Reconnect, or ask for `api.github.com` to be allowed. |
 
 A token GitHub rejects (401) is forgotten at once; for anything else the
 dialog keeps it, so you can fix the token on GitHub and try again.
@@ -556,7 +562,9 @@ dialog keeps it, so you can fix the token on GitHub and try again.
 
 Each deploy is a run of **Deploy roadmap** (Actions tab): its jobs are
 **Check and assemble**, **Publish** and, when the roadmap has problems,
-**Roadmap problems**.
+**Roadmap problems**. The BoxOps step's errors have "BoxOps" as their
+title; the one that stops it is also its `result` output and a line in the
+run's summary.
 
 | The run says | Why | What to do |
 |---|---|---|
@@ -565,9 +573,16 @@ Each deploy is a run of **Deploy roadmap** (Actions tab): its jobs are
 | "Refusing to publish to a public site" | The repository isn't public, but its site is. | Settings → Pages → GitHub Pages visibility: Private. |
 | **Check and assemble** fails at `actions/checkout`: "… has an IP allow list enabled, and your IP address is not permitted to access this resource" | GitHub's standard runners can't be on the organization's IP allow list. | Runners with allowed addresses, in every job of both workflows: [enterprise.md](enterprise.md#ip-allow-lists). |
 | "Couldn't read the Pages settings (HTTP 403)" | **Publish** runs where an IP allow list keeps it out, though **Check and assemble** didn't: `runs-on` was changed in some jobs, not all (or the job lost `pages: write`). | Every job on a runner with an allowed address: [enterprise.md](enterprise.md#ip-allow-lists). |
+| "GitHub API problem (502)", or another status, or "(no response)" | The Pages check couldn't read the Pages settings: an error or an outage at GitHub. | Run it again later. |
 | "The roadmap has N problem(s)" | Files with mistakes, made by hand. The site was published without the broken entries. | Fix the files the annotations on **Check and assemble** name, and push. |
-| "This roadmap is in data format N; BoxOps X reads format M" | An upgrade needs a migration, or the pin is older than the data. | [upgrading.md](upgrading.md). The site stays as it was. |
-| "roadmap/settings.yaml:N: … The data format can't be read until that's fixed" | A mistake in `settings.yaml` (a YAML syntax error, say) keeps its `format:` from being read. | Fix the line it names, and push. The site stays as it was. |
+| "This roadmap is in data format N; BoxOps X reads format M" | An upgrade needs a migration, or the pin is older than the data. | [upgrading.md](upgrading.md). |
+| "roadmap/settings.yaml:N: … The data format can’t be read until that’s fixed" | A mistake in `settings.yaml` (a YAML syntax error, say) keeps its `format:` from being read. | Fix the line it names, and push. |
+| "roadmap/settings.yaml is missing: every roadmap needs one, with at least `format: 1`" | There's no `roadmap/settings.yaml`. | Add one, with `format: 1` at least, and push. |
+| "roadmap/… is a symlink; a roadmap folder holds plain files only", or "… is a submodule; …" | `roadmap/` holds a symlink or a submodule (outside hidden folders): BoxOps reads plain files only, and never follows a link. | Put the file itself in its place, or take it out, and push. |
+| "roadmap/… isn’t UTF-8 text" | A file in another encoding. | Save it as UTF-8, and push. |
+| "roadmap/… is 1.2 MiB; a roadmap file can be at most 1.0 MiB", "roadmap holds more than 20,000 files" or "… more than 64.0 MiB of roadmap files" | The limits BoxOps reads a roadmap within. | Make the file smaller, or take what isn't roadmap data out of `roadmap/`, and push. |
+| "The workspace has no .git folder: actions/checkout downloads a tarball instead when the runner has no git 2.18 or later" | A runner of your own without git, or with git older than 2.18: BoxOps reads the roadmap from git's objects. | Install git 2.18 or later on the runner ([enterprise.md](enterprise.md#self-hosted-runners)). |
+| "BoxOps 0.1 runs on Linux and macOS runners, not Windows" | A Windows runner. | `runs-on: ubuntu-24.04`, as the starter has it, or a Linux or macOS runner of your own. |
 | "BoxOps builds the site from the default branch (main) only" | The run is for another branch. | Run it from `main`. |
 | "BoxOps builds the site from the commit this run is for" | The workflow checks out another commit (a `ref:` on `actions/checkout`). | Check out the run's commit: `actions/checkout` with no `ref:`, as the starter's does. |
 | The run fails before its first step: an action isn't allowed, or isn't pinned to a full commit SHA | The organization's Actions policy. | [Allow the actions](#3-allow-the-actions). |

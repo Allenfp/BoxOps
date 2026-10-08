@@ -51,7 +51,7 @@ release, and propose one once it's been out 3 days (its cooldown):
    in a pull request of their own.)
 2. **Check roadmap** (`check.yml`) runs the new release on the pull
    request's branch, against your roadmap:
-   - **Green:** merge it. A warning on the check, such as "AGENTS.md's
+   - **Green:** merge it. A warning on the check, such as "AGENTS.md’s
      BoxOps block is 1; this BoxOps writes 2: run
      `node .boxops/boxops.mjs sync`", asks for `sync` on the branch first.
    - **Red, data format:** "This roadmap is in data format 1; BoxOps 0.2.0
@@ -154,7 +154,7 @@ itself:
   Ask a repository admin to merge the upgrade pull request." Any other newer
   release gives a quieter note: "BoxOps v0.2.0 is available; this site runs
   v0.1.0." If the lookup fails, the deploy goes on without notices, and
-  the BoxOps step's log says "the lookup step didn't run or failed".
+  the BoxOps step's log says "the lookup step didn’t run or failed".
 - **Dependabot's pull request**, after its 3 days.
 - **The release notes and advisories**, for those watching
   `Allenfp/BoxOps`'s releases ([adopting.md](adopting.md#7-make-it-yours))

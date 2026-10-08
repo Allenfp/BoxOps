@@ -392,7 +392,7 @@ starter's sample roadmap (`roadmap.json` grows with the roadmap: about
 
 - **GitHub Enterprise Server** and **GHE.com** (GitHub Enterprise Cloud with
   data residency): wherever the BoxOps step runs, it stops at once, saying
-  "GitHub Enterprise Server and GHE.com aren't supported in BoxOps 0.1 (this
+  "GitHub Enterprise Server and GHE.com aren’t supported in BoxOps 0.1 (this
   runs on …): use github.com", and the app talks only to github.com's API,
   `api.github.com` (and to `raw.githubusercontent.com`, for a public
   repository's files). On GHE.com, that's what a deploy says. On an

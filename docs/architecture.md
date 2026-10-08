@@ -307,7 +307,7 @@ The demo moves to a repository of its own at the cutover (`cutover/`), and
   (offline, mid-deploy, a private site whose sign-in expired: the
   same-origin request is then redirected to github.com and fails, or no
   answer within 20 s) waits longer each time, 4, 8, then 15 minutes; two in
-  a row show a calm notice, "Can't reach the site", saying the tab keeps
+  a row show a calm notice, "Can’t reach the site", saying the tab keeps
   trying and to reload if it goes on (a private site may want a new
   sign-in), until a check succeeds. Coming back online checks at once. A failed check
   never counts as an app update. Every `roadmap.json` fetched also brings
@@ -473,7 +473,7 @@ so a reload or a crash doesn't lose work, even if someone saved in between:
    instead of saving (see [Tabs left open](#tabs-left-open)). It waits 5 s
    at most; one that can't be had says nothing. Then it reads the head of
    `main` as on load; one still older than the tab's copy stops the save,
-   "GitHub's answer is behind; try again in a few seconds", rather than be
+   "GitHub’s answer is behind; try again in a few seconds", rather than be
    taken for newer saves. If the head's `settings.yaml` states a newer data
    format than this BoxOps writes (an upgrade was merged and is deploying),
    nothing is written: "BoxOps is being upgraded; reload in a minute". If someone
