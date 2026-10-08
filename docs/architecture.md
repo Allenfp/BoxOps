@@ -940,6 +940,10 @@ when a focused element is removed.
   the pointer has been clear of it during the drag, or has gone on towards
   it: a box pressed just under the header or beside the labels and dragged
   along that edge, or away from it, doesn't scroll (and so keeps its lane).
+  Along the right and bottom edges, WebKit's overlay scrollbars (shown
+  while the timeline scrolls) lie over the lanes and hit as the timeline
+  itself: a box held there goes into the lane just inside them, as the
+  timeline scrolls on.
 - **Drawing** (`components/Timeline.tsx`). Each department is drawn by a
   memoized component given only what's its own (its boxes, layout, PTO and
   what's selected or moving in it, as the same arrays and objects while
@@ -1466,7 +1470,9 @@ a release must have none of.
   (`cull`, a test option), skipping only the checks that count every box;
   `e2e/timeline-big.spec.ts` checks a 600-box roadmap against itself drawn
   whole: nothing on screen missing at any scroll or zoom, focus and moves
-  kept drawn, what the app focuses or shows (from the warnings, from
+  kept drawn (a box dragged into the corner in sight all the while the
+  timeline scrolls under it, held over WebKit's overlay scrollbars too),
+  what the app focuses or shows (from the warnings, from
   People, after an editor's Delete, after someone else deletes the
   focused box) drawn, the grid's rows counted. The
   table's and People's specs (`table`, `people`, `pto`, `keyboard`, and

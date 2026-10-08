@@ -242,10 +242,17 @@ test("collapsed departments are a row each; as boxes, those on screen are drawn"
   await expect.poll(() => onScreen(page)).toEqual(await onScreen(whole));
 });
 
-test("the box being dragged is drawn all the way as the timeline scrolls far under it, and lands where it's let go", async ({ page, github: _ }) => {
+/**
+ * A box of the first department on screen, pressed clear of the labels and dragged into the
+ * timeline's bottom right corner, `inset` px in from its right and bottom edges, then held there:
+ * the timeline scrolls down and on in time, through departments and days that weren't drawn,
+ * carrying the box. Waited for until it's three screens down; meanwhile, every 50 ms, whether
+ * the box is in sight (in the timeline's view, below its header) is counted. It's let go at
+ * `release` (by default where it's held).
+ */
+async function dragIntoCorner(page: Page, inset: number, release?: { x: number; y: number }) {
   const timeline = page.locator(".timeline");
   const view = (await timeline.boundingBox())!;
-  // A box of the first department on screen, pressed clear of the labels.
   const key = await timeline.evaluate((el, id) => {
     const left = el.getBoundingClientRect().left + 300;
     return [...el.querySelectorAll<HTMLElement>(`[data-dept-id="${id}"] .lane-track .box`)].find((b) => b.getBoundingClientRect().right > left + 40)?.dataset.cell;
@@ -255,19 +262,62 @@ test("the box being dragged is drawn all the way as the timeline scrolls far und
   const b = (await moved.boundingBox())!;
   await page.mouse.move(Math.max(b.x, view.x + 300) + 20, b.y + b.height / 2);
   await page.mouse.down();
-  // Into the bottom right corner, and held there: the timeline scrolls down and on in time,
-  // through departments and days that weren't drawn, carrying the box. 30 pixels in from the
-  // edges, inside the band that scrolls (40) but off WebKit's overlay scrollbars (about 16):
-  // over those, the pointer is over no lane, so the box would stay in the last one it was over.
-  await page.mouse.move(view.x + view.width - 30, view.y + view.height - 30, { steps: 10 });
+  await timeline.evaluate((el, key) => {
+    type Sight = { seen: number; out: number; stop?: boolean };
+    const sight: Sight = { seen: 0, out: 0 };
+    (window as unknown as { sight: Sight }).sight = sight;
+    const look = () => {
+      if (sight.stop) return;
+      const r = el.querySelector(`[data-cell="${CSS.escape(key)}"]`)?.getBoundingClientRect();
+      const view = el.getBoundingClientRect();
+      const top = el.querySelector(".tl-head")!.getBoundingClientRect().bottom;
+      sight.seen++;
+      if (!r || r.bottom <= top || r.top >= view.top + el.clientHeight || r.right <= view.left || r.left >= view.left + el.clientWidth) sight.out++;
+      setTimeout(look, 50);
+    };
+    look();
+  }, key!);
+  await page.mouse.move(view.x + view.width - inset, view.y + view.height - inset, { steps: 10 });
   for (const depth of [1, 2, 3]) {
     await expect.poll(() => timeline.evaluate((el) => el.scrollTop), { timeout: 15_000 }).toBeGreaterThan(depth * view.height);
     await expect(moved).toHaveCount(1);
     await expect(moved).toBeInViewport();
   }
-  await page.mouse.move(view.x + view.width / 2, view.y + view.height / 2, { steps: 2 });
+  const sight = await page.evaluate(() => {
+    const w = window as unknown as { sight: { seen: number; out: number; stop?: boolean } };
+    w.sight.stop = true;
+    return w.sight;
+  });
+  if (release) await page.mouse.move(release.x, release.y, { steps: 2 });
   await page.mouse.up();
+  return { moved, was, sight };
+}
+
+test("the box being dragged is drawn all the way as the timeline scrolls far under it, and lands where it's let go", async ({ page, github: _ }) => {
+  const view = (await page.locator(".timeline").boundingBox())!;
+  // Held 30 px in from the edges, inside the band that scrolls (40); let go mid-screen.
+  const { moved, was, sight } = await dragIntoCorner(page, 30, { x: view.x + view.width / 2, y: view.y + view.height / 2 });
+  // In sight all the while.
+  expect(sight.seen).toBeGreaterThan(10);
+  expect(sight.out).toBe(0);
   // Dropped in a department far below, later: one change, and it keeps focus.
+  const now = await moved.evaluate((el) => el.closest("[data-dept-id]")?.getAttribute("data-dept-id"));
+  expect(Number(now?.slice(5))).toBeGreaterThan(3);
+  expect(Number(await moved.getAttribute("data-start"))).toBeGreaterThan(was);
+  await expect(moved).toBeFocused();
+  await expect(toolbar(page)).toContainText("Save · 1 change");
+});
+
+test("held over the timeline's last pixels (WebKit's overlay scrollbars), the box goes on into the lanes just inside, and lands there", async ({
+  page,
+  github: _,
+}) => {
+  // 6 px in: on WebKit's overlay scrollbars, which show while the timeline scrolls and hit as the
+  // timeline itself, over no lane. The box goes into the lane just inside them as they pass, in
+  // sight all the while (in the last one it was over, it would scroll out of sight); let go there.
+  const { moved, was, sight } = await dragIntoCorner(page, 6);
+  expect(sight.seen).toBeGreaterThan(10);
+  expect(sight.out).toBe(0);
   const now = await moved.evaluate((el) => el.closest("[data-dept-id]")?.getAttribute("data-dept-id"));
   expect(Number(now?.slice(5))).toBeGreaterThan(3);
   expect(Number(await moved.getAttribute("data-start"))).toBeGreaterThan(was);

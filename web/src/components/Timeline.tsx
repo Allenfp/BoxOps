@@ -65,6 +65,8 @@ const DRAG_THRESHOLD = 4;
 /** How near the timeline's edges (px, inside the labels and header) a drag scrolls it, and how far each frame. */
 const EDGE = 40;
 const EDGE_STEP = 12;
+/** How far in from the timeline's right and bottom edges (px) WebKit's overlay scrollbars reach (about 16), and a little more. */
+const SCROLLBAR_BAND = 20;
 
 export type BoxPlacement = Pick<Box, "lane" | "start" | "end">;
 
@@ -522,11 +524,24 @@ export function Timeline(props: Props) {
     flushSync(measure);
   };
 
-  /** The department under a point, and how many slots down its lanes the point is. */
+  /**
+   * The department under a point, and how many slots down its lanes the point is. Along the
+   * timeline's right and bottom edges, WebKit's overlay scrollbars (shown while it scrolls) are
+   * over the lanes, and hit as the timeline itself: there, the point just inside them.
+   */
   const slotAt = (clientX: number, clientY: number) => {
-    const track = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-dept-track]");
+    let [x, y] = [clientX, clientY];
+    let hit = document.elementFromPoint(x, y);
+    const el = scrollRef.current;
+    if (el && hit === el) {
+      const r = el.getBoundingClientRect();
+      x = Math.min(x, r.left + el.clientWidth - SCROLLBAR_BAND);
+      y = Math.min(y, r.top + el.clientHeight - SCROLLBAR_BAND);
+      hit = document.elementFromPoint(x, y);
+    }
+    const track = hit?.closest<HTMLElement>("[data-dept-track]");
     const layout = track && latest.current.layouts.get(track.dataset.deptTrack!);
-    return layout ? { layout, slot: Math.floor((clientY - track.getBoundingClientRect().top) / SLOT_H) } : undefined;
+    return layout ? { layout, slot: Math.floor((y - track.getBoundingClientRect().top) / SLOT_H) } : undefined;
   };
 
   // ---- Dragging -------------------------------------------------------------
