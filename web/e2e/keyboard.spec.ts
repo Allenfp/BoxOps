@@ -106,6 +106,9 @@ test("the box editor keeps Tab inside, and Escape puts focus back on the box", a
 
 test("a click away from the box editor closes it and leaves focus where the click put it", async ({ page, github: _ }) => {
   await box(page, DAGSTER).click();
+  // Open first: its code may still be on its way (it's fetched a second after the roadmap
+  // shows), and a click before it's here isn't one away from it.
+  await expect(page.getByRole("dialog", { name: /^Edit / })).toBeVisible();
   await page.locator(".tl-corner").click();
   await expect(page.getByRole("dialog", { name: /^Edit / })).toHaveCount(0);
   await page.waitForTimeout(100); // past the frame focus would have been put back in
