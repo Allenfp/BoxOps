@@ -23,6 +23,9 @@ test("every box shows its code; new boxes get a unique one; the prefix follows t
   // A new box gets a fresh, readable code.
   const lane = (await page.locator('[data-lane="an-3"]').boundingBox())!;
   await page.mouse.dblclick(740, lane.y + lane.height / 2);
+  // Its editor open first: its code may still be on its way (it's fetched a second after the
+  // roadmap shows), and keys pressed before it's here aren't its: Esc takes the opening back.
+  await expect(page.locator(".editor-title")).toBeFocused();
   await page.keyboard.type("Hiring plan");
   await page.keyboard.press("Escape");
   const fresh = (await page.locator(".box.selected .box-code, .box:has(.box-name:text-is('Hiring plan')) .box-code").first().innerText()).trim();
