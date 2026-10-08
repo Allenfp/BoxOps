@@ -78,9 +78,10 @@
 }
 /*
  * Coarse labels (month / quarter) stay readable while their cell scrolls past, at the label column's edge,
- * whole: never pushed in under the column ("ug 2026"), but covered from the right by the next cell as it
- * comes. Each cell runs on under the next (drawn over it, on the header's own colour) by more than a label's
- * width, so its label stays put until it's covered.
+ * whole: never pushed in under the column ("ug 2026"). Short of room before the next cell, a label is short
+ * ("Aug") or not shown (Timeline.tsx, labelsCut in timeline/scale.ts). Each cell runs on under the next
+ * (drawn over it, on the header's own colour) by more than a label's width, so its label stays put: covered,
+ * not pushed, in the moment before a scroll reaches the app.
  */
 .band-0 .band-cell {
   width: calc(var(--width) + 120px);

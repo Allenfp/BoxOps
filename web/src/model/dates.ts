@@ -92,11 +92,16 @@ export function prettyDay(day: Day): string {
  */
 export function quarterLabel(quarterStart: Day, fyStartMonth = 1): string {
   const { year, month } = dayParts(quarterStart);
-  const monthsIntoFy = (((month - fyStartMonth) % 12) + 12) % 12;
-  const q = Math.floor(monthsIntoFy / 3) + 1;
-  if (fyStartMonth === 1) return `Q${q} ${year}`;
+  const q = quarterName(quarterStart, fyStartMonth);
+  if (fyStartMonth === 1) return `${q} ${year}`;
   const fyEndYear = month >= fyStartMonth ? year + 1 : year;
-  return `FY${String(fyEndYear).slice(-2)} Q${q}`;
+  return `FY${String(fyEndYear).slice(-2)} ${q}`;
+}
+
+/** The quarter alone, without its year: "Q4". */
+export function quarterName(quarterStart: Day, fyStartMonth = 1): string {
+  const monthsIntoFy = (((dayParts(quarterStart).month - fyStartMonth) % 12) + 12) % 12;
+  return `Q${Math.floor(monthsIntoFy / 3) + 1}`;
 }
 
 // ---- Working days -----------------------------------------------------------

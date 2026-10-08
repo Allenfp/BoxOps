@@ -261,39 +261,66 @@ test("the table's and People's column headers are shown whole, none running unde
   }
 });
 
-test("a month's or quarter's name along the top stays whole at the label column's edge as its days scroll by, till the next one's covers it", async ({
+/** Scroll the timeline `dx` px across, and wait for the scroll event, on which the app fits the names along the top (none comes at the end). */
+const scrollAcross = (timeline: Locator, dx: number) =>
+  timeline.evaluate(
+    (el, dx) =>
+      new Promise<void>((done) => {
+        const before = el.scrollLeft;
+        el.scrollBy(dx, 0);
+        if (el.scrollLeft === before) done();
+        else el.addEventListener("scroll", () => done(), { once: true });
+      }),
+    dx,
+  );
+
+/** Each name shown along the top, by its cell's place in the row: its text, and whether it's all on screen, within its cell. */
+const namesShown = (timeline: Locator) =>
+  timeline.evaluate((el) => {
+    const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
+    const right = el.getBoundingClientRect().left + el.clientWidth;
+    const cells = [...el.querySelectorAll<HTMLElement>(".band-0 .band-cell")];
+    return cells.flatMap((cell, i) => {
+      const text = cell.querySelector("span")!;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      const r = range.getBoundingClientRect();
+      // On screen of its cell: right of the column, left of the next cell (drawn over it) and the screen's edge.
+      const from = Math.max(edge, cell.getBoundingClientRect().left);
+      const to = Math.min(cells[i + 1]?.getBoundingClientRect().left ?? Infinity, right);
+      if (!text.textContent || Math.min(r.right, to) <= Math.max(r.left, from)) return [];
+      return [{ i, text: text.textContent, whole: r.left >= from - 0.5 && r.right <= to + 0.5 }];
+    });
+  });
+
+test("a month's or quarter's name along the top is never cut off: whole where its cell has room on screen, else short, else not shown", async ({
   page,
   github: _,
 }) => {
   const timeline = page.locator(".timeline");
+  // Narrower, so that at quarters zoom the timeline scrolls far enough.
+  await page.setViewportSize({ width: 1000, height: 700 });
   for (const zoom of ["Months", "Quarters"]) {
     await page.getByRole("button", { name: zoom, exact: true }).click();
-    // A month (quarter) starting 100 px right of the label column, then scrolled on 8 px at a time till it's past it.
-    await timeline.evaluate((el) => {
+    expect((await namesShown(timeline)).filter((n) => !n.whole), `${zoom}, as it opens`).toEqual([]);
+    // A month (quarter) starting 100 px right of the label column, then scrolled on 8 px at a time till it's
+    // past it: the name of the one before, at the column's edge, is whole, then short, then not shown.
+    const [next, dx] = await timeline.evaluate((el) => {
       const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
-      const next = [...el.querySelectorAll(".band-0 .band-cell")].map((c) => c.getBoundingClientRect().left).find((x) => x > edge + 100)!;
-      el.scrollBy(next - edge - 100, 0);
+      const lefts = [...el.querySelectorAll(".band-0 .band-cell")].map((c) => c.getBoundingClientRect().left);
+      const i = lefts.findIndex((x) => x > edge + 100);
+      return [i, lefts[i] - edge - 100];
     });
+    await scrollAcross(timeline, dx);
+    const seen: string[] = [];
     for (let step = 0; step < 30; step++) {
-      const wrong = await timeline.evaluate((el) => {
-        const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
-        const cells = [...el.querySelectorAll<HTMLElement>(".band-0 .band-cell")];
-        return cells.flatMap((cell, i) => {
-          const name = cell.querySelector("span")!;
-          const r = name.getBoundingClientRect();
-          // What shows of it: right of the column, left of the next one (which, coming, is drawn over it).
-          const next = cells[i + 1]?.getBoundingClientRect().left ?? Infinity;
-          if (Math.min(r.right, next) <= Math.max(r.left, edge)) return [];
-          // Whole: never pushed in under the column.
-          if (r.left < edge - 0.5) return [`${name.textContent} starts under the column, at ${r.left} (its edge ${edge})`];
-          if (next >= r.right - 1) return [];
-          const hit = document.elementFromPoint((Math.max(next, edge) + r.right) / 2, (r.top + r.bottom) / 2);
-          return cells[i + 1].contains(hit) ? [] : [`${name.textContent} shows over the next one`];
-        });
-      });
-      expect(wrong, `${zoom}, step ${step}`).toEqual([]);
-      await timeline.evaluate((el) => el.scrollBy(8, 0));
+      const names = await namesShown(timeline);
+      expect(names.filter((n) => !n.whole), `${zoom}, step ${step}`).toEqual([]);
+      const name = names.find((n) => n.i === next - 1)?.text ?? "";
+      if (name !== seen.at(-1)) seen.push(name);
+      await scrollAcross(timeline, 8);
     }
+    expect(seen, zoom).toEqual([expect.stringMatching(/^\S+ \d{4}$/), seen[0].split(" ")[0], ""]);
   }
 });
 

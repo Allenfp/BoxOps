@@ -922,7 +922,10 @@ when a focused element is removed.
   `model/dates.ts`). Weekends take no space, durations count working days, and
   date fields move weekend picks to the nearest weekday. Along the top, a
   month's name (a quarter's, at quarters zoom) stays at the label column's
-  edge while its days scroll by, whole, until the next one's comes over it.
+  edge while its days scroll by. It's never shown cut off: where what's on
+  screen of its cell, up to the next one's or the screen's edge, hasn't room
+  for it, it's short ("Aug", "Q3"), or not shown at all (`labelsCut` in
+  `timeline/scale.ts`, fitted as the timeline scrolls).
 - **Lanes and FTE.** A department is a stack of half-FTE slots (a 1-FTE lane is
   two). A box is as tall as its FTE. It goes in its own lane when there's room,
   else in the nearest free space in the department. Several placement orders

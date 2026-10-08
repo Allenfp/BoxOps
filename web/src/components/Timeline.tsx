@@ -40,7 +40,7 @@ import {
 } from "../model/dates";
 import type { Box, Department, Lane, Roadmap, Settings, TimeOff, ZoomLevel } from "../model/types";
 import { type DepartmentLayout, layoutDepartment, slotsOf } from "../timeline/layout";
-import { type Scale, type Segment, headerBands, makeScale, timelineRange } from "../timeline/scale";
+import { type LabelCut, type Scale, type Segment, headerBands, labelsCut, makeScale, timelineRange } from "../timeline/scale";
 import { type DragMode, dragDays, dropLane, movedDates } from "../timeline/drag";
 import { type GridRow, OVERFLOW, type PtoEntry, boxRows, deptGridRows, drawRange, overlaps, ptoOrder } from "../timeline/rows";
 import { Icon } from "./Icon";
@@ -300,6 +300,23 @@ export function Timeline(props: Props) {
    */
   const opening = useRef(() => {});
 
+  // The dates along the top. A month's name (a quarter's, at quarters zoom) stays at the label
+  // column's edge while its days scroll by, whole while what's on screen of its cell has room for
+  // it, else short ("Aug", "Q3"), else not at all (labelsCut): never cut off by the next one's cell
+  // or the screen's edge. Fitted as the timeline scrolls, changes size or draws new ones.
+  const [cut, setCut] = useState<ReadonlyMap<Day, LabelCut>>(NOTHING_CUT);
+  /** A top label's width as drawn, its padding included: measured with its font, again once the timeline changes size. */
+  const labelWidth = useRef<((label: string) => number) | null>(null);
+  const fitLabels = useRef(() => {});
+  fitLabels.current = () => {
+    const el = scrollRef.current;
+    const label = el?.querySelector<HTMLElement>(".band-0 .band-cell span");
+    if (!el || !label) return;
+    labelWidth.current ??= measurer(label);
+    const next = labelsCut(bands[0], scale, el.scrollLeft, el.scrollLeft + trackWidth(), labelWidth.current);
+    setCut((now) => (now.size === next.size && [...next].every(([day, c]) => now.get(day) === c) ? now : next));
+  };
+
   // On a big roadmap, only the part of the timeline near the screen is drawn: `area`, in pixels
   // down the rows and across the dates (rows.ts's drawRange), measured as the timeline scrolls
   // or changes size. Null until it's been measured.
@@ -318,6 +335,9 @@ export function Timeline(props: Props) {
     const resized = new ResizeObserver(() => {
       if (centerDay.current === null) opening.current();
       measure();
+      // Its stylesheet in (Safari can draw the timeline first), the labels' font may be too.
+      labelWidth.current = null;
+      fitLabels.current();
     });
     resized.observe(el);
     return () => resized.disconnect();
@@ -534,6 +554,8 @@ export function Timeline(props: Props) {
     measure();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-centre on zoom only, not when today changes
   }, [scale]);
+  // The labels along the top fitted to where that left them (and to new names: a fiscal year's quarters).
+  useLayoutEffect(() => fitLabels.current(), [bands]);
 
   useEffect(() => {
     if (jumpToToday > 0) scrollToDay(now, 1 / 3, true);
@@ -544,8 +566,12 @@ export function Timeline(props: Props) {
     const el = scrollRef.current;
     if (el) centerDay.current = scale.dayAt(el.scrollLeft + trackWidth() / 2);
     requested.current = null;
-    // Drawn before the frame is painted, so a long scroll never shows blank space for a frame.
-    flushSync(measure);
+    // Drawn before the frame is painted, so a long scroll never shows blank space for a frame,
+    // nor a label cut off.
+    flushSync(() => {
+      measure();
+      fitLabels.current();
+    });
   };
 
   /**
@@ -934,11 +960,11 @@ export function Timeline(props: Props) {
       bands.map((band, i) => (
         <div key={i} className={`tl-band band-${i}`}>
           {band.map((s) => (
-            <BandCell key={s.start} seg={s} scale={scale} />
+            <BandCell key={s.start} seg={s} scale={scale} cut={i === 0 ? cut.get(s.start) : undefined} />
           ))}
         </div>
       )),
-    [bands, scale],
+    [bands, scale, cut],
   );
   const gridLines = useMemo(() => <Grid scale={scale} fine={bands[1]} coarse={bands[0]} zoom={zoom} />, [scale, bands, zoom]);
   const [keepNames] = useState(() => keeper<Map<string, string>>((a, b) => a.size === b.size && [...b].every(([id, name]) => a.get(id) === name)));
@@ -1766,14 +1792,29 @@ const overloadOf = cached((boxes: Box[], dept: Department) => overCapacity(dept,
 const rowsOf = cached((layout: DepartmentLayout, boxes: Box[]) => boxRows(layout, boxes));
 const packed = cached((entries: PtoEntry[], _: void) => packRows(entries));
 
-function BandCell({ seg, scale }: { seg: Segment; scale: Scale }) {
+/** `cut`: the label's short form, or none, where it doesn't fit (labelsCut). */
+function BandCell({ seg, scale, cut }: { seg: Segment; scale: Scale; cut?: LabelCut }) {
   const width = scale.x(seg.end) - scale.x(seg.start);
   if (width <= 0) return null;
   return (
     <div className="band-cell" style={{ left: scale.x(seg.start), "--width": `${width}px` } as CSSProperties}>
-      <span>{seg.label}</span>
+      <span>{cut === "none" ? "" : cut === "short" ? seg.short : seg.label}</span>
     </div>
   );
+}
+
+/** No label along the top cut short. */
+const NOTHING_CUT: ReadonlyMap<Day, LabelCut> = new Map();
+
+/** Measures a text as drawn in `el`, with its font and its padding either side. */
+function measurer(el: HTMLElement): (text: string) => number {
+  const style = getComputedStyle(el);
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) return () => 0;
+  ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const widths = new Map<string, number>();
+  return (text) => widths.get(text) ?? widths.set(text, ctx.measureText(text).width + padding).get(text)!;
 }
 
 /** Vertical grid lines behind the rows; at week zoom, Mondays are stronger. */
