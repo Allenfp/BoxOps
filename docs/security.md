@@ -110,11 +110,14 @@ gh attestation verify <file> -R Allenfp/BoxOps --signer-workflow Allenfp/BoxOps/
 `--signer-workflow` is what makes it mean something: it checks that BoxOps'
 release workflow signed it. That a tag exists, that a commit is on a branch,
 or that `gh release verify` passes, says nothing about who published it.
-The `<file>` can be any file of the release: `boxops.mjs` or the tarball
-from the release's page, or a file of the release commit, such as the tool
-the launcher keeps in its cache (`node .boxops/boxops.mjs doctor` checks
-that one when the GitHub CLI is installed). The SBOM's attestation is on the
-tarball: add `--predicate-type https://spdx.dev/Document/v2.3`.
+The `<file>` can be any file of the release tree, or the tarball:
+`boxops.mjs` or `boxops-X.Y.Z.tar.gz` from the release's page, or a file of
+the release commit, such as the tool the launcher keeps in its cache
+(`node .boxops/boxops.mjs doctor` checks that one when the GitHub CLI is
+installed). The release page's other two files aren't attested themselves:
+`SHA256SUMS` lists the tree's files, and `sbom.spdx.json` is what the
+tarball's SBOM attestation says (check that one with
+`--predicate-type https://spdx.dev/Document/v2.3` on the tarball).
 
 **That your pin is that release.** The tarball holds the release commit's
 files; git's id for them must be the tree of the commit your workflows pin.
