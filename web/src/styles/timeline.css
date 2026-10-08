@@ -264,7 +264,9 @@
   overflow: clip;
   z-index: var(--z-item);
   cursor: default;
-  background: color-mix(in srgb, var(--c) 15%, var(--surface));
+  /* Its fill: its own background, and its text's where the Today line crosses it (.spans-today). */
+  --fill: color-mix(in srgb, var(--c) 15%, var(--surface));
+  background: var(--fill);
   color: var(--text);
   border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
 }
@@ -280,7 +282,7 @@
   left: calc(var(--label-w) + 8px);
 }
 .box.progress-finished {
-  background: color-mix(in srgb, var(--c) 7%, var(--surface));
+  --fill: color-mix(in srgb, var(--c) 7%, var(--surface));
   border-color: color-mix(in srgb, var(--c) 25%, transparent);
   color: var(--box-muted);
 }
@@ -423,7 +425,8 @@ button.collapse-all:hover {
   border-color: transparent;
 }
 
-/* Where the today line crosses a box: drawn in the box, under its text, which keeps the box's colour round it. */
+/* Where the today line crosses a box: drawn in the box, under its text, which keeps the box's colour round it,
+   only as tall as the text (the title's and the scale's alike), so the line shows above and below. */
 .box.spans-today::before {
   content: "";
   position: absolute;
@@ -434,8 +437,8 @@ button.collapse-all:hover {
   background: var(--today);
   pointer-events: none;
 }
-.box.spans-today :is(.box-title, .box-people) {
-  background-color: inherit;
+.box.spans-today :is(.box-text, .box-people) {
+  background-color: var(--fill);
 }
 
 /* Someone else changed this box while we were editing it too. */

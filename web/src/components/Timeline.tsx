@@ -1660,16 +1660,19 @@ const BoxView = memo(
       >
         {variant !== "compact" && (
           <span className="box-title">
-            {/* An image, named for what it shows: a name on a plain <span> is ignored. */}
-            <span className="status-mark" role="img" aria-label={PROGRESS_NAME[stage]} />
-            {(warnings.length > 0 || clash) && (
-              <span className="box-warn" role="img" aria-label={warnings.length ? "Breaks a rule" : "Clash"}>
-                <Icon name="alert" size={12} />
-              </span>
-            )}
-            {display.showCodes && <span className={`box-code${jira ? " jira" : ""}`}>{jira ?? code}</span>}
-            {flag && display.showFlags && <span className="box-flag">{flag}</span>}
-            <span className="box-name">{b.title || "Untitled"}</span>
+            {/* Over the Today line, only as tall as the text (as the scale is): the line shows above and below it. */}
+            <span className="box-text">
+              {/* An image, named for what it shows: a name on a plain <span> is ignored. */}
+              <span className="status-mark" role="img" aria-label={PROGRESS_NAME[stage]} />
+              {(warnings.length > 0 || clash) && (
+                <span className="box-warn" role="img" aria-label={warnings.length ? "Breaks a rule" : "Clash"}>
+                  <Icon name="alert" size={12} />
+                </span>
+              )}
+              {display.showCodes && <span className={`box-code${jira ? " jira" : ""}`}>{jira ?? code}</span>}
+              {flag && display.showFlags && <span className="box-flag">{flag}</span>}
+              <span className="box-name">{b.title || "Untitled"}</span>
+            </span>
           </span>
         )}
         {(showPeople || showScale) && (

@@ -201,10 +201,10 @@ const CHECKS: Check[] = [
   { what: "a PTO block's resize grip", fg: rule("timeline", ".pto-block:hover .handle::after", "background"), bg: "var(--surface-2)", min: UI },
 ];
 
-/** What's on a box, from timeline.css, for type colour `--c`. */
+/** What's on a box, from timeline.css, for type colour `--c`: on its fill (`--fill`, its background). */
 const BOX = {
-  fill: rule("timeline", ".box", "background"),
-  finished: rule("timeline", ".box.progress-finished", "background"),
+  fill: rule("timeline", ".box", "--fill"),
+  finished: rule("timeline", ".box.progress-finished", "--fill"),
   ring: rule("timeline", ".status-mark", "color"),
   muted: rule("timeline", ".box-code", "color"),
   jira: rule("timeline", ".box-code.jira", "color"),
@@ -243,6 +243,11 @@ const ratio = (check: Check, tokens: Tokens) => {
 };
 
 describe("contrast", () => {
+  it("checks a box's fill, which is its background, a finished one's too", () => {
+    expect(rule("timeline", ".box", "background")).toBe("var(--fill)");
+    expect(declarations(CSS.timeline, ".box.progress-finished").get("background")).toBeUndefined();
+  });
+
   for (const [theme, tokens] of THEMES) {
     it(`meets WCAG AA in the ${theme} theme`, () => {
       const short = CHECKS.map((c) => ({ what: c.what, ratio: ratio(c, tokens), min: c.min }))

@@ -107,7 +107,8 @@ test("the Today flag covers no date at any zoom, and the today line runs under t
   }
 
   // Months: the line is under the boxes (and PTO), over the rows; a box it crosses draws its own stretch
-  // of it, under its title, which keeps the box's colour round it.
+  // of it, under its title's text, which keeps the box's colour round it: only as tall as the text, as
+  // round the scale, so the line shows above and below it.
   await page.getByRole("button", { name: "Months", exact: true }).click();
   const line = page.locator(".today-line");
   const z = (l: Locator) => l.evaluate((e) => Number(getComputedStyle(e).zIndex));
@@ -122,10 +123,17 @@ test("the Today flag covers no date at any zoom, and the today line runs under t
   expect(stretch.x).toBeCloseTo(x, 0);
   expect(stretch.width).toBe("1px");
   expect(stretch.color).toBe(await line.evaluate((e) => getComputedStyle(e).backgroundColor));
-  const title = box(page, DAGSTER).locator(".box-title");
+  const title = box(page, DAGSTER).locator(".box-text");
   const t = await rect(title);
   expect(t.left < x && x < t.right).toBe(true); // the line crosses the title here: the title is drawn over it
   expect(await title.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(await box(page, DAGSTER).evaluate((e) => getComputedStyle(e).backgroundColor));
+  expect(await box(page, DAGSTER).locator(".box-title").evaluate((e) => getComputedStyle(e).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  const whole = await rect(box(page, DAGSTER));
+  const scale = await rect(box(page, DAGSTER).locator(".box-people"));
+  for (const band of [t, scale]) {
+    expect(band.top - whole.top, "line showing above the text").toBeGreaterThan(6);
+    expect(whole.bottom - band.bottom, "line showing below it").toBeGreaterThan(6);
+  }
   // In the dark theme too.
   const lineColor = await line.evaluate((e) => getComputedStyle(e).backgroundColor);
   await page.emulateMedia({ colorScheme: "dark" });

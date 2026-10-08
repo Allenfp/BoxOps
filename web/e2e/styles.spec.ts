@@ -278,7 +278,7 @@ test("in a high-contrast theme, what only colour showed stays: the chosen view, 
   expect(await bg(page.locator(".today-line"))).not.toEqual(await bg(page.locator(".timeline")));
   // So does its stretch across a box, under the box's text, which keeps the box's own colour round it.
   expect(await bg(box(page, DAGSTER), "::before")).toEqual(await bg(page.locator(".today-line")));
-  expect(await bg(box(page, DAGSTER).locator(".box-title"))).toEqual(await bg(box(page, DAGSTER)));
+  expect(await bg(box(page, DAGSTER).locator(".box-text"))).toEqual(await bg(box(page, DAGSTER)));
   // A lane's name shows no edge (a short row's would be cut off) until it's pointed at.
   const lane = page.locator(".lane-name").first();
   expect((await css(lane, "border-top-color"))["border-top-color"]).toEqual(await bg(page.locator(".timeline")));

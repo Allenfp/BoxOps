@@ -967,8 +967,9 @@ when a focused element is removed.
   them), so the flag never covers a date at any zoom. The line runs under
   the boxes and PTO blocks and over the rows; a box it crosses draws its own
   stretch of it, under its title, scale and initials, which keep the box's
-  colour round them, so it never runs through a box's text. On a weekend it
-  sits on Monday's edge.
+  colour round them (only as tall as their text), so it never runs through
+  a box's text and shows above and below it. On a weekend it sits on
+  Monday's edge.
 - **Over capacity** is arithmetic, not geometry: a sweep over the boxes finds
   any day where the FTE running exceeds the department's lanes. Boxes that
   don't fit are drawn in an area under the lanes, which says over capacity
