@@ -171,16 +171,19 @@ export function releaseNotices(own: string, releases: unknown, included: readonl
 const MAX_BYTES = 1024 * 1024;
 
 /**
- * The releases-file's list, or why it couldn't be had: not set, missing,
- * too big or not JSON. Never an error: notices are optional.
+ * The releases-file's list, or why it couldn't be had: not set, missing or
+ * empty (the lookup step didn't run, or failed: its `>` makes the file
+ * before gh runs, so a failed gh leaves it empty), too big or not JSON.
+ * Never an error: notices are optional.
  */
 export function readReleasesFile(path: string): { releases: unknown } | { skipped: string } {
   if (!path) return { skipped: "no releases-file given" };
+  const failed = "(the lookup step didn’t run or failed)";
   let fd: number;
   try {
     fd = openSync(path, "r");
   } catch {
-    return { skipped: `no releases-file at ${path} (the lookup step didn’t run or failed)` };
+    return { skipped: `no releases-file at ${path} ${failed}` };
   }
   try {
     const st = fstatSync(fd);
@@ -193,7 +196,9 @@ export function readReleasesFile(path: string): { releases: unknown } | { skippe
       if (got === 0) break;
       n += got;
     }
-    return { releases: JSON.parse(bytes.subarray(0, n).toString("utf8")) };
+    const text = bytes.subarray(0, n).toString("utf8");
+    if (!text.trim()) return { skipped: `${path} is empty ${failed}` };
+    return { releases: JSON.parse(text) };
   } catch (e) {
     return { skipped: `${path} isn’t a list of releases (${(e as Error).message})` };
   } finally {

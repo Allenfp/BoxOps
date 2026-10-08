@@ -152,7 +152,8 @@ itself:
   notice, "BoxOps v0.1.1 fixes a security problem; this site runs v0.1.0.
   Ask a repository admin to merge the upgrade pull request." Any other newer
   release gives a quieter note: "BoxOps v0.2.0 is available; this site runs
-  v0.1.0." If the lookup fails, the deploy goes on without notices.
+  v0.1.0." If the lookup fails, the deploy goes on without notices, and
+  the BoxOps step's log says "the lookup step didn't run or failed".
 - **Dependabot's pull request**, after its 3 days.
 - **The release notes and advisories**, for those watching
   `Allenfp/BoxOps`'s releases ([adopting.md](adopting.md#7-make-it-yours))

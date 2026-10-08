@@ -719,10 +719,14 @@ describe("notices (step 11)", () => {
     expect([r.code, r.annotations, r.notices]).toEqual([0, [], []]);
   });
 
-  it("a missing or unreadable releases-file is ignored", async () => {
+  it("a missing, empty or unreadable releases-file is ignored", async () => {
     const r = await withReleases("{ not json");
     expect([r.code, r.annotations, r.notices]).toEqual([0, [], []]);
     expect(r.log.some((l) => l.startsWith("Update notices: ") && l.includes("isn’t a list of releases"))).toBe(true);
+    // What the lookup step leaves when gh fails: it made the file before gh ran.
+    const empty = await withReleases("");
+    expect([empty.code, empty.annotations, empty.notices]).toEqual([0, [], []]);
+    expect(empty.log.filter((l) => l.startsWith("Update notices: "))).toEqual([expect.stringMatching(/^Update notices: \S+ is empty \(the lookup step didn’t run or failed\)$/)]);
     const { repo } = workspace();
     const none = await run({ repo, env: { "INPUT_RELEASES-FILE": "/nonexistent/releases.json" } });
     expect([none.code, none.annotations]).toEqual([0, []]);

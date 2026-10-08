@@ -1,6 +1,9 @@
+import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { parse } from "yaml";
+import { carried, starterFiles } from "./embedded";
 import { compareVersions, newestRelease, parseVersion, readReleasesFile, releaseNotices } from "./notices";
 import { cleanUp, tempDir } from "./test-release";
 
@@ -202,7 +205,33 @@ describe("readReleasesFile", () => {
     expect(readReleasesFile(dir)).toEqual({ skipped: `${dir} isn’t a file` });
     writeFileSync(file, "x".repeat(1024 * 1024 + 1));
     expect(readReleasesFile(file)).toEqual({ skipped: `${file} is over 1 MiB` });
-    writeFileSync(file, "");
+    writeFileSync(file, "[{");
     expect(readReleasesFile(file)).toMatchObject({ skipped: expect.stringContaining("isn’t a list of releases") });
+    // Empty: the lookup failed, not a list gone wrong (its step's `>` makes the file before gh runs).
+    for (const text of ["", "\n"]) {
+      writeFileSync(file, text);
+      expect(readReleasesFile(file)).toEqual({ skipped: `${file} is empty (the lookup step didn’t run or failed)` });
+    }
+  });
+
+  it("takes what the starter's lookup step leaves when gh fails as a lookup that failed, in Path B's deploy.yml too", () => {
+    const step = (workflow: string) => (parse(workflow) as { jobs: { build: { steps: { name?: string; run?: string }[] } } }).jobs.build.steps.find((s) => s.name?.startsWith("Look up BoxOps releases"));
+    const lookup = step(starterFiles()[".github/workflows/deploy.yml"]);
+    expect(step(carried("templates/path-b/deploy.yml"))).toEqual(lookup);
+    /** Runs the step with bash, as the runner does, with a stand-in gh that prints `out` and exits `code`; the file it leaves, read. */
+    const run = (out: string, code: number) => {
+      const dir = tempDir();
+      writeFileSync(join(dir, "gh"), `#!/bin/sh\nprintf '%s' '${out}'\n[ ${code} = 0 ] || echo "gh: Forbidden (HTTP 403)" >&2\nexit ${code}\n`, { mode: 0o755 });
+      const r = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", lookup?.run ?? ""], {
+        encoding: "utf8",
+        env: { PATH: `${dir}:/usr/bin:/bin`, RUNNER_TEMP: dir, BOXOPS_UPSTREAM: "Allenfp/BoxOps", GH_TOKEN: "token" },
+      });
+      const file = join(dir, "boxops-releases.json");
+      return { code: r.status, read: readReleasesFile(file), file };
+    };
+    const failed = run("", 1);
+    expect([failed.code, failed.read]).toEqual([1, { skipped: `${failed.file} is empty (the lookup step didn’t run or failed)` }]);
+    const looked = run(JSON.stringify([rel("v0.1.0")]), 0);
+    expect([looked.code, looked.read]).toEqual([0, { releases: [rel("v0.1.0")] }]);
   });
 });

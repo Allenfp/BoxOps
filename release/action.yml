@@ -37,7 +37,8 @@ inputs:
   releases-file:
     description: >-
       Optional JSON list of BoxOps releases written by the workflow's lookup step.
-      Used only for update and security notices; missing or unreadable is ignored.
+      Used only for update and security notices; missing, empty (the lookup failed)
+      or unreadable is ignored.
     required: false
     default: ""
   read-only:
