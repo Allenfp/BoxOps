@@ -95,8 +95,9 @@ can't change after.
   files, then pushes the commit and its tag in one step.
 - **Signed and fixed.** Every file of the release, and its tarball, get a
   provenance attestation (a signed statement of which workflow run built
-  them, from which commit); the tarball an SBOM attestation (the packages
-  inside, `sbom.spdx.json`) too. The GitHub release is immutable: its tag
+  them, from which commit); the tarball an SBOM attestation too: a signed
+  copy of its SBOM (software bill of materials), `sbom.spdx.json`, the list
+  of the packages inside, each at its version. The GitHub release is immutable: its tag
   can't move and its files can't change.
 
 ### Checking a release
@@ -207,7 +208,9 @@ free of workflows that restore caches. The starter's use none.
   action print a value's or file name's control characters as escapes
   (`\u001b`), so none can erase or fake a line in a terminal or the
   Actions log, set a window's title, or reorder text.
-- **The Content-Security-Policy** lets the page run only its own scripts
+- **The Content-Security-Policy**, the rules the page gives the browser on
+  what it may load, run and connect to (in a `<meta>` tag, since a Pages
+  site can't set its own headers), lets the page run only its own scripts
   (and its two small inline ones, by hash), load only its own styles and
   images, and connect only to its own site, `api.github.com` and
   `raw.githubusercontent.com`. That bounds what roadmap data could do even

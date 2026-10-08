@@ -239,7 +239,8 @@ What a web proxy or a network filter must let through:
   sign in and editors make tokens, with what its pages load,
   `*.githubassets.com` and `*.githubusercontent.com`; and the two hosts the
   app calls, `api.github.com` and, for a public repository's files without
-  a token, `raw.githubusercontent.com`. Its Content-Security-Policy allows
+  a token, `raw.githubusercontent.com`. Its Content-Security-Policy (the
+  rules a page gives the browser on what it may load and connect to) allows
   no other.
 - **Laptops** that run `node .boxops/boxops.mjs`: `raw.githubusercontent.com`,
   `api.github.com` and `github.com`.
@@ -273,11 +274,12 @@ What a web proxy or a network filter must let through:
   runners reference": `github.com`, `api.github.com`,
   `*.actions.githubusercontent.com`, `codeload.github.com` (to download
   actions), and `results-receiver.actions.githubusercontent.com` with
-  `*.blob.core.windows.net` (artifacts: the site travels from one job to the
-  next as one). The BoxOps step itself makes no network call. With Path B,
-  `actions/setup-node` downloads Node.js 24 unless it's in the runner's tool
-  cache: from GitHub's `actions/node-versions` releases (which it finds
-  through `api.github.com`, and which `github.com` sends on to
+  `*.blob.core.windows.net` (artifacts, files a job keeps for later jobs to
+  download: the site travels from one job to the next as one). The BoxOps
+  step itself makes no network call. With Path B, `actions/setup-node`
+  downloads Node.js 24 unless it's in the runner's tool cache: from GitHub's
+  `actions/node-versions` releases (which it finds through `api.github.com`,
+  and which `github.com` sends on to
   `release-assets.githubusercontent.com`), or, failing that, from
   `nodejs.org`.
 - Like any runner that runs a repository's workflows, keep it for trusted
@@ -384,9 +386,10 @@ Public repositories are free on GitHub's standard runners; larger runners
 are always billed; self-hosted runners use no Actions minutes. GitHub says
 standard runners are free "for GitHub Pages" without saying whether a
 workflow of your own like this one counts, so count it as billed. The site
-travels between the jobs as an artifact, about 0.25 MB compressed for the
-starter's sample roadmap (`roadmap.json` grows with the roadmap: about
-310 KB compressed at 2,000 boxes), kept for 1 day.
+travels between the jobs as an artifact (a file a job keeps for later jobs
+to download), one archive of about 0.25 MB compressed for the starter's
+sample roadmap (`roadmap.json` grows with the roadmap: about 310 KB
+compressed at 2,000 boxes), kept for 1 day.
 
 ## Not supported
 

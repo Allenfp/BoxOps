@@ -232,6 +232,7 @@ Browsers that view or edit the roadmap need:
 - `api.github.com`, which the app calls (with an editor's token, or none on
   a public repository), and `raw.githubusercontent.com`, from which it reads
   a public repository's files without a token. Its Content-Security-Policy
+  (the rules a page gives the browser on what it may load and connect to)
   allows no other host.
 
 People who run BoxOps' command-line tool in a clone
