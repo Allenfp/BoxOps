@@ -266,13 +266,18 @@ describe("the release workflow", () => {
     for (const [id, job] of Object.entries(release.jobs)) if (id !== "publish") expect(job.permissions, id).toEqual({ contents: "read" });
   });
 
-  it("pushes over SSH to the host keys GitHub's API gives, asked for with the job's token", () => {
+  it("pushes over SSH to the host keys GitHub's API gives, asked for with the job's token in the step before, which holds no key", () => {
     const steps = release.jobs.publish.steps ?? [];
-    const push = steps.find((s) => s.env?.DEPLOY_KEY);
+    const push = steps.findIndex((s) => s.env?.DEPLOY_KEY);
+    const keys = steps.findIndex((s) => s.run?.includes("gh api meta"));
+    expect([keys, push]).toEqual([push - 1, keys + 1]);
     // Without a token, the call counts against the runner's address, which other jobs share, and can be refused.
-    expect(push?.env?.GH_TOKEN).toBe("${{ github.token }}");
-    expect(push?.run).toContain(`gh api meta --jq '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"`);
-    expect(push?.run).toContain("-o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts");
+    expect(steps[keys].env).toEqual({ GH_TOKEN: "${{ github.token }}" });
+    expect(steps[keys].run).toContain(`gh api meta --jq '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"`);
+    // No step holds both the token and the deploy key: the push holds the key alone, and runs no gh.
+    expect(steps[push].env).toEqual({ DEPLOY_KEY: "${{ secrets.RELEASE_DEPLOY_KEY }}" });
+    expect(steps[push].run).not.toMatch(/(^|[\s;&|(])gh\s/m);
+    expect(steps[push].run).toContain("-o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts");
     // git, jq, tar and gh: no curl, as the workflow's first comment says.
     expect(steps.map((s) => s.run ?? "").join("\n")).not.toMatch(/\bcurl\b/);
   });

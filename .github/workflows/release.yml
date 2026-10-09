@@ -245,20 +245,26 @@ jobs:
         with:
           subject-path: assets/boxops-${{ inputs.version }}.tar.gz
           sbom-path: assets/sbom.spdx.json
+      # github.com's SSH host keys, for the push, from its API over HTTPS,
+      # asked with the job's token (without one, the call counts against the
+      # runner's address, which other jobs share, and can be refused): in a
+      # step of its own, so that no step holds both the token and the deploy
+      # key.
+      - name: GitHub's SSH host keys
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api meta --jq '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"
       - name: Commit the tree to releases and tag it, in one push, with the release deploy key
         env:
           DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
-          GH_TOKEN: ${{ github.token }} # GitHub's API, for its SSH host keys
         run: |
           set -euo pipefail
           umask 077
           key="$RUNNER_TEMP/release_key"
           printf '%s\n' "$DEPLOY_KEY" >"$key"
           trap 'rm -f "$key"' EXIT
-          # github.com's SSH host keys, from its API over HTTPS, asked with
-          # the job's token: without one, the call counts against the
-          # runner's address, which other jobs share, and can be refused.
-          gh api meta --jq '.ssh_keys[] | "github.com " + .' >"$RUNNER_TEMP/known_hosts"
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts"
           export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_DIR="$RUNNER_TEMP/release.git"
           # GitHub's own identity for what a workflow commits, which no account can take.
