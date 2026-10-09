@@ -1432,13 +1432,14 @@ a release must have none of.
   and the release workflow's deploy key held only by its publish job, which
   runs nothing from this repository), the release workflow's preflight run
   with bash (`scripts/release-preflight.test.ts`: `main`, at the commit
-  reviewed if one is given; the version's changelog section on top), and its
-  publish job's last step run with bash against a stand-in `gh`
-  (`scripts/release-publish.test.ts`: the release a draft, then published, and
-  GitHub's latest only if none is of a later version; a draft left made again;
-  on a re-run, a published release taken as done only if it's that run's).
-  Those that read a whole roadmap read fixed copies (the browser tests'
-  fixture, and `roadmap/` as shipped, in
+  reviewed if one is given; the version's changelog section on top; for
+  `X.Y.Z`, not a release candidate, the security contact named rather than
+  its placeholder), and its publish job's last step run with bash against a
+  stand-in `gh` (`scripts/release-publish.test.ts`: the release a draft, then
+  published, and GitHub's latest only if none is of a later version; a draft
+  left made again; on a re-run, a published release taken as done only if
+  it's that run's). Those that read a whole roadmap read fixed copies (the
+  browser tests' fixture, and `roadmap/` as shipped, in
   `web/src/model/fixtures/shipped-roadmap/`), never the live `roadmap/`, which
   saves may write any valid way.
 - **The starter's dry run** (`npm run dry-run:starter`,
@@ -1602,14 +1603,15 @@ a release must have none of.
   data: [decisions.md](decisions.md)).
 - **Releases.** `release.yml`, run by hand from `main` with a version (and,
   optionally, the commit of `main` reviewed, which `main` must still be):
-  preflight (the version, `web/package.json` and `CHANGELOG.md` agree, and the
-  tag is new), all of CI on the commit, the release tree built again apart,
-  and, once the maintainer approves the `release` environment, the tested tree
-  (if git's id for it is CI's and the rebuild's) attested, then committed to
-  `releases` and tagged in one push with the release deploy key, and published
-  as an immutable GitHub release (GitHub's latest only if no published release
-  but a withdrawn one is of a later version). See
-  [releasing.md](releasing.md).
+  preflight (the version, `web/package.json` and `CHANGELOG.md` agree, the
+  tag is new, and for `X.Y.Z`, not a release candidate, `SECURITY.md` and
+  `docs/security.md` name the security contact, not its placeholder), all of
+  CI on the commit, the release tree built again apart, and, once the
+  maintainer approves the `release` environment, the tested tree (if git's id
+  for it is CI's and the rebuild's) attested, then committed to `releases` and
+  tagged in one push with the release deploy key, and published as an
+  immutable GitHub release (GitHub's latest only if no published release but a
+  withdrawn one is of a later version). See [releasing.md](releasing.md).
 - **Deploy.** The Pages deploy (`pages.yml`) runs lint, the type check,
   validation and the build on every push to `main`, then builds the
   command-line tool and writes the site with it (`build`: the app, and
