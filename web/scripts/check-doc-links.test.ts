@@ -288,7 +288,7 @@ describe("the docs' link check", () => {
     // next line is in that paragraph still (4 columns in, not code); `<!--` in a paragraph is text
     // unless `-->` follows in that paragraph, and backticks too unless as many close a code span in
     // it; and a footnote's `[^2]:` ends a paragraph, its own lines going on 4 columns in, even when
-    // it's indented itself.
+    // it's indented itself, and 4 columns into a list item when it's right after the item's marker.
     const text = [
       "> ```",
       "> [in the fence](missing-fenced.md)",
@@ -338,6 +338,11 @@ describe("the docs' link check", () => {
       "",
       "A third, its ``` text, [and a link](missing-between-backticks.md),",
       "# then a heading with ``` too",
+      "- [^4]: A footnote right after a list marker.",
+      "",
+      "      [its second paragraph](missing-item-footnote-para.md)",
+      "",
+      "Its mark.[^4]",
       "",
     ].join("\n");
     expect(check(repo({ "ends.md": text })).stderr.trimEnd().split("\n")).toEqual([
@@ -350,6 +355,7 @@ describe("the docs' link check", () => {
       "ends.md:35: links to missing-indented-footnote-para.md, which git doesn’t track (missing-indented-footnote-para.md)",
       "ends.md:45: links to missing-in-heading.md, which git doesn’t track (missing-in-heading.md)",
       "ends.md:47: links to missing-between-backticks.md, which git doesn’t track (missing-between-backticks.md)",
+      "ends.md:51: links to missing-item-footnote-para.md, which git doesn’t track (missing-item-footnote-para.md)",
     ]);
   });
 

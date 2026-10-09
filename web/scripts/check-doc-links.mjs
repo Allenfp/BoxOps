@@ -25,6 +25,15 @@
 // stderr as FILE:LINE: …, and as error annotations in GitHub Actions. Exit 0
 // if every link resolves, 1 if not, 2 for a mistake in how it's run. Plain
 // JavaScript and git, as check-changelog.mjs.
+//
+// Where it still reads blocks otherwise than GitHub does (found against
+// pandoc's GFM reader, and left, being rare): a block quote that starts
+// right after a list marker (`1. > …`), or 4 columns or more into its line
+// (in a list item), isn't read as one, so neither a fence in it nor its
+// headings' anchors are seen; a `10.` line, or a list item without text,
+// right after a quote's paragraph (and without its `>`) goes on with that
+// paragraph, where GitHub starts a list; and HTML blocks but comments
+// (`<details>`, `<div>`) are read as Markdown.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -291,8 +300,9 @@ function scan(text) {
       html = { depth, base: stack.at(-1) ?? 0 };
       prev = first.includes("-->", 4) ? "other" : "html";
     } else {
-      const note = pos === at ? FOOTNOTE.exec(first) : null;
-      // A footnote's lines go on 4 columns into its container, however far in its `[^1]:` is.
+      const note = FOOTNOTE.exec(first);
+      // A footnote's lines go on 4 columns into its container, however far in its `[^1]:` is: into
+      // the list item whose marker it's right after, if it is.
       if (note) stack.push((stack.at(-1) ?? 0) + 4);
       para = { start: i, col: quoted + pos + (note ? note[0].length : 0), base: stack.at(-1) ?? 0, depth, block: ++blocks };
       blockOf[i] = para.block;
