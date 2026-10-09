@@ -268,7 +268,8 @@ for (const visibility of ["public", "private"] as const) {
       const error = page.locator(".save-dialog[open] .callout.error");
       await expect(error).toContainText("GitHub’s rules for main blocked this save");
       await expect(error).toContainText("Always allow");
-      await expect(error).toContainText("only accepts signed commits");
+      await expect(error).toContainText("main only accepts signed commits.");
+      await expect(error).not.toContainText("didn’t sign");
       expect(github.head).toBe(github.root);
       await page.locator(".save-dialog[open]").getByRole("button", { name: "Try again" }).click();
       await expect(toolbar(page)).toContainText("No changes");

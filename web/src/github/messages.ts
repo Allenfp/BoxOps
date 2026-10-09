@@ -77,7 +77,9 @@ export function failureMessage(f: GitHubFailure, { repo, branch }: FailurePlace,
         `admin has to let editors through: add a team you’re in, a role you hold, or an app to the rule’s bypass list as ` +
         `Always allow or Exempt (not For pull requests only), or turn the rule off for this repository. (A bypass list ` +
         `takes teams, roles and apps, not individual people.)`;
-      if (/sign/i.test(f.message)) text += ` ${branch} only accepts signed commits, and GitHub didn’t sign this one.`;
+      // A rule about signatures: what it asks, not why this save didn't meet it, which isn't known: GitHub
+      // signs a save's commit (github/save.ts).
+      if (/signature|signed commit/i.test(f.message)) text += ` ${branch} only accepts signed commits.`;
       if (/email|commit message/i.test(f.message)) {
         text +=
           " BoxOps commits are authored by your GitHub account (with its email privacy setting) and committed by GitHub, " +

@@ -1,8 +1,9 @@
 // Saving = one commit straight onto the branch the roadmap was loaded from,
 // made with GitHub's GraphQL createCommitOnBranch: GitHub writes the commit
 // and moves the branch in one step, authored by the token's owner and signed
-// by GitHub where it supports that. It refuses (STALE_DATA) unless the branch
-// is still at expectedHeadOid, the head this save was checked against.
+// by GitHub (tried on 2026-10-06 with a fine-grained token: a valid signature
+// of GitHub's own, shown as Verified). It refuses (STALE_DATA) unless the
+// branch is still at expectedHeadOid, the head this save was checked against.
 //
 // Before writing, the head is read (read.ts) and compared, file by file and
 // by blob SHA, with the copy the edits were made on. Someone else's saves to

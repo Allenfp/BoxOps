@@ -448,8 +448,9 @@ export class GitHubClient {
 
   /**
    * One commit on top of `expectedHeadOid` that moves the branch, made by
-   * GitHub: authored by the token's owner, committed (and signed, where GitHub
-   * supports it) by GitHub. Needs a token.
+   * GitHub: authored by the token's owner, committed and signed by GitHub
+   * (tried on 2026-10-06 with a fine-grained token: a valid signature of
+   * GitHub's own). Needs a token.
    */
   async createCommitOnBranch(i: CommitInput): Promise<CreatedCommit> {
     const input = {

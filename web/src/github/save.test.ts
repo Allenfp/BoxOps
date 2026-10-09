@@ -400,7 +400,10 @@ describe("failureMessage", () => {
     );
     expect(failureMessage(new GitHubFailure("no-access", "x", { visible: true, push: false }), where)).toBe("Your GitHub account can’t write to acme/roadmap. Ask an admin for Write access.");
     expect(failureMessage(new GitHubFailure("no-access", "x", { visible: true, push: true }), where)).toContain("This token can see acme/roadmap but can’t save to it.");
-    expect(failureMessage(new GitHubFailure("rules", "Commits must have verified signatures."), where)).toContain("main only accepts signed commits");
+    // A rule about signatures: what it asks, and no cause guessed (GitHub signs a save's commit).
+    expect(failureMessage(new GitHubFailure("rules", "Commits must have verified signatures."), where)).toMatch(/” BoxOps saves straight to main, .* main only accepts signed commits\.$/);
+    // Nor for another rule's message that happens to hold "sign".
+    expect(failureMessage(new GitHubFailure("rules", "Commit message must match a given regex pattern: ^(design|docs): "), where)).not.toContain("signed");
     expect(failureMessage(new GitHubFailure("timeout", "x", {}, true), where)).toContain("can’t tell whether this save went through");
     expect(failureMessage(new GitHubFailure("timeout", "x", {}, false), where)).toBe("GitHub didn’t answer in time. Try again in a moment.");
     // Whether the changes are kept is the save dialog's to say: this browser may not be keeping them.
