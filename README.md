@@ -211,3 +211,11 @@ anything else must pass the browser tests before it deploys.
 - [docs/releasing.md](docs/releasing.md): how a release is made (the release
   workflow), its one-off settings, and what to do when one goes wrong;
   [CHANGELOG.md](CHANGELOG.md): what each release changed.
+
+## Contributing
+
+Bugs and ideas go in an issue, changes in a pull request:
+[CONTRIBUTING.md](CONTRIBUTING.md) says how, and everyone taking part
+follows the [code of conduct](CODE_OF_CONDUCT.md). Report a security
+problem privately, never in an issue: [SECURITY.md](SECURITY.md) says how.
+BoxOps is under the MIT licence: [LICENSE](LICENSE).
