@@ -214,6 +214,13 @@ them; use it for this and nothing else.
    gh api -X PUT repos/Allenfp/BoxOps/vulnerability-alerts
    ```
 
+   Turn private vulnerability reporting on before `SECURITY.md` reaches
+   `main`: that file, `docs/security.md` and the issue templates
+   (`.github/ISSUE_TEMPLATE/`) send reporters to its form, which is there
+   only while it's on. Once it is,
+   `gh api repos/Allenfp/BoxOps/private-vulnerability-reporting --jq .enabled`
+   says `true`.
+
 6. **Check the deploy key's bypass** (below), then delete the private key's
    file: `rm boxops-release boxops-release.pub`. The environment's secret is
    the only copy; a lost key is replaced by making a new one (steps 2 and 3)
