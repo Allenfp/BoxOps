@@ -116,24 +116,34 @@ const PATHS = [1, 2, 3, 4, 5].flatMap((n) =>
 );
 
 describe("the push ruleset", () => {
-  it("is the one adopting.md and the starter's README give", () => {
-    const section = (path: string, from: string, to: string) => {
-      const text = read(path);
+  it("is the one adopting.md and the starter's README give, in the steps themselves", () => {
+    /** `text` from `from` up to `to`, both of which it must have, in that order. */
+    const between = (name: string, text: string, from: string, to: string) => {
       const start = text.indexOf(from);
-      const stop = text.indexOf(to, start);
-      expect([path, start >= 0 && stop > start]).toEqual([path, true]);
+      const stop = text.indexOf(to, start + from.length);
+      expect([name, from, to, start >= 0 && stop > start]).toEqual([name, from, to, true]);
       return text.slice(start, stop);
     };
-    const adopting = section("docs/adopting.md", "2. **New push ruleset**", "3. **Require signed commits**");
-    const starter = section("starter/README.md", "4. **Settings → Rulesets:**", "5. **Dependabot**");
+    /** What `text` has in backquotes, in order. */
+    const quoted = (text: string) => [...text.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+    /** A file's text with its lines run together, as Markdown reads a paragraph. */
+    const flat = (path: string) => read(path).replace(/\s+/g, " ");
+    // The step, without the bullets under it, whose "Why five" names the paths again.
+    const adopting = between("adopting.md", flat("docs/adopting.md"), "2. **New push ruleset**", " - Why:");
+    const starter = between("starter/README.md", flat("starter/README.md"), "4. **Settings → Rulesets:**", "5. **Dependabot**");
+    expect(quoted(between("adopting.md", adopting, "**Restrict file paths**", "**Allowed exceptions**")), "adopting.md's paths to restrict").toEqual(RESTRICTED);
+    expect(quoted(between("adopting.md", adopting, "**Allowed exceptions**", "**Create.**")), "adopting.md's allowed exceptions").toEqual(EXCEPTIONS);
+    expect(quoted(between("starter/README.md", starter, "Restrict file paths", "allowed exceptions")), "the starter's paths to restrict").toEqual(RESTRICTED);
+    expect(quoted(between("starter/README.md", starter, "allowed exceptions", "A new ruleset starts")), "the starter's allowed exceptions").toEqual(EXCEPTIONS);
     for (const [name, text] of [
       ["adopting.md", adopting],
       ["starter/README.md", starter],
     ]) {
-      for (const p of [...RESTRICTED, ...EXCEPTIONS]) expect(text, `${name} gives ${p}`).toContain(`\`${p}\``);
       expect(text, `${name} lets all of roadmap/ through`).not.toContain("roadmap/**");
     }
-    for (const p of THIRD) expect(adopting, `adopting.md offers ${p}`).toContain(`\`${p}\``);
+    // And the pair "Why five" offers for each name starting with "." more: for three.
+    const why = between("adopting.md", flat("docs/adopting.md"), " - Why five:", " - Dependabot must be");
+    expect(quoted(between("adopting.md", why, "for three", ")")), "the paths adopting.md offers for three").toEqual(THIRD);
   });
 
   it("is read as Ruby's fnmatch reads it (its docs' examples, and GitHub's)", () => {
