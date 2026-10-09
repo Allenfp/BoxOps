@@ -17,10 +17,10 @@ change together, the release rules).
 You need git; Node.js 24, as [.nvmrc](.nvmrc) says (Node.js 22 from 22.12,
 and 26 or later, work too); and, for the unit tests, bash, zsh, jq, rsync
 and sha256sum, which run the release workflow's steps and the commands
-BoxOps prints for pasting. macOS has them all. GitHub's Ubuntu runners have
-all but zsh; elsewhere, jq, rsync and zsh may need installing. (Without
-zsh, the tests leave its cases out; CI runs them.) Then, from the
-repository's top folder:
+BoxOps prints for pasting. macOS 26 has them all; an older macOS may lack
+jq and sha256sum. GitHub's Ubuntu runners have all but zsh; elsewhere, jq,
+rsync and zsh may need installing. (Without zsh, the tests leave its cases
+out; CI runs them.) Then, from the repository's top folder:
 
 ```sh
 cd web
@@ -31,7 +31,9 @@ npx playwright install webkit chromium firefox
 `npm ci` installs the exact versions `package-lock.json` gives. The last
 line downloads the browsers the browser tests run in, which Playwright
 drives: WebKit (Safari's engine), Chromium (Chrome's and Edge's) and
-Firefox.
+Firefox. On Linux, they also need system libraries: add `--with-deps`, as
+CI does, and Playwright installs those too (with apt-get, as root, so on
+Debian or Ubuntu).
 
 ## Running the app
 
