@@ -33,7 +33,16 @@
 // headings' anchors are seen; a `10.` line, or a list item without text,
 // right after a quote's paragraph (and without its `>`) goes on with that
 // paragraph, where GitHub starts a list; and HTML blocks but comments
-// (`<details>`, `<div>`) are read as Markdown.
+// (`<details>`, `<div>`) are read as Markdown. Tables too, found against
+// cmark-gfm, which GitHub renders with (its table extension's source, and a
+// build of 0.29.0.gfm.13; pandoc reads the first and last as this check
+// does): a delimiter row (`--- | ---`) 4 columns or more into its container
+// starts a table here, where GitHub's paragraph goes on; so does one with
+// more or fewer cells than the line above it; and a table starts here only
+// under a paragraph of one line, where GitHub takes a longer one's last line
+// as its header row (the lines before stay a paragraph). Each changes which
+// lines are one block, so a setext heading's anchor, or a link a comment or
+// code span hides, can be found where GitHub has none, or missed.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
