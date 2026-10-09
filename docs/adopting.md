@@ -414,9 +414,10 @@ starts **Disabled**: set **Enforcement status** to **Active** in each.
      `.config/.husky/pre-commit`). A path with three or more, such as
      `.a/.b/.c`, still gets through: if a tool your team uses reads one,
      add a pair of paths for each name more, for three
-     `**/.*/**/.*/**/.*` and `**/.*/**/.*/**/.*/**/*` (the rule takes 200).
-     If GitHub does match such names, `**/*` alone covers every path, and
-     the other four do no harm.
+     `**/.*/**/.*/**/.*` and `**/.*/**/.*/**/.*/**/*` (a rule takes up to
+     200 paths, of up to 200 characters each, GitHub's "Available rules for
+     rulesets" says). If GitHub does match such names, `**/*` alone covers
+     every path, and the other four do no harm.
    - Dependabot must be on the bypass list, or it can't push the branch of
      its upgrade pull request (which changes the workflows). Push rulesets
      also apply to the repository's forks.
