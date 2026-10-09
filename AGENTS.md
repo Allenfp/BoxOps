@@ -129,8 +129,9 @@ Tests catch most of these; change the files together anyway.
   its permissions and has a time limit, every checkout keeps no
   credentials, and the release workflow's publish job alone holds the
   deploy key and runs nothing from this repository.
-- A file staged in `cutover/` and the live file it replaces
-  (`web/scripts/cutover.test.ts`).
+- A file staged in `cutover/` and the live file it replaces; a doc that
+  names `npm run dev`, `validate` or `report`, and what `cutover/README.md`
+  says the cutover commit changes in it (`web/scripts/cutover.test.ts`).
 - `docs/adopting.md`, `upgrading.md`, `enterprise.md` and `security.md`
   (for teams that use BoxOps) and what they quote: the starter's workflows
   (job and step names, permissions, the Pages guard's messages), the

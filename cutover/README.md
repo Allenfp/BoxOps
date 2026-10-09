@@ -27,9 +27,9 @@ check.)
 | `web/scripts/workflows.test.ts` | It stops looking for workflows in `cutover/`, which the cutover commit deletes (it requires this folder's `pages.yml` until then), and its first comment and first test's name stop naming them. |
 | `.github/dependabot.yml` | Dependabot's actions pull requests stop moving pins in `cutover/`'s workflows, which the cutover commit deletes. |
 
-`AGENTS.md`, `README.md` and `docs/` aren't staged: they change with the rest
-of the work until then, so the cutover commit makes their changes itself
-(below).
+`AGENTS.md`, `CONTRIBUTING.md`, `README.md` and `docs/` aren't staged: they
+change with the rest of the work until then, so the cutover commit makes
+their changes itself (below).
 
 ## Before the cutover commit
 
@@ -143,6 +143,10 @@ On a branch, merged by pull request:
      on every pull request and on `main`, and lints this repository's, the
      starter's and Path B's workflows; the deploy is the redirect and
      `/next/`).
+   - `CONTRIBUTING.md`: "Running the app" (`npm run dev` shows the browser
+     tests' roadmap, `web/e2e/fixtures/roadmap`, unless `$BOXOPS_ROADMAP`
+     names another folder) and the `npm run validate` row in "The checks"
+     (it checks that roadmap).
    - `docs/architecture.md`: this repository's `roadmap/`, the dev server's
      default, the Deploy bullet and CI on `main`, and in "Building and
      deploying", `pages.yml`'s line and the paragraph under it (the

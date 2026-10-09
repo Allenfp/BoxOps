@@ -1419,9 +1419,11 @@ a release must have none of.
   (every way Node reaches the network made to fail and noted), that each file
   staged in `cutover/` is the live one with only the cutover's changes made
   (and the redirect it stages keeps the address's query and hash, its one
-  script allowed by hash; and its README's commands for the demo's history,
-  pasted into bash and zsh, name no address but GitHub's no-reply ones, map
-  only those set in `OLD` at the time, and stop on any other left), the
+  script allowed by hash; its README names each doc that names
+  `npm run dev`, `validate` or `report`, whose default folder the cutover
+  changes; and its README's commands for the demo's history, pasted into
+  bash and zsh, name no address but GitHub's no-reply ones, map only those
+  set in `OLD` at the time, and stop on any other left), the
   release tree (built twice from one commit, this checkout's files committed
   in a scratch repository and cloned twice, each clone with its own copy of
   the dependencies: the two the same byte for byte, git's tree id the one
