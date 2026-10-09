@@ -199,7 +199,9 @@ the whole chain, so a roadmap two formats behind is brought through both.
 - `node .boxops/boxops.mjs migrate --check` says whether one is needed
   (exit 1 if so) and changes nothing. `migrate` edits the files in place,
   keeping comments, the order of keys and line ends, sets `format` last, and
-  validates. Running it again changes nothing.
+  validates. Running it again changes nothing. A `settings.yaml` whose
+  format can't be read (a YAML syntax error, say) stops both: each says
+  what's wrong with it and exits 1, as `validate` does.
 - Only `migrate` changes the data format, and only in a commit someone
   reviews: the deploy can't write to the repository, and the app opens a
   roadmap in any other format read-only.
