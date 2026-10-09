@@ -91,8 +91,18 @@ to only by the release workflow (such as `Allenfp/boxops-action`), before
 - **Published by a job that runs none of BoxOps' code.** The publish job
   holds the deploy key and runs only git, jq, tar, the GitHub CLI and
   GitHub's own actions. It waits for the maintainer's approval, attests the
-  files, then pushes the commit and its tag in one step, the only one that
-  holds the key, and it holds no token.
+  files, then pushes the commit and its tag in one step. That step is the
+  only one given the key, and it's given no GitHub token, but it can reach
+  more than the key. Attesting needs the job's `id-token: write`, so the
+  runner lets every step of the job, the push included, ask GitHub for an
+  OIDC token (OpenID Connect: GitHub's signed word on which workflow run is
+  asking), with which a step could sign as the release workflow. What a
+  step asks with, a token the runner puts in its environment, is the job's
+  runtime token, which the run's artifacts and caches take too. And every
+  step of the job runs on one machine as one user (with `sudo`, on GitHub's
+  runners), so it can reach what the other steps hold or leave there, the
+  job's GitHub token among them, as they can reach the key. The key is kept
+  to the publish job, not to one of its steps.
 - **Signed and fixed.** Every file of the release tree, and its tarball, get
   a provenance attestation (a signed statement of which workflow run built
   them, from which commit); the tarball an SBOM attestation too: a signed
