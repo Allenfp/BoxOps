@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WARNING_COMMANDS } from "./boxops";
 import { type BuildJson, buildJsonText, makeBuildJson } from "./release";
 import { launcherText } from "./sync";
-import { FIRMLINKED, ID, IGNORES_CASE, cleanUp, otherPath, tempDir } from "./test-release";
+import { FIRMLINKED, ID, IGNORES_CASE, cleanUp, linkedPath, otherPath, tempDir } from "./test-release";
 
 // Each test starts Node with the launcher, some several times: over a second on a quiet machine,
 // and several times that under load, near or past vitest's 5.
@@ -406,6 +406,13 @@ describe("the launcher's cache", () => {
 
   it.skipIf(!FIRMLINKED)("is never inside the repository by a path no spelling of it joins (macOS's /System/Volumes/Data/…): a tool planted there never runs", () => {
     neverInRepository((root) => otherPath(root) ?? "");
+  });
+
+  it("is never inside the repository by a path through a symlink to a folder above it, on any system: a tool planted there never runs", () => {
+    // The link resolved, the paths compared. That's all a system with no path that escapes every
+    // spelling runs (Linux, where a bind mount, which gives one, takes root): the launcher's comparison
+    // by device and inode runs in the test above, where there's such a path (macOS's firmlinks).
+    neverInRepository(linkedPath);
   });
 });
 

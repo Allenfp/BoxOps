@@ -17,7 +17,7 @@ import { gitHub, tags } from "./github";
 import { ensureApp, startPreview } from "./preview";
 import { fetchRelease, upgradeCommand } from "./upgrade";
 import { buildJsonText, openRelease, parseBuildJson, verifiedApp } from "./release";
-import { APP_FILES, FIRMLINKED, ID, IGNORES_CASE, capture, cleanUp, fakeGitHub, otherPath, releaseFiles, sampleRepo, tempDir } from "./test-release";
+import { APP_FILES, FIRMLINKED, ID, IGNORES_CASE, capture, cleanUp, fakeGitHub, linkedPath, otherPath, releaseFiles, sampleRepo, tempDir } from "./test-release";
 import { TestRepo } from "./test-repo";
 import { SHELLS, block, paste, shellEnv, standIns } from "./test-shell";
 
@@ -361,12 +361,16 @@ describe("upgrade", () => {
   it("never caches inside the repository, whatever case names it on a disk that ignores case, or by another path to it", async () => {
     const repo = adopter(A);
     const gh = fakeGitHub({ tags: { "Allenfp/BoxOps": { "v0.2.0": B } }, files: { [B]: newRelease(join(tempDir(), "x")) } });
-    // macOS's /System/Volumes/Data/… path to it, which no spelling of its own joins.
+    // macOS's /System/Volumes/Data/… path to it, which no spelling of its own joins (compared by device
+    // and inode); and, on any system, one through a symlink to the folder it's in (the link resolved).
     const other = otherPath(realpathSync(repo.dir));
+    const linked = linkedPath(realpathSync(repo.dir));
     const caches = [
       join(repo.dir, ".cache"),
       ...(IGNORES_CASE ? [join(repo.dir.toUpperCase(), ".cache"), join(repo.dir.toUpperCase(), "new", "cache")] : []),
       ...(other ? [join(other, ".cache"), join(other, "new", "cache")] : []),
+      join(linked, ".cache"),
+      join(linked, "new", "cache"),
     ];
     for (const cache of caches) {
       const io = capture({ fetch: gh.fetch, cwd: repo.dir, env: { BOXOPS_CACHE: cache } });
@@ -380,8 +384,11 @@ describe("upgrade", () => {
 });
 
 describe("the cache (cli/cache.ts), as the launcher keeps it", () => {
-  it.skipIf(!IGNORES_CASE && !FIRMLINKED)("is never in the repository named in another case, or by another path to it: BOXOPS_CACHE refused, XDG_CACHE_HOME, HOME or TMPDIR passed over", () => {
-    const spellings = [...(IGNORES_CASE ? [(p: string) => p.toUpperCase()] : []), ...(FIRMLINKED ? [(p: string) => otherPath(p) ?? p] : [])];
+  it("is never in the repository named in another case, or by another path to it: BOXOPS_CACHE refused, XDG_CACHE_HOME, HOME or TMPDIR passed over", () => {
+    // Through a symlink to a folder above it, on any system (the link resolved, the paths compared); in
+    // capitals, on a disk that ignores case; and by a path no spelling joins, compared by device and
+    // inode, where there's one (macOS's firmlinks: on Linux, a bind mount, which takes root).
+    const spellings = [linkedPath, ...(IGNORES_CASE ? [(p: string) => p.toUpperCase()] : []), ...(FIRMLINKED ? [(p: string) => otherPath(p) ?? p] : [])];
     const root = realpathSync(tempDir());
     const base = realpathSync(tempDir());
     writeFileSync(join(base, "file"), "");

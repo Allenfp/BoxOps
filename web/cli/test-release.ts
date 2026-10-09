@@ -3,9 +3,9 @@
 // GitHub serving releases, a GitHub Actions environment around a TestRepo,
 // the starter's sample roadmap, and a reader for $GITHUB_OUTPUT.
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { Io } from "./context";
 import type { ReleaseEntry } from "./notices";
 import { buildJsonText, type Identity, makeBuildJson } from "./release";
@@ -41,6 +41,19 @@ export function otherPath(dir: string): string | undefined {
 
 /** Whether the temp folder has another path that no spelling of it joins (macOS's firmlinks). */
 export const FIRMLINKED = otherPath(realpathSync(tmpdir())) !== undefined;
+
+/**
+ * Another path to the folder `dir`, through a symlink to the folder it's in,
+ * made in a temp folder: one realpath resolves, on any system. (A path that
+ * no spelling joins, which the caches' device-and-inode comparison is for,
+ * there's only where otherPath finds one: on Linux, a bind mount gives one,
+ * and that takes root.)
+ */
+export function linkedPath(dir: string): string {
+  const link = join(tempDir(), "above");
+  symlinkSync(dirname(dir), link);
+  return join(link, basename(dir));
+}
 
 /** Temp folders made here, removed by cleanUp(). */
 const temps: string[] = [];
