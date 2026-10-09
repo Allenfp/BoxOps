@@ -173,7 +173,10 @@ describe("the release workflow's preflight", () => {
   });
 
   it("lets X.Y.Z through with SECURITY.md and docs/security.md as they are: each names the same address to write to", () => {
-    const addresses = CONTACT_FILES.map((file) => [...new Set(readFileSync(repoFile(file), "utf8").match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g))]);
+    // SECURITY.md whole, and docs/security.md's section on reporting a problem: the rest of that page may
+    // name another address for another reason (git@github.com in an SSH remote, say).
+    const reporting = (file: string, text: string) => (file === "SECURITY.md" ? text : (text.split(/^## /m).find((part) => part.startsWith("Reporting a security problem\n")) ?? ""));
+    const addresses = CONTACT_FILES.map((file) => [...new Set(reporting(file, readFileSync(repoFile(file), "utf8")).match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g))]);
     expect(addresses[0]).toHaveLength(1);
     expect(addresses[1]).toEqual(addresses[0]);
     const r = preflight({ version: "0.2.0", asTheyAre: true });
