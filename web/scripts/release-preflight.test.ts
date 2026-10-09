@@ -5,7 +5,8 @@
 // for the tag's lookup: it releases main only, and only at the commit
 // reviewed when one is given; the version, web/package.json and the
 // changelog's top section agree; the tag is new; and X.Y.Z, not a release
-// candidate, names the security contact rather than its placeholder.
+// candidate, names the security contact rather than its placeholder, as
+// SECURITY.md and docs/security.md do now, both with the same address.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -49,13 +50,17 @@ const changelog = (...headings: string[]) =>
 /** The security policy's files, which name the contact, or its placeholder before one's chosen. */
 const CONTACT_FILES = ["SECURITY.md", "docs/security.md"];
 
+/** A file of this repository, by its path from the top level. */
+const repoFile = (path: string) => fileURLToPath(new URL(`../../${path}`, import.meta.url));
+
 /**
  * Runs the step for `version` (and the commit reviewed, `commit`) in a
  * checkout whose web/package.json says 0.2.0 and whose CHANGELOG.md is
  * `text`, on `ref` at SHA; the tag there if `tagged`; the security
- * contact's placeholder still in the files `placeholder` names. What it did.
+ * contact's placeholder still in the files `placeholder` names, or, with
+ * `asTheyAre`, those files as this repository has them. What it did.
  */
-function preflight(o: { version: string; commit?: string; text?: string; ref?: string; tagged?: boolean; placeholder?: string[] }) {
+function preflight(o: { version: string; commit?: string; text?: string; ref?: string; tagged?: boolean; placeholder?: string[]; asTheyAre?: boolean }) {
   expect(JQ, "jq, which the step uses, is installed").toBeDefined();
   const work = tempDir();
   mkdirSync(join(work, "web", "scripts"), { recursive: true });
@@ -65,7 +70,8 @@ function preflight(o: { version: string; commit?: string; text?: string; ref?: s
   writeFileSync(join(work, "CHANGELOG.md"), o.text ?? changelog("## 0.2.0 — 2026-11-02", "## 0.1.0 — 2026-10-20"));
   for (const file of CONTACT_FILES) {
     const contact = o.placeholder?.includes(file) ? "`<SECURITY_CONTACT>` (a placeholder)" : "security@example.com";
-    writeFileSync(join(work, file), `# Security\n\nReport a problem privately, or by email to ${contact}.\n`);
+    if (o.asTheyAre) copyFileSync(repoFile(file), join(work, file));
+    else writeFileSync(join(work, file), `# Security\n\nReport a problem privately, or by email to ${contact}.\n`);
   }
   const stand = join(work, "stand-in");
   mkdirSync(stand);
@@ -164,5 +170,14 @@ describe("the release workflow's preflight", () => {
     const candidate = preflight({ version: "0.2.0-rc.1", placeholder: CONTACT_FILES });
     expect([candidate.code, candidate.stderr]).toEqual([0, ""]);
     expect(candidate.stdout).toContain(`Releasing BoxOps 0.2.0-rc.1 from main@${SHA.slice(0, 12)}.`);
+  });
+
+  it("lets X.Y.Z through with SECURITY.md and docs/security.md as they are: each names the same address to write to", () => {
+    const addresses = CONTACT_FILES.map((file) => [...new Set(readFileSync(repoFile(file), "utf8").match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g))]);
+    expect(addresses[0]).toHaveLength(1);
+    expect(addresses[1]).toEqual(addresses[0]);
+    const r = preflight({ version: "0.2.0", asTheyAre: true });
+    expect([r.code, r.stderr]).toEqual([0, ""]);
+    expect(r.stdout).toContain(`Releasing BoxOps 0.2.0 from main@${SHA.slice(0, 12)}.`);
   });
 });

@@ -1434,11 +1434,12 @@ a release must have none of.
   with bash (`scripts/release-preflight.test.ts`: `main`, at the commit
   reviewed if one is given; the version's changelog section on top; for
   `X.Y.Z`, not a release candidate, the security contact named rather than
-  its placeholder), and its publish job's last step run with bash against a
-  stand-in `gh` (`scripts/release-publish.test.ts`: the release a draft, then
-  published, and GitHub's latest only if none is of a later version; a draft
-  left made again; on a re-run, a published release taken as done only if
-  it's that run's). Those that read a whole roadmap read fixed copies (the
+  its placeholder, as `SECURITY.md` and `docs/security.md` both name it),
+  and its publish job's last step run with bash against a stand-in `gh`
+  (`scripts/release-publish.test.ts`: the release a draft, then published,
+  and GitHub's latest only if none is of a later version; a draft left made
+  again; on a re-run, a published release taken as done only if it's that
+  run's). Those that read a whole roadmap read fixed copies (the
   browser tests' fixture, and `roadmap/` as shipped, in
   `web/src/model/fixtures/shipped-roadmap/`), never the live `roadmap/`, which
   saves may write any valid way.

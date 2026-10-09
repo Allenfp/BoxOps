@@ -91,8 +91,9 @@ jobs:
             echo "::error title=web/package.json says $pkg::Releasing $V needs web/package.json at $base: bump it in the release pull request."
             exit 1
           fi
-          # X.Y.Z waits for the security contact's address (docs/releasing.md,
-          # "Before the first release"); a release candidate may go without.
+          # X.Y.Z names the security contact, never its placeholder
+          # (docs/releasing.md, "The release workflow"); a release candidate
+          # may go without.
           if [ "$V" = "$base" ] && grep -n -F '<SECURITY_CONTACT>' SECURITY.md docs/security.md; then
             echo "::error title=No security contact::SECURITY.md or docs/security.md still has the placeholder <SECURITY_CONTACT>: put the address in both, in the release pull request."
             exit 1

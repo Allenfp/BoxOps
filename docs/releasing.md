@@ -71,8 +71,8 @@ review. Its jobs:
    (`web/scripts/check-changelog.mjs --release`): that section becomes the
    notes, so they cover all the release ships; the tag isn't there yet;
    and, for `X.Y.Z` (a release candidate may go without), `SECURITY.md` and
-   `docs/security.md` name the security contact, not its placeholder
-   ([one-off step 7](#before-the-first-release)).
+   `docs/security.md` name the security contact: neither holds the
+   placeholder `<SECURITY_CONTACT>` that stood for it before it was chosen.
 2. **verify**: all of `ci.yml` on this commit, the release tree built as
    this version, and the numbers in `X.Y.Z`'s section (data format,
    AGENTS.md block, launcher, guard) checked against its `BUILD.json`.
@@ -218,21 +218,13 @@ them; use it for this and nothing else.
    file: `rm boxops-release boxops-release.pub`. The environment's secret is
    the only copy; a lost key is replaced by making a new one (steps 2 and 3)
    and deleting the old.
-7. **The security contact address**, which 0.1.0 waits for: not a setting,
-   but `SECURITY.md` and `docs/security.md` hold a placeholder,
-   `<SECURITY_CONTACT>`, where those who can't report through GitHub (a
-   managed user with no personal account, say) are told where to write.
-   Choose the address, and put it in both in the release pull request:
-   `git grep -n SECURITY_CONTACT -- SECURITY.md docs/security.md` must then
-   find nothing. Until then, the release workflow's preflight refuses
-   `X.Y.Z`, though not a release candidate.
 
 ### At the cutover
 
 Once the demo saves to `Allenfp/boxops-demo` (`cutover/README.md`), nothing
 writes to `main` here but merged pull requests, so it gets its ruleset too:
 
-8. **The ruleset `main`**: New branch ruleset `main`; Enforcement Active;
+7. **The ruleset `main`**: New branch ruleset `main`; Enforcement Active;
    no bypass at all; Target branches: Include default branch; Restrict
    deletions, Block force pushes, Require a pull request before merging (0
    approvals), Require status checks to pass: CI's jobs `test`,
