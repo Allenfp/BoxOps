@@ -1365,11 +1365,12 @@ that. `npm run publish-starter -- --tag vX.Y.Z --commit <release commit> --out
 in this clone's git (never the working tree), after checking the release
 commit's `BUILD.json` names the tag's version, the tag (if fetched) names the
 commit, and every page of the docs the starter links to is there at that
-commit. It pushes nothing: it prints the commands to publish the folder,
-each one command whose steps are joined with `&&`, so that pasted into an
-interactive shell, which has no `-e`, it stops at the first step that fails
-(a failed clone or `cd` leaves the folder it was pasted in alone, and rsync
-writes only into the new clone). `init` can't check the docs' pages, so a
+commit. It pushes nothing: it prints the commands to publish the folder (the
+first time, creating the repository, a template; for each release after, a pull
+request), each one command whose steps are joined with `&&`, so that pasted
+into an interactive shell, which has no `-e`, it stops at the first step that
+fails (a failed clone or `cd` leaves the folder it was pasted in alone, and
+rsync writes only into the new clone). `init` can't check the docs' pages, so a
 unit test does: every page `starter/` links to is one git tracks, but for
 those listed as still to write (`TO_WRITE` in `cli/starter.test.ts`), which
 a release must have none of.
