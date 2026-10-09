@@ -30,7 +30,7 @@ body:
     id: version
     attributes:
       label: BoxOps version
-      description: "The `# vX.Y.Z` comment on the `uses: Allenfp/BoxOps@…` lines of your roadmap repository's workflows, or the app's build id: `app.build` in your site's `roadmap.json`."
+      description: "What `node .boxops/boxops.mjs version` prints, or the `# vX.Y.Z` comment on the `Allenfp/BoxOps@…` lines (`uses:` or `BOXOPS_ACTION:`) of your roadmap repository's workflows. For the app, its build id: `app.build` in your site's `roadmap.json`."
       placeholder: v0.1.0
     validations:
       required: true
