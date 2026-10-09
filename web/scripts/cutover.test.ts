@@ -4,13 +4,17 @@
 // no change made since. When a live file changes, this fails until its staged
 // copy is made again: copy the live file over it, then make the changes below.
 // The redirect the cutover publishes at allenfp.github.io/BoxOps/ is checked
-// too: it keeps the address's query and hash, under its own CSP.
+// too: it keeps the address's query and hash, under its own CSP. So is the
+// mailmap of the README's step 3, which makes the demo's history: it maps the
+// maintainer's own addresses alone, and the check after it names any other.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { runInNewContext } from "node:vm";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { scriptHash } from "../cli/csp";
+import { cleanUp, tempDir } from "../cli/test-release";
 
 /** A file's text, by its path from the repository's top level. */
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
@@ -176,5 +180,55 @@ describe("the files staged for the cutover (cutover/)", () => {
     expect(stagedFiles(), "the files git tracks in cutover/ (git add a new one)").toEqual(Object.keys(STAGED).sort());
     const readme = read("cutover/README.md");
     for (const path of Object.keys(STAGED)) expect(readme).toContain(`\`${path}\``);
+  });
+});
+
+describe("the demo's history, as its README's step 3 has it made (before the cutover commit)", () => {
+  afterEach(cleanUp);
+
+  it("maps the maintainer's own addresses alone, and its check names any other left, for a decision by hand", () => {
+    const readme = read("cutover/README.md");
+    // What writes ../demo-mailmap: the first block's commands after the clone, up to filter-repo.
+    const first = /```sh\n(\s*git clone --no-local [^\n]* boxops-demo && cd boxops-demo &&[\s\S]*?)```/.exec(readme)?.[1] ?? "";
+    const mailmap = first.slice(first.indexOf("cd boxops-demo &&") + "cd boxops-demo &&".length).split("git filter-repo")[0].trim().replace(/&&$/, "");
+    // The check after filter-repo, given the addresses as the mailmap makes them: git's own reading of
+    // it (%aE, %cE) stands in for filter-repo's rewrite, which this machine needn't have.
+    const awk = /awk '[^']*'/.exec(readme)?.[0] ?? "";
+    expect([mailmap.includes("../demo-mailmap"), awk.includes("still in the history")]).toEqual([true, true]);
+    const own = ["old@example.com", "Old@example.com", "allen@veryboringdata.co"];
+    const noreply = "29790605+Allenfp@users.noreply.github.com";
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", GIT_AUTHOR_NAME: "x", GIT_COMMITTER_NAME: "x" };
+    const sh = (cwd: string, script: string) => spawnSync("bash", ["-c", script], { cwd, encoding: "utf8", env });
+    /** A clone, boxops-demo in a folder of its own, whose commits have these authors and committers. */
+    const clone = (people: [string, string][]) => {
+      const dir = join(tempDir(), "boxops-demo");
+      execFileSync("git", ["init", "-q", dir], { env });
+      for (const [author, committer] of people) {
+        execFileSync("git", ["-C", dir, "commit", "-q", "--allow-empty", "-m", "x"], { env: { ...env, GIT_AUTHOR_EMAIL: author, GIT_COMMITTER_EMAIL: committer } });
+      }
+      return dir;
+    };
+    // The maintainer's, GitHub's (a save, an edit on its site), and others' at the same domains.
+    const ours: [string, string][] = [
+      [own[0], own[0]],
+      [own[1], "noreply@github.com"],
+      [own[2], own[2]],
+      [noreply, "noreply@github.com"],
+    ];
+    const others: [string, string][] = [
+      ["a-teammate@veryboringdata.co", "noreply@github.com"],
+      ["someone-else@gmail.com", "someone-else@gmail.com"],
+    ];
+    for (const [people, left] of [
+      [ours, []],
+      [[...ours, ...others], ["a-teammate@veryboringdata.co", "someone-else@gmail.com"]],
+    ] as [[string, string][], string[]][]) {
+      const dir = clone(people);
+      const map = join(dir, "..", "demo-mailmap");
+      expect(sh(dir, mailmap).status).toBe(0);
+      expect([left, readFileSync(map, "utf8").trim().split("\n").sort()]).toEqual([left, own.map((a) => `<${noreply}> <${a}>`).sort()]);
+      const r = sh(dir, `git -c mailmap.file='${map}' log --format='%aE%n%cE' | sort -u | ${awk}`);
+      expect([left, r.status, r.stdout]).toEqual([left, left.length ? 1 : 0, left.map((a) => `still in the history: ${a}\n`).join("")]);
+    }
   });
 });
