@@ -86,7 +86,8 @@ the workflows. Before you push, run the checks your change needs:
 - Keyboard and screen-reader use keeps working: everything can be done
   without a mouse, and changes are announced.
 
-The pull request's template has the same list, to tick.
+The pull request's template has this list to tick, and three more items
+from the other sections: the checks, commit messages and dependencies.
 
 ## Commit messages
 
@@ -107,11 +108,11 @@ dev dependency needs a reason.
 
 ## Changing the data format
 
-A change to what `roadmap/`'s files may hold, or to how they're read, comes
-with a migration, which BoxOps' `migrate` command runs to bring a roadmap
-up to the new format, and follows
-[docs/data-format.md](docs/data-format.md#changing-the-format): which
-changes need a new format, in which release, and what goes with one.
+A change that needs a new data format comes with a migration, which
+BoxOps' `migrate` command runs to bring a roadmap up to the new format, and
+follows [docs/data-format.md](docs/data-format.md#changing-the-format):
+which changes need one (anything an older BoxOps would read wrongly or
+damage), in which release, and what goes with it.
 
 ## Releases
 
