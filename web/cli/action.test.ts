@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { parse } from "yaml";
@@ -393,7 +393,7 @@ describe("tree, entries and blobs (steps 4–7)", () => {
     }
   });
 
-  it("gives the results CI's smoke job expects of its refusals through uses: (ci.yml's, and the cutover's)", async () => {
+  it("gives the results CI's smoke job expects of its refusals through uses: (ci.yml's, and the cutover's while it's staged)", async () => {
     // The repositories ci.yml makes: the starter's roadmap with a symlink, a submodule, data format 2, no settings.yaml.
     const made: Record<string, Record<string, Entry | null>> = {
       SYMLINK: { "roadmap/boxes/link.yaml": { mode: "120000", content: "../people.yaml" } },
@@ -401,7 +401,10 @@ describe("tree, entries and blobs (steps 4–7)", () => {
       FORMAT: { "roadmap/settings.yaml": SAMPLE["settings.yaml"].replace("format: 1", "format: 2") },
       NO_SETTINGS: { "roadmap/settings.yaml": null },
     };
-    for (const path of [".github/workflows/ci.yml", "cutover/.github/workflows/ci.yml"]) {
+    // The cutover's ci.yml only while it's staged: the cutover commit deletes cutover/, and with it
+    // cutover.test.ts, which fails while a file staged there is missing.
+    const staged = "cutover/.github/workflows/ci.yml";
+    for (const path of [".github/workflows/ci.yml", ...(existsSync(new URL(`../../${staged}`, import.meta.url)) ? [staged] : [])]) {
       const ci = parse(readFileSync(new URL(`../../${path}`, import.meta.url), "utf8")) as { jobs: { smoke: { steps: { name?: string; run?: string }[] } } };
       const check = ci.jobs.smoke.steps.find((s) => s.name === "Each refusal failed its step, and its result says why")?.run ?? "";
       const expected = Object.fromEntries([...check.matchAll(/^ *refused "[^"]*" "\$(\w+)" "([^"]+)"$/gm)].map((m) => [m[1], m[2]]));
