@@ -1391,13 +1391,14 @@ a release must have none of.
   repositories (CRLF, mirrors, Path B), `doctor`, `upgrade`, `init` and
   `preview`'s fetch against a fake GitHub, the launcher run with Node (its
   download against a `fetch` answering from a table, the cache's order and
-  refusals (the repository's path in another case, or by macOS's
-  `/System/Volumes/Data`, too, through each of `BOXOPS_CACHE`,
-  `XDG_CACHE_HOME`, `HOME` and `TMPDIR`, and in the temp folder a symlink, or
-  a folder others can read), `BUILD.json` checks, `BOXOPS_CLI` (a release
-  other than the pin's, a folder), mirrors and tokens (github.com's from `gh`,
-  never another host's), warnings on the tool's commands alone, `AGENTS.md`
-  read only as a plain file, proxies and Node's options), the starter made for
+  refusals (the repository's path in another case, through a symlink to
+  the folder above it, or by macOS's `/System/Volumes/Data`, too,
+  through each of `BOXOPS_CACHE`, `XDG_CACHE_HOME`, `HOME` and `TMPDIR`,
+  and in the temp folder a symlink, or a folder others can read),
+  `BUILD.json` checks, `BOXOPS_CLI` (a release other than the pin's, a
+  folder), mirrors and tokens (github.com's from `gh`, never another
+  host's), warnings on the tool's commands alone, `AGENTS.md` read only
+  as a plain file, proxies and Node's options), the starter made for
   a release (what `init` writes, and `sync` for its files) and its links to
   BoxOps' docs (pages git tracks, but those still to write), the commands
   `publish-starter` prints to publish it and those `init` prints to start a
