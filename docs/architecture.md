@@ -1217,10 +1217,12 @@ roadmap's values and file names are anyone's who can save, and a terminal
 obeys ESC's sequences (a line erased, the window's title, in some terminals
 the clipboard), CR and a right-to-left override. JSON output stays JSON,
 meaning the same. In GitHub Actions (`GITHUB_ACTIONS=true`: a workflow that
-runs `validate`, say), each line on stderr, where the problems go, is one
-the runner reads as text, never as a workflow command (`cli/gha.ts`'s
-`logLine`, as the action's log: `##[` and a leading `::` broken by a
-space); stdout stays as it is, `report`'s text byte for byte.
+runs `validate` or `report`, say), each line a command prints, on stdout or
+stderr, is one the runner reads as text, never as a workflow command
+(`cli/gha.ts`'s `logLine`, as the action's log: `##[` and a leading `::`
+broken by a space, so `report`'s text is byte for byte outside Actions
+only), and `--json` writes each `#` as `\u0023`, the same character once
+parsed, so that no line of its holds `##[`.
 
 **The action** (`cli/action.ts`; `action.yml`'s inputs: `mode`, `roadmap`,
 `path`, `on-problems`, `releases-file`, `read-only`, `repository`, `summary`;

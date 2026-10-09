@@ -5,6 +5,7 @@ import { buildReport, formatReport } from "../src/model/report";
 import { loadRoadmap } from "../src/model/parse";
 import { main } from "./boxops";
 import type { Io, LaunchContext } from "./context";
+import { logLine } from "./gha";
 import { ID, NASTY, NASTY_SHOWN, NASTY_YAML, SAMPLE, capture, cleanUp, makeRelease, obeyed, runnerCommand, sampleRepo, tempDir } from "./test-release";
 import { type Entry, TestRepo } from "./test-repo";
 
@@ -314,21 +315,31 @@ describe("roadmap text in the terminal", () => {
     expect(JSON.parse(runs.json.stdout).people[0].bookings[0].box.title).toBe(NASTY);
   });
 
-  it("in GitHub Actions, prints no problem the runner would read as a workflow command; report's text is as it is", async () => {
-    // A value holding `##[` (read anywhere in a line), and a file whose name starts with `::` (read at a line's start).
-    const box = SAMPLE["boxes/bx-1a2b-example-project.yaml"].replace("type: project", 'type: "##[stop-commands]x"').replace("title: Example project (delete me)", 'title: "::set-output name=x::y"');
-    const repo = checkout(sampleRepo({ "roadmap/boxes/bx-1a2b-example-project.yaml": box, "roadmap/::set-output name=x::y": "x\n", "roadmap/boxes/bx-ffff-##[stop-commands]x.yaml": "id: bx-ffff-x\n" }));
+  it("in GitHub Actions, prints no line the runner would read as a workflow command, on stdout either: JSON means the same", async () => {
+    // A value holding `##[` (read anywhere in a line), and a file whose name starts with `::` (read at a line's start);
+    // in the report, a title holding `##[` and a name that starts a line with `::`.
+    const box = SAMPLE["boxes/bx-1a2b-example-project.yaml"].replace("type: project", 'type: "##[stop-commands]x"').replace("title: Example project (delete me)", 'title: "x ##[stop-commands]x"');
+    const people = SAMPLE["people.yaml"].replace("name: Ada Example", 'name: "::set-output name=x::y"');
+    const repo = checkout(
+      sampleRepo({
+        "roadmap/boxes/bx-1a2b-example-project.yaml": box,
+        "roadmap/people.yaml": people,
+        "roadmap/::set-output name=x::y": "x\n",
+        "roadmap/boxes/bx-ffff-##[stop-commands]x.yaml": "id: bx-ffff-x\n",
+      }),
+    );
     const here = join(repo.dir, "roadmap");
-    const env = { GITHUB_ACTIONS: "true", GITHUB_SERVER_URL: "https://github.com", GITHUB_REPOSITORY: "acme/roadmap" };
-    const runs = {
-      validate: await run(["validate"], { cwd: here, env }, { root: repo.dir }),
-      report: await run(["report"], { cwd: here, env }, { root: repo.dir }),
-      migrate: await run(["migrate"], { cwd: here, env }, { root: repo.dir }),
-      build: await run(["build", "--out", join(tempDir(), "site"), "--commit", "HEAD"], { cwd: here, env }, { root: repo.dir }),
+    const commands = { validate: ["validate"], json: ["validate", "--json"], report: ["report"], reportJson: ["report", "--json"], migrate: ["migrate"] };
+    const runAll = async (env: Record<string, string>) => {
+      const out: Record<string, Awaited<ReturnType<typeof run>>> = {};
+      for (const [name, argv] of Object.entries(commands)) out[name] = await run(argv, { cwd: here, env }, { root: repo.dir });
+      out.build = await run(["build", "--out", join(tempDir(), "site"), "--commit", "HEAD"], { cwd: here, env }, { root: repo.dir });
+      return out;
     };
+    const runs = await runAll({ GITHUB_ACTIONS: "true", GITHUB_SERVER_URL: "https://github.com", GITHUB_REPOSITORY: "acme/roadmap" });
     for (const [name, r] of Object.entries(runs)) {
-      const lines = r.stderr.split("\n");
-      expect([name, lines.length > 2, lines.filter((l) => runnerCommand(l) !== null)]).toEqual([name, true, []]);
+      const lines = [...r.stdout.split("\n"), ...r.stderr.split("\n")];
+      expect([name, lines.length > 2, lines.filter((l) => runnerCommand(l) !== null || l.includes("##["))]).toEqual([name, true, []]);
     }
     // Said all the same: the runner's syntax broken by a space, as the action's log has it.
     expect(runs.validate.stderr.split("\n")).toEqual(
@@ -338,11 +349,20 @@ describe("roadmap text in the terminal", () => {
         expect.stringMatching(/^boxes\/bx-ffff-## \[stop-commands\]x\.yaml:1: /),
       ]),
     );
-    // Outside Actions, as they are; and report's text, on stdout, the same byte for byte either way.
-    const outside = await run(["validate"], { cwd: here }, { root: repo.dir });
-    expect(outside.stderr.split("\n")).toContain('boxes/bx-1a2b-example-project.yaml:7: type: "##[stop-commands]x" is not defined in settings.yaml');
-    expect(runs.report.stdout).toBe((await run(["report"], { cwd: here }, { root: repo.dir })).stdout);
-    expect(runs.report.stdout).toContain("::set-output name=x::y");
+    // Outside Actions, as they are: report's text byte for byte, each of its lines in Actions as logLine has it.
+    const outside = await runAll({});
+    expect(outside.validate.stderr.split("\n")).toContain('boxes/bx-1a2b-example-project.yaml:7: type: "##[stop-commands]x" is not defined in settings.yaml');
+    expect(outside.report.stdout.split("\n")).toEqual(expect.arrayContaining(["  ::set-output name=x::y (example-ada), Engineering", expect.stringMatching(/ {2}x ##\[stop-commands\]x \(ENG-K7P\)$/)]));
+    expect(runs.report.stdout.split("\n")).toEqual(outside.report.stdout.split("\n").map(logLine));
+    expect(runs.report.stdout.split("\n")).toEqual(expect.arrayContaining(["  : :set-output name=x::y (example-ada), Engineering", expect.stringMatching(/ {2}x ## \[stop-commands\]x \(ENG-K7P\)$/)]));
+    // JSON the same once parsed, its `#` written \u0023 in Actions.
+    for (const name of ["json", "reportJson"]) {
+      expect([name, JSON.parse(runs[name].stdout)]).toEqual([name, JSON.parse(outside[name].stdout)]);
+      expect([name, runs[name].stdout.includes("\\u0023\\u0023[stop-commands]x"), outside[name].stdout.includes("##[stop-commands]x")]).toEqual([name, true, true]);
+    }
+    // The action's own workflow commands, its annotations, stay what they are.
+    const action = await run(["action", "--mode", "deploy"], { cwd: here, env: { GITHUB_ACTIONS: "true" } });
+    expect([action.code, action.stdout.split("\n")[0]]).toEqual([1, '::error title=BoxOps::Input mode is "deploy"; it must be "build" or "check"']);
   });
 });
 

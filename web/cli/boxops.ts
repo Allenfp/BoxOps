@@ -52,13 +52,25 @@ const HELP = `BoxOps command-line tool. In a roadmap repository: node .boxops/bo
 
 Options for every command: --root DIR (the repository; default: the one you're in), --roadmap NAME (default: roadmap).`;
 
+/**
+ * `value` as JSON, two spaces to a level, for --json. In GitHub Actions each
+ * `#` is `\u0023`, the same character once parsed, so that no line holds
+ * `##[`, which the runner reads as a workflow command anywhere in a line
+ * (gha.ts's logLine).
+ */
+function jsonText(value: unknown, io: Io): string {
+  const text = JSON.stringify(value, null, 2);
+  // `#` is never JSON's own syntax: each one is in a string.
+  return io.env.GITHUB_ACTIONS === "true" ? text.replaceAll("#", "\\u0023") : text;
+}
+
 /** `validate`: today's `npm run validate`, line for line. */
 async function validate(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
   const dir = roadmapOf(args, ctx, io, args.positional[0]);
   const loaded = await loadDir(dir);
   const json = args.flags.json === true;
   if (loaded.unreadable) {
-    if (json) io.out(JSON.stringify({ ok: false, readable: false, problems: loaded.unreadable.map((p) => ({ path: p.path, message: p.message })) }, null, 2));
+    if (json) io.out(jsonText({ ok: false, readable: false, problems: loaded.unreadable.map((p) => ({ path: p.path, message: p.message })) }, io));
     else for (const p of loaded.unreadable) io.err(issueLine(dir, p, io.cwd));
     return EXIT.problems;
   }
@@ -67,7 +79,7 @@ async function validate(args: Args, ctx: LaunchContext, io: Io): Promise<number>
   const code = formatStatus === "older" || formatStatus === "newer" ? EXIT.format : issues.length ? EXIT.problems : EXIT.ok;
   if (json) {
     io.out(
-      JSON.stringify(
+      jsonText(
         {
           ok: code === EXIT.ok,
           readable: true,
@@ -81,8 +93,7 @@ async function validate(args: Args, ctx: LaunchContext, io: Io): Promise<number>
           problems: issues.map((i) => ({ path: i.path, ...(i.line !== undefined && { line: i.line }), message: i.message })),
           result,
         },
-        null,
-        2,
+        io,
       ),
     );
   } else {
@@ -122,7 +133,7 @@ async function report(args: Args, ctx: LaunchContext, io: Io): Promise<number> {
   }
   for (const issue of loaded.issues) io.err(issueLine(dir, issue, io.cwd));
   const r = buildReport(loaded.roadmap);
-  io.out(args.flags.json === true ? JSON.stringify(reportJson(r), null, 2) : formatReport(r));
+  io.out(args.flags.json === true ? jsonText(reportJson(r), io) : formatReport(r));
   if (loaded.formatStatus === "older" || loaded.formatStatus === "newer") return EXIT.format;
   return loaded.issues.length ? EXIT.problems : EXIT.ok;
 }
@@ -280,17 +291,19 @@ export const WARNING_COMMANDS = Object.keys(COMMANDS).filter((name) => !["sync",
  * environment, 3 data format mismatch). The launcher's contract: frozen.
  * What it prints shows the control characters in it as escapes
  * (terminal.ts): a roadmap's values and file names are anyone's who can save.
- * In GitHub Actions (a workflow running validate, say), each line it prints
- * to stderr, where the problems go, is one the runner reads as text, never
- * as a workflow command (gha.ts's logLine: no `##[`, no `::` at its start).
- * stdout stays as it is: report's text, byte for byte, and JSON.
+ * In GitHub Actions (a workflow running validate or report, say), each line
+ * it prints, to stdout or stderr, is one the runner reads as text, never as
+ * a workflow command (gha.ts's logLine: no `##[`, no `::` at its start), so
+ * report's text is byte for byte only outside Actions; JSON stays the same
+ * JSON, its `#` written `\u0023` there (jsonText). The action's own
+ * workflow commands (its annotations) go out as it writes them (gha.ts).
  */
 export async function main(argv: string[], ctx: LaunchContext = {}, given: Io = defaultIo()): Promise<number> {
   const actions = given.env.GITHUB_ACTIONS === "true";
-  const err = (text: string) => given.err(actions ? text.split("\n").map((line) => logLine(visible(line))).join("\n") : visible(text, true));
-  const io: Io = { ...given, out: (text) => given.out(visible(text, true)), err };
+  const shown = (text: string) => (actions ? text.split("\n").map((line) => logLine(visible(line))).join("\n") : visible(text, true));
+  const io: Io = { ...given, out: (text) => given.out(shown(text)), err: (text) => given.err(shown(text)) };
   const [name, ...rest] = argv;
-  if (name === "action") return runAction({ argv: rest, env: io.env, out: io.out, cliDir: io.cliDir, identity: io.identity() });
+  if (name === "action") return runAction({ argv: rest, env: io.env, out: (text) => given.out(visible(text, true)), cliDir: io.cliDir, identity: io.identity() });
   if (name === undefined || name === "help" || name === "--help" || name === "-h") {
     io.out(HELP);
     return name === undefined ? EXIT.usage : EXIT.ok;
