@@ -43,11 +43,11 @@ export function otherPath(dir: string): string | undefined {
 export const FIRMLINKED = otherPath(realpathSync(tmpdir())) !== undefined;
 
 /**
- * Another path to the folder `dir`, through a symlink to the folder it's in,
- * made in a temp folder: one realpath resolves, on any system. (A path that
- * no spelling joins, which the caches' device-and-inode comparison is for,
- * there's only where otherPath finds one: on Linux, a bind mount gives one,
- * and that takes root.)
+ * Another path to the folder `dir`, through a symlink to the folder it's in
+ * (made in a temp folder), which realpath resolves: there's one on any
+ * system. (otherPath's is one realpath doesn't join, which the caches compare
+ * by device and inode: on Linux, only a bind mount makes one, and that takes
+ * root.)
  */
 export function linkedPath(dir: string): string {
   const link = join(tempDir(), "above");

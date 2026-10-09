@@ -409,9 +409,9 @@ describe("the launcher's cache", () => {
   });
 
   it("is never inside the repository by a path through a symlink to a folder above it, on any system: a tool planted there never runs", () => {
-    // The link resolved, the paths compared. That's all a system with no path that escapes every
-    // spelling runs (Linux, where a bind mount, which gives one, takes root): the launcher's comparison
-    // by device and inode runs in the test above, where there's such a path (macOS's firmlinks).
+    // The link resolved, then the paths compared: on Linux, where only a bind mount (which takes root)
+    // makes a path realpath doesn't join, this is the case that runs. The launcher's comparison by
+    // device and inode, for such a path, is the test above's (macOS's firmlinks).
     neverInRepository(linkedPath);
   });
 });
