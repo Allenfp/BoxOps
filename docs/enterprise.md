@@ -23,7 +23,7 @@ Nothing in the roadmap repository is built or installed.
 | GitHub's own actions only | Path B: BoxOps fetched by commit with git and run with Node.js ([Path B](#path-b-githubs-own-actions-only)). |
 | npm, package proxies | Not involved: roadmap repositories have no `package.json`, and nothing installs packages, in CI or on laptops. |
 | IP allow list | GitHub's standard runners can't be allow-listed: larger runners with static addresses, or self-hosted runners. Editors save from allowed networks ([IP allow lists](#ip-allow-lists)). |
-| Network filters, proxies | Browsers need the site (`*.github.io`, or its custom domain), `github.com` with what its pages load (`*.githubassets.com`, `*.githubusercontent.com`), and `api.github.com`; self-hosted runners, GitHub's list for them, and for Path B a Node.js 24 download ([Network access](#network-access)). |
+| Network filters, proxies | Browsers need the site (`*.pages.github.io` and `*.github.io`, or its custom domain), `github.com` with what its pages load (`*.githubassets.com`, `*.githubusercontent.com`), and `api.github.com`; self-hosted runners, GitHub's list for them, and for Path B a Node.js 24 download ([Network access](#network-access)). |
 | Self-hosted runners | Linux or macOS, runner v2.327.1 or later, git 2.18 or later, `bash`, `gh`, `jq`, and GNU tar (`gtar` on macOS) ([Self-hosted runners](#self-hosted-runners)). |
 | Enterprise Managed Users | Sites are always private. `init` if a template outside the enterprise can't be used ([Enterprise Managed Users](#enterprise-managed-users)). |
 | Rulesets | Rules a browser save can't meet need editors on the bypass list, or the repository excluded ([Rulesets](#rulesets)). |
@@ -236,14 +236,14 @@ What a web proxy or a network filter must let through:
 
 - **Browsers** that view or edit the roadmap: the site, a private site's
   `https://<random name>.pages.github.io/` or a public one's
-  `https://<owner>.github.io/<repository>/` (so `*.github.io`), and its
-  custom domain if it has one; `github.com`, where a private site's viewers
-  sign in and editors make tokens, with what its pages load,
-  `*.githubassets.com` and `*.githubusercontent.com`; and the two hosts the
-  app calls, `api.github.com` and, for a public repository's files without
-  a token, `raw.githubusercontent.com`. Its Content-Security-Policy (the
-  rules a page gives the browser on what it may load and connect to) allows
-  no other.
+  `https://<owner>.github.io/<repository>/` (so `*.pages.github.io` and
+  `*.github.io`), and its custom domain if it has one; `github.com`, where a
+  private site's viewers sign in and editors make tokens, with what its pages
+  load, `*.githubassets.com` and `*.githubusercontent.com`; and the two hosts
+  the app calls, `api.github.com` and, for a public repository's files without
+  a token, `raw.githubusercontent.com`. Its Content-Security-Policy (the rules
+  a page gives the browser on what it may load and connect to) allows no
+  other.
 - **Laptops** that run `node .boxops/boxops.mjs`: `raw.githubusercontent.com`,
   `api.github.com` and `github.com`.
 - **Runners**: GitHub's own need nothing from you. Self-hosted ones need
@@ -398,12 +398,11 @@ compressed at 2,000 boxes), kept for 1 day.
 - **GitHub Enterprise Server** and **GHE.com** (GitHub Enterprise Cloud with
   data residency): wherever the BoxOps step runs, it stops at once, saying
   "GitHub Enterprise Server and GHE.com aren’t supported in BoxOps 0.1 (this
-  runs on …): use github.com", and the app talks only to github.com's API,
-  `api.github.com` (and to `raw.githubusercontent.com`, for a public
-  repository's files). On GHE.com, that's what a deploy says. On an
-  Enterprise Server the step may never run: the starter's jobs ask for
-  `ubuntu-24.04`, one of GitHub's hosted runners, which an Enterprise Server
-  doesn't have, so they wait for a runner; and the actions they use come
-  from github.com, which an Enterprise Server reaches only through GitHub
-  Connect.
+  runs on …): use github.com", and the app talks only to `api.github.com` and,
+  for a public repository's files, `raw.githubusercontent.com`. On GHE.com,
+  that's what a deploy says. On an Enterprise Server the step may never run:
+  the starter's jobs ask for `ubuntu-24.04`, one of GitHub's hosted runners,
+  which an Enterprise Server doesn't have, so they wait for a runner; and the
+  actions they use come from github.com, which an Enterprise Server reaches
+  only through GitHub Connect.
 - **Windows runners**: refused. **Container jobs**: untested.

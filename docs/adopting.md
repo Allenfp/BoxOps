@@ -223,8 +223,9 @@ Browsers that view or edit the roadmap need:
 
 - the site: a private site's own host, `https://<random name>.pages.github.io/`
   (Settings → Pages shows it), or a public one's
-  `https://<owner>.github.io/<repository>/`, so `*.github.io`; and its
-  custom domain, if you give it one (Settings → Pages → Custom domain);
+  `https://<owner>.github.io/<repository>/`, so `*.pages.github.io` and
+  `*.github.io`; and its custom domain, if you give it one
+  (Settings → Pages → Custom domain);
 - `github.com`, where a private site's viewers sign in and editors make
   tokens, with what its pages load: `*.githubassets.com` (their scripts,
   styles and fonts) and `*.githubusercontent.com` (pictures, such as
