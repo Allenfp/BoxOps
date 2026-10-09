@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in BoxOps doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: A security problem goes [to the maintainer privately](https://github.com/Allenfp/BoxOps/security/advisories/new), never in an issue.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen
+      placeholder: |
+        1. Open the table.
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: BoxOps version
+      description: "The `# vX.Y.Z` comment on the `uses: Allenfp/BoxOps@…` lines of your roadmap repository's workflows, or the app's build id: `app.build` in your site's `roadmap.json`."
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      placeholder: Safari 26 on macOS 26
+  - type: dropdown
+    id: repository
+    attributes:
+      label: Your roadmap's repository
+      options:
+        - Public
+        - Private or internal
