@@ -136,6 +136,8 @@ Tests catch most of these; change the files together anyway.
   about saving (`web/src/github/messages.ts`) and the action's.
 - `README.md`, `docs/` and `templates/` describe what the code does: change
   them with it.
+- `CONTRIBUTING.md`, the same rules for people: the setup, the checks, pull
+  requests and commit messages, as this file gives them.
 
 ## Releases
 
