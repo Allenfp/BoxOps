@@ -50,34 +50,49 @@ of the work until then, so the cutover commit makes their changes itself
    writable from a browser: revoking it, not the cutover commit, is what
    ends that.
 3. `Allenfp/boxops-demo` holds the demo's roadmap with its history, its
-   authors' and committers' personal addresses replaced. From a fresh clone
-   (`git filter-repo` rewrites the clone it runs in, and needs
-   [git-filter-repo](https://github.com/newren/git-filter-repo)):
+   authors' and committers' personal addresses replaced. First, from a
+   fresh clone, the history's addresses: every author and committer address
+   on any of its commits but GitHub's no-reply ones
+   (`…@users.noreply.github.com`, and `noreply@github.com`, the committer
+   GitHub writes on what's made on its site). That takes in all of
+   `roadmap/`'s history: `git log -- roadmap/` would leave out a merge that
+   changes nothing in `roadmap/`, which `git filter-repo --path roadmap/`
+   keeps while it joins two lines of history.
 
    ```sh
    git clone --no-local https://github.com/Allenfp/BoxOps.git boxops-demo && cd boxops-demo &&
-     printf '<29790605+Allenfp@users.noreply.github.com> <%s>\n' old@example.com Old@example.com allen@veryboringdata.co >../demo-mailmap &&
+     git log --all --format='%ae%n%ce' | sort -u |
+       awk '!/@users\.noreply\.github\.com$/ && $0 != "noreply@github.com"'
+   ```
+
+   Then, in the same shell, set `OLD` to your own addresses from that list,
+   and no one else's, separated by spaces: `OLD='…'`. Put in each spelling
+   it shows (an address written with its first letter in either case shows
+   twice). This page names none of them, as it's public. The next command
+   writes the mailmap from `OLD`, outside the clone, mapping those addresses
+   alone to `29790605+Allenfp@users.noreply.github.com`; then
+   `git filter-repo` (which rewrites the clone it runs in, and needs
+   [git-filter-repo](https://github.com/newren/git-filter-repo)) keeps
+   `roadmap/`'s history alone, with them replaced:
+
+   ```sh
+   printf '%s\n' "$OLD" | awk '{ for (i = 1; i <= NF; i++) print "<29790605+Allenfp@users.noreply.github.com> <" $i ">" }' >../demo-mailmap &&
      git filter-repo --path roadmap/ --mailmap ../demo-mailmap &&
      git log --format='%ae%n%ce' | sort -u |
        awk '!/@users\.noreply\.github\.com$/ && $0 != "noreply@github.com" { print "still in the history: " $0; left = 1 } END { exit left }'
    ```
 
-   The mailmap names the maintainer's own addresses and maps those alone, to
-   `29790605+Allenfp@users.noreply.github.com`: their Gmail address, written
-   two ways (its first letter in either case), which git counts as two, and
-   their veryboringdata.co one. The last command fails if any other address is
-   left but a GitHub no-reply one (`…@users.noreply.github.com`, or
-   `noreply@github.com`, the committer GitHub writes on what's made on its
-   site), naming each: then stop. What such an address becomes is decided by
-   hand, never by mapping it to the maintainer's: another of their own goes in
-   the mailmap, and anyone else's is for its owner to choose (their own
-   no-reply address, say); then start again in a fresh clone. Then, in the
-   clone that passes, the starter's files as the release candidate's `init`
-   writes them (its pins on rc.1's commit), but for the starter's sample
-   roadmap; the demo's data stamped `format: 1`; a commit of those, as the
-   no-reply address (a fresh clone commits as your global git identity); the
-   same check, which now takes in that commit; and the demo's own repository
-   (pushing workflow files takes SSH, or a token with the workflow scope):
+   The last command fails if any address is left but a GitHub no-reply one,
+   naming each: then stop. What such an address becomes is decided by hand,
+   never by mapping it to yours: another of your own goes in `OLD`, and
+   anyone else's is for its owner to choose (their own no-reply address,
+   say); then start again in a fresh clone. Then, in the clone that passes,
+   the starter's files as the release candidate's `init` writes them (its
+   pins on rc.1's commit), but for the starter's sample roadmap; the demo's
+   data stamped `format: 1`; a commit of those, as the no-reply address (a
+   fresh clone commits as your global git identity); the same check, which
+   now takes in that commit; and the demo's own repository (pushing workflow
+   files takes SSH, or a token with the workflow scope):
 
    ```sh
    curl -fsSLo ../boxops.mjs https://github.com/Allenfp/BoxOps/releases/download/v0.1.0-rc.1/boxops.mjs &&
