@@ -383,7 +383,8 @@ export interface ActionOptions {
  * Runs the action; returns the exit code (0 success, 1 failure). Never
  * throws: what stops it (the format gate, a roadmap that can't be read, a
  * guard) is an error annotation, the `result` output ("failed: …") and that
- * line in the job summary, where the run's page shows it.
+ * line in the job summary, where the run's page shows it (the output and
+ * the summary where they can be written).
  */
 export async function runAction(o: ActionOptions = {}): Promise<number> {
   const env = o.env ?? process.env;
@@ -397,13 +398,17 @@ export async function runAction(o: ActionOptions = {}): Promise<number> {
     runner.annotate("error", message, { title: TITLE, ...(file !== undefined && { file }), ...(line !== undefined && { line }) });
     // One line, as the result is (git's errors can run to several); the annotation has them all.
     const failed = `failed: ${message.split("\n").map((l) => l.trim()).filter(Boolean).join(" ")}`;
-    runner.setOutput("result", failed);
-    try {
-      const version = (o.identity ?? identity()).version;
-      runner.summary(`### ${TITLE} ${version}\n\n${codeBlock(clip(failed))}`);
-    } catch {
-      // No summary to write to (an unwritable $GITHUB_STEP_SUMMARY): the annotation and the output say it.
-    }
+    // Each write on its own, and none throws: an unwritable $GITHUB_OUTPUT or $GITHUB_STEP_SUMMARY (what
+    // stopped it, maybe) leaves the annotation and the exit code to say it.
+    const attempt = (write: () => void) => {
+      try {
+        write();
+      } catch {
+        // Nowhere to write it.
+      }
+    };
+    attempt(() => runner.setOutput("result", failed));
+    attempt(() => runner.summary(`### ${TITLE} ${(o.identity ?? identity()).version}\n\n${codeBlock(clip(failed))}`));
     return 1;
   }
 }

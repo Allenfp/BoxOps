@@ -231,6 +231,26 @@ describe("platform and inputs (step 1)", () => {
     ]);
   });
 
+  it("fails with its annotation, never a throw, when the outputs can't be written, nor the summary", async () => {
+    const { repo } = workspace();
+    const nowhere = () => join(tempDir(), "no", "file");
+    // What stopped it was something else (an input), or the outputs' file itself; the summary written, or not.
+    for (const [extra, said] of [
+      [{ INPUT_MODE: "deploy", GITHUB_OUTPUT: nowhere() }, 'Input mode is "deploy"; it must be "build" or "check"'],
+      [{ INPUT_MODE: "deploy", GITHUB_OUTPUT: nowhere(), GITHUB_STEP_SUMMARY: nowhere() }, 'Input mode is "deploy"; it must be "build" or "check"'],
+      [{ GITHUB_OUTPUT: nowhere() }, "ENOENT: no such file or directory"],
+      [{ GITHUB_OUTPUT: nowhere(), GITHUB_STEP_SUMMARY: nowhere() }, "ENOENT: no such file or directory"],
+    ] as [Record<string, string>, string][]) {
+      const env = { ...actionsEnv(repo.dir), ...extra };
+      const log: string[] = [];
+      const code = await runAction({ env, out: (l) => log.push(l), cliDir: makeRelease(), identity: ID }).catch((e: unknown) => `threw ${String(e)}`);
+      expect([extra, code, log.length, log[0]?.startsWith(`::error title=BoxOps::${said}`)]).toEqual([extra, 1, 1, true]);
+      // The summary, where it can be written, has the result's line.
+      const summary = extra.GITHUB_STEP_SUMMARY ? null : readFileSync(env.GITHUB_STEP_SUMMARY, "utf8");
+      expect([extra, summary?.startsWith(`### BoxOps 0.1.0\n\n\`\`\`text\nfailed: ${said}`) ?? null]).toEqual([extra, extra.GITHUB_STEP_SUMMARY ? null : true]);
+    }
+  });
+
   it("takes Path B's flags in place of inputs", async () => {
     const { repo } = workspace();
     const out = join(tempDir(), "site");
