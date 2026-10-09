@@ -302,9 +302,10 @@ What a web proxy or a network filter must let through:
   `Allenfp/BoxOps`; its releases feed
   (https://github.com/Allenfp/BoxOps/releases.atom) works without an
   account, and each deploy warns of a security release anyway.
-- **Reporting a security problem in BoxOps**: privately, on
-  `Allenfp/BoxOps`, from a personal GitHub account if a managed one can't,
-  or by email ([security.md](security.md#reporting-a-security-problem)).
+- **Reporting a security problem in BoxOps**: privately, through GitHub's
+  private vulnerability reporting on `Allenfp/BoxOps`, or, if a managed
+  account can't use it, by email
+  ([security.md](security.md#reporting-a-security-problem)).
 - **Repository collaborators** (managed users who aren't members of the
   roadmap's organization) can't use fine-grained tokens on it: they need a
   classic token with the `repo` scope, which needs no single sign-on
