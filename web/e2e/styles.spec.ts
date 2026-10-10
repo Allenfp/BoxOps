@@ -261,7 +261,7 @@ test("the table's and People's column headers are shown whole, none running unde
   }
 });
 
-/** Scroll the timeline `dx` px across, and wait for the scroll event, on which the app fits the names along the top (none comes at the end). */
+/** Scroll the timeline `dx` px across, and wait for the scroll event, on which the app fits the labels along the top (none comes at the end). */
 const scrollAcross = (timeline: Locator, dx: number) =>
   timeline.evaluate(
     (el, dx) =>
@@ -275,23 +275,24 @@ const scrollAcross = (timeline: Locator, dx: number) =>
   );
 
 /**
- * In the page, of the timeline `el`: each name shown along the top, by its cell's place in the row,
- * its text, and whether it's all on screen, within its cell. `watch`: from now on, each time the
- * timeline's size is observed too, the names then not whole go in `window.cutAtResize`, and its
+ * In the page, of the timeline `el`: each label shown in a row of dates along the top (`band` 0, the
+ * months' or quarters' names; 1, the days, weeks or months under them), by its cell's place in the
+ * row: its text, and whether it's all on screen, within its cell. `watch`: from now on, each time the
+ * timeline's size is observed too, the labels then not whole go in `window.cutAtResize`, and its
  * width in `window.observedWidth`. Observers are called in the order they were made, so this one
  * comes after the app's, in the same frame, before it's painted: what it sees is what's painted.
  */
-function namesOf(el: Element, watch?: boolean) {
+function namesOf(el: Element, { band = 0, watch = false }: { band?: number; watch?: boolean } = {}) {
   const shown = () => {
     const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
     const right = el.getBoundingClientRect().left + el.clientWidth;
-    const cells = [...el.querySelectorAll<HTMLElement>(".band-0 .band-cell")];
+    const cells = [...el.querySelectorAll<HTMLElement>(`.band-${band} .band-cell`)];
     return cells.flatMap((cell, i) => {
       const text = cell.querySelector("span")!;
       const range = document.createRange();
       range.selectNodeContents(text);
       const r = range.getBoundingClientRect();
-      // On screen of its cell: right of the column, left of the next cell (drawn over it) and the screen's edge.
+      // On screen of its cell: right of the column, left of the next cell (drawn over it, along the top) and the screen's edge.
       const from = Math.max(edge, cell.getBoundingClientRect().left);
       const to = Math.min(cells[i + 1]?.getBoundingClientRect().left ?? Infinity, right);
       if (!text.textContent || Math.min(r.right, to) <= Math.max(r.left, from)) return [];
@@ -312,7 +313,16 @@ interface Watched {
   cutAtResize: string[];
   observedWidth: number;
 }
-const namesShown = (timeline: Locator) => timeline.evaluate(namesOf);
+const namesShown = (timeline: Locator, band = 0) => timeline.evaluate(namesOf, { band });
+/** In the page, of the timeline `el`: the second row's cells all on screen, with room for their dates, that show none, by their place in the row. */
+function bareCells(el: Element) {
+  const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
+  const right = el.getBoundingClientRect().left + el.clientWidth;
+  return [...el.querySelectorAll(".band-1 .band-cell")].flatMap((cell, i) => {
+    const r = cell.getBoundingClientRect();
+    return r.left > edge + 0.5 && r.right < right - 0.5 && !cell.textContent ? [i] : [];
+  });
+}
 
 test("a month's or quarter's name along the top is never cut off: whole where its cell has room on screen, else short, else not shown", async ({
   page,
@@ -345,23 +355,60 @@ test("a month's or quarter's name along the top is never cut off: whole where it
   }
 });
 
-for (const zoom of ["Months", "Quarters"]) {
-  test(`a name along the top is fitted to a narrower window before it's painted, never shown cut (${zoom} zoom)`, async ({ page, github: _ }) => {
+for (const zoom of ["Weeks", "Months", "Quarters"]) {
+  test(`a date in the second row along the top is never cut off: whole where it has room on screen, else not shown (${zoom} zoom)`, async ({
+    page,
+    github: _,
+  }) => {
+    const timeline = page.locator(".timeline");
+    await page.setViewportSize({ width: 1000, height: 700 });
+    await page.getByRole("button", { name: zoom, exact: true }).click();
+    /** The dates shown: none cut off by the label column or the screen's edge, and every one with room on screen there. */
+    const checked = async (when: string) => {
+      const dates = await namesShown(timeline, 1);
+      expect(dates.filter((n) => !n.whole), `${when}: cut off`).toEqual([]);
+      expect(await timeline.evaluate(bareCells), `${when}: not shown, with room`).toEqual([]);
+      return dates;
+    };
+    await checked("as it opens");
+    // A day (a week, a month) starting 9 px right of the label column, then scrolled on 3 px at a time till
+    // it's past it: its date, at the column's edge, is whole, then not shown ("31" would read "1").
+    const [i, dx] = await timeline.evaluate((el) => {
+      const edge = el.querySelector(".tl-corner")!.getBoundingClientRect().right;
+      const lefts = [...el.querySelectorAll(".band-1 .band-cell")].map((c) => c.getBoundingClientRect().left);
+      const i = lefts.findIndex((x) => x > edge + 9);
+      return [i, lefts[i] - edge - 9];
+    });
+    await scrollAcross(timeline, dx);
+    const seen: string[] = [];
+    for (let step = 0; step < 16; step++) {
+      const dates = await checked(`step ${step}`);
+      const date = dates.find((n) => n.i === i)?.text ?? "";
+      if (date !== seen.at(-1)) seen.push(date);
+      await scrollAcross(timeline, 3);
+    }
+    expect(seen).toEqual([expect.stringMatching(/^\w+$/), ""]);
+  });
+}
+
+for (const [band, zoom] of [[0, "Months"], [0, "Quarters"], [1, "Weeks"], [1, "Months"], [1, "Quarters"]] as const) {
+  const what = band === 0 ? "a name along the top" : "a date in the second row along the top";
+  test(`${what} is fitted to a narrower window before it's painted, never shown cut (${zoom} zoom)`, async ({ page, github: _ }) => {
     const timeline = page.locator(".timeline");
     await page.getByRole("button", { name: zoom, exact: true }).click();
-    await expect.poll(async () => (await namesShown(timeline)).filter((n) => !n.whole)).toEqual([]);
-    await timeline.evaluate(namesOf, true);
-    // Narrowed till the screen's edge is 5 px into the last name on it.
-    const [width, into] = await timeline.evaluate((el) => {
+    await expect.poll(async () => (await namesShown(timeline, band)).filter((n) => !n.whole)).toEqual([]);
+    await timeline.evaluate(namesOf, { band, watch: true });
+    // Narrowed till the screen's edge is 5 px into the last label on it.
+    const [width, into] = await timeline.evaluate((el, band) => {
       const right = el.getBoundingClientRect().left + el.clientWidth;
-      const ends = [...el.querySelectorAll(".band-0 .band-cell span")].flatMap((name) => {
+      const ends = [...el.querySelectorAll(`.band-${band} .band-cell span`)].flatMap((name) => {
         const range = document.createRange();
         range.selectNodeContents(name);
         const end = range.getBoundingClientRect().right;
         return name.textContent && end <= right ? [end] : [];
       });
       return [el.clientWidth, Math.ceil(right - Math.max(...ends) + 5)];
-    });
+    }, band);
     const watched = () =>
       page.evaluate(() => {
         const { observedWidth, cutAtResize } = window as unknown as Watched;
@@ -372,7 +419,7 @@ for (const zoom of ["Months", "Quarters"]) {
     await expect.poll(async () => (await watched()).observedWidth).toBe(width - into);
     // Short, or not shown, from the first frame painted narrower.
     expect((await watched()).cutAtResize).toEqual([]);
-    expect((await namesShown(timeline)).filter((n) => !n.whole)).toEqual([]);
+    expect((await namesShown(timeline, band)).filter((n) => !n.whole)).toEqual([]);
   });
 }
 

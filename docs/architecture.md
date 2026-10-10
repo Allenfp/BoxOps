@@ -926,9 +926,13 @@ when a focused element is removed.
   month's name (a quarter's, at quarters zoom) stays at the label column's
   edge while its days scroll by. It's never shown cut off: where what's on
   screen of its cell, up to the next one's or the screen's edge, hasn't room
-  for it, it's short ("Aug", "Q3"), or not shown at all (`labelsCut` in
-  `timeline/scale.ts`, fitted as the timeline scrolls or changes size,
-  before that frame is painted).
+  for it, it's short ("Aug", "Q3"), or not shown at all. The row under it
+  (days at weeks zoom, weeks by their Monday at months zoom, months at
+  quarters zoom) has each date at its cell's start. A date is shown only
+  where it has room on screen and in its cell, so the label column or the
+  screen's edge never cuts one ("31" would read "1"). Both rows are fitted
+  as the timeline scrolls or changes size, before that frame is painted
+  (`labelsCut` in `timeline/scale.ts`).
 - **Lanes and FTE.** A department is a stack of half-FTE slots (a 1-FTE lane is
   two). A box is as tall as its FTE. It goes in its own lane when there's room,
   else in the nearest free space in the department. Several placement orders

@@ -130,16 +130,26 @@ export function headerBands(scale: Scale, fyStartMonth: number): [Segment[], Seg
 export type LabelCut = "short" | "none";
 
 /**
- * The top band's labels that don't fit whole on screen, by their cells' start: each stays at the
- * label column's edge while its cell's days scroll by (the stylesheet's sticky), so it has from
- * there, or from its cell's start, to the next cell's start or the screen's edge. Too little room
- * for its label, it's short, else nothing (none never shows cut off). `left` and `right`: the
- * band's pixels on screen; `width`: a label's as drawn, with the room it keeps either side.
+ * A band's labels that don't fit whole on screen, by their cells' start. The top band's stay at the
+ * label column's edge while their cells' days scroll by (`sticky`, the stylesheet's), so each has
+ * from there, or from its cell's start, to the next cell's start or the screen's edge. The band
+ * under it has its labels at their cells' start, so each has from there to the next cell's start or
+ * the screen's edge, and none once its cell starts under the column. Too little room for its label,
+ * it's short, else nothing (none never shows cut off). `left` and `right`: the band's pixels on
+ * screen; `width`: a label's as drawn, with the room it keeps either side.
  */
-export function labelsCut(cells: Segment[], scale: Scale, left: number, right: number, width: (label: string) => number): Map<Day, LabelCut> {
+export function labelsCut(
+  cells: Segment[],
+  scale: Scale,
+  left: number,
+  right: number,
+  width: (label: string) => number,
+  { sticky = true }: { sticky?: boolean } = {},
+): Map<Day, LabelCut> {
   const cut = new Map<Day, LabelCut>();
   for (const cell of cells) {
-    const room = Math.min(scale.x(cell.end), right) - Math.max(scale.x(cell.start), left);
+    const start = scale.x(cell.start);
+    const room = sticky || start >= left ? Math.min(scale.x(cell.end), right) - Math.max(start, left) : -Infinity;
     if (width(cell.label) <= room) continue;
     cut.set(cell.start, cell.short !== undefined && width(cell.short) <= room ? "short" : "none");
   }

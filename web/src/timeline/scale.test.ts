@@ -103,4 +103,42 @@ describe("the labels along the top", () => {
       expect([...labelsCut([cell], scale, 0, 690, width)]).toEqual([[d("2026-09-01"), "none"]]);
     });
   });
+
+  describe("labelsCut for the dates under them, each at its cell's start (sticky: false)", () => {
+    // Weeks zoom, 40 px a working day: Wednesday 2026-07-01's cell runs to 40 px, Thursday's to 80,
+    // Friday's to 120, Monday 2026-07-06's to 160. A date as drawn 7 px a digit, and 12 px of padding.
+    const scale = makeScale(d("2026-07-01"), d("2026-10-01"), "weeks");
+    const days = headerBands(scale, 1)[1].slice(0, 4);
+    const width = (label: string) => label.length * 7 + 12;
+    const cut = (left: number, right: number) =>
+      Object.fromEntries([...labelsCut(days, scale, left, right, width, { sticky: false })].map(([day, c]) => [formatDay(day), c]));
+
+    it("leaves a date whole where it's all on screen", () => {
+      expect(days.map((s) => s.label)).toEqual(["1", "2", "3", "6"]);
+      expect(cut(0, 160)).toEqual({});
+      expect(cut(40, 139)).toEqual({ "2026-07-01": "none" }); // Monday's "6" from 120 to 139
+    });
+
+    it("at the label column's edge: nothing once its cell starts under it, though the rest of the cell has room", () => {
+      expect(cut(0.5, 160)).toEqual({ "2026-07-01": "none" });
+      expect(cut(39, 160)).toEqual({ "2026-07-01": "none" });
+      expect(cut(41, 160)).toEqual({ "2026-07-01": "none", "2026-07-02": "none" });
+      // The names along the top stay at the column's edge: there, 30 px of Wednesday's cell would be room.
+      expect([...labelsCut(days, scale, 10, 160, width)]).toEqual([]);
+    });
+
+    it("at the screen's edge: nothing, then whole, as its cell comes on", () => {
+      expect(cut(0, 120)).toEqual({ "2026-07-06": "none" }); // not on screen
+      expect(cut(0, 138)).toEqual({ "2026-07-06": "none" }); // 18 px
+      expect(cut(0, 139)).toEqual({}); // 19 px
+    });
+
+    it("cuts to nothing a date its cell is too narrow for, on screen or not", () => {
+      // Months zoom from Friday 2027-01-01: the first week's cell is that day alone (14.7 px), named by its Monday.
+      const months = makeScale(d("2027-01-01"), d("2027-04-01"), "months");
+      const weeks = headerBands(months, 1)[1].slice(0, 2);
+      expect(weeks.map((s) => s.label)).toEqual(["28", "4"]);
+      expect([...labelsCut(weeks, months, 0, 1000, width, { sticky: false })]).toEqual([[d("2027-01-01"), "none"]]);
+    });
+  });
 });

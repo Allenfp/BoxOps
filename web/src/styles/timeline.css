@@ -53,7 +53,10 @@
   /* Its cells run on past its end (below): not into the room the timeline scrolls. */
   overflow: clip;
 }
-/* The fine dates sit at the top, the Today flag below them: it never covers a date, at any zoom. */
+/*
+ * The fine dates sit at the top, the Today flag below them: it never covers a date, at any zoom. A date that
+ * the label column or the screen's edge would cut isn't shown (Timeline.tsx, labelsCut in timeline/scale.ts).
+ */
 .tl-band.band-1 {
   height: 36px;
   color: var(--text-muted);

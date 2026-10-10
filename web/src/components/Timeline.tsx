@@ -303,18 +303,23 @@ export function Timeline(props: Props) {
   // The dates along the top. A month's name (a quarter's, at quarters zoom) stays at the label
   // column's edge while its days scroll by, whole while what's on screen of its cell has room for
   // it, else short ("Aug", "Q3"), else not at all (labelsCut): never cut off by the next one's cell
-  // or the screen's edge. Fitted as the timeline scrolls, changes size or draws new ones.
-  const [cut, setCut] = useState<ReadonlyMap<Day, LabelCut>>(NOTHING_CUT);
-  /** A top label's width as drawn, its padding included: measured with its font, again once the timeline changes size. */
-  const labelWidth = useRef<((label: string) => number) | null>(null);
+  // or the screen's edge. The dates under them (days, weeks, or at quarters zoom months) stay at
+  // their cells' start, shown where they have room on screen and in their cells, else not at all:
+  // never cut off by the label column or the screen's edge ("31" would read "1"). Both rows are
+  // fitted as the timeline scrolls, changes size or draws new ones.
+  const [cut, setCut] = useState<BandCuts>(NOTHING_CUT);
+  /** Each band's labels' width as drawn, their padding included: measured with their fonts, again once the timeline changes size. */
+  const labelWidths = useRef<[Measure, Measure] | null>(null);
   const fitLabels = useRef(() => {});
   fitLabels.current = () => {
     const el = scrollRef.current;
-    const label = el?.querySelector<HTMLElement>(".band-0 .band-cell span");
-    if (!el || !label) return;
-    labelWidth.current ??= measurer(label);
-    const next = labelsCut(bands[0], scale, el.scrollLeft, el.scrollLeft + trackWidth(), labelWidth.current);
-    setCut((now) => (now.size === next.size && [...next].every(([day, c]) => now.get(day) === c) ? now : next));
+    const top = el?.querySelector<HTMLElement>(".band-0 .band-cell span");
+    const under = el?.querySelector<HTMLElement>(".band-1 .band-cell span");
+    if (!el || !top || !under) return;
+    const [topWidth, underWidth] = (labelWidths.current ??= [measurer(top), measurer(under)]);
+    const [left, right] = [el.scrollLeft, el.scrollLeft + trackWidth()];
+    const next: BandCuts = [labelsCut(bands[0], scale, left, right, topWidth), labelsCut(bands[1], scale, left, right, underWidth, { sticky: false })];
+    setCut((now) => (sameCut(now[0], next[0]) && sameCut(now[1], next[1]) ? now : next));
   };
 
   // On a big roadmap, only the part of the timeline near the screen is drawn: `area`, in pixels
@@ -334,8 +339,8 @@ export function Timeline(props: Props) {
     if (!el) return;
     const resized = new ResizeObserver(() => {
       if (centerDay.current === null) opening.current();
-      // Its stylesheet in (Safari can draw the timeline first), the labels' font may be too.
-      labelWidth.current = null;
+      // Its stylesheet in (Safari can draw the timeline first), the labels' fonts may be too.
+      labelWidths.current = null;
       // Drawn before the frame is painted, as on a scroll.
       flushSync(() => {
         measure();
@@ -963,7 +968,7 @@ export function Timeline(props: Props) {
       bands.map((band, i) => (
         <div key={i} className={`tl-band band-${i}`}>
           {band.map((s) => (
-            <BandCell key={s.start} seg={s} scale={scale} cut={i === 0 ? cut.get(s.start) : undefined} />
+            <BandCell key={s.start} seg={s} scale={scale} cut={cut[i].get(s.start)} />
           ))}
         </div>
       )),
@@ -1795,8 +1800,11 @@ const overloadOf = cached((boxes: Box[], dept: Department) => overCapacity(dept,
 const rowsOf = cached((layout: DepartmentLayout, boxes: Box[]) => boxRows(layout, boxes));
 const packed = cached((entries: PtoEntry[], _: void) => packRows(entries));
 
-/** `cut`: the label's short form, or none, where it doesn't fit (labelsCut). */
-function BandCell({ seg, scale, cut }: { seg: Segment; scale: Scale; cut?: LabelCut }) {
+/**
+ * `cut`: the label's short form, or none, where it doesn't fit (labelsCut). Drawn again only when
+ * that changes: a scroll changes it for the few cells at the screen's edges.
+ */
+const BandCell = memo(function BandCell({ seg, scale, cut }: { seg: Segment; scale: Scale; cut?: LabelCut }) {
   const width = scale.x(seg.end) - scale.x(seg.start);
   if (width <= 0) return null;
   return (
@@ -1804,13 +1812,18 @@ function BandCell({ seg, scale, cut }: { seg: Segment; scale: Scale; cut?: Label
       <span>{cut === "none" ? "" : cut === "short" ? seg.short : seg.label}</span>
     </div>
   );
-}
+});
 
+/** Each band's labels cut short (labelsCut), by their cells' start: the top band's, then the one under it. */
+type BandCuts = readonly [ReadonlyMap<Day, LabelCut>, ReadonlyMap<Day, LabelCut>];
 /** No label along the top cut short. */
-const NOTHING_CUT: ReadonlyMap<Day, LabelCut> = new Map();
+const NOTHING_CUT: BandCuts = [new Map(), new Map()];
+const sameCut = (a: ReadonlyMap<Day, LabelCut>, b: ReadonlyMap<Day, LabelCut>) => a.size === b.size && [...b].every(([day, c]) => a.get(day) === c);
 
+/** A text's width as drawn (measurer). */
+type Measure = (text: string) => number;
 /** Measures a text as drawn in `el`, with its font and its padding either side. */
-function measurer(el: HTMLElement): (text: string) => number {
+function measurer(el: HTMLElement): Measure {
   const style = getComputedStyle(el);
   const ctx = document.createElement("canvas").getContext("2d");
   if (!ctx) return () => 0;
