@@ -67,11 +67,12 @@ their changes itself (below).
    ```
 
    Then, in the same shell, set `OLD` to your own addresses from that list,
-   and no one else's, separated by spaces: `OLD='…'`. Put in each spelling
-   it shows (an address written with its first letter in either case shows
-   twice). This page names none of them, as it's public. The next command
-   writes the mailmap from `OLD`, outside the clone, mapping those addresses
-   alone to `29790605+Allenfp@users.noreply.github.com`; then
+   and no one else's, separated by spaces: `OLD='…'`. An address the list
+   shows twice, its first letter in either case, goes in once: the rewrite
+   below matches addresses whatever their case. This page names none of
+   them, as it's public. The next command writes the mailmap from `OLD`,
+   outside the clone, mapping those addresses alone to
+   `29790605+Allenfp@users.noreply.github.com`; then
    `git filter-repo` (which rewrites the clone it runs in, and needs
    [git-filter-repo](https://github.com/newren/git-filter-repo)) keeps
    `roadmap/`'s history alone, with them replaced:
