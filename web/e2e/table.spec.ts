@@ -213,17 +213,25 @@ test("a row's scale card, the pointer on it, lets a press or the wheel through t
   await scroller.evaluate((el) => (el.scrollTop = 0));
   await expect.poll(top).toBe(0);
 
-  // The second row's End field, under the card's left end.
+  // The second row's End date, under the card's left end: its field, or in wider fonts than Apple's its calendar
+  // button, which sits over the field's right end.
   const end = rows.nth(1).getByLabel("End");
   const field = (await end.boundingBox())!;
+  let at = { x: 0, y: 0 };
   await onCard((c) => {
     expect(field.x + field.width).toBeGreaterThan(c.x + 20);
     expect(field.y).toBeGreaterThan(c.y);
-    return { x: c.x + 10, y: field.y + field.height / 2 };
+    return (at = { x: c.x + 10, y: field.y + field.height / 2 });
   });
+  const under = await page.evaluate(({ x, y }) => {
+    const el = document.elementsFromPoint(x, y).find((e) => !e.closest("[role=tooltip]"))!;
+    return el.closest("button")?.getAttribute("aria-label") ?? el.getAttribute("aria-label");
+  }, at);
+  expect(["End", "Choose date"]).toContain(under);
   await page.mouse.down();
   await page.mouse.up();
-  await expect(end).toBeFocused();
+  if (under === "End") await expect(end).toBeFocused();
+  else await expect(rows.nth(1).getByRole("grid")).toBeVisible(); // the calendar, opened
   await expect(card).toHaveCount(0);
 });
 

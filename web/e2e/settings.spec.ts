@@ -114,6 +114,9 @@ test("the keyboard shortcuts, taller than the window: the title and Close stay p
   await page.keyboard.press("PageDown");
   await expect.poll(() => dialog.evaluate((d) => d.scrollTop)).toBeGreaterThan(300);
   await expect(more).toBeVisible();
+  // End once PageDown's scroll (smooth in Chromium) is over: pressed during it, it can be lost on a slow machine.
+  let last = -1;
+  await expect.poll(async () => last === (last = await dialog.evaluate((d) => d.scrollTop))).toBe(true);
   await page.keyboard.press("End");
   await expect.poll(() => dialog.evaluate((d) => d.scrollTop + d.clientHeight >= d.scrollHeight - 2)).toBe(true);
   await expect(more).toBeHidden();
