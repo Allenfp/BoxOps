@@ -3,8 +3,9 @@
 // changes made and nothing else, so copying it over the live one then undoes
 // no change made since. When a live file changes, this fails until its staged
 // copy is made again: copy the live file over it, then make the changes below.
-// The README names each doc that names npm run dev, validate or report, whose
-// default folder the cutover changes, for the cutover commit to reword.
+// The steps the README gives for the cutover commit name each doc that names
+// npm run dev, validate or report (whose default folder the cutover changes),
+// saying what changes in it.
 // The redirect the cutover publishes at allenfp.github.io/BoxOps/ is checked
 // too: it keeps the address's query and hash, under its own CSP. So is the
 // README's step 3, which makes the demo's history: it lists the history's
@@ -192,15 +193,17 @@ describe("the files staged for the cutover (cutover/)", () => {
     for (const path of Object.keys(STAGED)) expect(readme).toContain(`\`${path}\``);
   });
 
-  it("has its README name each doc that names npm run dev, validate or report, for the cutover commit to reword", () => {
+  it("has its README's steps for the cutover commit name each doc that names npm run dev, validate or report", () => {
     // The staged vite.config.ts and roadmap-dir.ts move what those read by default from roadmap/, which
     // the cutover commit deletes, to the browser tests' roadmap. A doc of this repository that names one
-    // (not starter/'s or templates/', which are a roadmap repository's) changes in that commit too.
+    // (not starter/'s or templates/', which are a roadmap repository's) changes in that commit too,
+    // so a step of it says what changes there: the doc named elsewhere in the README isn't enough.
     const listed = execFileSync("git", ["ls-files", "-z", "--", "*.md", ":!cutover", ":!starter", ":!templates"], { cwd: new URL("../..", import.meta.url), encoding: "utf8" });
     const docs = listed.split("\0").filter((path) => path && /\bnpm run (?:dev|validate|report)\b/.test(read(path)));
     expect(docs).toContain("README.md");
-    const readme = read("cutover/README.md");
-    expect(docs.filter((path) => !readme.includes(`\`${path}\``)), "docs the cutover README should say what the cutover commit changes in").toEqual([]);
+    const steps = read("cutover/README.md").split(/^## /m).find((part) => part.startsWith("The cutover commit\n")) ?? "";
+    expect(steps, "cutover/README.md's section “The cutover commit”").not.toBe("");
+    expect(docs.filter((path) => !steps.includes(`\`${path}\``)), "docs the cutover commit's steps should say what changes in").toEqual([]);
   });
 });
 
