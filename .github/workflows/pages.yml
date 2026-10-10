@@ -131,17 +131,18 @@ jobs:
       - name: Assemble the site (the app, and roadmap.json from roadmap/)
         run: node dist/boxops.mjs build --out "$RUNNER_TEMP/site"
 
-      # No browser cache: the WebKit download is a few seconds of this step,
+      # No browser cache: the Chromium download is a few seconds of this step,
       # and a cache keyed only on runner.os restores the wrong Ubuntu's build.
-      - name: Install WebKit
+      - name: Install Chromium
         if: steps.changes.outputs.app == 'true'
-        run: npx playwright install --with-deps webkit
-      # In WebKit only: CI (ci.yml) runs them in Chromium and Firefox too, before
-      # a merge. Here every minute holds up the saves deploying behind this run.
+        run: npx playwright install --with-deps chromium
+      # In Chromium only: CI (ci.yml) runs them in every engine before a merge,
+      # WebKit on macOS, as Linux's WebKit has other fonts and no overlay
+      # scrollbars. Here every minute holds up the saves deploying behind this run.
       - name: Browser tests
         if: steps.changes.outputs.app == 'true'
         timeout-minutes: 20
-        run: npx playwright test --project='webkit*'
+        run: npx playwright test --project=chromium
       - name: Upload browser test report
         if: failure() && steps.changes.outputs.app == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
