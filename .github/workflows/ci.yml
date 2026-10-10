@@ -214,8 +214,9 @@ jobs:
           - os: ubuntu-24.04
             browsers: chromium firefox
     # Generous: on a private repository's 2-CPU runner Playwright runs one test
-    # at a time, and the browser tests alone may take half an hour (estimated).
-    timeout-minutes: 60
+    # at a time, and the browser tests alone may take half an hour (estimated);
+    # GitHub's macOS runner takes about 40 minutes for WebKit's.
+    timeout-minutes: 75
     permissions:
       contents: read # check out the repo
     defaults:
@@ -284,7 +285,7 @@ jobs:
       # is the one the tests serve.
       - name: Browser tests (WebKit)
         if: matrix.browsers == 'webkit'
-        timeout-minutes: 20
+        timeout-minutes: 50
         run: npx playwright test --project='webkit*'
       - name: Browser tests (Chromium)
         if: matrix.browsers != 'webkit'
