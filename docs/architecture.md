@@ -614,11 +614,12 @@ against data the new code wrote.
   one of them opens isn't typed; the browser's own shortcuts, ⌘F say, aren't
   held; Tab meanwhile goes on, as it does mid-move, and the box is moved and
   dropped once the code is here; past 4 seconds, the keys are the
-  timeline's again and it says to press Space again); the settings menu's
-  contents when the pointer reaches the gear; the key, the keyboard
-  shortcuts and a private branch's token form when they first show; the save
-  dialog, the broken-rule popup, saving's code (with what the toolbar says
-  while a save runs) and the YAML parser once someone starts editing.
+  timeline's again and it says to press Space again, to screen readers
+  only); the settings menu's contents when the pointer reaches the
+  gear; the key, the keyboard shortcuts and a private branch's token
+  form when they first show; the save dialog, the broken-rule popup,
+  saving's code (with what the toolbar says while a save runs) and the
+  YAML parser once someone starts editing.
   File names change only with the app's code (the build time is in
   `index.html`), so a tab left open across roadmap saves can still fetch
   them. A part that can't be fetched (the connection dropped, or an app
