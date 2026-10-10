@@ -235,7 +235,8 @@ writes to `main` here but merged pull requests, so it gets its ruleset too:
    no bypass at all; Target branches: Include default branch; Restrict
    deletions, Block force pushes, Require a pull request before merging (0
    approvals), Require status checks to pass: CI's jobs `test`,
-   `release tree`, `browser tests`, `smoke (ubuntu-24.04)`,
+   `release tree`, `browser tests (webkit)` (on macOS),
+   `browser tests (chromium firefox)`, `smoke (ubuntu-24.04)`,
    `smoke (ubuntu-24.04-arm)`, `smoke (ubuntu-26.04)` and `workflows`, each
    with GitHub Actions as its source, so that no commit status or other
    app's check of the same name stands in for CI's (setting a status takes
@@ -253,7 +254,8 @@ writes to `main` here but merged pull requests, so it gets its ruleset too:
                 "required_status_checks": [
                   {"context": "test", "integration_id": 15368},
                   {"context": "release tree", "integration_id": 15368},
-                  {"context": "browser tests", "integration_id": 15368},
+                  {"context": "browser tests (webkit)", "integration_id": 15368},
+                  {"context": "browser tests (chromium firefox)", "integration_id": 15368},
                   {"context": "smoke (ubuntu-24.04)", "integration_id": 15368},
                   {"context": "smoke (ubuntu-24.04-arm)", "integration_id": 15368},
                   {"context": "smoke (ubuntu-26.04)", "integration_id": 15368},
