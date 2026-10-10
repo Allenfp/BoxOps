@@ -101,8 +101,11 @@ to only by the release workflow (such as `Allenfp/boxops-action`), before
   runtime token, which the run's artifacts and caches take too. And every
   step of the job runs on one machine as one user (with `sudo`, on GitHub's
   runners), so it can reach what the other steps hold or leave there, the
-  job's GitHub token among them, as they can reach the key. The key is kept
-  to the publish job, not to one of its steps.
+  job's GitHub token among them, as they can reach the key. That token has
+  the job's `contents: write` and `attestations: write`: with it, a step
+  can push where no ruleset stops it, make a release, and store
+  attestations on the repository. The key is kept to the publish job, not
+  to one of its steps.
 - **Signed and fixed.** Every file of the release tree, and its tarball, get
   a provenance attestation (a signed statement of which workflow run built
   them, from which commit); the tarball an SBOM attestation too: a signed
