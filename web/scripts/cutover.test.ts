@@ -211,9 +211,10 @@ describe("the demo's history, as its README's step 3 has it made (before the cut
   const noReply = (address: string) => address.endsWith("@users.noreply.github.com") || address === "noreply@github.com";
 
   it("names no address but GitHub's no-reply ones: the maintainer's own are set in OLD at the time", () => {
-    // An SSH remote's user, git@ (git@github.com:Allenfp/boxops-demo.git), is no one's address.
+    // git@github.com, an SSH remote's user and host (git@github.com:Allenfp/boxops-demo.git), is no
+    // one's address; git@ at another domain may be someone's.
     const named = new Set(read("cutover/README.md").match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g));
-    expect([...named].filter((address) => !noReply(address) && !address.startsWith("git@"))).toEqual([]);
+    expect([...named].filter((address) => !noReply(address) && address !== "git@github.com")).toEqual([]);
   });
 
   it("lists the history's addresses, maps those set in OLD alone, and its check names any other left, for a decision by hand", () => {
