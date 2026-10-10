@@ -44,6 +44,8 @@ import { type LabelCut, type Scale, type Segment, headerBands, labelsCut, makeSc
 import { type DragMode, dragDays, dropLane, movedDates } from "../timeline/drag";
 import { type GridRow, OVERFLOW, type PtoEntry, boxRows, deptGridRows, drawRange, overlaps, ptoOrder } from "../timeline/rows";
 import { Icon } from "./Icon";
+import { Banner } from "./Banner";
+import { reloadApp } from "../site";
 import { DEFAULT_PREFS, type Prefs } from "../prefs";
 import { keeper } from "../keeper";
 import { UseChart } from "./UseChart";
@@ -841,8 +843,19 @@ export function Timeline(props: Props) {
     if (readOnly || moveCode) return;
     return whenIdle(() => void loadMoveCode().catch(() => {})); // Space tries again, and says if it can't
   }, [readOnly]);
+  /**
+   * Space's fetches of the move's code that failed since it was last here, or since the banner
+   * saying so (over the timeline, as a part of the app that can't load says) was dismissed: each
+   * is said again. The code fetched, by the timeline's focus or by Space, takes the banner away.
+   */
+  const [moveFailures, setMoveFailures] = useState(0);
+  const fetchMoveCode = () =>
+    loadMoveCode().then((code) => {
+      setMoveFailures(0);
+      return code;
+    });
   const onGridFocus = () => {
-    if (!readOnly && !moveCode) loadMoveCode().catch(() => {});
+    if (!readOnly && !moveCode) fetchMoveCode().catch(() => {});
   };
   /** A box or PTO block picked up before the move's code was here: the keys pressed since, held for it (pickUp). */
   const waiting = useRef<{ keys: KeyboardEvent[]; stop(): void } | null>(null);
@@ -889,7 +902,7 @@ export function Timeline(props: Props) {
     const held = (waiting.current = { keys, stop });
     window.addEventListener("keydown", hold, true);
     window.addEventListener("pointerdown", stop, true);
-    loadMoveCode().then(
+    fetchMoveCode().then(
       (code) => {
         const still = waiting.current === held;
         stop();
@@ -900,7 +913,7 @@ export function Timeline(props: Props) {
       },
       () => {
         stop();
-        say("Moving from the keyboard couldn’t load. Check your connection, then press Space again; if the site was updated since this page opened, reload.");
+        setMoveFailures((n) => n + 1);
       },
     );
   };
@@ -1050,7 +1063,7 @@ export function Timeline(props: Props) {
   let top = 0;
   let rowIndex = 1;
 
-  return (
+  const view = (
     <div
       className="timeline"
       ref={scrollRef}
@@ -1191,6 +1204,26 @@ export function Timeline(props: Props) {
         </div>
       </div>
     </div>
+  );
+  // A keyboard move's code that couldn't load says so in a banner over the timeline, as a part of
+  // the app that can't load does in its place (lazyPart.tsx). The timeline stays the second child,
+  // so the banner coming or going never draws it afresh.
+  return (
+    <>
+      {moveFailures > 0 && (
+        <Banner live="assertive" news={moveFailures}>
+          <span>
+            Moving from the keyboard couldn’t load. Check your connection, then press Space again; if the site was
+            updated since this page opened, reload.
+          </span>
+          <button onClick={() => reloadApp("")}>Reload</button>
+          <button className="icon-button" onClick={() => setMoveFailures(0)} aria-label="Dismiss">
+            <Icon name="x" size={16} />
+          </button>
+        </Banner>
+      )}
+      {view}
+    </>
   );
 }
 

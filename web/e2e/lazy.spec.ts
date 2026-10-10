@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import { REPO, TOKEN } from "./fake-github";
-import { DAGSTER, box, boxDates, boxFile, dragDays, expect, heard, save, test, toolbar } from "./helpers";
+import { DAGSTER, box, boxDates, boxFile, dragDays, expect, heard, looseBannerText, said, save, test, toolbar } from "./helpers";
 
 // Code fetched when it's first needed: what saving needs (with the yaml
 // library) once someone starts editing, never just to show the roadmap; a
@@ -400,6 +400,59 @@ moveFails.describe("failing again", () => {
     await page.keyboard.press("Space");
     await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
     expect(fetches).toEqual(["", "?try=1", "?try=2", "?try=3"]);
+  });
+});
+
+/** What a keyboard move whose code couldn't load says, on screen and to screen readers. */
+const MOVE_FAILED = "Moving from the keyboard couldn’t load. Check your connection, then press Space again; if the site was updated since this page opened, reload.";
+
+moveFails.describe("failing every time", () => {
+  moveFails.use({ fails: Infinity });
+
+  moveFails("a keyboard move's code that can't load says so in a banner over the timeline, as other parts do, and to screen readers, at each Space", async ({
+    page,
+    github: _,
+    fetches,
+  }) => {
+    const banner = page.getByRole("main").locator(".banner", { hasText: "Moving from the keyboard couldn’t load" });
+    const times = async () => (await said(page)).filter((m) => m.includes(MOVE_FAILED)).length;
+    await expect.poll(() => failedImports(page)).toBe(1); // once the timeline was drawn
+    await box(page, DAGSTER).focus();
+    await expect.poll(() => failedImports(page)).toBe(2); // once it had focus: not asked for, so nothing's said
+    await expect(banner).toHaveCount(0);
+
+    await page.keyboard.press("Space");
+    await expect(banner).toBeVisible();
+    await expect(banner).toBeInViewport();
+    await expect(banner.locator(":scope > span")).toHaveText(MOVE_FAILED);
+    await expect(banner.getByRole("button", { name: "Reload" })).toBeVisible();
+    expect(await looseBannerText(page)).toEqual([]);
+    await expect.poll(times).toBe(1);
+    await expect(box(page, DAGSTER)).toBeFocused();
+    await expect(box(page, DAGSTER)).not.toHaveClass(/dragging/);
+    // Space again: fetched again, and failing again, said again.
+    await page.keyboard.press("Space");
+    await expect.poll(() => failedImports(page)).toBe(4);
+    await expect.poll(times).toBe(2);
+    await expect(banner).toHaveCount(1);
+    await expect(box(page, DAGSTER)).toBeFocused();
+
+    // Dismissed, it goes, till Space fails again.
+    await banner.getByRole("button", { name: "Dismiss" }).click();
+    await expect(banner).toHaveCount(0);
+    await box(page, DAGSTER).focus();
+    await page.keyboard.press("Space");
+    await expect(banner).toBeVisible();
+    await expect.poll(times).toBe(3);
+    expect(fetches).toEqual(["", "?try=1", "?try=2", "?try=3", "?try=4", "?try=5"]);
+
+    // Once it's fetched, Space picks the box up, and the banner goes.
+    await page.route(/\/assets\/keyMove-[\w-]+\.js(\?.*)?$/, (route) => route.continue());
+    await page.keyboard.press("Space");
+    await expect(box(page, DAGSTER)).toHaveClass(/dragging/);
+    await expect(banner).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(toolbar(page)).toContainText("No changes");
   });
 });
 

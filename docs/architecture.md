@@ -634,7 +634,9 @@ against data the new code wrote.
   keyboard move's code that can't be fetched is fetched again when the
   timeline next has focus or Space is pressed, under another address
   (`?try=1`, `?try=2`…, which the site's host ignores; `vite.config.ts`
-  gives the app its file's): the timeline says to press Space again.
+  gives the app its file's). When Space's fetch fails, a banner over the
+  timeline says to press Space again, with Reload, and screen readers hear
+  it at each failure; it goes once the code is here, or when dismissed.
 - **Screens.** The app is as tall as the window as it is (`100dvh`: a
   phone's browser bars shown or not). Short of room, the toolbar's title
   gives way first, cut short with … (whole in its tooltip), so Save and the
