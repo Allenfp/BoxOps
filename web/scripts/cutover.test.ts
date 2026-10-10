@@ -16,10 +16,15 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { scriptHash } from "../cli/csp";
 import { cleanUp, tempDir } from "../cli/test-release";
 import { SHELLS } from "../cli/test-shell";
+
+// Step 3's test starts 76 programs (for each shell, git making two histories, then the shell
+// running git, sort and awk on each): about a second on a quiet machine, and several times that
+// under load, near or past vitest's 5.
+vi.setConfig({ testTimeout: 30_000 });
 
 /** A file's text, by its path from the repository's top level. */
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
