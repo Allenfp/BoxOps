@@ -56,9 +56,11 @@ their changes itself (below).
    on any of its commits but GitHub's no-reply ones
    (`…@users.noreply.github.com`, and `noreply@github.com`, the committer
    GitHub writes on what's made on its site). That takes in all of
-   `roadmap/`'s history: `git log -- roadmap/` would leave out a merge that
-   changes nothing in `roadmap/`, which `git filter-repo --path roadmap/`
-   keeps while it joins two lines of history.
+   `roadmap/`'s history, which `git log -- roadmap/` wouldn't: at a merge
+   whose `roadmap/` is the same as one parent's, it follows that parent
+   alone, leaving out the merge and the commits on the other line, even
+   those that change `roadmap/`. `git filter-repo --path roadmap/` keeps
+   those, and the merge that joins the two lines.
 
    ```sh
    git clone --no-local https://github.com/Allenfp/BoxOps.git boxops-demo && cd boxops-demo &&
