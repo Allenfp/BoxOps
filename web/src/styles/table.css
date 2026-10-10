@@ -194,8 +194,10 @@
   text-align-last: right;
   font-variant-numeric: tabular-nums;
 }
+/* At least as wide as its header in whatever font draws it (ch grows with
+   the font; Linux's and Windows' are wider than Apple's), never narrower. */
 .col-scale {
-  width: 64px;
+  width: max(64px, calc(5ch + 34px));
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -259,7 +261,7 @@
   width: 132px;
 }
 .col-days {
-  width: 120px;
+  width: max(120px, calc(12ch + 36px));
   text-align: right;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
