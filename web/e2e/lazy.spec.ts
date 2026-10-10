@@ -441,6 +441,9 @@ moveFails.describe("failing every time", () => {
     await banner.getByRole("button", { name: "Dismiss" }).click();
     await expect(banner).toHaveCount(0);
     await box(page, DAGSTER).focus();
+    // Its fetch failed first (else Space would wait for that one, and fetch nothing of its own).
+    await expect.poll(() => failedImports(page)).toBe(5);
+    await expect(banner).toHaveCount(0);
     await page.keyboard.press("Space");
     await expect(banner).toBeVisible();
     await expect.poll(times).toBe(3);
