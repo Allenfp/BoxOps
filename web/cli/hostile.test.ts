@@ -212,8 +212,13 @@ describe("a hostile workspace", () => {
     mkdirSync(sentinels);
     const repo = hostileWorkspace(sentinels);
     writeFileSync(join(repo.dir, "roadmap", "people.yaml"), "people: []\n");
-    // (They aren't real hooks or filters, so git fails after running them.)
-    expect(() => repo.git(["status"])).toThrow();
+    // They aren't real hooks or filters: git on macOS fails after running them, git on Linux
+    // warns and goes on. Either way, what counts is that they ran.
+    try {
+      repo.git(["status"]);
+    } catch {
+      // git gave up after running a trap
+    }
     expect(readdirSync(sentinels)).toContain("fsmonitor");
     // A relative folder on PATH finds the workspace's own git, which fails too.
     for (const folder of ["node_modules/.bin", ".", ""]) {
