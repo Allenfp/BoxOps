@@ -405,7 +405,9 @@ test("2,000 boxes: the table and People open and commit an edit within budget, d
 
   // A title changed and committed with Enter, five times after two.
   await timeKeys(page);
-  const title = page.locator("tr.box-row").nth(4).getByLabel("Title");
+  // The row by its key: which is fifth among the rows drawn can change as more are drawn on a slow machine.
+  const titleKey = await page.locator("tr.box-row").nth(4).getAttribute("data-row-key");
+  const title = page.locator(`tr.box-row[data-row-key="${titleKey}"]`).getByLabel("Title");
   for (let i = 0; i < 7; i++) {
     await title.press("End");
     await title.press(i % 2 ? "Backspace" : "x");
@@ -434,7 +436,8 @@ test("2,000 boxes: the table and People open and commit an edit within budget, d
   expect(people.options).toBeLessThanOrEqual(people.rows * MAX_OPTIONS_PER_ROW);
   expect(people.longest).toBeLessThanOrEqual(LAZY_OPTIONS_ABOVE);
   await timeKeys(page);
-  const role = page.locator("tr.person-row").nth(4).getByLabel("Role");
+  const roleKey = await page.locator("tr.person-row").nth(4).getAttribute("data-row-key");
+  const role = page.locator(`tr.person-row[data-row-key="${roleKey}"]`).getByLabel("Role");
   for (let i = 0; i < 7; i++) {
     await role.press("End");
     await role.press(i % 2 ? "Backspace" : "x");
